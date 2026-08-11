@@ -34,10 +34,10 @@ export class Store {
     const rows = await this.sql`
       WITH input AS (
         SELECT *
-        FROM jsonb_to_recordset(${input}::jsonb) as t (donation_id int, donation_origin donation_origin, author text, message text, currency currency, amount float, created_at js_date)
+        FROM jsonb_to_recordset(${input}::jsonb) as t (donation_id int, donation_origin donation_origin, author text, message text, amount float, created_at js_date)
       )
-      INSERT INTO donation (donation_id, donation_origin, user_id,   author, message, currency, amount, created_at)
-      SELECT                donation_id, donation_origin, ${userId}, author, message, currency, amount, created_at
+      INSERT INTO donation (donation_id, donation_origin, user_id,   author, message, amount, created_at)
+      SELECT                donation_id, donation_origin, ${userId}, author, message, amount, created_at
       FROM input
       ON CONFLICT (donation_id, donation_origin) DO NOTHING
       RETURNING *

@@ -2,10 +2,6 @@ import { randomUUID } from "crypto";
 
 import { z } from "zod";
 
-// TODO: support other currencies
-export const CurrencySchema = z.enum(["RUB"]);
-export type Currency = z.infer<typeof CurrencySchema>;
-
 export const UserIdSchema = z.number().brand("user id");
 export type UserId = z.infer<typeof UserIdSchema>;
 
@@ -35,7 +31,6 @@ export const DonationSchema = z.object({
 
   author: z.string().nullable(),
   message: z.string().nullable(),
-  currency: CurrencySchema,
   amount: z.number(),
   createdAt: z.date(),
 });

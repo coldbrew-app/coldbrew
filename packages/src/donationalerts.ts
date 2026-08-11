@@ -6,7 +6,6 @@ import { validate } from "./neverthrow/validate.js";
 import {
   AccessToken,
   AccessTokenSchema,
-  CurrencySchema,
   Donation,
   RefreshToken,
   RefreshTokenSchema,
@@ -37,7 +36,6 @@ export class DonationAlerts {
       message_type: z.string(),
       message: z.string().nullable(),
       amount: z.number(),
-      currency: CurrencySchema,
       is_shown: z.number(),
       created_at: z.coerce.date().transform((d) => dayjs(d).add(3, "h").toDate()),
       shown_at: z.string().nullable(),
@@ -62,7 +60,6 @@ export class DonationAlerts {
             originDonationId: String(donation.id),
             amount: donation.amount,
             author: donation.username,
-            currency: donation.currency,
             message: donation.message,
             createdAt: donation.created_at,
           }),

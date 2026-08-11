@@ -1,5 +1,4 @@
 CREATE TYPE donation_origin AS ENUM ('donationalerts');
-CREATE TYPE currency AS ENUM ('RUB');
 CREATE DOMAIN js_date AS timestamptz(3);
 
 -- auth
@@ -74,7 +73,6 @@ CREATE TABLE donation (
   user_id             int             NOT NULL REFERENCES "user" (user_id),
   author              text                NULL,
   message             text                NULL,
-  currency            currency        NOT NULL,
   amount              float           NOT NULL,
   created_at          js_date         NOT NULL,
   videos_parsed_at    js_date             NULL,

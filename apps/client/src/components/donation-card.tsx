@@ -1,4 +1,4 @@
-import { fmtCurrency, fmtDate, formatRelativeDate } from "@client/lib/fmt";
+import { fmtAmount, fmtDate, formatRelativeDate } from "@client/lib/fmt";
 import { Donation } from "@omnistream/server";
 import { clsx } from "clsx";
 
@@ -53,7 +53,7 @@ export default function DonationCard({ donation, ...props }: Props) {
       </div>
       <div className="shrink-0 text-right">
         <strong className="block text-[13px] text-[#3f3b50]">
-          +{fmtCurrency(donation.currency, donation.amount)}
+          +{fmtAmount(donation.amount)}
         </strong>
         <time
           className="mt-1 block text-[10px] text-[#aaa7b4]"

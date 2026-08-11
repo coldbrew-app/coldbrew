@@ -2,7 +2,7 @@ import { Metric } from "@client/components/dashboard/metric";
 import DonationCard from "@client/components/donation-card";
 import MockChart from "@client/components/mock-chart";
 import { Button } from "@client/components/ui/button";
-import { fmtCurrency, fmtDate } from "@client/lib/fmt";
+import { fmtAmount, fmtDate } from "@client/lib/fmt";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ChevronRight, Copy, Share2, Sparkles, Wallet } from "lucide-react";
 import { z } from "zod";
@@ -61,7 +61,7 @@ function Overview() {
         <section className="mt-7 grid gap-4 sm:mt-9 md:grid-cols-3" aria-label="Stream statistics">
           <Metric
             title="Total received"
-            value={fmtCurrency("RUB", total)}
+            value={fmtAmount(total)}
             note="↗ 18.2%"
             subnote="vs. previous period"
             icon={Wallet}
@@ -77,7 +77,7 @@ function Overview() {
           />
           <Metric
             title="Average donation"
-            value={fmtCurrency("RUB", Math.round((total || 24850) / donationsLength))}
+            value={fmtAmount(Math.round((total || 24850) / donationsLength))}
             note="Across all connected platforms"
             icon={Share2}
             iconClass="bg-sky-50 text-sky-500"
@@ -121,10 +121,10 @@ function Overview() {
             </div>
             <div className="relative h-52 px-4 pt-3 pb-2 pl-10">
               <div className="absolute bottom-9 left-2 flex h-[164px] flex-col justify-between text-[10px] text-[#aaa6b5]">
-                <span>₽6k</span>
-                <span>₽4k</span>
-                <span>₽2k</span>
-                <span>₽0</span>
+                <span>6k</span>
+                <span>4k</span>
+                <span>2k</span>
+                <span>0</span>
               </div>
               <MockChart className="h-[164px] w-full" />
               <div className="flex justify-between text-[10px] text-[#aaa6b5]">

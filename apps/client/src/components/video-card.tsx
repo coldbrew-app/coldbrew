@@ -1,4 +1,4 @@
-import { fmtCurrency, fmtDate, fmtDuration, formatRelativeDate } from "@client/lib/fmt";
+import { fmtAmount, fmtDate, fmtDuration, formatRelativeDate } from "@client/lib/fmt";
 import { Video } from "@omnistream/server";
 import { clsx } from "clsx";
 import { CheckCircle2, Circle, Play } from "lucide-react";
@@ -80,7 +80,7 @@ export default function VideoCard({ video, onStatusChange, isUpdating = false }:
 
             <div className="flex shrink-0 items-center gap-2">
               <strong className="block text-[13px] text-[#3f3b50]">
-                +{fmtCurrency(video.donation.currency, video.donation.amount)}
+                +{fmtAmount(video.donation.amount)}
               </strong>
             </div>
           </div>

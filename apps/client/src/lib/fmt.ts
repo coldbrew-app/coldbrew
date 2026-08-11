@@ -9,18 +9,15 @@ export function fmtDate(date: Date) {
   return dateTime.format(date);
 }
 
-const rubles = new Intl.NumberFormat("ru-RU", {
-  style: "currency",
-  currency: "RUB",
+const amountFormatter = new Intl.NumberFormat("ru-RU", {
   maximumFractionDigits: 0,
 });
 
-// TODO: support more currencies
-export function fmtCurrency(currency: "RUB", amount: number) {
+export function fmtAmount(amount: number) {
   if (isNaN(amount) || amount == Infinity || amount == -Infinity) {
     amount = 0;
   }
-  return rubles.format(amount);
+  return amountFormatter.format(amount);
 }
 
 export function fmtDuration(seconds: number) {
