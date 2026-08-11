@@ -1,10 +1,17 @@
-import { Donation, DonationSchema } from "@omnistream/packages/schemas.js";
+import { jsonb } from "@omnistream/packages/jsonb.js";
+import {
+  Donation,
+  DonationSchema,
+  UserId,
+  VideoPrioritySchema,
+} from "@omnistream/packages/schemas.js";
 import postgres, { Sql } from "postgres";
 import { z } from "zod";
 
-type VideoToSave = {
+export type VideoToSave = {
   durationSeconds: number | null;
   url: string;
+  videoPriorityId: number | null;
 };
 
 export class Store {
@@ -26,16 +33,28 @@ export class Store {
     return z.array(DonationSchema).parse(rows);
   }
 
-  async saveVideos(donation: Donation, videos: VideoToSave[]) {
+  async getVideoPriorities(userId: UserId) {
+    const rows = await this.sql`
+      SELECT *
+      FROM video_priority
+      WHERE user_id = ${userId}
+      ORDER BY min_price_per_minute DESC
+    `;
+
+    return z.array(VideoPrioritySchema).parse(rows);
+  }
+
+  async saveVideos({ donationId }: Donation, videos: readonly VideoToSave[]) {
     await this.sql.begin(async (sql) => {
       if (videos.length > 0) {
-        const urls = videos.map((video) => video.url);
-        const durations = videos.map((video) => video.durationSeconds);
-
         await sql`
-          INSERT INTO video (donation_id, url, duration_seconds)
-          SELECT ${donation.donationId}, url, duration_seconds
-          FROM unnest(${urls}::text[], ${durations}::int[]) AS video(url, duration_seconds)
+          WITH input AS (
+            SELECT *
+            FROM jsonb_to_recordset(${jsonb(sql, videos)}::jsonb) as t (url text, duration_seconds int, video_priority_id int)
+          )
+          INSERT INTO video (donation_id, url, duration_seconds, video_priority_id)
+          SELECT           ${donationId}, url, duration_seconds, video_priority_id
+          FROM input
           ON CONFLICT (donation_id, url) DO NOTHING
         `;
       }
@@ -43,7 +62,7 @@ export class Store {
       await sql`
         UPDATE donation
         SET videos_parsed_at = now()
-        WHERE donation_id = ${donation.donationId}
+        WHERE donation_id = ${donationId}
       `;
     });
   }

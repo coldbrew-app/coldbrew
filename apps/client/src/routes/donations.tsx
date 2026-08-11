@@ -26,10 +26,7 @@ function DonationsLayout() {
                       className: "bg-violet-100 text-violet-700",
                       "aria-selected": true,
                     }}
-                    inactiveProps={{
-                      className: "text-[#777385] hover:bg-[#f7f6f9]",
-                      "aria-selected": false,
-                    }}
+                    inactiveProps={{ className: "text-[#777385] hover:bg-[#f7f6f9]" }}
                     role="tab"
                   >
                     Donations
@@ -41,10 +38,7 @@ function DonationsLayout() {
                       className: "bg-violet-100 text-violet-700",
                       "aria-selected": true,
                     }}
-                    inactiveProps={{
-                      className: "text-[#777385] hover:bg-[#f7f6f9]",
-                      "aria-selected": false,
-                    }}
+                    inactiveProps={{ className: "text-[#777385] hover:bg-[#f7f6f9]" }}
                     role="tab"
                   >
                     Videos

@@ -81,6 +81,14 @@ CREATE TABLE donation (
 
 CREATE INDEX donation_videos_unparsed_idx ON donation (created_at) WHERE videos_parsed_at IS NULL;
 
+CREATE TABLE video_priority (
+  video_priority_id     serial  PRIMARY KEY,
+  user_id               int     REFERENCES "user" (user_id),
+  label                 text    NOT NULL,
+  min_price_per_minute  float   NOT NULL,
+  UNIQUE (user_id, min_price_per_minute)
+);
+
 CREATE TABLE video (
   video_id          serial  PRIMARY KEY,
   donation_id       int     NOT NULL REFERENCES donation (donation_id),
@@ -88,5 +96,6 @@ CREATE TABLE video (
   duration_seconds  int         NULL,
   watched_at        js_date     NULL,
   saved_at          js_date     NULL,
+  video_priority_id int     NOT NULL REFERENCES video_priority (video_priority_id),
   UNIQUE (donation_id, url)
 );

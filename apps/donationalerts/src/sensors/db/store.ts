@@ -19,7 +19,7 @@ export const sql = postgres(env.DATABASE_URL, {
 });
 
 export class Store {
-  async insertDonations(userId: UserId, donations: Omit<Donation, "donationId">[]) {
+  async insertDonations(userId: UserId, donations: Omit<Donation, "donationId" | "userId">[]) {
     const input = jsonb(sql, donations);
 
     const rows = await sql`

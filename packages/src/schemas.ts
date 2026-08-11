@@ -29,6 +29,7 @@ export const DonationSchema = z.object({
   origin: DonationSourceSchema,
   originDonationId: z.string(),
 
+  userId: UserIdSchema,
   author: z.string().nullable(),
   message: z.string().nullable(),
   amount: z.number(),
@@ -38,13 +39,22 @@ export type Donation = z.infer<typeof DonationSchema>;
 
 export const VideoSchema = z.object({
   videoId: z.number(),
+  videoPriorityId: z.number().int().positive(),
   url: z.url(),
   durationSeconds: z.number().int().nonnegative().nullable(),
+  priorityLabel: z.string().nullable(),
   watchedAt: z.date().nullable(),
   savedAt: z.date().nullable(),
   donation: DonationSchema,
 });
 export type Video = z.infer<typeof VideoSchema>;
+
+export const VideoPrioritySchema = z.object({
+  videoPriorityId: z.number().int().positive(),
+  label: z.string(),
+  minPricePerMinute: z.number().nonnegative(),
+});
+export type VideoPriority = z.infer<typeof VideoPrioritySchema>;
 
 export const UserInfoSchema = z.object({
   userId: z.number(),

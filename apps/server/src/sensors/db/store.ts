@@ -9,12 +9,12 @@ import {
   DonationSchema,
   RefreshToken,
   RefreshTokenSchema,
-  Slug,
-  SlugSchema,
   UserId,
   UserIdSchema,
   UserInfoSchema,
   Video,
+  VideoPriority,
+  VideoPrioritySchema,
   VideoSchema,
 } from "@omnistream/packages/schemas.js";
 import postgres, { Sql } from "postgres";
@@ -58,17 +58,20 @@ export class Store {
 
   async listVideos(userId: UserId): Promise<Video[]> {
     const rows = await this.sql`
-      SELECT video.video_id, video.url, video.duration_seconds, video.watched_at, video.saved_at, donation.*
+      SELECT video.video_id, video.video_priority_id, video.url, video.duration_seconds, video.watched_at, video.saved_at, video_priority.label AS priority_label, donation.*
       FROM video
       JOIN donation USING (donation_id)
+      LEFT JOIN video_priority USING (video_priority_id)
       WHERE donation.user_id = ${userId}
       ORDER BY donation.created_at DESC, video.video_id DESC
     `;
 
     const VideoRowSchema = DonationSchema.extend({
       videoId: z.number(),
+      videoPriorityId: z.number().int().positive(),
       url: z.url(),
       durationSeconds: z.number().int().nonnegative().nullable(),
+      priorityLabel: z.string().nullable(),
       watchedAt: z.date().nullable(),
       savedAt: z.date().nullable(),
     });
@@ -76,9 +79,35 @@ export class Store {
     return z
       .array(VideoRowSchema)
       .parse(rows)
-      .map(({ videoId, url, durationSeconds, watchedAt, savedAt, ...donation }) =>
-        VideoSchema.parse({ videoId, url, durationSeconds, watchedAt, savedAt, donation }),
-      );
+      .map((elem) => VideoSchema.parse({ ...elem, donation: DonationSchema.parse(elem) }));
+  }
+
+  async listVideoPriorities(userId: UserId): Promise<VideoPriority[]> {
+    const rows = await this.sql`
+      SELECT video_priority_id, label, min_price_per_minute
+      FROM video_priority
+      WHERE user_id = ${userId}
+      ORDER BY min_price_per_minute DESC, video_priority_id ASC
+    `;
+
+    return z.array(VideoPrioritySchema).parse(rows);
+  }
+
+  async updateVideoPriority(
+    userId: UserId,
+    videoPriorityId: number,
+    label: string,
+    minPricePerMinute: number,
+  ): Promise<VideoPriority | null> {
+    const rows = await this.sql`
+      UPDATE video_priority
+      SET label = ${label}, min_price_per_minute = ${minPricePerMinute}
+      WHERE user_id = ${userId}
+        AND video_priority_id = ${videoPriorityId}
+      RETURNING video_priority_id, label, min_price_per_minute
+    `;
+
+    return VideoPrioritySchema.nullable().parse(rows[0]);
   }
 
   async updateVideoStatus(
@@ -136,9 +165,10 @@ export class Store {
     }
 
     const rows = await this.sql`
-      SELECT video.video_id, video.url, video.duration_seconds, video.watched_at, video.saved_at, donation.*
+      SELECT video.video_id, video.video_priority_id, video.url, video.duration_seconds, video.watched_at, video.saved_at, video_priority.label AS priority_label, donation.*
       FROM video
       JOIN donation USING (donation_id)
+      LEFT JOIN video_priority USING (video_priority_id)
       JOIN "user" ON "user".user_id = donation.user_id
       WHERE "user".slug = ${slug}
       ORDER BY donation.created_at DESC, video.video_id DESC
@@ -146,8 +176,10 @@ export class Store {
 
     const VideoRowSchema = DonationSchema.extend({
       videoId: z.number(),
+      videoPriorityId: z.number().int().positive(),
       url: z.url(),
       durationSeconds: z.number().int().nonnegative().nullable(),
+      priorityLabel: z.string().nullable(),
       watchedAt: z.date().nullable(),
       savedAt: z.date().nullable(),
     });
@@ -155,9 +187,7 @@ export class Store {
     return z
       .array(VideoRowSchema)
       .parse(rows)
-      .map(({ videoId, url, durationSeconds, watchedAt, savedAt, ...donation }) =>
-        VideoSchema.parse({ videoId, url, durationSeconds, watchedAt, savedAt, donation }),
-      );
+      .map((elem) => VideoSchema.parse({ ...elem, donation: DonationSchema.parse(elem) }));
   }
 
   private async slugExists(slug: string) {
@@ -182,17 +212,29 @@ export class Store {
   }
 
   private async createUser(authUserId: AuthUserId, slug: string) {
-    const rows = await this.sql`
-      INSERT INTO "user" (auth_user_id,  slug   )
-      VALUES             (${authUserId}, ${slug})
-      RETURNING user_id
-    `;
+    return await this.sql.begin(async (sql) => {
+      const rows = await sql`
+        INSERT INTO "user" (auth_user_id,  slug   )
+        VALUES             (${authUserId}, ${slug})
+        RETURNING user_id
+      `;
 
-    const schema = z.object({
-      userId: UserIdSchema,
+      const schema = z.object({
+        userId: UserIdSchema,
+      });
+
+      const userId = schema.parse(rows[0]).userId;
+
+      await sql`
+        INSERT INTO video_priority (user_id,    label,    min_price_per_minute)
+        VALUES                     (${userId}, 'queue 0', 0                   ),
+                                   (${userId}, 'queue 1', 50                  ),
+                                   (${userId}, 'queue 2', 100                 ),
+                                   (${userId}, 'queue 3', 200                 )
+      `;
+
+      return userId;
     });
-
-    return schema.parse(rows[0]).userId;
   }
 
   async getOrCreateUserId(authUserId: AuthUserId, slug: string) {

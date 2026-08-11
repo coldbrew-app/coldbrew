@@ -68,6 +68,11 @@ export default function VideoCard({ video, onStatusChange, isUpdating = false }:
             <div className="flex min-w-0 grow items-center gap-3">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <strong className="text-[13px] text-[#454157]">{author}</strong>
+                {video.priorityLabel && (
+                  <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
+                    {video.priorityLabel}
+                  </span>
+                )}
               </div>
               <time
                 className="block text-[10px] text-[#aaa7b4]"

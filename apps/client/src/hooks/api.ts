@@ -47,6 +47,22 @@ export function useVideosQ() {
   return useQuery(trpc.videos.queryOptions());
 }
 
+export function useVideoPrioritiesQ() {
+  return useQuery(trpc.videoPriorities.queryOptions());
+}
+
+export function useUpdateVideoPriorityM() {
+  const client = useQueryClient();
+  return useMutation(
+    trpc.updateVideoPriority.mutationOptions({
+      onSuccess() {
+        client.invalidateQueries({ queryKey: trpc.videoPriorities.queryKey() });
+        client.invalidateQueries({ queryKey: trpc.videos.queryKey() });
+      },
+    }),
+  );
+}
+
 export function useUpdateVideoStatusM() {
   const client = useQueryClient();
   return useMutation(

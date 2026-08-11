@@ -55,7 +55,7 @@ export class DonationAlerts {
       .andThen((data) => validate(schema, data).map((v) => v.data))
       .map((parsed) =>
         parsed.map(
-          (donation): Omit<Donation, "donationId"> => ({
+          (donation): Omit<Donation, "donationId" | "userId"> => ({
             origin: "donationalerts",
             originDonationId: String(donation.id),
             amount: donation.amount,

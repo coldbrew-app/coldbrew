@@ -1,6 +1,10 @@
 import { readonlyUrl } from "@lebedevna/readonly-url";
 import { DONATION_ALERTS_SCOPES } from "@omnistream/packages/donationalerts.js";
-import { SlugSchema, UserIdSchema } from "@omnistream/packages/schemas.js";
+import {
+  SlugSchema,
+  UserIdSchema,
+  VideoPrioritySchema,
+} from "@omnistream/packages/schemas.js";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -38,6 +42,30 @@ export const appRouter = router({
   videos: authenticatedProcedure.query(async ({ ctx }) => {
     return await store.listVideos(ctx.userId);
   }),
+
+  videoPriorities: authenticatedProcedure.query(async ({ ctx }) => {
+    return await store.listVideoPriorities(ctx.userId);
+  }),
+
+  updateVideoPriority: authenticatedProcedure
+    .input(
+      VideoPrioritySchema.pick({ videoPriorityId: true, label: true, minPricePerMinute: true })
+        .extend({ label: z.string().trim().min(1).max(64) }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const priority = await store.updateVideoPriority(
+        ctx.userId,
+        input.videoPriorityId,
+        input.label,
+        input.minPricePerMinute,
+      );
+
+      if (priority === null) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Video priority not found." });
+      }
+
+      return priority;
+    }),
 
   updateVideoStatus: authenticatedProcedure
     .input(
