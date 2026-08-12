@@ -7,7 +7,7 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { CheckCircle2, Circle, List, Wallet } from "lucide-react";
 import { z } from "zod";
 
-import { useUpdateVideoStatusM, useVideosQ } from "../hooks/api";
+import { useUpdateVideoAmountM, useUpdateVideoStatusM, useVideosQ } from "../hooks/api";
 
 export const Route = createFileRoute("/donations/videos")({
   component: VideoQueue,
@@ -16,13 +16,17 @@ export const Route = createFileRoute("/donations/videos")({
       .union([z.literal("all"), z.coerce.number().int().positive()])
       .default("all")
       .catch("all"),
-    videoStatus: z.enum(["all", "notwatched", "watched", "saved"]).default("all").catch("all"),
+    videoStatus: z
+      .enum(["all", "notwatched", "watched", "saved"])
+      .default("notwatched")
+      .catch("notwatched"),
   }),
 });
 
 function VideoQueue() {
   const videosQ = useVideosQ();
   const updateVideoStatusM = useUpdateVideoStatusM();
+  const updateVideoAmountM = useUpdateVideoAmountM();
   const selectedVideoPriorityId = Route.useSearch({
     select: (search) => (search.videoPriorityId === "all" ? null : search.videoPriorityId),
   });
@@ -60,7 +64,7 @@ function VideoQueue() {
             ? right.savedAt
             : right.donation.createdAt;
 
-      return rightDate!.getTime() - leftDate!.getTime() || right.videoId - left.videoId;
+      return rightDate!.getTime() - leftDate!.getTime() || Number(right.videoId - left.videoId);
     });
 
   const tabs = [
@@ -105,8 +109,14 @@ function VideoQueue() {
             <div className="divide-y divide-[#f0eff3]">
               {visibleVideos.map((video) => (
                 <VideoCard
-                  isUpdating={updateVideoStatusM.isPending}
+                  isUpdating={updateVideoStatusM.isPending || updateVideoAmountM.isPending}
                   key={video.videoId}
+                  onAmountChange={(amount) =>
+                    updateVideoAmountM.mutateAsync({
+                      videoId: video.videoId,
+                      amount,
+                    })
+                  }
                   onStatusChange={(status) =>
                     updateVideoStatusM.mutate({ videoId: video.videoId, ...status })
                   }

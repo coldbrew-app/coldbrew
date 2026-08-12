@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { jsonb } from "@omnistream/packages/jsonb.js";
+import { createSql } from "@omnistream/packages/pg.js";
 import {
   AccessToken,
   AccessTokenSchema,
@@ -17,13 +18,12 @@ import {
   VideoPrioritySchema,
   VideoSchema,
 } from "@omnistream/packages/schemas.js";
-import postgres, { Sql } from "postgres";
+import { Sql } from "postgres";
 import { z } from "zod";
 
 export class Store {
   static fromDbUrl(dbUrl: string) {
-    const sql = postgres(dbUrl, { transform: postgres.camel });
-    return new Store(sql);
+    return new Store(createSql(dbUrl));
   }
 
   constructor(private readonly sql: Sql) {}
@@ -58,7 +58,7 @@ export class Store {
 
   async listVideos(userId: UserId): Promise<Video[]> {
     const rows = await this.sql`
-      SELECT video.video_id, video.video_priority_id, video.url, video.duration_seconds, video.watched_at, video.saved_at, video_priority.label AS priority_label, donation.*
+      SELECT video.video_id, video.video_priority_id, video.url, video.amount, video.duration_seconds, video.watched_at, video.saved_at, video_priority.label AS priority_label, to_jsonb(donation) donation
       FROM video
       JOIN donation USING (donation_id)
       LEFT JOIN video_priority USING (video_priority_id)
@@ -66,20 +66,7 @@ export class Store {
       ORDER BY donation.created_at DESC, video.video_id DESC
     `;
 
-    const VideoRowSchema = DonationSchema.extend({
-      videoId: z.number(),
-      videoPriorityId: z.number().int().positive(),
-      url: z.url(),
-      durationSeconds: z.number().int().nonnegative().nullable(),
-      priorityLabel: z.string().nullable(),
-      watchedAt: z.date().nullable(),
-      savedAt: z.date().nullable(),
-    });
-
-    return z
-      .array(VideoRowSchema)
-      .parse(rows)
-      .map((elem) => VideoSchema.parse({ ...elem, donation: DonationSchema.parse(elem) }));
+    return z.array(VideoSchema).parse(rows);
   }
 
   async listVideoPriorities(userId: UserId): Promise<VideoPriority[]> {
@@ -112,7 +99,7 @@ export class Store {
 
   async updateVideoStatus(
     userId: UserId,
-    videoId: number,
+    videoId: bigint,
     status: { watchedAt?: Date | null; savedAt?: Date | null },
   ) {
     const rows = await this.sql`
@@ -129,8 +116,22 @@ export class Store {
       FROM donation
       WHERE video.donation_id = donation.donation_id
         AND donation.user_id = ${userId}
-        AND video.video_id = ${videoId}
+        AND video.video_id = ${String(videoId)}
       RETURNING video.video_id, video.watched_at, video.saved_at
+    `;
+
+    return rows.length > 0;
+  }
+
+  async updateVideoAmount(userId: UserId, videoId: bigint, amount: number) {
+    const rows = await this.sql`
+      UPDATE video
+      SET amount = ${amount}
+      FROM donation
+      WHERE video.donation_id = donation.donation_id
+        AND donation.user_id = ${userId}
+        AND video.video_id = ${String(videoId)}
+      RETURNING video.video_id
     `;
 
     return rows.length > 0;
@@ -165,7 +166,8 @@ export class Store {
     }
 
     const rows = await this.sql`
-      SELECT video.video_id, video.video_priority_id, video.url, video.duration_seconds, video.watched_at, video.saved_at, video_priority.label AS priority_label, donation.*
+      SELECT video.video_id, video.video_priority_id, video.url, video.amount, video.duration_seconds, video.watched_at, video.saved_at, video_priority.label AS priority_label,
+        to_jsonb(donation) as donation
       FROM video
       JOIN donation USING (donation_id)
       LEFT JOIN video_priority USING (video_priority_id)
@@ -174,20 +176,7 @@ export class Store {
       ORDER BY donation.created_at DESC, video.video_id DESC
     `;
 
-    const VideoRowSchema = DonationSchema.extend({
-      videoId: z.number(),
-      videoPriorityId: z.number().int().positive(),
-      url: z.url(),
-      durationSeconds: z.number().int().nonnegative().nullable(),
-      priorityLabel: z.string().nullable(),
-      watchedAt: z.date().nullable(),
-      savedAt: z.date().nullable(),
-    });
-
-    return z
-      .array(VideoRowSchema)
-      .parse(rows)
-      .map((elem) => VideoSchema.parse({ ...elem, donation: DonationSchema.parse(elem) }));
+    return z.array(VideoSchema).parse(rows);
   }
 
   private async slugExists(slug: string) {

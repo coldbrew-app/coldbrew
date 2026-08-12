@@ -74,6 +74,17 @@ export function useUpdateVideoStatusM() {
   );
 }
 
+export function useUpdateVideoAmountM() {
+  const client = useQueryClient();
+  return useMutation(
+    trpc.updateVideoAmount.mutationOptions({
+      onSuccess() {
+        client.invalidateQueries({ queryKey: trpc.videos.queryKey() });
+      },
+    }),
+  );
+}
+
 export function useSharedVideosQ(slug: Slug) {
   return useQuery(trpc.sharedVideos.queryOptions({ slug }));
 }

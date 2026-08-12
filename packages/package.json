@@ -6,10 +6,14 @@
     "./*.js": "./src/*.ts"
   },
   "dependencies": {
-    "dayjs": "^1.11.21",
+    "consola": "^3.4.2",
+    "json-bigint": "^1.0.0",
     "linkify-it": "^6.1.0",
     "postgres": "^3.4.9",
     "snakecase-keys": "^9.0.2",
     "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/json-bigint": "^1.0.4"
   }
 }

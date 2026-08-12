@@ -1,7 +1,7 @@
-import postgres from "postgres";
+import { createSql } from "@omnistream/packages/pg.js";
 
 import { env } from "../../env.js";
 import { Store } from "./store.js";
 
-export const sql = postgres(env.DATABASE_URL, { transform: postgres.camel });
+export const sql = createSql(env.DATABASE_URL);
 export const store = new Store(sql);

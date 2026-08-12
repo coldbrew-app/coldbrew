@@ -1,51 +1,58 @@
 import { delay } from "@omnistream/packages/delay.js";
-import { divide } from "@omnistream/packages/neverthrow/divide.js";
+import { isInstanceof } from "@omnistream/packages/isInstanceof.js";
+import { logger } from "@omnistream/packages/logger.js";
+import { HTTP_STATUS, HttpError } from "@omnistream/packages/neverthrow/fetch.js";
+import dayjs from "dayjs";
+import dedent from "dedent-js";
 
 import { store } from "./sensors/db/index.js";
 import { VideoToSave } from "./sensors/db/store.js";
-import { findYoutubeUrls, getYoutubeDurationSeconds } from "./youtube.js";
+import { extractYoutubeUrls, getYoutubeDurationSeconds } from "./youtube.js";
 
 async function main() {
   while (true) {
-    await using _ = delay(1000);
+    await using _ = delay(2500);
+    logger.debug("while (true): " + dayjs().format("HH:mm:ss"));
 
     const donations = await store.getUnparsedDonations();
 
-    for (const donation of donations) {
-      const urls = findYoutubeUrls(donation.message);
-      const priorities = await store.getVideoPriorities(donation.userId);
-
+    donations_loop: for (const donation of donations) {
+      const urls = extractYoutubeUrls(donation.message);
       const videos: VideoToSave[] = [];
 
-      for (const url of urls) {
+      urls_loop: for (const url of urls) {
         const $durationSeconds = await getYoutubeDurationSeconds(url);
-        if ($durationSeconds.isErr()) {
-          console.warn(`skip url: "${url}". Failed to get duration seconds`);
-          continue;
-        }
-        const durationSeconds = $durationSeconds.value;
 
-        const $pricePerMinute = divide(durationSeconds, 60).map((v) => Math.ceil(v));
-        if ($pricePerMinute.isErr()) {
-          console.warn(`skip url: "${url}". Division error: ${$pricePerMinute.error.message}`);
-          continue;
-        }
-        const pricePerMinute = $pricePerMinute.value;
-
-        const priorityId = priorities
-          .toSorted((a, b) => b.minPricePerMinute - a.minPricePerMinute)
-          .find((p) => p.minPricePerMinute < pricePerMinute)?.videoPriorityId;
-        if (priorityId === undefined) {
-          console.warn(
-            `skip url: "${url}". Priority not found for pricePerMinute = ${pricePerMinute}`,
-          );
-          continue;
+        if ($durationSeconds.isOk()) {
+          logger.debug("videos.push", {
+            url,
+            amount: donation.amount,
+            durationSeconds: $durationSeconds.value,
+          });
+          videos.push({
+            url,
+            amount: donation.amount,
+            durationSeconds: $durationSeconds.value,
+          });
+          continue urls_loop;
         }
 
-        videos.push({ url, durationSeconds, videoPriorityId: priorityId });
+        logger.warn(dedent`
+          skip url: "${url}".
+          ${$durationSeconds.error}
+        `);
+
+        if (
+          isInstanceof($durationSeconds.error, HttpError) &&
+          $durationSeconds.error.status == HTTP_STATUS.TOO_MANY_REQUESTS
+        ) {
+          continue donations_loop;
+        } else {
+          continue urls_loop;
+        }
       }
 
-      await store.saveVideos(donation, videos);
+      await store.setDonationParsed(donation, videos);
     }
   }
 }

@@ -6,7 +6,7 @@ import { err, ok } from "neverthrow";
 
 const linkify = new LinkifyIt({ fuzzyLink: true });
 
-export function findYoutubeUrls(message: string | null) {
+export function extractYoutubeUrls(message: string | null) {
   message ??= "";
 
   const youtubeUrls = Iterator.from(linkify.match(message) ?? [])

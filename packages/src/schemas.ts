@@ -1,5 +1,3 @@
-import { randomUUID } from "crypto";
-
 import { z } from "zod";
 
 export const UserIdSchema = z.number().brand("user id");
@@ -24,7 +22,7 @@ export const DonationSourceSchema = z.enum(["donationalerts"]);
 export type DonationSource = z.infer<typeof DonationSourceSchema>;
 
 export const DonationSchema = z.object({
-  donationId: z.string(),
+  donationId: z.coerce.bigint(),
 
   origin: DonationSourceSchema,
   originDonationId: z.string(),
@@ -33,18 +31,19 @@ export const DonationSchema = z.object({
   author: z.string().nullable(),
   message: z.string().nullable(),
   amount: z.number(),
-  createdAt: z.date(),
+  createdAt: z.coerce.date(),
 });
 export type Donation = z.infer<typeof DonationSchema>;
 
 export const VideoSchema = z.object({
-  videoId: z.number(),
+  videoId: z.coerce.bigint(),
   videoPriorityId: z.number().int().positive(),
   url: z.url(),
+  amount: z.number(),
   durationSeconds: z.number().int().nonnegative().nullable(),
   priorityLabel: z.string().nullable(),
-  watchedAt: z.date().nullable(),
-  savedAt: z.date().nullable(),
+  watchedAt: z.coerce.date().nullable(),
+  savedAt: z.coerce.date().nullable(),
   donation: DonationSchema,
 });
 export type Video = z.infer<typeof VideoSchema>;

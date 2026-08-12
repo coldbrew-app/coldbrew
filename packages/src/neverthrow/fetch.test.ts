@@ -1,6 +1,6 @@
 import { describe, expectTypeOf, test } from "vitest";
 
-import { fetchJson, HttpError, NetworkError, UnauthorizedError } from "./fetch.js";
+import { fetchJson, HttpError, NetworkError } from "./fetch.js";
 import { JsonParseError } from "./parseJson.js";
 
 describe("fetchJson", { tags: ["unit"] }, () => {
@@ -8,7 +8,6 @@ describe("fetchJson", { tags: ["unit"] }, () => {
     const res = await fetchJson("");
     const err = res._unsafeUnwrapErr();
 
-    expectTypeOf<UnauthorizedError>().toExtend<typeof err>();
     expectTypeOf<JsonParseError>().toExtend<typeof err>();
     expectTypeOf<NetworkError>().toExtend<typeof err>();
     expectTypeOf<HttpError>().toExtend<typeof err>();

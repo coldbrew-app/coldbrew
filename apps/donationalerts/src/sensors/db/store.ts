@@ -1,4 +1,5 @@
 import { jsonb } from "@omnistream/packages/jsonb.js";
+import { createSql } from "@omnistream/packages/pg.js";
 import {
   AccessToken,
   AccessTokenSchema,
@@ -9,14 +10,11 @@ import {
   UserId,
   UserIdSchema,
 } from "@omnistream/packages/schemas.js";
-import postgres from "postgres";
 import { z } from "zod";
 
 import { env } from "../../env.js";
 
-export const sql = postgres(env.DATABASE_URL, {
-  transform: postgres.camel,
-});
+export const sql = createSql(env.DATABASE_URL);
 
 export class Store {
   async insertDonations(userId: UserId, donations: Omit<Donation, "donationId" | "userId">[]) {

@@ -1,24 +1,24 @@
 import { createTaggedError } from "errore";
 import { err, ok, ResultAsync } from "neverthrow";
 
+import { isInstanceof } from "../isInstanceof.js";
 import { parseJson } from "./parseJson.js";
 
-export class UnauthorizedError extends createTaggedError({
-  name: "UnauthorizedError",
-  message: "$message",
-}) {}
+export const HTTP_STATUS = {
+  UNAUTHORIZED: 401,
+  TOO_MANY_REQUESTS: 429,
+};
 
 export class HttpError extends createTaggedError({
   name: "HttpError",
-  message: "$status: $statusText",
+  message: "http status: $status",
 }) {}
 
 export class NetworkError extends createTaggedError({
   name: "NetworkError",
-  message: "$message",
 }) {
   constructor(cause: unknown) {
-    const message = cause instanceof Error ? cause.message : String(cause);
+    const message = isInstanceof(cause, Error) ? cause.message : String(cause);
     super({ message, cause });
   }
 }
@@ -30,8 +30,7 @@ function getText(response: Response) {
 export function fetchText(input: RequestInfo | URL, init?: RequestInit) {
   return ResultAsync.fromPromise(fetch(input, init), (e) => new NetworkError(e)).andThen((res) =>
     getText(res).andThen((text) => {
-      if (res.status == 401) return err(new UnauthorizedError({ message: text }));
-      if (!res.ok) return err(new HttpError({ status: res.status, statusText: res.statusText }));
+      if (!res.ok) return err(new HttpError({ status: res.status }));
       return ok(text);
     }),
   );

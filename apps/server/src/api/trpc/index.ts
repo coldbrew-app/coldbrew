@@ -1,10 +1,6 @@
 import { readonlyUrl } from "@lebedevna/readonly-url";
 import { DONATION_ALERTS_SCOPES } from "@omnistream/packages/donationalerts.js";
-import {
-  SlugSchema,
-  UserIdSchema,
-  VideoPrioritySchema,
-} from "@omnistream/packages/schemas.js";
+import { SlugSchema, VideoPrioritySchema } from "@omnistream/packages/schemas.js";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -49,8 +45,11 @@ export const appRouter = router({
 
   updateVideoPriority: authenticatedProcedure
     .input(
-      VideoPrioritySchema.pick({ videoPriorityId: true, label: true, minPricePerMinute: true })
-        .extend({ label: z.string().trim().min(1).max(64) }),
+      VideoPrioritySchema.pick({
+        videoPriorityId: true,
+        label: true,
+        minPricePerMinute: true,
+      }).extend({ label: z.string().trim().min(1).max(64) }),
     )
     .mutation(async ({ ctx, input }) => {
       const priority = await store.updateVideoPriority(
@@ -71,7 +70,7 @@ export const appRouter = router({
     .input(
       z
         .object({
-          videoId: z.number().int().positive(),
+          videoId: z.bigint().positive(),
           watchedAt: z.date().nullable().optional(),
           savedAt: z.date().nullable().optional(),
         })
@@ -79,6 +78,25 @@ export const appRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const wasUpdated = await store.updateVideoStatus(ctx.userId, input.videoId, input);
+
+      if (!wasUpdated) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Video not found." });
+      }
+    }),
+
+  updateVideoAmount: authenticatedProcedure
+    .input(
+      z.object({
+        videoId: z.bigint().positive(),
+        amount: z.number().nonnegative(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const wasUpdated = await store.updateVideoAmount(
+        ctx.userId,
+        input.videoId,
+        input.amount,
+      );
 
       if (!wasUpdated) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Video not found." });

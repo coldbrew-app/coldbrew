@@ -93,9 +93,35 @@ CREATE TABLE video (
   video_id          serial  PRIMARY KEY,
   donation_id       int     NOT NULL REFERENCES donation (donation_id),
   url               text    NOT NULL,
+  amount            float   NOT NULL,
   duration_seconds  int         NULL,
   watched_at        js_date     NULL,
   saved_at          js_date     NULL,
   video_priority_id int     NOT NULL REFERENCES video_priority (video_priority_id),
   UNIQUE (donation_id, url)
 );
+
+-- functions and triggers
+
+CREATE FUNCTION set_video_priority_id()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  SELECT video_priority.video_priority_id
+  INTO NEW.video_priority_id
+  FROM donation
+  JOIN video_priority ON video_priority.user_id = donation.user_id
+  WHERE donation.donation_id = NEW.donation_id
+    AND video_priority.min_price_per_minute < NEW.amount / CEIL(NEW.duration_seconds::float / 60)
+  ORDER BY video_priority.min_price_per_minute DESC, video_priority.video_priority_id ASC
+  LIMIT 1;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER set_video_priority_id
+BEFORE INSERT OR UPDATE OF amount, duration_seconds, donation_id ON video
+FOR EACH ROW
+EXECUTE FUNCTION set_video_priority_id();

@@ -1,7 +1,9 @@
 import { fmtAmount, fmtDate, fmtDuration, formatRelativeDate } from "@client/lib/fmt";
 import { Video } from "@omnistream/server";
 import { clsx } from "clsx";
-import { CheckCircle2, Circle, Play } from "lucide-react";
+import { Check, CheckCircle2, Circle, Pencil, X } from "lucide-react";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
 
 import { useTextWithLinks } from "../hooks/use-text-with-links";
 import { Icons } from "./icons";
@@ -10,10 +12,15 @@ import { Button } from "./ui/button";
 type Props = {
   video: Video;
   onStatusChange?: (status: { watchedAt?: Date | null; savedAt?: Date | null }) => void;
+  onAmountChange?: (amount: number) => Promise<void>;
   isUpdating?: boolean;
 };
 
-function getYoutubeEmbedUrl(url: string) {
+type VideoAmountFormValues = {
+  amount: number;
+};
+
+const getYoutubeEmbedUrl = (url: string) => {
   const parsedUrl = new URL(url);
   const host = parsedUrl.hostname.replace(/^www\./, "").toLowerCase();
   const videoId =
@@ -23,21 +30,47 @@ function getYoutubeEmbedUrl(url: string) {
         parsedUrl.pathname.match(/^\/(?:embed|shorts)\/([^/]+)/)?.[1]);
 
   return videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : null;
-}
+};
 
-function normalizeUrl(url: string) {
+const normalizeUrl = (url: string) => {
   const parsedUrl = new URL(url.startsWith("www.") ? `https://${url}` : url);
   const pathname = parsedUrl.pathname.replace(/\/$/, "");
 
   return `${parsedUrl.hostname.toLowerCase()}${pathname}${parsedUrl.search}`;
-}
+};
 
-export default function VideoCard({ video, onStatusChange, isUpdating = false }: Props) {
+export default function VideoCard({
+  video,
+  onStatusChange,
+  onAmountChange,
+  isUpdating = false,
+}: Props) {
   const author = video.donation.author ?? "Anonymous";
   const messageChunks = useTextWithLinks(video.donation.message ?? "");
   const embedUrl = getYoutubeEmbedUrl(video.url);
   const isWatched = video.watchedAt !== null;
   const isSaved = video.savedAt !== null;
+  const [isEditingAmount, setIsEditingAmount] = useState(false);
+  const { formState, handleSubmit, register, reset } = useForm<VideoAmountFormValues>({
+    defaultValues: { amount: video.amount },
+    mode: "onChange",
+  });
+
+  const startEditingAmount = () => {
+    reset({ amount: video.amount });
+    setIsEditingAmount(true);
+  };
+
+  const cancelEditingAmount = () => {
+    reset({ amount: video.amount });
+    setIsEditingAmount(false);
+  };
+
+  const saveAmount = async ({ amount }: VideoAmountFormValues) => {
+    if (!onAmountChange) return;
+    await onAmountChange(amount);
+    setIsEditingAmount(false);
+  };
 
   return (
     <article className="flex flex-col gap-3 px-4 py-4 sm:px-5">
@@ -84,9 +117,68 @@ export default function VideoCard({ video, onStatusChange, isUpdating = false }:
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
-              <strong className="block text-[13px] text-[#3f3b50]">
-                +{fmtAmount(video.donation.amount)}
-              </strong>
+              {isEditingAmount ? (
+                <form
+                  className="flex items-center gap-1"
+                  onSubmit={(event) => void handleSubmit(saveAmount)(event)}
+                >
+                  <label className="w-20">
+                    <span className="sr-only">Video priority amount</span>
+                    <input
+                      aria-invalid={Boolean(formState.errors.amount)}
+                      autoComplete="off"
+                      className="h-7 w-full rounded-md border border-[#e5e3ea] bg-transparent px-2 text-right text-xs text-[#353248] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-[#4a4455] dark:text-[#e4dfed]"
+                      disabled={isUpdating}
+                      min="0"
+                      step="any"
+                      type="number"
+                      {...register("amount", {
+                        required: "Enter a priority amount.",
+                        valueAsNumber: true,
+                        validate: (value) =>
+                          (Number.isFinite(value) && value >= 0) ||
+                          "Enter an amount of zero or more.",
+                      })}
+                    />
+                  </label>
+                  <Button
+                    aria-label="Save priority amount"
+                    disabled={!formState.isValid || isUpdating}
+                    size="icon-xs"
+                    type="submit"
+                  >
+                    <Check aria-hidden="true" />
+                  </Button>
+                  <Button
+                    aria-label="Cancel editing priority amount"
+                    disabled={isUpdating}
+                    onClick={cancelEditingAmount}
+                    size="icon-xs"
+                    type="button"
+                    variant="outline"
+                  >
+                    <X aria-hidden="true" />
+                  </Button>
+                </form>
+              ) : (
+                <>
+                  <strong className="block text-[13px] text-[#3f3b50]">
+                    {fmtAmount(video.amount)}
+                  </strong>
+                  {onAmountChange && (
+                    <Button
+                      aria-label="Edit priority amount"
+                      disabled={isUpdating}
+                      onClick={startEditingAmount}
+                      size="icon-xs"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <Pencil aria-hidden="true" />
+                    </Button>
+                  )}
+                </>
+              )}
             </div>
           </div>
           <p className="min-w-0 grow text-xs leading-relaxed text-[#8e8b9b] sm:py-1">

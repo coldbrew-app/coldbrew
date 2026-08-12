@@ -8,7 +8,10 @@ import { useForm } from "react-hook-form";
 
 import { Button } from "./ui/button";
 
-type VideoPriorityFormValues = Pick<VideoPriority, "label" | "minPricePerMinute">;
+type VideoPriorityFormValues = {
+  label: string;
+  minPricePerMinute: number;
+};
 
 type Props = {
   priority: VideoPriority;

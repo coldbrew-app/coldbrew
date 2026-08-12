@@ -17,7 +17,7 @@ export function fmtAmount(amount: number) {
   if (isNaN(amount) || amount == Infinity || amount == -Infinity) {
     amount = 0;
   }
-  return amountFormatter.format(amount);
+  return amountFormatter.format(amount) + " ₽";
 }
 
 export function fmtDuration(seconds: number) {

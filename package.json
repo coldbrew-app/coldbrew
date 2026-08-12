@@ -2,6 +2,8 @@
   "name": "omnistream",
   "private": true,
   "dependencies": {
+    "dayjs": "^1.11.21",
+    "dedent-js": "^1.0.1",
     "errore": "^0.14.1",
     "neverthrow": "^8.2.0",
     "tsx": "^4.23.1"

@@ -52,9 +52,7 @@ export default function DonationCard({ donation, ...props }: Props) {
         </p>
       </div>
       <div className="shrink-0 text-right">
-        <strong className="block text-[13px] text-[#3f3b50]">
-          +{fmtAmount(donation.amount)}
-        </strong>
+        <strong className="block text-[13px] text-[#3f3b50]">{fmtAmount(donation.amount)}</strong>
         <time
           className="mt-1 block text-[10px] text-[#aaa7b4]"
           dateTime={donation.createdAt.toISOString()}

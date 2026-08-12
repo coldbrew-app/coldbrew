@@ -1,4 +1,5 @@
 import { serve } from "@hono/node-server";
+import { logger } from "@omnistream/packages/logger.js";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
@@ -15,7 +16,7 @@ async function main() {
   app.route("/api", apiRouter);
 
   serve({ fetch: app.fetch, port });
-  console.log(`Server listening on http://localhost:${port}`);
+  logger.info(`Server listening on http://localhost:${port}`);
 }
 
 main();

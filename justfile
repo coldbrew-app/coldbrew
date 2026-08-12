@@ -71,5 +71,10 @@ lint: test fmt-check
 schema-apply:
   pgschema apply --file db/schema.sql
 
+schema-reset:
+  yes | pgschema apply --file db/empty.sql
+  yes | just schema-apply
+
+
 count-lines path=".":
   find "{{path}}" -type d -name "node_modules" -prune -o -type f \( -name "*.ts" -o -name "*.tsx" \) -print0 | xargs -0 wc -l
