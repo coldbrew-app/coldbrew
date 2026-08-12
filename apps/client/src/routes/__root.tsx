@@ -1,5 +1,15 @@
 import { Link, Outlet, createRootRoute, useRouterState } from "@tanstack/react-router";
-import { Bell, LayoutDashboard, LogOut, Moon, Plug, Settings, Sun, Wallet } from "lucide-react";
+import {
+  Bell,
+  LayoutDashboard,
+  LogOut,
+  Moon,
+  Plug,
+  Settings,
+  Sun,
+  TriangleAlert,
+  Wallet,
+} from "lucide-react";
 import { useEffect } from "react";
 
 import logo from "../../assets/logo.svg";
@@ -152,8 +162,20 @@ function Root() {
           </div>
         </div>
       </aside>
-      <div className="grow overflow-y-auto">
-        <Outlet />
+      <div className="flex min-h-0 grow flex-col">
+        <div
+          className="flex shrink-0 items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-100"
+          role="alert"
+        >
+          <TriangleAlert aria-hidden="true" className="size-5 shrink-0 text-amber-600 dark:text-amber-300" />
+          <p>
+            Omnistream is in active development. Breaking changes are expected, and your data may be
+            lost.
+          </p>
+        </div>
+        <div className="min-h-0 grow overflow-y-auto">
+          <Outlet />
+        </div>
       </div>
     </main>
   );
