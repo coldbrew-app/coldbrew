@@ -1,6 +1,8 @@
 import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
 import { SlidersHorizontal } from "lucide-react";
 
+import { useI18n } from "../lib/i18n";
+
 export const Route = createFileRoute("/donations")({
   component: DonationsLayout,
 });
@@ -9,6 +11,7 @@ function DonationsLayout() {
   const location = useLocation();
   // TODO: remove this check because it isn't typesafe
   const activeTab = location.pathname === "/donations/videos" ? "videos" : "donations";
+  const { t } = useI18n();
 
   return (
     <section className="flex min-w-0 flex-1 flex-col">
@@ -17,7 +20,7 @@ function DonationsLayout() {
           <div className="flex flex-col gap-4 border-b border-[#efedf3] p-4 sm:p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-col gap-3">
-                <div aria-label="Donation content" className="flex gap-1" role="tablist">
+                <div aria-label={t("donationContent")} className="flex gap-1" role="tablist">
                   <Link
                     to="/donations"
                     className="rounded-md px-2.5 py-1.5 text-xs font-semibold"
@@ -29,7 +32,7 @@ function DonationsLayout() {
                     inactiveProps={{ className: "text-[#777385] hover:bg-[#f7f6f9]" }}
                     role="tab"
                   >
-                    Donations
+                    {t("donations")}
                   </Link>
                   <Link
                     to="/donations/videos"
@@ -41,17 +44,15 @@ function DonationsLayout() {
                     inactiveProps={{ className: "text-[#777385] hover:bg-[#f7f6f9]" }}
                     role="tab"
                   >
-                    Videos
+                    {t("videos")}
                   </Link>
                 </div>
                 <div>
                   <h2 className="text-[15px] font-semibold text-[#353248]">
-                    {activeTab === "donations" ? "All donations" : "Video queue"}
+                    {t(activeTab === "donations" ? "allDonations" : "videoQueue")}
                   </h2>
                   <p className="mt-1 text-xs text-[#9491a1]">
-                    {activeTab === "donations"
-                      ? "Browse and search your supporter activity."
-                      : "Videos shared by your supporters, ready for your stream."}
+                    {activeTab === "donations" ? t("browseDonations") : t("videosForStream")}
                   </p>
                 </div>
               </div>

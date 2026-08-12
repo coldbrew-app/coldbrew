@@ -5,6 +5,7 @@ import { Wallet } from "lucide-react";
 import { z } from "zod";
 
 import { useSharedVideosQ } from "../hooks/api";
+import { useI18n } from "../lib/i18n";
 
 export const Route = createFileRoute("/share/$slug")({
   component: SharedVideoQueue,
@@ -16,18 +17,17 @@ export const Route = createFileRoute("/share/$slug")({
 function SharedVideoQueue() {
   const { slug } = Route.useParams();
   const videosQ = useSharedVideosQ(slug);
+  const { t } = useI18n();
 
   return (
     <main className="min-h-screen bg-[#f7f7fb] p-4 text-[#242238] sm:p-8">
       <section className="mx-auto w-full max-w-4xl overflow-hidden rounded-xl border border-[#eae8ef] bg-white shadow-sm">
         <header className="flex flex-col gap-1 border-b border-[#efedf3] p-5">
-          <h1 className="text-lg font-semibold text-[#353248]">
-            Video queue by <b>{slug}</b>
-          </h1>
-          <p className="text-xs text-[#9491a1]">Videos shared by stream supporters.</p>
+          <h1 className="text-lg font-semibold text-[#353248]">{t("videoQueueBy", { slug })}</h1>
+          <p className="text-xs text-[#9491a1]">{t("videosSharedBySupporters")}</p>
         </header>
         {videosQ.isLoading ? (
-          <div className="space-y-px p-5" aria-label="Loading video queue">
+          <div className="space-y-px p-5" aria-label={t("loadingVideoQueue")}>
             <div className="h-16 animate-pulse rounded-lg bg-[#f7f6f9]" />
             <div className="h-16 animate-pulse rounded-lg bg-[#f7f6f9]" />
             <div className="h-16 animate-pulse rounded-lg bg-[#f7f6f9]" />
@@ -45,12 +45,10 @@ function SharedVideoQueue() {
                 <Wallet aria-hidden="true" size={20} />
               </div>
               <h2 className="mt-4 text-sm font-semibold text-[#4c485b]">
-                {videosQ.data === null ? "Queue not found" : "No videos in the queue"}
+                {t(videosQ.data === null ? "queueNotFound" : "noVideosInQueue")}
               </h2>
               <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-[#908d9d]">
-                {videosQ.data === null
-                  ? "This shared video queue is unavailable."
-                  : "Video links from donations will appear here."}
+                {videosQ.data === null ? t("sharedQueueUnavailable") : t("videoLinksWillAppear")}
               </p>
             </div>
           </div>

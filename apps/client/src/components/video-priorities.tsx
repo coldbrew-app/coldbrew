@@ -2,6 +2,7 @@ import { useVideoPrioritiesQ } from "@client/hooks/api";
 import { cn } from "@client/lib/utils";
 import { Link } from "@tanstack/react-router";
 
+import { useI18n } from "../lib/i18n";
 import VideoPriorityEditor from "./video-priority-editor";
 
 type Props = {
@@ -13,14 +14,18 @@ export default function VideoPriorities({
   selectedVideoPriorityId,
   videoCountByPriorityId,
 }: Props) {
+  const { t } = useI18n();
   const prioritiesQ = useVideoPrioritiesQ();
-  const videoCount = Object.values(videoCountByPriorityId).reduce((total, count) => total + count, 0);
+  const videoCount = Object.values(videoCountByPriorityId).reduce(
+    (total, count) => total + count,
+    0,
+  );
 
   return (
     <section className="mt-3 flex flex-col gap-2 border-t border-[#efedf3] pt-3 dark:border-[#302c3b]">
       <div className="flex flex-col gap-0.5 px-1">
-        <h2 className="text-xs font-semibold text-[#4c485b] dark:text-[#e4dfed]">Queues</h2>
-        <p className="text-[10px] text-[#908d9d]">Minimum donation amount per video minute.</p>
+        <h2 className="text-xs font-semibold text-[#4c485b] dark:text-[#e4dfed]">{t("queues")}</h2>
+        <p className="text-[10px] text-[#908d9d]">{t("minimumDonation")}</p>
       </div>
       <Link
         aria-current={selectedVideoPriorityId === null ? "page" : undefined}
@@ -36,12 +41,12 @@ export default function VideoPriorities({
         })}
         to="/donations/videos"
       >
-        <span className="grow">All</span>
+        <span className="grow">{t("all")}</span>
         <span className="text-[10px] font-bold">{videoCount}</span>
       </Link>
 
       {prioritiesQ.isLoading ? (
-        <div className="flex flex-col gap-2" aria-label="Loading video priorities">
+        <div className="flex flex-col gap-2" aria-label={t("loadingVideoPriorities")}>
           <div className="h-20 animate-pulse rounded-lg bg-[#f0eff3] dark:bg-[#302c3b]" />
           <div className="h-20 animate-pulse rounded-lg bg-[#f0eff3] dark:bg-[#302c3b]" />
         </div>
@@ -55,7 +60,7 @@ export default function VideoPriorities({
           />
         ))
       ) : (
-        <p className="px-1 text-xs text-[#908d9d]">No queues yet.</p>
+        <p className="px-1 text-xs text-[#908d9d]">{t("noQueuesYet")}</p>
       )}
 
       {prioritiesQ.error && (

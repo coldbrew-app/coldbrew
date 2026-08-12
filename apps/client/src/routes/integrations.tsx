@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Check, ChevronRight, ShieldCheck } from "lucide-react";
 
 import { useAuthUrl, useDisconnectM, useUserInfo } from "../hooks/api";
+import { useI18n } from "../lib/i18n";
 
 export const Route = createFileRoute("/integrations")({
   component: RouteComponent,
@@ -14,17 +15,15 @@ function RouteComponent() {
   const connected = userInfo !== null && userInfo.hasDonationalertsAccessToken;
 
   const disconnectM = useDisconnectM();
+  const { t } = useI18n();
 
   return (
     <section className="flex min-w-0 flex-1 flex-col">
       <div className="mx-auto w-full max-w-5xl px-[clamp(18px,4vw,62px)] py-7 sm:py-12">
-        <p className="mb-2.5 text-xs font-bold tracking-wide text-[#9895a6] uppercase">Platforms</p>
         <h1 className="text-[clamp(27px,3vw,33px)] font-bold tracking-tight text-[#27243a]">
-          Integrations
+          {t("integrations")}
         </h1>
-        <p className="mt-2.5 max-w-xl text-sm text-[#888597]">
-          Connect the services you use to keep every donation in one place.
-        </p>
+        <p className="mt-2.5 max-w-xl text-sm text-[#888597]">{t("integrationsDescription")}</p>
 
         <article className="mt-8 overflow-hidden rounded-xl border border-[#eae8ef] bg-white sm:mt-10">
           <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-6">
@@ -47,13 +46,11 @@ function RouteComponent() {
                   className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${connected ? "bg-emerald-50 text-emerald-700" : "bg-orange-50 text-orange-600"}`}
                 >
                   <i className="size-1.5 rounded-full bg-current" />
-                  {connected ? "Connected" : "Not connected"}
+                  {t(connected ? "connected" : "notConnected")}
                 </span>
               </div>
               <p className="mt-1.5 text-sm text-[#888597]">
-                {connected
-                  ? "Your DonationAlerts donations are syncing automatically."
-                  : "Import donations from DonationAlerts automatically."}
+                {connected ? t("donationsSyncing") : t("importDonations")}
               </p>
             </div>
             {connected ? (
@@ -63,27 +60,27 @@ function RouteComponent() {
                 disabled={disconnectM.isPending}
                 onClick={() => disconnectM.mutate({ source: "donationalerts" })}
               >
-                {disconnectM.isPending ? "Disconnecting…" : "Disconnect"}
+                {t(disconnectM.isPending ? "disconnecting" : "disconnect")}
               </Button>
             ) : (
               <a
                 className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80"
                 href={authUrl.donationAlerts}
               >
-                {"Connect DonationAlerts"}
+                {t("connectDonationAlerts")}
                 <ChevronRight aria-hidden="true" size={16} />
               </a>
             )}
           </div>
           <div className="flex items-center gap-2 border-t border-[#f0eff3] bg-[#fcfcfd] px-5 py-3 text-xs text-[#888597] sm:px-6">
             <ShieldCheck aria-hidden="true" size={15} className="shrink-0 text-violet-600" />
-            You’ll securely authorize Omnistream through DonationAlerts.
+            {t("secureAuthorization")}
           </div>
         </article>
 
         <div className="mt-5 flex items-center gap-2 text-xs text-[#9895a6]">
           <Check aria-hidden="true" size={15} className="text-emerald-600" />
-          More integrations are on the way.
+          {t("moreIntegrations")}
         </div>
       </div>
     </section>

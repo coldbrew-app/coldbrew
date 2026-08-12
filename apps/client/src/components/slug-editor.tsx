@@ -6,6 +6,8 @@ import { Check, Copy } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 
+import { useI18n } from "../lib/i18n";
+
 type Props = {
   className?: string;
 };
@@ -15,6 +17,7 @@ type SlugFormValues = {
 };
 
 export function SlugEditor({ className }: Props) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const slug = useSlug();
 
@@ -47,9 +50,9 @@ export function SlugEditor({ className }: Props) {
       >
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <label className="min-w-0 grow">
-            <span className="sr-only">Public video queue slug</span>
+            <span className="sr-only">{t("publicVideoQueueSlug")}</span>
             <span className="sr-only" id="slug-help">
-              Use 3–48 lowercase letters, numbers, and hyphens.
+              {t("slugHelp")}
             </span>
             <div className="flex min-w-0 rounded-lg border border-[#e5e3ea] bg-[#fcfcfd] focus-within:border-violet-400 focus-within:ring-3 focus-within:ring-violet-100">
               <span className="shrink-0 border-r border-[#e5e3ea] px-2.5 py-1.5 text-sm text-[#908d9d]">
@@ -66,9 +69,7 @@ export function SlugEditor({ className }: Props) {
                     const value = event.target.value.toLowerCase();
                     event.target.value = value.startsWith("@") ? value : `@${value}`;
                   },
-                  validate: (value) =>
-                    SlugSchema.safeParse(value).success ||
-                    "Use @ followed by 3–47 lowercase letters, numbers, or hyphens.",
+                  validate: (value) => SlugSchema.safeParse(value).success || t("slugInvalid"),
                 })}
               />
             </div>
@@ -79,11 +80,11 @@ export function SlugEditor({ className }: Props) {
               size="sm"
               type="submit"
             >
-              {setSlugM.isPending ? "Saving…" : "Save"}
+              {t(setSlugM.isPending ? "saving" : "save")}
             </Button>
             <Button onClick={() => void copyShareUrl()} size="sm" type="button" variant="outline">
               {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
-              {copied ? "Copied" : "Copy"}
+              {t(copied ? "copied" : "copy")}
             </Button>
           </div>
         </div>

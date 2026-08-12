@@ -1,9 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { useI18n } from "../lib/i18n";
+
 export const Route = createFileRoute("/settings")({
   component: Settings,
 });
 
 function Settings() {
-  return <main>hello "/settings!"</main>;
+  const { t } = useI18n();
+  return <main className="p-6">{t("settings")}</main>;
 }

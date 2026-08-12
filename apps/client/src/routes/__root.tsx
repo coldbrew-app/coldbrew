@@ -10,20 +10,24 @@ import {
   TriangleAlert,
   Wallet,
 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import logo from "../../assets/logo.svg";
 import { signOut, useSession } from "../lib/auth-client";
+import { useI18n } from "../lib/i18n";
+import type { Locale } from "../lib/i18n";
 
 const navItem =
   "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium text-[#77758b] transition hover:bg-violet-50 hover:text-violet-700";
 const activeNavItem = "bg-violet-100 font-bold text-violet-700";
+const localeFlags: Record<Locale, string> = { en: "🇬🇧", ru: "🇷🇺" };
 
 export const Route = createRootRoute({
   component: Root,
 });
 
 import SignIn from "@client/components/sign-in";
+import { Button } from "@client/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@client/components/ui/tooltip";
 import { useUserInfo } from "@client/hooks/api";
 import { useLocalStorage } from "@siberiacancode/reactuse";
@@ -38,6 +42,9 @@ function useDark() {
 function Root() {
   const session = useSession();
   const { isDark, toggleDark } = useDark();
+  const { locale, setLocale, t } = useI18n();
+  const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
+  const languageMenuRef = useRef<HTMLDivElement>(null);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const userInfo = useUserInfo();
 
@@ -48,6 +55,15 @@ function Root() {
       document.documentElement.classList.remove("dark");
     }
   }, [isDark]);
+
+  useEffect(() => {
+    const closeLanguageMenu = (event: MouseEvent) => {
+      if (!languageMenuRef.current?.contains(event.target as Node)) setIsLanguageMenuOpen(false);
+    };
+
+    document.addEventListener("mousedown", closeLanguageMenu);
+    return () => document.removeEventListener("mousedown", closeLanguageMenu);
+  }, []);
 
   if (pathname.startsWith("/share/")) {
     return <Outlet />;
@@ -74,26 +90,8 @@ function Root() {
             <img src={logo} className="h-[24px]" />
             omnistream
           </Link>
-          <Tooltip>
-            <TooltipTrigger
-              aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-              aria-pressed={isDark}
-              className="ml-auto grid size-8 cursor-pointer place-items-center rounded-lg border border-[#e8e6ef] bg-[#faf9fc] text-[#6d697d] shadow-sm transition hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 dark:border-white/10 dark:bg-white/5 dark:text-violet-100 dark:hover:border-violet-400/40 dark:hover:bg-violet-400/10 dark:hover:text-white"
-              onClick={() => toggleDark()}
-              type="button"
-            >
-              {isDark ? (
-                <Sun aria-hidden="true" size={15} />
-              ) : (
-                <Moon aria-hidden="true" size={15} />
-              )}
-            </TooltipTrigger>
-            <TooltipContent>
-              {isDark ? "Switch to light mode" : "Switch to dark mode"}
-            </TooltipContent>
-          </Tooltip>
         </div>
-        <nav className="mt-11 grid gap-1" aria-label="Main navigation">
+        <nav className="mt-11 grid gap-1" aria-label={t("overview")}>
           <Link
             activeOptions={{ exact: true }}
             activeProps={{ className: activeNavItem }}
@@ -101,15 +99,15 @@ function Root() {
             to="/"
           >
             <LayoutDashboard aria-hidden="true" />
-            Overview
+            {t("overview")}
           </Link>
           <Link activeProps={{ className: activeNavItem }} className={navItem} to="/donations">
             <Wallet aria-hidden="true" />
-            Donations
+            {t("donations")}
           </Link>
           <Link activeProps={{ className: activeNavItem }} className={navItem} to="/integrations">
             <Plug aria-hidden="true" />
-            Integrations
+            {t("integrations")}
             <span className="ml-auto grid size-[18px] place-items-center rounded-full bg-violet-500 text-[11px] text-white">
               1
             </span>
@@ -121,19 +119,86 @@ function Root() {
             to="/alerts"
           >
             <Bell aria-hidden="true" />
-            Alerts
+            {t("alerts")}
             <Tooltip>
               <TooltipTrigger>🚧</TooltipTrigger>
-              <TooltipContent>Under construction</TooltipContent>
+              <TooltipContent>{t("underConstruction")}</TooltipContent>
             </Tooltip>
           </Link>
         </nav>
 
         <div className="mt-auto flex flex-col gap-5">
-          <Link activeProps={{ className: activeNavItem }} className={navItem} to="/settings">
-            <Settings aria-hidden="true" />
-            Settings
-          </Link>
+          <div className="flex items-center justify-between px-3">
+            <Link
+              aria-label={t("settings")}
+              activeProps={{ className: activeNavItem }}
+              className="grid size-8 place-items-center rounded-lg text-[#77758b] transition hover:bg-violet-50 hover:text-violet-700"
+              to="/settings"
+            >
+              <Settings aria-hidden="true" size={18} />
+            </Link>
+            <div className="flex items-center gap-1.5">
+              <Tooltip>
+                <TooltipTrigger
+                  aria-label={t(isDark ? "switchToLightMode" : "switchToDarkMode")}
+                  aria-pressed={isDark}
+                  className="grid size-8 cursor-pointer place-items-center rounded-lg border border-[#e8e6ef] bg-[#faf9fc] text-[#6d697d] transition hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 dark:border-white/10 dark:bg-white/5 dark:text-violet-100 dark:hover:border-violet-400/40 dark:hover:bg-violet-400/10 dark:hover:text-white"
+                  onClick={() => toggleDark()}
+                  type="button"
+                >
+                  {isDark ? (
+                    <Sun aria-hidden="true" size={15} />
+                  ) : (
+                    <Moon aria-hidden="true" size={15} />
+                  )}
+                </TooltipTrigger>
+                <TooltipContent>
+                  {t(isDark ? "switchToLightMode" : "switchToDarkMode")}
+                </TooltipContent>
+              </Tooltip>
+              <div className="relative" ref={languageMenuRef}>
+                <Button
+                  aria-expanded={isLanguageMenuOpen}
+                  aria-haspopup="menu"
+                  aria-label={t("language")}
+                  className="size-8 rounded-lg border border-[#e8e6ef] bg-[#faf9fc] p-0 text-base text-[#6d697d] transition hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 dark:border-white/10 dark:bg-white/5 dark:text-violet-100 dark:hover:border-violet-400/40 dark:hover:bg-violet-400/10 dark:hover:text-white"
+                  onClick={() => setIsLanguageMenuOpen((isOpen) => !isOpen)}
+                  size="xs"
+                  type="button"
+                  variant="ghost"
+                >
+                  <span aria-hidden="true">{localeFlags[locale]}</span>
+                </Button>
+                {isLanguageMenuOpen && (
+                  <div
+                    aria-label={t("language")}
+                    className="absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2 rounded-lg border border-[#e8e6ef] bg-white p-1 shadow-lg dark:border-white/10 dark:bg-[#24202d]"
+                    role="menu"
+                  >
+                    {(["ru", "en"] as const)
+                      .filter((item) => item !== locale)
+                      .map((item) => (
+                        <Button
+                          aria-label={t(item === "ru" ? "russian" : "english")}
+                          className="size-8 rounded-md p-0 text-base hover:bg-violet-50 dark:hover:bg-violet-400/10"
+                          key={item}
+                          onClick={() => {
+                            setLocale(item);
+                            setIsLanguageMenuOpen(false);
+                          }}
+                          role="menuitem"
+                          size="xs"
+                          type="button"
+                          variant="ghost"
+                        >
+                          <span aria-hidden="true">{localeFlags[item]}</span>
+                        </Button>
+                      ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
           <div className="flex items-center gap-2.5 border-t border-[#eeedf2] px-2 pt-5 dark:border-white/10">
             {user.image ? (
               <img alt="" className="size-8 rounded-lg object-cover" src={user.image} />
@@ -150,14 +215,14 @@ function Root() {
             </div>
             <Tooltip>
               <TooltipTrigger
-                aria-label="Sign out"
+                aria-label={t("signOut")}
                 className="cursor-pointer text-[#9694a3] hover:text-violet-700"
                 onClick={() => signOut()}
                 type="button"
               >
                 <LogOut aria-hidden="true" size={18} />
               </TooltipTrigger>
-              <TooltipContent>Log Out</TooltipContent>
+              <TooltipContent>{t("logOut")}</TooltipContent>
             </Tooltip>
           </div>
         </div>
@@ -167,11 +232,11 @@ function Root() {
           className="flex shrink-0 items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-100"
           role="alert"
         >
-          <TriangleAlert aria-hidden="true" className="size-5 shrink-0 text-amber-600 dark:text-amber-300" />
-          <p>
-            Omnistream is in active development. Breaking changes are expected, and your data may be
-            lost.
-          </p>
+          <TriangleAlert
+            aria-hidden="true"
+            className="size-5 shrink-0 text-amber-600 dark:text-amber-300"
+          />
+          <p>{t("activeDevelopment")}</p>
         </div>
         <div className="min-h-0 grow overflow-y-auto">
           <Outlet />

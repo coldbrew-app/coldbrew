@@ -38,7 +38,10 @@ describe("findYoutubeUrls", () => {
     ["rounds the first 15 seconds of a minute down", 75, 1],
     ["rounds up after the 15-second threshold", 76, 2],
   ])("%s", async (_description, seconds, expectedMinutes) => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(`{"lengthSeconds":"${seconds}"}`)));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(`{"lengthSeconds":"${seconds}"}`)),
+    );
 
     const $duration = getYoutubeDurationMinutes("https://youtu.be/dQw4w9WgXcQ");
 

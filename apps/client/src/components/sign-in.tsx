@@ -2,10 +2,12 @@ import { signIn } from "@client/lib/auth-client";
 import { useState } from "react";
 
 import logo from "../../assets/logo.svg";
+import { useI18n } from "../lib/i18n";
 import { Button } from "./ui/button";
 
 export default function SignIn() {
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const { t } = useI18n();
 
   return (
     <main className="grid min-h-screen place-items-center bg-[#f7f7fb] p-6 text-[#242238]">
@@ -15,8 +17,8 @@ export default function SignIn() {
           omnistream
         </div>
         <div className="flex flex-col gap-2">
-          <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
-          <p className="text-sm text-[#77758b]">Sign in to manage your stream in one place.</p>
+          <h1 className="text-2xl font-bold tracking-tight">{t("welcomeBack")}</h1>
+          <p className="text-sm text-[#77758b]">{t("signInDescription")}</p>
         </div>
         <Button
           className="w-full"
@@ -28,7 +30,7 @@ export default function SignIn() {
           }}
           size="lg"
         >
-          {isSigningIn ? "Redirecting…" : "Continue with Google"}
+          {t(isSigningIn ? "redirecting" : "continueWithGoogle")}
         </Button>
       </section>
     </main>

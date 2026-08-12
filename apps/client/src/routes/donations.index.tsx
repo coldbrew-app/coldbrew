@@ -4,6 +4,7 @@ import { ChevronDown, Search, Wallet } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { useDonationsQ } from "../hooks/api";
+import { useI18n } from "../lib/i18n";
 
 export const Route = createFileRoute("/donations/")({
   component: DonationsIndex,
@@ -11,6 +12,7 @@ export const Route = createFileRoute("/donations/")({
 
 function DonationsIndex() {
   const donationsQ = useDonationsQ();
+  const { t } = useI18n();
   const [query, setQuery] = useState("");
   const [period, setPeriod] = useState<"all" | "week" | "month">("all");
   const donations = donationsQ.data ?? [];
@@ -26,11 +28,11 @@ function DonationsIndex() {
       donations
         .filter((donation) => donation.createdAt.getTime() >= periodStart)
         .filter((donation) => {
-          const searchText = `${donation.author ?? "Anonymous"} ${donation.message ?? ""}`;
+          const searchText = `${donation.author ?? t("anonymous")} ${donation.message ?? ""}`;
           return searchText.toLowerCase().includes(query.trim().toLowerCase());
         })
         .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime()),
-    [donations, periodStart, query],
+    [donations, periodStart, query, t],
   );
 
   return (
@@ -42,24 +44,24 @@ function DonationsIndex() {
             size={16}
             className="absolute top-1/2 left-3 -translate-y-1/2 text-[#a19eae]"
           />
-          <span className="sr-only">Search donations</span>
+          <span className="sr-only">{t("searchDonations")}</span>
           <input
             className="h-9 w-full rounded-lg border border-[#e5e3ea] bg-[#fcfcfd] pr-3 pl-9 text-xs text-[#4a465b] outline-none placeholder:text-[#aaa7b5] focus:border-violet-400 focus:ring-3 focus:ring-violet-100"
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search by supporter or message..."
+            placeholder={t("searchBySupporter")}
             value={query}
           />
         </label>
         <label className="relative">
-          <span className="sr-only">Date range</span>
+          <span className="sr-only">{t("dateRange")}</span>
           <select
             className="h-9 w-full appearance-none rounded-lg border border-[#e5e3ea] bg-white py-0 pr-8 pl-3 text-xs font-semibold text-[#605c70] outline-none focus:border-violet-400 sm:w-36"
             onChange={(event) => setPeriod(event.target.value as typeof period)}
             value={period}
           >
-            <option value="all">All time</option>
-            <option value="week">Last 7 days</option>
-            <option value="month">Last 30 days</option>
+            <option value="all">{t("allTime")}</option>
+            <option value="week">{t("last7Days")}</option>
+            <option value="month">{t("last30Days")}</option>
           </select>
           <ChevronDown
             aria-hidden="true"
@@ -70,7 +72,7 @@ function DonationsIndex() {
       </div>
 
       {donationsQ.isLoading ? (
-        <div className="space-y-px p-5" aria-label="Loading donations">
+        <div className="space-y-px p-5" aria-label={t("loadingDonations")}>
           <div className="h-16 animate-pulse rounded-lg bg-[#f7f6f9]" />
           <div className="h-16 animate-pulse rounded-lg bg-[#f7f6f9]" />
           <div className="h-16 animate-pulse rounded-lg bg-[#f7f6f9]" />
@@ -89,6 +91,7 @@ function DonationsIndex() {
 }
 
 function EmptyDonations({ query }: { query: string }) {
+  const { t } = useI18n();
   return (
     <div className="grid min-h-64 place-items-center px-5 text-center">
       <div>
@@ -96,12 +99,10 @@ function EmptyDonations({ query }: { query: string }) {
           <Wallet aria-hidden="true" size={20} />
         </div>
         <h3 className="mt-4 text-sm font-semibold text-[#4c485b]">
-          {query ? "No matching donations" : "No donations yet"}
+          {t(query ? "noMatchingDonations" : "noDonationsYet")}
         </h3>
         <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-[#908d9d]">
-          {query
-            ? "Try another supporter name or clear your search."
-            : "When your viewers support your stream, their donations will appear here."}
+          {query ? t("tryAnotherSearch") : t("donationsWillAppear")}
         </p>
       </div>
     </div>

@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { useTextWithLinks } from "../hooks/use-text-with-links";
+import { useI18n } from "../lib/i18n";
 import { Icons } from "./icons";
 import { Button } from "./ui/button";
 
@@ -40,13 +41,9 @@ const normalizeUrl = (url: string) => {
   return `${parsedUrl.hostname.toLowerCase()}${pathname}${parsedUrl.search}`;
 };
 
-export default function VideoCard({
-  video,
-  onStatusChange,
-  onUpdate,
-  isUpdating = false,
-}: Props) {
-  const author = video.donation.author ?? "Anonymous";
+export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating = false }: Props) {
+  const { locale, t } = useI18n();
+  const author = video.donation.author ?? t("anonymous");
   const messageChunks = useTextWithLinks(video.donation.message ?? "");
   const embedUrl = getYoutubeEmbedUrl(video.url);
   const isWatched = video.watchedAt !== null;
@@ -89,11 +86,11 @@ export default function VideoCard({
                 loading="lazy"
                 referrerPolicy="strict-origin-when-cross-origin"
                 src={embedUrl}
-                title={`YouTube video from ${author}`}
+                title={t("youtubeVideoFrom", { author })}
               />
               {video.durationMinutes !== null && (
                 <span className="absolute right-2 bottom-2 rounded bg-black/75 px-1.5 py-0.5 text-[11px] font-medium text-white">
-                  {video.durationMinutes} min
+                  {t("minutes", { count: video.durationMinutes })}
                 </span>
               )}
             </div>
@@ -114,24 +111,28 @@ export default function VideoCard({
               <time
                 className="block text-[10px] text-[#aaa7b4]"
                 dateTime={video.donation.createdAt.toISOString()}
-                title={fmtDate(video.donation.createdAt)}
+                title={fmtDate(video.donation.createdAt, locale)}
               >
-                {formatRelativeDate(video.donation.createdAt)}
+                {formatRelativeDate(video.donation.createdAt, locale)}
               </time>
             </div>
 
             <div className="flex shrink-0 items-start gap-2">
               <div className="flex flex-col items-end gap-0.5">
-                <strong className="block text-[13px] text-[#3f3b50]">{fmtAmount(video.amount)}</strong>
+                <strong className="block text-[13px] text-[#3f3b50]">
+                  {fmtAmount(video.amount, locale)}
+                </strong>
                 {!isEditing && (
                   <span className="text-xs text-[#777385]">
-                    {video.durationMinutes === null ? "Unknown duration" : `${video.durationMinutes} min`}
+                    {video.durationMinutes === null
+                      ? t("unknownDuration")
+                      : t("minutes", { count: video.durationMinutes })}
                   </span>
                 )}
               </div>
               {onUpdate && !isEditing && (
                 <Button
-                  aria-label="Edit video details"
+                  aria-label={t("editVideoDetails")}
                   disabled={isUpdating}
                   onClick={startEditing}
                   size="icon-xs"
@@ -150,7 +151,9 @@ export default function VideoCard({
             >
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-medium text-[#454157] dark:text-[#e4dfed]">Amount</span>
+                  <span className="text-xs font-medium text-[#454157] dark:text-[#e4dfed]">
+                    {t("amount")}
+                  </span>
                   <input
                     aria-describedby="video-amount-help"
                     aria-invalid={Boolean(formState.errors.amount)}
@@ -161,21 +164,25 @@ export default function VideoCard({
                     step="any"
                     type="number"
                     {...register("amount", {
-                      required: "Enter a priority amount.",
+                      required: t("enterPriorityAmount"),
                       valueAsNumber: true,
                       validate: (value) =>
-                        (Number.isFinite(value) && value >= 0) || "Enter an amount of zero or more.",
+                        (Number.isFinite(value) && value >= 0) || t("enterAmountZeroOrMore"),
                     })}
                   />
                   <span className="text-[11px] leading-snug text-[#777385]" id="video-amount-help">
-                    Donation amount used to determine the video&apos;s priority.
+                    {t("donationAmountHelp")}
                   </span>
                   {formState.errors.amount && (
-                    <span className="text-[11px] text-red-600">{formState.errors.amount.message}</span>
+                    <span className="text-[11px] text-red-600">
+                      {formState.errors.amount.message}
+                    </span>
                   )}
                 </label>
                 <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-medium text-[#454157] dark:text-[#e4dfed]">Duration, min</span>
+                  <span className="text-xs font-medium text-[#454157] dark:text-[#e4dfed]">
+                    {t("durationMinutes")}
+                  </span>
                   <input
                     aria-describedby="video-duration-help"
                     aria-invalid={Boolean(formState.errors.durationMinutes)}
@@ -186,14 +193,17 @@ export default function VideoCard({
                     step="1"
                     type="number"
                     {...register("durationMinutes", {
-                      required: "Enter a duration.",
+                      required: t("enterDuration"),
                       valueAsNumber: true,
                       validate: (value) =>
-                        (Number.isInteger(value) && value >= 0) || "Enter a whole number of minutes.",
+                        (Number.isInteger(value) && value >= 0) || t("enterWholeMinutes"),
                     })}
                   />
-                  <span className="text-[11px] leading-snug text-[#777385]" id="video-duration-help">
-                    Video length in whole minutes; it is used when calculating the queue.
+                  <span
+                    className="text-[11px] leading-snug text-[#777385]"
+                    id="video-duration-help"
+                  >
+                    {t("durationHelp")}
                   </span>
                   {formState.errors.durationMinutes && (
                     <span className="text-[11px] text-red-600">
@@ -203,13 +213,19 @@ export default function VideoCard({
                 </label>
               </div>
               <div className="flex items-center justify-end gap-2">
-                <Button disabled={isUpdating} onClick={cancelEditing} size="sm" type="button" variant="outline">
+                <Button
+                  disabled={isUpdating}
+                  onClick={cancelEditing}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
                   <X aria-hidden="true" />
-                  Cancel
+                  {t("cancelEditing")}
                 </Button>
                 <Button disabled={!formState.isValid || isUpdating} size="sm" type="submit">
                   <Check aria-hidden="true" />
-                  Save
+                  {t("save")}
                 </Button>
               </div>
             </form>
@@ -243,7 +259,7 @@ export default function VideoCard({
             {onStatusChange && (
               <div className="flex flex-wrap items-center gap-2">
                 <Button
-                  aria-label={isWatched ? "Mark video as not watched" : "Mark video as watched"}
+                  aria-label={t(isWatched ? "markVideoNotWatched" : "markVideoWatched")}
                   className={clsx(isWatched && "bg-green-100 text-green-700 hover:bg-green-200")}
                   disabled={isUpdating}
                   onClick={() => onStatusChange({ watchedAt: isWatched ? null : new Date() })}
@@ -251,10 +267,10 @@ export default function VideoCard({
                   variant={isWatched ? "secondary" : "outline"}
                 >
                   {isWatched ? <CheckCircle2 aria-hidden="true" /> : <Circle aria-hidden="true" />}
-                  Watched
+                  {t("watched")}
                 </Button>
                 <Button
-                  aria-label={isSaved ? "Remove video from saved" : "Save video"}
+                  aria-label={t(isSaved ? "removeVideoSaved" : "saveVideo")}
                   className={clsx(isSaved && "bg-yellow-100 text-yellow-700 hover:bg-yellow-200")}
                   disabled={isUpdating}
                   onClick={() => onStatusChange({ savedAt: isSaved ? null : new Date() })}
@@ -262,7 +278,7 @@ export default function VideoCard({
                   variant={isSaved ? "secondary" : "outline"}
                 >
                   <Icons.bookmark aria-hidden="true" fill={isSaved ? "currentColor" : "none"} />
-                  Saved
+                  {t("saved")}
                 </Button>
               </div>
             )}
@@ -270,13 +286,19 @@ export default function VideoCard({
             {(video.watchedAt || video.savedAt) && (
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-[#777385]">
                 {video.watchedAt && (
-                  <time dateTime={video.watchedAt.toISOString()} title={fmtDate(video.watchedAt)}>
-                    Watched {fmtDate(video.watchedAt)}
+                  <time
+                    dateTime={video.watchedAt.toISOString()}
+                    title={fmtDate(video.watchedAt, locale)}
+                  >
+                    {t("watchedOn", { date: fmtDate(video.watchedAt, locale) })}
                   </time>
                 )}
                 {video.savedAt && (
-                  <time dateTime={video.savedAt.toISOString()} title={fmtDate(video.savedAt)}>
-                    Saved {fmtDate(video.savedAt)}
+                  <time
+                    dateTime={video.savedAt.toISOString()}
+                    title={fmtDate(video.savedAt, locale)}
+                  >
+                    {t("savedOn", { date: fmtDate(video.savedAt, locale) })}
                   </time>
                 )}
               </div>

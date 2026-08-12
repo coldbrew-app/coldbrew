@@ -3,6 +3,7 @@ import { Donation } from "@omnistream/server";
 import { clsx } from "clsx";
 
 import { useTextWithLinks } from "../hooks/use-text-with-links";
+import { useI18n } from "../lib/i18n";
 
 type Props = {
   className?: string;
@@ -19,8 +20,9 @@ function getInitials(author: string) {
 }
 
 export default function DonationCard({ donation, ...props }: Props) {
-  const author = donation.author ?? "Anonymous";
-  const messageChunks = useTextWithLinks(donation.message ?? "Sent a donation");
+  const { locale, t } = useI18n();
+  const author = donation.author ?? t("anonymous");
+  const messageChunks = useTextWithLinks(donation.message ?? t("sentDonation"));
 
   return (
     <div className={clsx("flex gap-3 px-4 py-4 sm:items-center sm:px-5", props.className)}>
@@ -52,13 +54,15 @@ export default function DonationCard({ donation, ...props }: Props) {
         </p>
       </div>
       <div className="shrink-0 text-right">
-        <strong className="block text-[13px] text-[#3f3b50]">{fmtAmount(donation.amount)}</strong>
+        <strong className="block text-[13px] text-[#3f3b50]">
+          {fmtAmount(donation.amount, locale)}
+        </strong>
         <time
           className="mt-1 block text-[10px] text-[#aaa7b4]"
           dateTime={donation.createdAt.toISOString()}
-          title={fmtDate(donation.createdAt)}
+          title={fmtDate(donation.createdAt, locale)}
         >
-          {formatRelativeDate(donation.createdAt)}
+          {formatRelativeDate(donation.createdAt, locale)}
         </time>
       </div>
     </div>

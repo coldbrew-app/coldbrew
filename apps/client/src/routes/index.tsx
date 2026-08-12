@@ -2,7 +2,8 @@ import { Metric } from "@client/components/dashboard/metric";
 import DonationCard from "@client/components/donation-card";
 import MockChart from "@client/components/mock-chart";
 import { Button } from "@client/components/ui/button";
-import { fmtAmount, fmtDate } from "@client/lib/fmt";
+import { fmtAmount } from "@client/lib/fmt";
+import { useI18n } from "@client/lib/i18n";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ChevronRight, Copy, Share2, Sparkles, Wallet } from "lucide-react";
 import { z } from "zod";
@@ -22,63 +23,67 @@ function Overview() {
   const donationsQ = useDonations();
   const success = Route.useSearch({ select: (search) => search.success });
   const donationAlertsConnected = userInfo !== null && userInfo.hasDonationalertsAccessToken;
+  const { locale, t } = useI18n();
 
   const total = donationsQ.data?.reduce((sum, donation) => sum + donation.amount, 0) ?? 0;
   const donationsLength = donationsQ.data?.length ?? 0;
+  const chartDates = ["2026-06-29", "2026-07-06", "2026-07-13", "2026-07-20", "2026-07-27"].map(
+    (date) =>
+      new Intl.DateTimeFormat(locale === "ru" ? "ru-RU" : "en-US", {
+        day: "numeric",
+        month: "short",
+      }).format(new Date(`${date}T00:00:00`)),
+  );
 
   return (
     <section className="flex min-w-0 flex-1 flex-col" id="top">
       <div className="mx-auto w-full max-w-7xl px-[clamp(18px,4vw,62px)] py-7 sm:py-12">
         <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
           <div>
-            <p className="mb-2.5 text-xs font-bold tracking-wide text-[#9895a6] uppercase">
-              Monday, 28 July
-            </p>
             <h1 className="text-[clamp(27px,3vw,33px)] font-bold tracking-tight text-[#27243a]">
-              Good evening, Nikita <span className="text-violet-500">✦</span>
+              {t("greeting", { name: "Nikita" })} <span className="text-violet-500">✦</span>
             </h1>
-            <p className="mt-2.5 text-sm text-[#888597]">
-              Here’s what’s happening across your stream.
-            </p>
+            <p className="mt-2.5 text-sm text-[#888597]">{t("streamUpdate")}</p>
           </div>
           <Button
             className="h-auto w-full justify-between border-[#e3e1e9] bg-white px-3 py-2.5 text-xs font-semibold text-[#646176] sm:w-auto"
             type="button"
             variant="outline"
           >
-            Last 30 days <ChevronRight aria-hidden="true" size={16} />
+            {t("last30Days")} <ChevronRight aria-hidden="true" size={16} />
           </Button>
         </div>
         {success !== undefined && (
           <div
             className={`mt-5 rounded-lg px-3.5 py-3 text-[13px] ${success ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}
           >
-            {success
-              ? "Donation Alerts connected successfully."
-              : "We couldn't finish connecting your account."}
+            {success ? t("connected") : t("notConnected")}
           </div>
         )}
-        <section className="mt-7 grid gap-4 sm:mt-9 md:grid-cols-3" aria-label="Stream statistics">
+        <section
+          className="mt-7 grid gap-4 sm:mt-9 md:grid-cols-3"
+          aria-label={t("streamStatistics")}
+        >
           <Metric
-            title="Total received"
-            value={fmtAmount(total)}
+            title={t("totalReceived")}
+            value={fmtAmount(total, locale)}
             note="↗ 18.2%"
-            subnote="vs. previous period"
+            subnote={t("versusPreviousPeriod")}
             icon={Wallet}
             iconClass="bg-violet-100 text-violet-600"
           />
           <Metric
-            title="Donations"
+            title={t("donations")}
             value={String(donationsLength)}
             note="↗ 12.5%"
-            subnote="vs. previous period"
+            subnote={t("versusPreviousPeriod")}
             icon={Sparkles}
             iconClass="bg-orange-50 text-orange-500"
           />
           <Metric
-            title="Average donation"
-            value={fmtAmount(Math.round(total / donationsLength))}
-            note="Across all connected platforms"
+            title={t("averageDonation")}
+            value={fmtAmount(Math.round(total / donationsLength), locale)}
+            note={t("acrossPlatforms")}
             icon={Share2}
             iconClass="bg-sky-50 text-sky-500"
           />
@@ -87,11 +92,11 @@ function Overview() {
           <article className={panel} id="donations">
             <div className="flex items-start justify-between p-5">
               <div>
-                <h2 className="text-[15px] font-semibold text-[#353248]">Recent activity</h2>
-                <p className="mt-1.5 text-xs text-[#9491a1]">Every donation, all in one place.</p>
+                <h2 className="text-[15px] font-semibold text-[#353248]">{t("recentActivity")}</h2>
+                <p className="mt-1.5 text-xs text-[#9491a1]">{t("everyDonation")}</p>
               </div>
               <Link to="/donations" className="flex items-center text-xs font-bold text-violet-600">
-                View all <ChevronRight aria-hidden="true" size={16} />
+                {t("viewAll")} <ChevronRight aria-hidden="true" size={16} />
               </Link>
             </div>
             <div>
@@ -107,8 +112,8 @@ function Overview() {
           <article className={`${panel} min-h-[290px] overflow-hidden`}>
             <div className="flex items-start justify-between p-5 pb-1">
               <div>
-                <h2 className="text-[15px] font-semibold text-[#353248]">Donation trends</h2>
-                <p className="mt-1.5 text-xs text-[#9491a1]">Your earnings over time.</p>
+                <h2 className="text-[15px] font-semibold text-[#353248]">{t("donationTrends")}</h2>
+                <p className="mt-1.5 text-xs text-[#9491a1]">{t("earningsOverTime")}</p>
               </div>
               <Button
                 className="h-auto rounded-md border-[#e3e1e9] bg-white px-2 py-1.5 text-[11px] font-semibold text-[#646176]"
@@ -116,7 +121,7 @@ function Overview() {
                 type="button"
                 variant="outline"
               >
-                Revenue <ChevronRight aria-hidden="true" size={15} />
+                {t("revenue")} <ChevronRight aria-hidden="true" size={15} />
               </Button>
             </div>
             <div className="relative h-52 px-4 pt-3 pb-2 pl-10">
@@ -128,11 +133,9 @@ function Overview() {
               </div>
               <MockChart className="h-[164px] w-full" />
               <div className="flex justify-between text-[10px] text-[#aaa6b5]">
-                <span>Jun 29</span>
-                <span>Jul 6</span>
-                <span>Jul 13</span>
-                <span>Jul 20</span>
-                <span>Jul 27</span>
+                {chartDates.map((date) => (
+                  <span key={date}>{date}</span>
+                ))}
               </div>
             </div>
           </article>
@@ -152,20 +155,18 @@ function Overview() {
                   className={`flex items-center gap-1 text-[10px] font-bold ${donationAlertsConnected ? "text-emerald-600" : "text-orange-500"}`}
                 >
                   <i className="size-1.5 rounded-full bg-current" />
-                  {donationAlertsConnected ? "Connected" : "Setup needed"}
+                  {t(donationAlertsConnected ? "connected" : "setupNeeded")}
                 </span>
               </div>
               <p className="mt-1.5 text-xs text-[#9491a1]">
-                {donationAlertsConnected
-                  ? "Donations are syncing automatically."
-                  : "Connect to bring all your donations here."}
+                {donationAlertsConnected ? t("automaticSync") : t("connectAllDonations")}
               </p>
             </div>
             <a
               className="ml-auto flex items-center gap-1 rounded-lg border border-[#e4e2e9] px-2.5 py-2 text-[11px] font-bold text-[#5f5b70]"
               href={authUrl.donationAlerts}
             >
-              Manage <ChevronRight aria-hidden="true" size={16} />
+              {t("manage")} <ChevronRight aria-hidden="true" size={16} />
             </a>
           </article>
           <article className="relative flex min-h-[120px] flex-wrap items-center gap-3 overflow-hidden rounded-xl bg-linear-to-r from-violet-700 to-violet-400 p-5 text-white">
@@ -173,16 +174,16 @@ function Overview() {
               <Copy aria-hidden="true" />
             </div>
             <div>
-              <h2 className="text-[13px] font-semibold">Ready for your overlay?</h2>
+              <h2 className="text-[13px] font-semibold">{t("readyForOverlay")}</h2>
               <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-violet-100">
-                Bring your donations to life on stream with a custom browser source.
+                {t("overlayDescription")}
               </p>
             </div>
             <Button
               className="z-10 ml-auto h-auto bg-white px-2.5 py-2 text-[11px] font-bold text-violet-700 hover:bg-white/90 dark:text-white"
               type="button"
             >
-              Create overlay <ChevronRight aria-hidden="true" size={17} />
+              {t("createOverlay")} <ChevronRight aria-hidden="true" size={17} />
             </Button>
             <span className="absolute -top-16 -right-16 size-[148px] rounded-full border border-white/15" />
           </article>

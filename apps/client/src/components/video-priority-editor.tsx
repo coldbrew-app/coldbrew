@@ -6,6 +6,7 @@ import { Check, Pencil, X } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 
+import { useI18n } from "../lib/i18n";
 import { Button } from "./ui/button";
 
 type VideoPriorityFormValues = {
@@ -20,6 +21,7 @@ type Props = {
 };
 
 export default function VideoPriorityEditor({ priority, isSelected, videoCount }: Props) {
+  const { t } = useI18n();
   const [isEditing, setIsEditing] = useState(false);
   const updateVideoPriorityM = useUpdateVideoPriorityM();
   const { formState, handleSubmit, register, reset } = useForm<VideoPriorityFormValues>({
@@ -66,7 +68,7 @@ export default function VideoPriorityEditor({ priority, isSelected, videoCount }
         )}
       >
         <Link
-          aria-label={`Select ${priority.label} queue filter`}
+          aria-label={t("selectQueueFilter", { label: priority.label })}
           className="absolute inset-0 rounded-lg"
           search={(previous) => ({
             videoPriorityId: priority.videoPriorityId,
@@ -75,7 +77,7 @@ export default function VideoPriorityEditor({ priority, isSelected, videoCount }
           to="/donations/videos"
         />
         <Button
-          aria-label="Edit queue"
+          aria-label={t("editQueue")}
           className="pointer-events-auto relative"
           onClick={startEditing}
           size="icon-xs"
@@ -86,7 +88,9 @@ export default function VideoPriorityEditor({ priority, isSelected, videoCount }
         </Button>
         <div className="pointer-events-none flex min-w-0 grow items-center gap-2 px-1.5 py-1 text-left text-xs">
           <span className="min-w-0 grow truncate">{priority.label}</span>
-          <span className="w-20 shrink-0 text-right">{priority.minPricePerMinute} ₽/мин</span>
+          <span className="w-20 shrink-0 text-right">
+            {priority.minPricePerMinute} ₽/{t("perMinute")}
+          </span>
           <span className="shrink-0 text-[10px] font-bold">{videoCount}</span>
         </div>
       </div>
@@ -100,7 +104,7 @@ export default function VideoPriorityEditor({ priority, isSelected, videoCount }
     >
       <div className="flex items-center gap-2">
         <Button
-          aria-label="Cancel editing"
+          aria-label={t("cancelEditing")}
           disabled={updateVideoPriorityM.isPending}
           onClick={cancelEditing}
           size="icon-xs"
@@ -110,17 +114,17 @@ export default function VideoPriorityEditor({ priority, isSelected, videoCount }
           <X aria-hidden="true" />
         </Button>
         <label className="min-w-0 grow">
-          <span className="sr-only">Name</span>
+          <span className="sr-only">{t("name")}</span>
           <input
             autoComplete="off"
             aria-invalid={Boolean(formState.errors.label)}
             className="h-6 w-full rounded-md border border-[#e5e3ea] bg-transparent px-2 text-xs text-[#353248] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-[#4a4455] dark:text-[#e4dfed]"
             maxLength={64}
-            {...register("label", { required: "Enter a queue name." })}
+            {...register("label", { required: t("enterQueueName") })}
           />
         </label>
         <label className="w-20 shrink-0">
-          <span className="sr-only">Minimum amount per minute</span>
+          <span className="sr-only">{t("minimumAmountPerMinute")}</span>
           <input
             autoComplete="off"
             aria-invalid={Boolean(formState.errors.minPricePerMinute)}
@@ -129,15 +133,15 @@ export default function VideoPriorityEditor({ priority, isSelected, videoCount }
             step="any"
             type="number"
             {...register("minPricePerMinute", {
-              required: "Enter a minimum amount.",
+              required: t("enterMinimumAmount"),
               valueAsNumber: true,
               validate: (value) =>
-                (Number.isFinite(value) && value >= 0) || "Enter an amount of zero or more.",
+                (Number.isFinite(value) && value >= 0) || t("enterAmountZeroOrMore"),
             })}
           />
         </label>
         <Button
-          aria-label={updateVideoPriorityM.isPending ? "Saving queue" : "Save queue"}
+          aria-label={t(updateVideoPriorityM.isPending ? "savingQueue" : "saveQueue")}
           disabled={!formState.isValid || !formState.isDirty || updateVideoPriorityM.isPending}
           size="icon-xs"
           type="submit"
