@@ -4,7 +4,6 @@ import { buttonVariants } from "@client/components/ui/button";
 import VideoCard from "@client/components/video-card";
 import VideoPriorities from "@client/components/video-priorities";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { CheckCircle2, Circle, List, Wallet } from "lucide-react";
 import { z } from "zod";
 
 import { useUpdateVideoM, useUpdateVideoStatusM, useVideosQ } from "../hooks/api";
@@ -74,19 +73,19 @@ function VideoQueue() {
       id: "all" satisfies typeof activeTab,
       label: t("all"),
       count: videos.length,
-      icon: List,
+      icon: Icons.list,
     },
     {
       id: "notwatched" satisfies typeof activeTab,
       label: t("notWatched"),
       count: videos.filter((video) => video.watchedAt === null).length,
-      icon: Circle,
+      icon: Icons.notWatched,
     },
     {
       id: "watched" satisfies typeof activeTab,
       label: t("watched"),
       count: videos.filter((video) => video.watchedAt !== null).length,
-      icon: CheckCircle2,
+      icon: Icons.watched,
     },
     {
       id: "saved" satisfies typeof activeTab,
@@ -130,7 +129,7 @@ function VideoQueue() {
             <div className="grid min-h-64 place-items-center px-5 text-center">
               <div className="flex flex-col items-center gap-2">
                 <div className="grid size-11 place-items-center rounded-xl bg-violet-100 text-violet-600">
-                  <Wallet aria-hidden="true" size={20} />
+                  <Icons.wallet aria-hidden="true" size={20} />
                 </div>
                 <h3 className="text-sm font-semibold text-[#4c485b]">
                   {videos.length

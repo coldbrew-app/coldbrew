@@ -1,7 +1,7 @@
+import { Icons } from "@client/components/icons";
 import VideoCard from "@client/components/video-card";
 import { SlugSchema } from "@omnistream/packages/schemas.js";
 import { createFileRoute } from "@tanstack/react-router";
-import { Wallet } from "lucide-react";
 import { z } from "zod";
 
 import { useSharedVideosQ } from "../hooks/api";
@@ -42,7 +42,7 @@ function SharedVideoQueue() {
           <div className="grid min-h-64 place-items-center px-5 text-center">
             <div>
               <div className="mx-auto grid size-11 place-items-center rounded-xl bg-violet-100 text-violet-600">
-                <Wallet aria-hidden="true" size={20} />
+                <Icons.wallet aria-hidden="true" size={20} />
               </div>
               <h2 className="mt-4 text-sm font-semibold text-[#4c485b]">
                 {t(videosQ.data === null ? "queueNotFound" : "noVideosInQueue")}

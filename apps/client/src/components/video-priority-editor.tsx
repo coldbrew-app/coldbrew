@@ -2,11 +2,11 @@ import { useUpdateVideoPriorityM } from "@client/hooks/api";
 import { cn } from "@client/lib/utils";
 import { VideoPriority } from "@omnistream/packages/schemas.js";
 import { Link } from "@tanstack/react-router";
-import { Check, Pencil, X } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { useI18n } from "../lib/i18n";
+import { Icons } from "./icons";
 import { Button } from "./ui/button";
 
 type VideoPriorityFormValues = {
@@ -84,7 +84,7 @@ export default function VideoPriorityEditor({ priority, isSelected, videoCount }
           type="button"
           variant="outline"
         >
-          <Pencil aria-hidden="true" />
+          <Icons.edit aria-hidden="true" />
         </Button>
         <div className="pointer-events-none flex min-w-0 grow items-center gap-2 px-1.5 py-1 text-left text-xs">
           <span className="min-w-0 grow truncate">{priority.label}</span>
@@ -111,7 +111,7 @@ export default function VideoPriorityEditor({ priority, isSelected, videoCount }
           type="button"
           variant="outline"
         >
-          <X aria-hidden="true" />
+          <Icons.cancel aria-hidden="true" />
         </Button>
         <label className="min-w-0 grow">
           <span className="sr-only">{t("name")}</span>
@@ -146,7 +146,7 @@ export default function VideoPriorityEditor({ priority, isSelected, videoCount }
           size="icon-xs"
           type="submit"
         >
-          <Check aria-hidden="true" />
+          <Icons.checked aria-hidden="true" />
         </Button>
       </div>
       {(formState.errors.label || formState.errors.minPricePerMinute) && (

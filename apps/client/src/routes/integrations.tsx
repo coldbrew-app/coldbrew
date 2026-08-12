@@ -1,6 +1,6 @@
+import { Icons } from "@client/components/icons";
 import { Button } from "@client/components/ui/button";
 import { createFileRoute } from "@tanstack/react-router";
-import { Check, ChevronRight, ShieldCheck } from "lucide-react";
 
 import { useAuthUrl, useDisconnectM, useUserInfo } from "../hooks/api";
 import { useI18n } from "../lib/i18n";
@@ -68,19 +68,19 @@ function RouteComponent() {
                 href={authUrl.donationAlerts}
               >
                 {t("connectDonationAlerts")}
-                <ChevronRight aria-hidden="true" size={16} />
+                <Icons.chevronRight aria-hidden="true" size={16} />
               </a>
             )}
           </div>
           <div className="flex items-center gap-2 border-t border-[#f0eff3] bg-[#fcfcfd] px-5 py-3 text-xs text-[#888597] sm:px-6">
-            <ShieldCheck aria-hidden="true" size={15} className="shrink-0 text-violet-600" />
+            <Icons.secure aria-hidden="true" size={15} className="shrink-0 text-violet-600" />
             {t("secureAuthorization")}
           </div>
         </article>
 
         <div className="mt-5 flex items-center gap-2 text-xs text-[#9895a6]">
-          <Check aria-hidden="true" size={15} className="text-emerald-600" />
-          {t("moreIntegrations")}
+          <Icons.checked aria-hidden="true" size={15} className="text-emerald-600" />
+          {t("moreIntegrationsSoon")}
         </div>
       </div>
     </section>

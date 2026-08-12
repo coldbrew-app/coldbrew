@@ -1,21 +1,10 @@
 import { Link, Outlet, createRootRoute, useRouterState } from "@tanstack/react-router";
-import {
-  Bell,
-  LayoutDashboard,
-  LogOut,
-  Moon,
-  Plug,
-  Settings,
-  Sun,
-  TriangleAlert,
-  Wallet,
-} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import logo from "../../assets/logo.svg";
 import { signOut, useSession } from "../lib/auth-client";
-import { useI18n } from "../lib/i18n";
 import type { Locale } from "../lib/i18n";
+import { useI18n } from "../lib/i18n";
 
 const navItem =
   "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium text-[#77758b] transition hover:bg-violet-50 hover:text-violet-700";
@@ -26,6 +15,7 @@ export const Route = createRootRoute({
   component: Root,
 });
 
+import { Icons } from "@client/components/icons";
 import SignIn from "@client/components/sign-in";
 import { Button } from "@client/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@client/components/ui/tooltip";
@@ -98,19 +88,16 @@ function Root() {
             className={navItem}
             to="/"
           >
-            <LayoutDashboard aria-hidden="true" />
+            <Icons.dashboard aria-hidden="true" />
             {t("overview")}
           </Link>
           <Link activeProps={{ className: activeNavItem }} className={navItem} to="/donations">
-            <Wallet aria-hidden="true" />
+            <Icons.wallet aria-hidden="true" />
             {t("donations")}
           </Link>
           <Link activeProps={{ className: activeNavItem }} className={navItem} to="/integrations">
-            <Plug aria-hidden="true" />
+            <Icons.integrations aria-hidden="true" />
             {t("integrations")}
-            <span className="ml-auto grid size-[18px] place-items-center rounded-full bg-violet-500 text-[11px] text-white">
-              1
-            </span>
           </Link>
           <Link
             activeProps={{ className: activeNavItem }}
@@ -118,7 +105,7 @@ function Root() {
             className={navItem}
             to="/alerts"
           >
-            <Bell aria-hidden="true" />
+            <Icons.alerts aria-hidden="true" />
             {t("alerts")}
             <Tooltip>
               <TooltipTrigger>🚧</TooltipTrigger>
@@ -135,7 +122,7 @@ function Root() {
               className="grid size-8 place-items-center rounded-lg text-[#77758b] transition hover:bg-violet-50 hover:text-violet-700"
               to="/settings"
             >
-              <Settings aria-hidden="true" size={18} />
+              <Icons.settings aria-hidden="true" size={18} />
             </Link>
             <div className="flex items-center gap-1.5">
               <Tooltip>
@@ -147,9 +134,9 @@ function Root() {
                   type="button"
                 >
                   {isDark ? (
-                    <Sun aria-hidden="true" size={15} />
+                    <Icons.sun aria-hidden="true" size={15} />
                   ) : (
-                    <Moon aria-hidden="true" size={15} />
+                    <Icons.moon aria-hidden="true" size={15} />
                   )}
                 </TooltipTrigger>
                 <TooltipContent>
@@ -220,7 +207,7 @@ function Root() {
                 onClick={() => signOut()}
                 type="button"
               >
-                <LogOut aria-hidden="true" size={18} />
+                <Icons.logout aria-hidden="true" size={18} />
               </TooltipTrigger>
               <TooltipContent>{t("logOut")}</TooltipContent>
             </Tooltip>
@@ -232,7 +219,7 @@ function Root() {
           className="flex shrink-0 items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-100"
           role="alert"
         >
-          <TriangleAlert
+          <Icons.warn
             aria-hidden="true"
             className="size-5 shrink-0 text-amber-600 dark:text-amber-300"
           />

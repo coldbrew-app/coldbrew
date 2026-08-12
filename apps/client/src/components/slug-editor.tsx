@@ -2,11 +2,11 @@ import { Button } from "@client/components/ui/button";
 import { useSetSlugM, useSlug } from "@client/hooks/api";
 import { cn } from "@client/lib/utils";
 import { SlugSchema } from "@omnistream/packages/schemas.js";
-import { Check, Copy } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { useI18n } from "../lib/i18n";
+import { Icons } from "./icons";
 
 type Props = {
   className?: string;
@@ -83,7 +83,7 @@ export function SlugEditor({ className }: Props) {
               {t(setSlugM.isPending ? "saving" : "save")}
             </Button>
             <Button onClick={() => void copyShareUrl()} size="sm" type="button" variant="outline">
-              {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
+              {copied ? <Icons.copied aria-hidden="true" /> : <Icons.copy aria-hidden="true" />}
               {t(copied ? "copied" : "copy")}
             </Button>
           </div>

@@ -1,7 +1,6 @@
 import { fmtAmount, fmtDate, formatRelativeDate } from "@client/lib/fmt";
 import { Video } from "@omnistream/server";
 import { clsx } from "clsx";
-import { Check, CheckCircle2, Circle, Pencil, X } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 
@@ -139,7 +138,7 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
                   type="button"
                   variant="ghost"
                 >
-                  <Pencil aria-hidden="true" />
+                  <Icons.edit aria-hidden="true" />
                 </Button>
               )}
             </div>
@@ -220,11 +219,11 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
                   type="button"
                   variant="outline"
                 >
-                  <X aria-hidden="true" />
+                  <Icons.cancel aria-hidden="true" />
                   {t("cancelEditing")}
                 </Button>
                 <Button disabled={!formState.isValid || isUpdating} size="sm" type="submit">
-                  <Check aria-hidden="true" />
+                  <Icons.submit aria-hidden="true" />
                   {t("save")}
                 </Button>
               </div>
@@ -266,7 +265,7 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
                   size="sm"
                   variant={isWatched ? "secondary" : "outline"}
                 >
-                  {isWatched ? <CheckCircle2 aria-hidden="true" /> : <Circle aria-hidden="true" />}
+                  {isWatched ? <Icons.watched aria-hidden="true" /> : <Icons.notWatched aria-hidden="true" />}
                   {t("watched")}
                 </Button>
                 <Button

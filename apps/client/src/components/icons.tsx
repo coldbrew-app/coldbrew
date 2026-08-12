@@ -1,5 +1,31 @@
-import { Bookmark } from "lucide-react";
+import * as icons from "lucide-react";
 
 export const Icons = {
-  bookmark: Bookmark,
+  alerts: icons.Bell,
+  bookmark: icons.Bookmark,
+  cancel: icons.X,
+  checked: icons.Check,
+  chevronDown: icons.ChevronDown,
+  chevronRight: icons.ChevronRight,
+  copied: icons.Check,
+  copy: icons.Copy,
+  dashboard: icons.LayoutDashboard,
+  dateRange: icons.ChevronRight,
+  donations: icons.Sparkles,
+  edit: icons.Pencil,
+  filter: icons.SlidersHorizontal,
+  integrations: icons.Plug,
+  list: icons.List,
+  logout: icons.LogOut,
+  moon: icons.Moon,
+  notWatched: icons.Circle,
+  platform: icons.Share2,
+  search: icons.Search,
+  secure: icons.ShieldCheck,
+  settings: icons.Settings,
+  submit: icons.Check,
+  sun: icons.Sun,
+  wallet: icons.Wallet,
+  warn: icons.TriangleAlert,
+  watched: icons.CheckCircle2,
 };

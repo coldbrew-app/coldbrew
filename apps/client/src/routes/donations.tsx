@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
-import { SlidersHorizontal } from "lucide-react";
+import { Icons } from "@client/components/icons";
 
 import { useI18n } from "../lib/i18n";
 
@@ -58,7 +58,7 @@ function DonationsLayout() {
               </div>
               {activeTab === "donations" && (
                 <div className="flex items-center gap-2">
-                  <SlidersHorizontal aria-hidden="true" size={15} className="text-violet-600" />
+                  <Icons.filter aria-hidden="true" size={15} className="text-violet-600" />
                   <span className="text-xs font-semibold text-[#676376]">DonationAlerts</span>
                 </div>
               )}

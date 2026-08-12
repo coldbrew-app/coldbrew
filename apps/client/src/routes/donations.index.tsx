@@ -1,6 +1,6 @@
 import DonationCard from "@client/components/donation-card";
+import { Icons } from "@client/components/icons";
 import { createFileRoute } from "@tanstack/react-router";
-import { ChevronDown, Search, Wallet } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { useDonationsQ } from "../hooks/api";
@@ -39,7 +39,7 @@ function DonationsIndex() {
     <>
       <div className="flex flex-col gap-2 border-b border-[#efedf3] p-4 sm:flex-row sm:p-5">
         <label className="relative min-w-0 grow">
-          <Search
+          <Icons.search
             aria-hidden="true"
             size={16}
             className="absolute top-1/2 left-3 -translate-y-1/2 text-[#a19eae]"
@@ -63,7 +63,7 @@ function DonationsIndex() {
             <option value="week">{t("last7Days")}</option>
             <option value="month">{t("last30Days")}</option>
           </select>
-          <ChevronDown
+          <Icons.chevronDown
             aria-hidden="true"
             size={15}
             className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-[#898596]"
@@ -96,7 +96,7 @@ function EmptyDonations({ query }: { query: string }) {
     <div className="grid min-h-64 place-items-center px-5 text-center">
       <div>
         <div className="mx-auto grid size-11 place-items-center rounded-xl bg-violet-100 text-violet-600">
-          <Wallet aria-hidden="true" size={20} />
+          <Icons.wallet aria-hidden="true" size={20} />
         </div>
         <h3 className="mt-4 text-sm font-semibold text-[#4c485b]">
           {t(query ? "noMatchingDonations" : "noDonationsYet")}

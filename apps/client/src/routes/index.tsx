@@ -1,11 +1,11 @@
 import { Metric } from "@client/components/dashboard/metric";
 import DonationCard from "@client/components/donation-card";
+import { Icons } from "@client/components/icons";
 import MockChart from "@client/components/mock-chart";
 import { Button } from "@client/components/ui/button";
 import { fmtAmount } from "@client/lib/fmt";
 import { useI18n } from "@client/lib/i18n";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronRight, Copy, Share2, Sparkles, Wallet } from "lucide-react";
 import { z } from "zod";
 
 import { useAuthUrl, useDonationsQ as useDonations, useUserInfo } from "../hooks/api";
@@ -50,7 +50,7 @@ function Overview() {
             type="button"
             variant="outline"
           >
-            {t("last30Days")} <ChevronRight aria-hidden="true" size={16} />
+            {t("last30Days")} <Icons.dateRange aria-hidden="true" size={16} />
           </Button>
         </div>
         {success !== undefined && (
@@ -69,7 +69,7 @@ function Overview() {
             value={fmtAmount(total, locale)}
             note="↗ 18.2%"
             subnote={t("versusPreviousPeriod")}
-            icon={Wallet}
+            icon={Icons.wallet}
             iconClass="bg-violet-100 text-violet-600"
           />
           <Metric
@@ -77,14 +77,14 @@ function Overview() {
             value={String(donationsLength)}
             note="↗ 12.5%"
             subnote={t("versusPreviousPeriod")}
-            icon={Sparkles}
+            icon={Icons.donations}
             iconClass="bg-orange-50 text-orange-500"
           />
           <Metric
             title={t("averageDonation")}
             value={fmtAmount(Math.round(total / donationsLength), locale)}
             note={t("acrossPlatforms")}
-            icon={Share2}
+            icon={Icons.platform}
             iconClass="bg-sky-50 text-sky-500"
           />
         </section>
@@ -96,7 +96,7 @@ function Overview() {
                 <p className="mt-1.5 text-xs text-[#9491a1]">{t("everyDonation")}</p>
               </div>
               <Link to="/donations" className="flex items-center text-xs font-bold text-violet-600">
-                {t("viewAll")} <ChevronRight aria-hidden="true" size={16} />
+                {t("viewAll")} <Icons.chevronRight aria-hidden="true" size={16} />
               </Link>
             </div>
             <div>
@@ -121,7 +121,7 @@ function Overview() {
                 type="button"
                 variant="outline"
               >
-                {t("revenue")} <ChevronRight aria-hidden="true" size={15} />
+                {t("revenue")} <Icons.chevronRight aria-hidden="true" size={15} />
               </Button>
             </div>
             <div className="relative h-52 px-4 pt-3 pb-2 pl-10">
@@ -166,12 +166,12 @@ function Overview() {
               className="ml-auto flex items-center gap-1 rounded-lg border border-[#e4e2e9] px-2.5 py-2 text-[11px] font-bold text-[#5f5b70]"
               href={authUrl.donationAlerts}
             >
-              {t("manage")} <ChevronRight aria-hidden="true" size={16} />
+              {t("manage")} <Icons.chevronRight aria-hidden="true" size={16} />
             </a>
           </article>
           <article className="relative flex min-h-[120px] flex-wrap items-center gap-3 overflow-hidden rounded-xl bg-linear-to-r from-violet-700 to-violet-400 p-5 text-white">
             <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-white/15">
-              <Copy aria-hidden="true" />
+              <Icons.copy aria-hidden="true" />
             </div>
             <div>
               <h2 className="text-[13px] font-semibold">{t("readyForOverlay")}</h2>
@@ -183,7 +183,7 @@ function Overview() {
               className="z-10 ml-auto h-auto bg-white px-2.5 py-2 text-[11px] font-bold text-violet-700 hover:bg-white/90 dark:text-white"
               type="button"
             >
-              {t("createOverlay")} <ChevronRight aria-hidden="true" size={17} />
+              {t("createOverlay")} <Icons.chevronRight aria-hidden="true" size={17} />
             </Button>
             <span className="absolute -top-16 -right-16 size-[148px] rounded-full border border-white/15" />
           </article>
