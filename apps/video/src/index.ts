@@ -7,7 +7,7 @@ import dedent from "dedent-js";
 
 import { store } from "./sensors/db/index.js";
 import { VideoToSave } from "./sensors/db/store.js";
-import { extractYoutubeUrls, getYoutubeDurationSeconds } from "./youtube.js";
+import { extractYoutubeUrls, getYoutubeDurationMinutes } from "./youtube.js";
 
 async function main() {
   while (true) {
@@ -21,30 +21,30 @@ async function main() {
       const videos: VideoToSave[] = [];
 
       urls_loop: for (const url of urls) {
-        const $durationSeconds = await getYoutubeDurationSeconds(url);
+        const $durationMinutes = await getYoutubeDurationMinutes(url);
 
-        if ($durationSeconds.isOk()) {
+        if ($durationMinutes.isOk()) {
           logger.debug("videos.push", {
             url,
             amount: donation.amount,
-            durationSeconds: $durationSeconds.value,
+            durationMinutes: $durationMinutes.value,
           });
           videos.push({
             url,
             amount: donation.amount,
-            durationSeconds: $durationSeconds.value,
+            durationMinutes: $durationMinutes.value,
           });
           continue urls_loop;
         }
 
         logger.warn(dedent`
           skip url: "${url}".
-          ${$durationSeconds.error}
+          ${$durationMinutes.error}
         `);
 
         if (
-          isInstanceof($durationSeconds.error, HttpError) &&
-          $durationSeconds.error.status == HTTP_STATUS.TOO_MANY_REQUESTS
+          isInstanceof($durationMinutes.error, HttpError) &&
+          $durationMinutes.error.status == HTTP_STATUS.TOO_MANY_REQUESTS
         ) {
           continue donations_loop;
         } else {

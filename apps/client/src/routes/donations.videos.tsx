@@ -7,7 +7,7 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { CheckCircle2, Circle, List, Wallet } from "lucide-react";
 import { z } from "zod";
 
-import { useUpdateVideoAmountM, useUpdateVideoStatusM, useVideosQ } from "../hooks/api";
+import { useUpdateVideoM, useUpdateVideoStatusM, useVideosQ } from "../hooks/api";
 
 export const Route = createFileRoute("/donations/videos")({
   component: VideoQueue,
@@ -26,7 +26,7 @@ export const Route = createFileRoute("/donations/videos")({
 function VideoQueue() {
   const videosQ = useVideosQ();
   const updateVideoStatusM = useUpdateVideoStatusM();
-  const updateVideoAmountM = useUpdateVideoAmountM();
+  const updateVideoM = useUpdateVideoM();
   const selectedVideoPriorityId = Route.useSearch({
     select: (search) => (search.videoPriorityId === "all" ? null : search.videoPriorityId),
   });
@@ -109,12 +109,12 @@ function VideoQueue() {
             <div className="divide-y divide-[#f0eff3]">
               {visibleVideos.map((video) => (
                 <VideoCard
-                  isUpdating={updateVideoStatusM.isPending || updateVideoAmountM.isPending}
+                  isUpdating={updateVideoStatusM.isPending || updateVideoM.isPending}
                   key={video.videoId}
-                  onAmountChange={(amount) =>
-                    updateVideoAmountM.mutateAsync({
+                  onUpdate={(input) =>
+                    updateVideoM.mutateAsync({
                       videoId: video.videoId,
-                      amount,
+                      ...input,
                     })
                   }
                   onStatusChange={(status) =>

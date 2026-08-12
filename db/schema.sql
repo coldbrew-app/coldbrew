@@ -1,6 +1,6 @@
 CREATE TYPE donation_origin AS ENUM ('donationalerts');
 CREATE DOMAIN js_date AS timestamptz(3);
-
+CREATE DOMAIN uint AS integer CHECK (VALUE >= 0);
 -- auth
 
 CREATE TABLE auth_user (
@@ -94,7 +94,7 @@ CREATE TABLE video (
   donation_id       int     NOT NULL REFERENCES donation (donation_id),
   url               text    NOT NULL,
   amount            float   NOT NULL,
-  duration_seconds  int         NULL,
+  duration_minutes  uint        NULL,
   watched_at        js_date     NULL,
   saved_at          js_date     NULL,
   video_priority_id int     NOT NULL REFERENCES video_priority (video_priority_id),
@@ -113,7 +113,7 @@ BEGIN
   FROM donation
   JOIN video_priority ON video_priority.user_id = donation.user_id
   WHERE donation.donation_id = NEW.donation_id
-    AND video_priority.min_price_per_minute < NEW.amount / CEIL(NEW.duration_seconds::float / 60)
+    AND video_priority.min_price_per_minute < NEW.amount / NEW.duration_minutes
   ORDER BY video_priority.min_price_per_minute DESC, video_priority.video_priority_id ASC
   LIMIT 1;
 
@@ -122,6 +122,6 @@ END;
 $$;
 
 CREATE TRIGGER set_video_priority_id
-BEFORE INSERT OR UPDATE OF amount, duration_seconds, donation_id ON video
+BEFORE INSERT OR UPDATE OF amount, duration_minutes, donation_id ON video
 FOR EACH ROW
 EXECUTE FUNCTION set_video_priority_id();

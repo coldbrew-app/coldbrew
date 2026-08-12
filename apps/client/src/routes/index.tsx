@@ -77,7 +77,7 @@ function Overview() {
           />
           <Metric
             title="Average donation"
-            value={fmtAmount(Math.round((total || 24850) / donationsLength))}
+            value={fmtAmount(Math.round(total / donationsLength))}
             note="Across all connected platforms"
             icon={Share2}
             iconClass="bg-sky-50 text-sky-500"

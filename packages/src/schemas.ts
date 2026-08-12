@@ -3,6 +3,15 @@ import { z } from "zod";
 export const UserIdSchema = z.number().brand("user id");
 export type UserId = z.infer<typeof UserIdSchema>;
 
+export const VideoIdSchema = z.coerce.bigint().brand("video id");
+export type VideoId = z.infer<typeof VideoIdSchema>;
+
+export const VideoPriorityIdSchema = z.number().brand("video priority id");
+export type VideoPriorityId = z.infer<typeof VideoPriorityIdSchema>;
+
+export const DonationIdSchema = z.coerce.bigint().brand("donation id");
+export type DonationId = z.infer<typeof DonationIdSchema>;
+
 export const SlugSchema = z
   .string()
   .regex(/^@[a-zA-Z0-9\-]{3,47}$/)
@@ -22,7 +31,7 @@ export const DonationSourceSchema = z.enum(["donationalerts"]);
 export type DonationSource = z.infer<typeof DonationSourceSchema>;
 
 export const DonationSchema = z.object({
-  donationId: z.coerce.bigint(),
+  donationId: DonationIdSchema,
 
   origin: DonationSourceSchema,
   originDonationId: z.string(),
@@ -36,11 +45,11 @@ export const DonationSchema = z.object({
 export type Donation = z.infer<typeof DonationSchema>;
 
 export const VideoSchema = z.object({
-  videoId: z.coerce.bigint(),
-  videoPriorityId: z.number().int().positive(),
+  videoId: VideoIdSchema,
+  videoPriorityId: VideoPriorityIdSchema,
   url: z.url(),
   amount: z.number(),
-  durationSeconds: z.number().int().nonnegative().nullable(),
+  durationMinutes: z.number().int().nonnegative().nullable(),
   priorityLabel: z.string().nullable(),
   watchedAt: z.coerce.date().nullable(),
   savedAt: z.coerce.date().nullable(),

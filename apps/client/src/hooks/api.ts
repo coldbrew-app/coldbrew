@@ -74,10 +74,10 @@ export function useUpdateVideoStatusM() {
   );
 }
 
-export function useUpdateVideoAmountM() {
+export function useUpdateVideoM() {
   const client = useQueryClient();
   return useMutation(
-    trpc.updateVideoAmount.mutationOptions({
+    trpc.updateVideo.mutationOptions({
       onSuccess() {
         client.invalidateQueries({ queryKey: trpc.videos.queryKey() });
       },

@@ -23,13 +23,14 @@ export class DataNotFoundError extends createTaggedError({
   message: "not found $data\nsource:\n$source",
 }) {}
 
-export function getYoutubeDurationSeconds(url: string) {
+export function getYoutubeDurationMinutes(url: string) {
   return fetchText(url).andThen((html) => {
     const duration = html.match(/"lengthSeconds":"(\d+)"/)?.[1];
     if (duration === undefined) {
       return err(new DataNotFoundError({ data: "duration", source: html }));
     }
-    return ok(+duration);
+    const { max, ceil } = Math;
+    return ok(max(1, ceil((+duration - 15) / 60)));
   });
 }
 

@@ -6,7 +6,7 @@ import { z } from "zod";
 
 export type VideoToSave = {
   amount: number;
-  durationSeconds: number | null;
+  durationMinutes: number | null;
   url: string;
 };
 
@@ -41,10 +41,10 @@ export class Store {
         await sql`
           WITH input AS (
             SELECT *
-            FROM jsonb_to_recordset(${jsonb(sql, videos)}::jsonb) as t (url text, amount float, duration_seconds int)
+            FROM jsonb_to_recordset(${jsonb(sql, videos)}::jsonb) as t (url text, amount float, duration_minutes int)
           )
-          INSERT INTO video (donation_id,         url, amount, duration_seconds)
-          SELECT           ${String(donationId)}, url, amount, duration_seconds
+          INSERT INTO video (donation_id,         url, amount, duration_minutes)
+          SELECT           ${String(donationId)}, url, amount, duration_minutes
           FROM input
           ON CONFLICT (donation_id, url) DO NOTHING
         `;

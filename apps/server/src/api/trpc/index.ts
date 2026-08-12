@@ -1,6 +1,6 @@
 import { readonlyUrl } from "@lebedevna/readonly-url";
 import { DONATION_ALERTS_SCOPES } from "@omnistream/packages/donationalerts.js";
-import { SlugSchema, VideoPrioritySchema } from "@omnistream/packages/schemas.js";
+import { SlugSchema, VideoIdSchema, VideoPrioritySchema } from "@omnistream/packages/schemas.js";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -70,7 +70,7 @@ export const appRouter = router({
     .input(
       z
         .object({
-          videoId: z.bigint().positive(),
+          videoId: VideoIdSchema,
           watchedAt: z.date().nullable().optional(),
           savedAt: z.date().nullable().optional(),
         })
@@ -84,18 +84,20 @@ export const appRouter = router({
       }
     }),
 
-  updateVideoAmount: authenticatedProcedure
+  updateVideo: authenticatedProcedure
     .input(
       z.object({
-        videoId: z.bigint().positive(),
+        videoId: VideoIdSchema,
         amount: z.number().nonnegative(),
+        durationMinutes: z.number().int().nonnegative(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const wasUpdated = await store.updateVideoAmount(
+      const wasUpdated = await store.updateVideo(
         ctx.userId,
         input.videoId,
         input.amount,
+        input.durationMinutes,
       );
 
       if (!wasUpdated) {

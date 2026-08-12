@@ -1,4 +1,4 @@
-import { fmtAmount, fmtDate, fmtDuration, formatRelativeDate } from "@client/lib/fmt";
+import { fmtAmount, fmtDate, formatRelativeDate } from "@client/lib/fmt";
 import { Video } from "@omnistream/server";
 import { clsx } from "clsx";
 import { Check, CheckCircle2, Circle, Pencil, X } from "lucide-react";
@@ -12,12 +12,13 @@ import { Button } from "./ui/button";
 type Props = {
   video: Video;
   onStatusChange?: (status: { watchedAt?: Date | null; savedAt?: Date | null }) => void;
-  onAmountChange?: (amount: number) => Promise<void>;
+  onUpdate?: (input: { amount: number; durationMinutes: number }) => Promise<void>;
   isUpdating?: boolean;
 };
 
-type VideoAmountFormValues = {
+type VideoFormValues = {
   amount: number;
+  durationMinutes: number;
 };
 
 const getYoutubeEmbedUrl = (url: string) => {
@@ -42,7 +43,7 @@ const normalizeUrl = (url: string) => {
 export default function VideoCard({
   video,
   onStatusChange,
-  onAmountChange,
+  onUpdate,
   isUpdating = false,
 }: Props) {
   const author = video.donation.author ?? "Anonymous";
@@ -50,31 +51,34 @@ export default function VideoCard({
   const embedUrl = getYoutubeEmbedUrl(video.url);
   const isWatched = video.watchedAt !== null;
   const isSaved = video.savedAt !== null;
-  const [isEditingAmount, setIsEditingAmount] = useState(false);
-  const { formState, handleSubmit, register, reset } = useForm<VideoAmountFormValues>({
-    defaultValues: { amount: video.amount },
+  const [isEditing, setIsEditing] = useState(false);
+  const { formState, handleSubmit, register, reset } = useForm<VideoFormValues>({
+    defaultValues: {
+      amount: video.amount,
+      durationMinutes: video.durationMinutes ?? 0,
+    },
     mode: "onChange",
   });
 
-  const startEditingAmount = () => {
-    reset({ amount: video.amount });
-    setIsEditingAmount(true);
+  const startEditing = () => {
+    reset({ amount: video.amount, durationMinutes: video.durationMinutes ?? 0 });
+    setIsEditing(true);
   };
 
-  const cancelEditingAmount = () => {
-    reset({ amount: video.amount });
-    setIsEditingAmount(false);
+  const cancelEditing = () => {
+    reset({ amount: video.amount, durationMinutes: video.durationMinutes ?? 0 });
+    setIsEditing(false);
   };
 
-  const saveAmount = async ({ amount }: VideoAmountFormValues) => {
-    if (!onAmountChange) return;
-    await onAmountChange(amount);
-    setIsEditingAmount(false);
+  const save = async (input: VideoFormValues) => {
+    if (!onUpdate) return;
+    await onUpdate(input);
+    setIsEditing(false);
   };
 
   return (
     <article className="flex flex-col gap-3 px-4 py-4 sm:px-5">
-      <div className="flex gap-4">
+      <div className="flex items-start gap-4">
         <div className="flex flex-col gap-3 sm:flex-row">
           {embedUrl && (
             <div className="relative aspect-video overflow-hidden rounded-lg bg-[#f0eff3] sm:w-60 sm:shrink-0">
@@ -87,9 +91,9 @@ export default function VideoCard({
                 src={embedUrl}
                 title={`YouTube video from ${author}`}
               />
-              {video.durationSeconds !== null && (
+              {video.durationMinutes !== null && (
                 <span className="absolute right-2 bottom-2 rounded bg-black/75 px-1.5 py-0.5 text-[11px] font-medium text-white">
-                  {fmtDuration(video.durationSeconds)}
+                  {video.durationMinutes} min
                 </span>
               )}
             </div>
@@ -116,71 +120,100 @@ export default function VideoCard({
               </time>
             </div>
 
-            <div className="flex shrink-0 items-center gap-2">
-              {isEditingAmount ? (
-                <form
-                  className="flex items-center gap-1"
-                  onSubmit={(event) => void handleSubmit(saveAmount)(event)}
+            <div className="flex shrink-0 items-start gap-2">
+              <div className="flex flex-col items-end gap-0.5">
+                <strong className="block text-[13px] text-[#3f3b50]">{fmtAmount(video.amount)}</strong>
+                {!isEditing && (
+                  <span className="text-xs text-[#777385]">
+                    {video.durationMinutes === null ? "Unknown duration" : `${video.durationMinutes} min`}
+                  </span>
+                )}
+              </div>
+              {onUpdate && !isEditing && (
+                <Button
+                  aria-label="Edit video details"
+                  disabled={isUpdating}
+                  onClick={startEditing}
+                  size="icon-xs"
+                  type="button"
+                  variant="ghost"
                 >
-                  <label className="w-20">
-                    <span className="sr-only">Video priority amount</span>
-                    <input
-                      aria-invalid={Boolean(formState.errors.amount)}
-                      autoComplete="off"
-                      className="h-7 w-full rounded-md border border-[#e5e3ea] bg-transparent px-2 text-right text-xs text-[#353248] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-[#4a4455] dark:text-[#e4dfed]"
-                      disabled={isUpdating}
-                      min="0"
-                      step="any"
-                      type="number"
-                      {...register("amount", {
-                        required: "Enter a priority amount.",
-                        valueAsNumber: true,
-                        validate: (value) =>
-                          (Number.isFinite(value) && value >= 0) ||
-                          "Enter an amount of zero or more.",
-                      })}
-                    />
-                  </label>
-                  <Button
-                    aria-label="Save priority amount"
-                    disabled={!formState.isValid || isUpdating}
-                    size="icon-xs"
-                    type="submit"
-                  >
-                    <Check aria-hidden="true" />
-                  </Button>
-                  <Button
-                    aria-label="Cancel editing priority amount"
-                    disabled={isUpdating}
-                    onClick={cancelEditingAmount}
-                    size="icon-xs"
-                    type="button"
-                    variant="outline"
-                  >
-                    <X aria-hidden="true" />
-                  </Button>
-                </form>
-              ) : (
-                <>
-                  <strong className="block text-[13px] text-[#3f3b50]">
-                    {fmtAmount(video.amount)}
-                  </strong>
-                  {onAmountChange && (
-                    <Button
-                      aria-label="Edit priority amount"
-                      disabled={isUpdating}
-                      onClick={startEditingAmount}
-                      size="icon-xs"
-                      type="button"
-                      variant="ghost"
-                    >
-                      <Pencil aria-hidden="true" />
-                    </Button>
-                  )}
-                </>
+                  <Pencil aria-hidden="true" />
+                </Button>
               )}
             </div>
           </div>
+          {isEditing && (
+            <form
+              className="flex flex-col gap-3 rounded-lg border border-violet-100 bg-violet-50/60 p-3 dark:border-violet-900/60 dark:bg-violet-950/20"
+              onSubmit={(event) => void handleSubmit(save)(event)}
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-xs font-medium text-[#454157] dark:text-[#e4dfed]">Amount</span>
+                  <input
+                    aria-describedby="video-amount-help"
+                    aria-invalid={Boolean(formState.errors.amount)}
+                    autoComplete="off"
+                    className="h-8 w-full rounded-md border border-[#e5e3ea] bg-white px-2 text-sm text-[#353248] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-[#4a4455] dark:bg-transparent dark:text-[#e4dfed]"
+                    disabled={isUpdating}
+                    min="0"
+                    step="any"
+                    type="number"
+                    {...register("amount", {
+                      required: "Enter a priority amount.",
+                      valueAsNumber: true,
+                      validate: (value) =>
+                        (Number.isFinite(value) && value >= 0) || "Enter an amount of zero or more.",
+                    })}
+                  />
+                  <span className="text-[11px] leading-snug text-[#777385]" id="video-amount-help">
+                    Donation amount used to determine the video&apos;s priority.
+                  </span>
+                  {formState.errors.amount && (
+                    <span className="text-[11px] text-red-600">{formState.errors.amount.message}</span>
+                  )}
+                </label>
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-xs font-medium text-[#454157] dark:text-[#e4dfed]">Duration, min</span>
+                  <input
+                    aria-describedby="video-duration-help"
+                    aria-invalid={Boolean(formState.errors.durationMinutes)}
+                    autoComplete="off"
+                    className="h-8 w-full rounded-md border border-[#e5e3ea] bg-white px-2 text-sm text-[#353248] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-[#4a4455] dark:bg-transparent dark:text-[#e4dfed]"
+                    disabled={isUpdating}
+                    min="0"
+                    step="1"
+                    type="number"
+                    {...register("durationMinutes", {
+                      required: "Enter a duration.",
+                      valueAsNumber: true,
+                      validate: (value) =>
+                        (Number.isInteger(value) && value >= 0) || "Enter a whole number of minutes.",
+                    })}
+                  />
+                  <span className="text-[11px] leading-snug text-[#777385]" id="video-duration-help">
+                    Video length in whole minutes; it is used when calculating the queue.
+                  </span>
+                  {formState.errors.durationMinutes && (
+                    <span className="text-[11px] text-red-600">
+                      {formState.errors.durationMinutes.message}
+                    </span>
+                  )}
+                </label>
+              </div>
+              <div className="flex items-center justify-end gap-2">
+                <Button disabled={isUpdating} onClick={cancelEditing} size="sm" type="button" variant="outline">
+                  <X aria-hidden="true" />
+                  Cancel
+                </Button>
+                <Button disabled={!formState.isValid || isUpdating} size="sm" type="submit">
+                  <Check aria-hidden="true" />
+                  Save
+                </Button>
+              </div>
+            </form>
+          )}
           <p className="min-w-0 grow text-xs leading-relaxed text-[#8e8b9b] sm:py-1">
             {messageChunks.map((chunk, index) => {
               if (chunk.type === "string") {

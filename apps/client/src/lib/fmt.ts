@@ -20,17 +20,6 @@ export function fmtAmount(amount: number) {
   return amountFormatter.format(amount) + " ₽";
 }
 
-export function fmtDuration(seconds: number) {
-  const hours = Math.floor(seconds / 3_600);
-  const minutes = Math.floor((seconds % 3_600) / 60);
-  const remainingSeconds = seconds % 60;
-  const paddedSeconds = String(remainingSeconds).padStart(2, "0");
-
-  return hours > 0
-    ? `${hours}:${String(minutes).padStart(2, "0")}:${paddedSeconds}`
-    : `${minutes}:${paddedSeconds}`;
-}
-
 const relativeTime = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
 
 export function formatRelativeDate(date: Date) {

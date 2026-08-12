@@ -14,6 +14,7 @@ import {
   UserIdSchema,
   UserInfoSchema,
   Video,
+  VideoId,
   VideoPriority,
   VideoPrioritySchema,
   VideoSchema,
@@ -58,7 +59,7 @@ export class Store {
 
   async listVideos(userId: UserId): Promise<Video[]> {
     const rows = await this.sql`
-      SELECT video.video_id, video.video_priority_id, video.url, video.amount, video.duration_seconds, video.watched_at, video.saved_at, video_priority.label AS priority_label, to_jsonb(donation) donation
+      SELECT video.video_id, video.video_priority_id, video.url, video.amount, video.duration_minutes, video.watched_at, video.saved_at, video_priority.label AS priority_label, to_jsonb(donation) donation
       FROM video
       JOIN donation USING (donation_id)
       LEFT JOIN video_priority USING (video_priority_id)
@@ -99,7 +100,7 @@ export class Store {
 
   async updateVideoStatus(
     userId: UserId,
-    videoId: bigint,
+    videoId: VideoId,
     status: { watchedAt?: Date | null; savedAt?: Date | null },
   ) {
     const rows = await this.sql`
@@ -123,10 +124,10 @@ export class Store {
     return rows.length > 0;
   }
 
-  async updateVideoAmount(userId: UserId, videoId: bigint, amount: number) {
+  async updateVideo(userId: UserId, videoId: VideoId, amount: number, durationMinutes: number) {
     const rows = await this.sql`
       UPDATE video
-      SET amount = ${amount}
+      SET amount = ${amount}, duration_minutes = ${durationMinutes}
       FROM donation
       WHERE video.donation_id = donation.donation_id
         AND donation.user_id = ${userId}
@@ -166,7 +167,7 @@ export class Store {
     }
 
     const rows = await this.sql`
-      SELECT video.video_id, video.video_priority_id, video.url, video.amount, video.duration_seconds, video.watched_at, video.saved_at, video_priority.label AS priority_label,
+      SELECT video.video_id, video.video_priority_id, video.url, video.amount, video.duration_minutes, video.watched_at, video.saved_at, video_priority.label AS priority_label,
         to_jsonb(donation) as donation
       FROM video
       JOIN donation USING (donation_id)
