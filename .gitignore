@@ -1,6 +1,8 @@
 node_modules
 .pnpm-store
 dist
+.output
+.vercel
 .env
 .tanstack
 .agents
@@ -8,3 +10,4 @@ dist
 *.tsbuildinfo
 *.local
 *.local.*
+.env*
