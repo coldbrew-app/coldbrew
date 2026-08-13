@@ -5,26 +5,20 @@ default:
 install:
   pnpm install
 
-dev-server:
-  pnpm exec dotenvx run -- pnpm exec tsx --watch apps/server/src/index.ts
-
 dev-donationalerts:
   pnpm exec dotenvx run -- pnpm exec tsx --watch apps/donationalerts/src/index.ts
 
 dev-video:
   pnpm exec dotenvx run -- pnpm exec tsx --watch apps/video/src/index.ts
 
-dev-client:
-  cd apps/client && pnpm exec vite
+dev-web:
+  pnpm exec dotenvx run -- pnpm --filter @omnistream/web dev
 
 dev:
-  pnpm exec concurrently -n 'client,server,donationalerts,video' 'just dev-client' 'just dev-server' 'just dev-donationalerts' 'just dev-video'
+  pnpm exec concurrently -n 'web,donationalerts,video' 'just dev-web' 'just dev-donationalerts' 'just dev-video'
 
-typecheck-client:
-  pnpm exec tsc --noEmit -p apps/client/tsconfig.json
-
-typecheck-server:
-  pnpm exec tsc --noEmit -p apps/server/tsconfig.json
+typecheck-web:
+  pnpm exec tsc --noEmit -p apps/web/tsconfig.json
 
 typecheck-donationalerts:
   pnpm exec tsc --noEmit -p apps/donationalerts/tsconfig.json
@@ -35,7 +29,7 @@ typecheck-video:
 typecheck-packages:
   pnpm exec tsc --noEmit -p packages/tsconfig.json
 
-typecheck: typecheck-client typecheck-server typecheck-donationalerts typecheck-video typecheck-packages
+typecheck: typecheck-web typecheck-donationalerts typecheck-video typecheck-packages
 
 
 fmt:
@@ -45,14 +39,11 @@ fmt-check:
   pnpm exec oxfmt --check
 
 
-build-client: install
-  cd client && pnpm exec vite build && pnpm exec tsc
+build-web: install
+  cd apps/web && pnpm exec vite build
 
-test-client: install
-  cd apps/client && pnpm exec vitest --run --passWithNoTests
-
-test-server: install
-  pnpm exec dotenvx run -- pnpm exec vitest --run --passWithNoTests apps/server
+test-web: install
+  pnpm exec dotenvx run -- pnpm exec vitest --run --passWithNoTests apps/web
 
 test-donationalerts: install
   pnpm exec dotenvx run -- pnpm exec vitest --run --passWithNoTests apps/donationalerts
@@ -63,7 +54,7 @@ test-video: install
 test-packages: install
   pnpm exec dotenvx run -- pnpm exec vitest --run --passWithNoTests packages
 
-test: test-server test-donationalerts test-video test-packages test-client
+test: test-web test-donationalerts test-video test-packages
 
 lint: test fmt-check
 
