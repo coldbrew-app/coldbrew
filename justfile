@@ -69,11 +69,11 @@ lint: test fmt-check
 
 
 schema-apply:
-  pgschema apply --file db/schema.sql
+  pgschema apply --auto-approve --file db/schema.sql
 
 schema-reset:
-  yes | pgschema apply --file db/empty.sql
-  yes | just schema-apply
+  psql --dbname "$(node --env-file=.env --eval 'const url = new URL("postgresql://localhost"); url.username = process.env.PGUSER; url.password = process.env.PGPASSWORD; url.hostname = process.env.PGHOST; url.port = process.env.PGPORT; url.pathname = process.env.PGDATABASE; process.stdout.write(url.toString())')" -v ON_ERROR_STOP=1 --command 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;'
+  just schema-apply
 
 
 count-lines path=".":
