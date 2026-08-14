@@ -1,4 +1,4 @@
-import { readonlyUrl } from "@lebedevna/readonly-url";
+import { url } from "@lebedevna/readonly-url";
 import { DONATION_ALERTS_SCOPES } from "@omnistream/packages/donationalerts.js";
 import { SlugSchema, VideoIdSchema, VideoPrioritySchema } from "@omnistream/packages/schemas.js";
 import { TRPCError } from "@trpc/server";
@@ -13,11 +13,11 @@ export const appRouter = router({
   integration: integrationRouter,
 
   authUrls: authenticatedProcedure.query(() => {
-    const donationAlerts = readonlyUrl("https://www.donationalerts.com/oauth/authorize")
+    const donationAlerts = url("https://www.donationalerts.com/oauth/authorize")
       .withSearchParam("client_id", env.DONATION_ALERTS_CLIENT_ID)
       .withSearchParam(
         "redirect_uri",
-        new URL("/api/integration/donationalerts/callback", env.AUTH_BASE_URL).href,
+        url("/api/integration/donationalerts/callback", env.AUTH_BASE_URL).href,
       )
       .withSearchParam("response_type", "code")
       .withSearchParam("scope", DONATION_ALERTS_SCOPES)
