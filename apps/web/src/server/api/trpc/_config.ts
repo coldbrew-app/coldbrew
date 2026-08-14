@@ -1,12 +1,17 @@
+import { logger } from "@omnistream/packages/logger.js";
 import { initTRPC, TRPCError } from "@trpc/server";
 import { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
 import SuperJSON from "superjson";
 
 import { getUserId } from "../_util.js";
 
-export const createContext = async (opt: FetchCreateContextFnOptions) => ({
-  userId: await getUserId(opt.req),
-});
+export const createContext = async (opt: FetchCreateContextFnOptions) => {
+  logger.debug("logger:", opt.req.headers.get("host") ?? "host not found");
+
+  return {
+    userId: await getUserId(opt.req),
+  };
+};
 
 export type Context = Awaited<ReturnType<typeof createContext>>;
 
