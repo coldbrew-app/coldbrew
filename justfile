@@ -43,27 +43,26 @@ build-web: install
   cd apps/web && pnpm exec vite build
 
 test-web: install
-  pnpm exec dotenvx run -- pnpm exec vitest --run --passWithNoTests apps/web
+  pnpm exec dotenvx run -- pnpm exec vitest --run apps/web
 
 test-donationalerts: install
-  pnpm exec dotenvx run -- pnpm exec vitest --run --passWithNoTests apps/donationalerts
+  pnpm exec dotenvx run -- pnpm exec vitest --run apps/donationalerts
 
 test-video: install
-  pnpm exec dotenvx run -- pnpm exec vitest --run --passWithNoTests apps/video
+  pnpm exec dotenvx run -- pnpm exec vitest --run apps/video
 
 test-packages: install
-  pnpm exec dotenvx run -- pnpm exec vitest --run --passWithNoTests packages
+  pnpm exec dotenvx run -- pnpm exec vitest --run packages
 
 test: test-web test-donationalerts test-video test-packages
 
 lint: test fmt-check
 
-
 schema-apply:
   pgschema apply --auto-approve --file db/schema.sql
 
 schema-reset:
-  psql --dbname "$(node --env-file=.env --eval 'const url = new URL("postgresql://localhost"); url.username = process.env.PGUSER; url.password = process.env.PGPASSWORD; url.hostname = process.env.PGHOST; url.port = process.env.PGPORT; url.pathname = process.env.PGDATABASE; process.stdout.write(url.toString())')" -v ON_ERROR_STOP=1 --command 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;'
+  pnpm exec dotenvx run -- psql -v ON_ERROR_STOP=1 --command 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;'
   just schema-apply
 
 
