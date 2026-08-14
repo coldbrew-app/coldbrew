@@ -1,18 +1,31 @@
+import { useLocalStorage } from "@siberiacancode/reactuse";
 import type { QueryClient } from "@tanstack/react-query";
-import { HeadContent, Link, Outlet, Scripts, createRootRouteWithContext, useRouterState } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
-
+import {
+  HeadContent,
+  Link,
+  Outlet,
+  Scripts,
+  createRootRouteWithContext,
+  useRouterState,
+} from "@tanstack/react-router";
 import { Icons } from "@web/components/icons";
 import SignIn from "@web/components/sign-in";
 import { Button } from "@web/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@web/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@web/components/ui/tooltip";
 import { useUserInfo } from "@web/hooks/api";
+import { useEffect, useRef, useState } from "react";
+
 import logo from "../../assets/logo.svg";
-import appCss from "../../styles.css?url";
 import { signOut, useSession } from "../lib/auth-client";
 import type { Locale } from "../lib/i18n";
 import { I18nProvider, useI18n } from "../lib/i18n";
-import { useLocalStorage } from "@siberiacancode/reactuse";
+
+import appCss from "../../styles.css?url";
 
 const navItem =
   "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium text-[#77758b] transition hover:bg-violet-50 hover:text-violet-700";
@@ -21,7 +34,10 @@ const localeFlags: Record<Locale, string> = { en: "🇬🇧", ru: "🇷🇺" };
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
-    meta: [{ charSet: "utf-8" }, { content: "width=device-width, initial-scale=1", name: "viewport" }],
+    meta: [
+      { charSet: "utf-8" },
+      { content: "width=device-width, initial-scale=1", name: "viewport" },
+    ],
     links: [{ href: appCss, rel: "stylesheet" }],
     title: "omnistream",
   }),
@@ -31,14 +47,27 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootDocument() {
   return (
     <html lang="en">
-      <head><HeadContent /></head>
-      <body><I18nProvider><TooltipProvider><Application /></TooltipProvider></I18nProvider><Scripts /></body>
+      <head>
+        <HeadContent />
+      </head>
+      <body>
+        <I18nProvider>
+          <TooltipProvider>
+            <Application />
+          </TooltipProvider>
+        </I18nProvider>
+        <Scripts />
+      </body>
     </html>
   );
 }
 
 function Application() {
-  if (typeof window === "undefined") return <main className="min-h-screen bg-[#f7f7fb]" />;
+  const [hasHydrated, setHasHydrated] = useState(false);
+
+  useEffect(() => setHasHydrated(true), []);
+
+  if (!hasHydrated) return <main className="min-h-screen bg-[#f7f7fb]" />;
   return <Root />;
 }
 
