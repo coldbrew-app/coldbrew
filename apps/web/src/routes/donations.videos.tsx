@@ -1,9 +1,10 @@
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { Icons } from "@web/components/icons";
+import { VideoListSkeleton } from "@web/components/loading-skeletons";
 import { SlugEditor } from "@web/components/slug-editor";
 import { buttonVariants } from "@web/components/ui/button";
 import VideoCard from "@web/components/video-card";
 import VideoPriorities from "@web/components/video-priorities";
-import { Link, createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
 import { useUpdateVideoM, useUpdateVideoStatusM, useVideosQ } from "../hooks/api";
@@ -101,11 +102,7 @@ function VideoQueue() {
       <div className="flex flex-col lg:flex-row">
         <div className="order-2 min-w-0 grow lg:order-1">
           {videosQ.isLoading ? (
-            <div className="space-y-px p-5" aria-label={t("loadingVideoQueue")}>
-              <div className="h-16 animate-pulse rounded-lg bg-[#f7f6f9]" />
-              <div className="h-16 animate-pulse rounded-lg bg-[#f7f6f9]" />
-              <div className="h-16 animate-pulse rounded-lg bg-[#f7f6f9]" />
-            </div>
+            <VideoListSkeleton aria-busy="true" aria-label={t("loadingVideoQueue")} withActions />
           ) : visibleVideos.length ? (
             <div className="divide-y divide-[#f0eff3]">
               {visibleVideos.map((video) => (

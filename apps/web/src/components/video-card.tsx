@@ -265,7 +265,11 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
                   size="sm"
                   variant={isWatched ? "secondary" : "outline"}
                 >
-                  {isWatched ? <Icons.watched aria-hidden="true" /> : <Icons.notWatched aria-hidden="true" />}
+                  {isWatched ? (
+                    <Icons.watched aria-hidden="true" />
+                  ) : (
+                    <Icons.notWatched aria-hidden="true" />
+                  )}
                   {t("watched")}
                 </Button>
                 <Button

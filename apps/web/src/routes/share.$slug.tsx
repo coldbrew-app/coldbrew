@@ -1,7 +1,8 @@
-import { Icons } from "@web/components/icons";
-import VideoCard from "@web/components/video-card";
 import { SlugSchema } from "@omnistream/packages/schemas.js";
 import { createFileRoute } from "@tanstack/react-router";
+import { Icons } from "@web/components/icons";
+import { VideoListSkeleton } from "@web/components/loading-skeletons";
+import VideoCard from "@web/components/video-card";
 import { z } from "zod";
 
 import { useSharedVideosQ } from "../hooks/api";
@@ -27,11 +28,7 @@ function SharedVideoQueue() {
           <p className="text-xs text-[#9491a1]">{t("videosSharedBySupporters")}</p>
         </header>
         {videosQ.isLoading ? (
-          <div className="space-y-px p-5" aria-label={t("loadingVideoQueue")}>
-            <div className="h-16 animate-pulse rounded-lg bg-[#f7f6f9]" />
-            <div className="h-16 animate-pulse rounded-lg bg-[#f7f6f9]" />
-            <div className="h-16 animate-pulse rounded-lg bg-[#f7f6f9]" />
-          </div>
+          <VideoListSkeleton aria-busy="true" aria-label={t("loadingVideoQueue")} />
         ) : videosQ.data?.length ? (
           <div className="divide-y divide-[#f0eff3]">
             {videosQ.data.map((video) => (

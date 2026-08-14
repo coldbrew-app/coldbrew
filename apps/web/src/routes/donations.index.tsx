@@ -1,6 +1,7 @@
+import { createFileRoute } from "@tanstack/react-router";
 import DonationCard from "@web/components/donation-card";
 import { Icons } from "@web/components/icons";
-import { createFileRoute } from "@tanstack/react-router";
+import { DonationListSkeleton } from "@web/components/loading-skeletons";
 import { useMemo, useState } from "react";
 
 import { useDonationsQ } from "../hooks/api";
@@ -72,11 +73,7 @@ function DonationsIndex() {
       </div>
 
       {donationsQ.isLoading ? (
-        <div className="space-y-px p-5" aria-label={t("loadingDonations")}>
-          <div className="h-16 animate-pulse rounded-lg bg-[#f7f6f9]" />
-          <div className="h-16 animate-pulse rounded-lg bg-[#f7f6f9]" />
-          <div className="h-16 animate-pulse rounded-lg bg-[#f7f6f9]" />
-        </div>
+        <DonationListSkeleton aria-busy="true" aria-label={t("loadingDonations")} />
       ) : filteredDonations.length ? (
         <div className="divide-y divide-[#f0eff3]">
           {filteredDonations.map((donation) => (

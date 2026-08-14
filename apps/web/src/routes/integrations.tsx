@@ -1,6 +1,6 @@
+import { createFileRoute } from "@tanstack/react-router";
 import { Icons } from "@web/components/icons";
 import { Button } from "@web/components/ui/button";
-import { createFileRoute } from "@tanstack/react-router";
 
 import { useAuthUrl, useDisconnectM, useUserInfo } from "../hooks/api";
 import { useI18n } from "../lib/i18n";
@@ -19,7 +19,7 @@ function RouteComponent() {
 
   return (
     <section className="flex min-w-0 flex-1 flex-col">
-      <div className="mx-auto w-full max-w-5xl px-[clamp(18px,4vw,62px)] py-7 sm:py-12">
+      <div className="w-full">
         <h1 className="text-[clamp(27px,3vw,33px)] font-bold tracking-tight text-[#27243a]">
           {t("integrations")}
         </h1>

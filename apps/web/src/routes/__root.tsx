@@ -18,9 +18,10 @@ import {
   TooltipTrigger,
 } from "@web/components/ui/tooltip";
 import { useUserInfo } from "@web/hooks/api";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 
 import logo from "../../assets/logo.svg";
+import { Skeleton } from "../components/ui/skeleton";
 import { signOut, useSession } from "../lib/auth-client";
 import type { Locale } from "../lib/i18n";
 import { I18nProvider, useI18n } from "../lib/i18n";
@@ -67,8 +68,47 @@ function Application() {
 
   useEffect(() => setHasHydrated(true), []);
 
-  if (!hasHydrated) return <main className="min-h-screen bg-[#f7f7fb]" />;
+  if (!hasHydrated) return <PageLoadingSkeleton />;
   return <Root />;
+}
+
+function PageLoadingSkeleton() {
+  return (
+    <main aria-busy="true" className="flex min-h-screen bg-[#f7f7fb]">
+      <aside className="hidden w-[244px] shrink-0 flex-col border-r border-[#ebeaf1] bg-white px-4 pt-8 pb-5 lg:flex">
+        <div className="flex items-center gap-2.5 px-1">
+          <Skeleton className="size-6 rounded-lg" />
+          <Skeleton className="h-5 w-24" />
+        </div>
+        <div className="mt-11 flex flex-col gap-1">
+          <Skeleton className="h-11 rounded-lg" />
+          <Skeleton className="h-11 rounded-lg" />
+          <Skeleton className="h-11 rounded-lg" />
+          <Skeleton className="h-11 rounded-lg" />
+        </div>
+        <div className="mt-auto flex items-center gap-2.5 border-t border-[#eeedf2] px-2 pt-5">
+          <Skeleton className="size-8 rounded-lg" />
+          <div className="flex min-w-0 grow flex-col gap-1.5">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-2.5 w-28" />
+          </div>
+          <Skeleton className="size-5 rounded" />
+        </div>
+      </aside>
+      <div className="flex min-w-0 grow flex-col">
+        <Skeleton className="h-12 w-full rounded-none" />
+        <div className="flex flex-col gap-4 px-3 py-2 sm:px-5 sm:py-3">
+          <Skeleton className="h-8 w-40" />
+          <Skeleton className="h-40" />
+          <div className="grid gap-4 md:grid-cols-3">
+            <Skeleton className="h-28" />
+            <Skeleton className="h-28" />
+            <Skeleton className="h-28" />
+          </div>
+        </div>
+      </div>
+    </main>
+  );
 }
 
 function useDark() {
@@ -80,11 +120,25 @@ function useDark() {
 
 function Root() {
   const session = useSession();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+
+  if (pathname.startsWith("/share/")) return <Outlet />;
+  if (session.isPending) return <PageLoadingSkeleton />;
+  if (!session.data) return <SignIn />;
+
+  return (
+    <Suspense fallback={<PageLoadingSkeleton />}>
+      <AuthenticatedApplication />
+    </Suspense>
+  );
+}
+
+function AuthenticatedApplication() {
+  const session = useSession();
   const { isDark, toggleDark } = useDark();
   const { locale, setLocale, t } = useI18n();
   const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
   const languageMenuRef = useRef<HTMLDivElement>(null);
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const userInfo = useUserInfo();
 
   useEffect(() => {
@@ -103,14 +157,6 @@ function Root() {
     document.addEventListener("mousedown", closeLanguageMenu);
     return () => document.removeEventListener("mousedown", closeLanguageMenu);
   }, []);
-
-  if (pathname.startsWith("/share/")) {
-    return <Outlet />;
-  }
-
-  if (session.isPending) {
-    return <main className="grid min-h-screen place-items-center bg-[#f7f7fb]" />;
-  }
 
   if (!session.data || !userInfo) {
     return <SignIn />;
@@ -278,7 +324,19 @@ function Root() {
           <p>{t("activeDevelopment")}</p>
         </div>
         <div className="min-h-0 grow overflow-y-auto">
-          <Outlet />
+          <div className="min-h-full w-full px-3 py-2 sm:px-5 sm:py-3">
+            <Suspense
+              fallback={
+                <div aria-busy="true" className="flex min-h-full flex-col gap-3">
+                  <Skeleton className="h-8 w-52" />
+                  <Skeleton className="h-24" />
+                  <Skeleton className="h-24" />
+                </div>
+              }
+            >
+              <Outlet />
+            </Suspense>
+          </div>
         </div>
       </div>
     </main>

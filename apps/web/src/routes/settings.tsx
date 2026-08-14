@@ -8,5 +8,5 @@ export const Route = createFileRoute("/settings")({
 
 function Settings() {
   const { t } = useI18n();
-  return <main className="p-6">{t("settings")}</main>;
+  return <main>{t("settings")}</main>;
 }

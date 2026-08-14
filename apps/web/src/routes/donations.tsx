@@ -15,7 +15,7 @@ function DonationsLayout() {
 
   return (
     <section className="flex min-w-0 flex-1 flex-col">
-      <div className="mx-auto w-full max-w-7xl px-[clamp(18px,4vw,62px)]">
+      <div className="w-full">
         <article className="mt-4 overflow-hidden rounded-xl border border-[#eae8ef] bg-white">
           <div className="flex flex-col gap-4 border-b border-[#efedf3] p-4 sm:p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">

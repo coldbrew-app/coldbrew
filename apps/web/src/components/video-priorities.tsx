@@ -1,6 +1,7 @@
+import { Link } from "@tanstack/react-router";
+import { VideoPrioritiesSkeleton } from "@web/components/loading-skeletons";
 import { useVideoPrioritiesQ } from "@web/hooks/api";
 import { cn } from "@web/lib/utils";
-import { Link } from "@tanstack/react-router";
 
 import { useI18n } from "../lib/i18n";
 import VideoPriorityEditor from "./video-priority-editor";
@@ -46,10 +47,7 @@ export default function VideoPriorities({
       </Link>
 
       {prioritiesQ.isLoading ? (
-        <div className="flex flex-col gap-2" aria-label={t("loadingVideoPriorities")}>
-          <div className="h-20 animate-pulse rounded-lg bg-[#f0eff3] dark:bg-[#302c3b]" />
-          <div className="h-20 animate-pulse rounded-lg bg-[#f0eff3] dark:bg-[#302c3b]" />
-        </div>
+        <VideoPrioritiesSkeleton aria-busy="true" aria-label={t("loadingVideoPriorities")} />
       ) : prioritiesQ.data?.length ? (
         prioritiesQ.data.map((priority) => (
           <VideoPriorityEditor

@@ -1,7 +1,7 @@
+import { SlugSchema } from "@omnistream/packages/schemas.js";
 import { Button } from "@web/components/ui/button";
 import { useSetSlugM, useSlug } from "@web/hooks/api";
 import { cn } from "@web/lib/utils";
-import { SlugSchema } from "@omnistream/packages/schemas.js";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 
