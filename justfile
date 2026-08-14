@@ -67,7 +67,7 @@ schema-reset:
 
 
 count-lines path=".":
-  find "{{path}}" -type d -name "node_modules" -prune -o -type f \( -name "*.ts" -o -name "*" \) -print0 | xargs -0 wc -l
+  cloc --vcs=git --not-match-f='^(package\.json|pnpm-lock\.yaml)$' "{{path}}"
 
 dotenvx-test:
   pnpm add -g @dotenvx/dotenvx
