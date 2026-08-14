@@ -1,6 +1,6 @@
 import { url } from "@lebedevna/readonly-url";
 
-import { env } from "../env.js";
+import { getRequestOrigin } from "../lib/request-origin.js";
 import { store } from "../sensors/db/index.js";
 import { donationAlerts } from "../sensors/donationalerts.js";
 import { getUserId } from "./_util.js";
@@ -12,7 +12,7 @@ export async function handleDonationAlertsCallback(request: Request): Promise<Re
   const userId = await getUserId(request);
   if (!userId) return new Response("Unauthorized", { status: 401 });
 
-  const appUrl = url("/integrations", env.AUTH_BASE_URL);
+  const appUrl = url("/integrations", getRequestOrigin(request));
 
   return await donationAlerts.issueTokens(authCode, url(request.url).withSearch("").href).match(
     async (tokens) => {

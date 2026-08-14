@@ -5,7 +5,9 @@ import { env } from "../env.js";
 import { sql } from "../sensors/db/index.js";
 
 export const auth = betterAuth({
-  baseURL: env.AUTH_BASE_URL,
+  baseURL: {
+    allowedHosts: ["localhost:3000", "*.vercel.app"],
+  },
   database: {
     type: "postgres",
     dialect: new PostgresJSDialect({ postgres: sql }),
@@ -16,7 +18,6 @@ export const auth = betterAuth({
       clientSecret: env.GOOGLE_CLIENT_SECRET,
     },
   },
-  trustedOrigins: [env.AUTH_BASE_URL],
   user: {
     // Keep Better Auth's users separate from the app's existing `user` table.
     modelName: "auth_user",
