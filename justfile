@@ -62,7 +62,7 @@ schema-apply:
   pgschema apply --auto-approve --file db/schema.sql
 
 schema-reset:
-  PGSSLMODE="require" PGSSLROOTCERT="system" nubx dotenvx run -- psql -v ON_ERROR_STOP=1 --command 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;'
+  pgschema apply --auto-approve --file db/empty.sql
   just schema-apply
 
 
