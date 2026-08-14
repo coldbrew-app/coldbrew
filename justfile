@@ -56,7 +56,7 @@ test-packages: install
 
 test: test-web test-donationalerts test-video test-packages
 
-lint: test fmt-check
+check: test fmt-check
 
 schema-apply:
   pgschema apply --auto-approve --file db/schema.sql
