@@ -21,7 +21,7 @@ function SharedVideoQueue() {
   const { t } = useI18n();
 
   return (
-    <main className="min-h-screen bg-[#f7f7fb] p-4 text-[#242238] sm:p-8">
+    <main className="min-h-dvh bg-[#f7f7fb] p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-[#242238] sm:p-8">
       <section className="mx-auto w-full max-w-4xl overflow-hidden rounded-xl border border-[#eae8ef] bg-white shadow-sm">
         <header className="flex flex-col gap-1 border-b border-[#efedf3] p-5">
           <h1 className="text-lg font-semibold text-[#353248]">{t("videoQueueBy", { slug })}</h1>

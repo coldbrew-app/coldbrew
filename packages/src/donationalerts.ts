@@ -11,7 +11,6 @@ import { ok, ResultAsync, safeTry } from "neverthrow";
 import { z } from "zod";
 
 import { delay } from "./delay.js";
-import { logger } from "./logger.js";
 import { validate, ValidationError } from "./neverthrow/validate.js";
 import {
   AccessToken,

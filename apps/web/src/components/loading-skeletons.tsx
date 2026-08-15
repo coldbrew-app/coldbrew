@@ -37,8 +37,8 @@ export function VideoListSkeleton({
     <div className={cn("divide-y divide-[#e8e4ed] dark:divide-[#393442]", className)} {...props}>
       {[0, 1, 2].map((index) => (
         <article className="flex flex-col gap-3 px-4 py-4 sm:px-5" key={index}>
-          <div className="flex items-start gap-4">
-            <Skeleton className="aspect-video w-32 shrink-0 rounded-lg sm:w-60" />
+          <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-start">
+            <Skeleton className="aspect-video w-full rounded-lg sm:w-60 sm:shrink-0" />
             <div className="flex min-w-0 grow flex-col gap-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2">

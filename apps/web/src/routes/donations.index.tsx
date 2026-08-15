@@ -53,7 +53,7 @@ function DonationsIndex() {
             value={query}
           />
         </label>
-        <label className="relative">
+        <label className="relative w-full sm:w-auto">
           <span className="sr-only">{t("dateRange")}</span>
           <select
             className="h-9 w-full appearance-none rounded-lg border border-[#e5e3ea] bg-white py-0 pr-8 pl-3 text-xs font-semibold text-[#605c70] outline-none focus:border-violet-400 sm:w-36"

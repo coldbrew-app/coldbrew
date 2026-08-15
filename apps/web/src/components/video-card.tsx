@@ -74,10 +74,10 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
 
   return (
     <article className="flex flex-col gap-3 px-4 py-4 sm:px-5">
-      <div className="flex items-start gap-4">
-        <div className="flex flex-col gap-3 sm:flex-row">
+      <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-start">
+        <div className="flex flex-col gap-3 sm:shrink-0">
           {embedUrl && (
-            <div className="relative aspect-video overflow-hidden rounded-lg bg-[#f0eff3] sm:w-60 sm:shrink-0">
+            <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-[#f0eff3] sm:w-60">
               <iframe
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
@@ -96,8 +96,8 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
           )}
         </div>
 
-        <div className="flex grow flex-col gap-3">
-          <div className="flex items-center justify-between">
+        <div className="flex min-w-0 grow flex-col gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="flex min-w-0 grow items-center gap-3">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <strong className="text-[13px] text-[#454157]">{author}</strong>
@@ -254,7 +254,7 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
               );
             })}
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {onStatusChange && (
               <div className="flex flex-wrap items-center gap-2">
                 <Button

@@ -10,8 +10,8 @@ export default function SignIn() {
   const { t } = useI18n();
 
   return (
-    <main className="grid min-h-screen place-items-center bg-[#f7f7fb] p-6 text-[#242238]">
-      <section className="flex w-full max-w-sm flex-col gap-6 rounded-2xl border border-[#ebeaf1] bg-white p-8 shadow-xl shadow-violet-950/5">
+    <main className="grid min-h-dvh place-items-center bg-[#f7f7fb] p-4 text-[#242238] sm:p-6">
+      <section className="flex w-full max-w-sm flex-col gap-6 rounded-2xl border border-[#ebeaf1] bg-white p-5 shadow-xl shadow-violet-950/5 sm:p-8">
         <div className="flex items-center gap-2.5 text-xl font-bold tracking-tight text-[#292640]">
           <img alt="" className="h-6" src={logo} />
           omnistream

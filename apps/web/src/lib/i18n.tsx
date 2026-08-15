@@ -17,6 +17,7 @@ const en = {
   switchToLightMode: "Switch to light mode",
   switchToDarkMode: "Switch to dark mode",
   language: "Language",
+  openNavigation: "Open navigation",
   english: "English",
   russian: "Russian",
   activeDevelopment:
@@ -156,6 +157,7 @@ const ru = defineTranslations({
   switchToLightMode: "Включить светлую тему",
   switchToDarkMode: "Включить тёмную тему",
   language: "Язык",
+  openNavigation: "Открыть навигацию",
   english: "Английский",
   russian: "Русский",
   activeDevelopment:

@@ -64,7 +64,7 @@ function RouteComponent() {
               </Button>
             ) : (
               <a
-                className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80"
+                className="inline-flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80 sm:w-auto"
                 href={authUrl.donationAlerts}
               >
                 {t("connectDonationAlerts")}
