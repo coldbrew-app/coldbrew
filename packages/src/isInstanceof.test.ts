@@ -16,9 +16,9 @@ class Error3 extends createTaggedError({
 }) {}
 
 describe("isInstanceOf", { tags: ["unit"] }, () => {
-  it("works", () => {
-    const b: Error1 | Error2 = new Error1({ message: "error 1" }) as any;
+  const b: Error1 | Error2 = new Error1({ message: "error 1" }) as any;
 
+  it("works", () => {
     if (isInstanceof(b, Error1)) {
       expectTypeOf(b).toEqualTypeOf<Error1>();
       expect(b).toBeInstanceOf(Error1);
@@ -35,5 +35,9 @@ describe("isInstanceOf", { tags: ["unit"] }, () => {
       expectTypeOf(b).toEqualTypeOf<Error3>();
       expect(b).not.toBeInstanceOf(Error3);
     }
+  });
+
+  it("handles array", () => {
+    expect(isInstanceof(b, [Error1, Error2])).toBe(true);
   });
 });
