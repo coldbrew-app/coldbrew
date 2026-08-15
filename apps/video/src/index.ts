@@ -4,6 +4,7 @@ import { logger } from "@omnistream/packages/logger.js";
 import { HttpError } from "@omnistream/packages/neverthrow/fetch.js";
 import dayjs from "dayjs";
 import dedent from "dedent-js";
+import { ok, safeTry } from "neverthrow";
 
 import { store } from "./sensors/db/index.js";
 import { VideoToSave } from "./sensors/db/store.js";
@@ -21,34 +22,21 @@ async function main() {
       const videos: VideoToSave[] = [];
 
       urls_loop: for (const url of urls) {
-        const $durationMinutes = await getYoutubeDurationMinutes(url);
-
-        if ($durationMinutes.isOk()) {
-          logger.debug("videos.push", {
-            url,
-            amount: donation.amount,
-            durationMinutes: $durationMinutes.value,
-          });
-          videos.push({
-            url,
-            amount: donation.amount,
-            durationMinutes: $durationMinutes.value,
-          });
-          continue urls_loop;
-        }
+        const $iteration = await safeTry(async function* () {
+          const durationMinutes = yield* getYoutubeDurationMinutes(url);
+          logger.debug("videos.push", { url, amount: donation.amount, durationMinutes });
+          videos.push({ url, amount: donation.amount, durationMinutes });
+          return ok();
+        });
+        if ($iteration.isOk()) continue urls_loop;
 
         logger.warn(dedent`
           skip url: "${url}".
-          ${$durationMinutes.error}
+          ${$iteration.error}
         `);
 
-        if (
-          isInstanceof($durationMinutes.error, HttpError) &&
-          $durationMinutes.error.isTooManyRequests
-        ) {
+        if (isInstanceof($iteration.error, HttpError) && $iteration.error.isTooManyRequests) {
           continue donations_loop;
-        } else {
-          continue urls_loop;
         }
       }
 

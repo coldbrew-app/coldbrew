@@ -1,4 +1,4 @@
-import { url } from "@lebedevna/readonly-url";
+import { rurl } from "@lebedevna/readonly-url";
 import { SlugSchema, VideoIdSchema, VideoPrioritySchema } from "@omnistream/packages/schemas.js";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -13,7 +13,7 @@ export const appRouter = router({
   integration: integrationRouter,
 
   authUrls: authenticatedProcedure.query(({ ctx }) => {
-    const redirectUri = url(
+    const redirectUri = rurl(
       "/api/integration/donationalerts/callback",
       getRequestOrigin(ctx.request),
     ).href;
@@ -38,13 +38,7 @@ export const appRouter = router({
   }),
 
   updateVideoPriority: authenticatedProcedure
-    .input(
-      VideoPrioritySchema.pick({
-        videoPriorityId: true,
-        label: true,
-        minPricePerMinute: true,
-      }).extend({ label: z.string().trim().min(1).max(64) }),
-    )
+    .input(VideoPrioritySchema)
     .mutation(async ({ ctx, input }) => {
       const priority = await store.updateVideoPriority(
         ctx.userId,

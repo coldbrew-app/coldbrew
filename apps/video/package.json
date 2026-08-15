@@ -6,7 +6,7 @@
     "start": "tsx src/index.ts"
   },
   "dependencies": {
-    "@lebedevna/readonly-url": "^0.3.0",
+    "@lebedevna/readonly-url": "^0.4.0",
     "@omnistream/packages": "workspace:*",
     "linkify-it": "^6.1.0",
     "postgres": "^3.4.9",

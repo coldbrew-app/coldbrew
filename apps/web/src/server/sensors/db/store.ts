@@ -19,6 +19,7 @@ import {
   VideoPrioritySchema,
   VideoSchema,
 } from "@omnistream/packages/schemas.js";
+import { UndefinedInitialDataInfiniteOptions } from "@tanstack/react-query";
 import { Sql } from "postgres";
 import { z } from "zod";
 
@@ -57,7 +58,7 @@ export class Store {
     return z.array(DonationSchema).parse(rows);
   }
 
-  async listVideos(userId: UserId): Promise<Video[]> {
+  async listVideos(userId: UserId) {
     const rows = await this.sql`
       SELECT video.video_id, video.video_priority_id, video.url, video.amount, video.duration_minutes, video.watched_at, video.saved_at, video_priority.label AS priority_label, to_jsonb(donation) donation
       FROM video
@@ -70,7 +71,7 @@ export class Store {
     return z.array(VideoSchema).parse(rows);
   }
 
-  async listVideoPriorities(userId: UserId): Promise<VideoPriority[]> {
+  async listVideoPriorities(userId: UserId) {
     const rows = await this.sql`
       SELECT video_priority_id, label, min_price_per_minute
       FROM video_priority
@@ -86,7 +87,7 @@ export class Store {
     videoPriorityId: number,
     label: string,
     minPricePerMinute: number,
-  ): Promise<VideoPriority | null> {
+  ) {
     const rows = await this.sql`
       UPDATE video_priority
       SET label = ${label}, min_price_per_minute = ${minPricePerMinute}
@@ -95,7 +96,7 @@ export class Store {
       RETURNING video_priority_id, label, min_price_per_minute
     `;
 
-    return VideoPrioritySchema.nullable().parse(rows[0]);
+    return VideoPrioritySchema.optional().parse(rows[0]);
   }
 
   async updateVideoStatus(
@@ -155,7 +156,7 @@ export class Store {
     return rows.length > 0;
   }
 
-  async listSharedVideos(slug: string): Promise<Video[] | null> {
+  async listSharedVideos(slug: string) {
     const users = await this.sql`
       SELECT 1
       FROM "user"

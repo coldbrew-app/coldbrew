@@ -1,4 +1,4 @@
-import { ReadonlyURL, url } from "@lebedevna/readonly-url";
+import { ReadonlyURL, rurl } from "@lebedevna/readonly-url";
 import { fetchText } from "@omnistream/packages/neverthrow/fetch.js";
 import { createTaggedError } from "errore";
 import { LinkifyIt } from "linkify-it";
@@ -10,7 +10,7 @@ export function extractYoutubeUrls(message: string | null) {
   message ??= "";
 
   const youtubeUrls = Iterator.from(linkify.match(message) ?? [])
-    .map((match) => url(match.url))
+    .map((match) => rurl(match.url))
     .map((url) => url.withProtocol("https"))
     .filter((url) => isYoutubeUrl(url))
     .map((url) => url.href);

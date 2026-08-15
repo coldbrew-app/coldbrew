@@ -35,7 +35,7 @@
     "apps/video": {
       "name": "@omnistream/video",
       "dependencies": {
-        "@lebedevna/readonly-url": "^0.3.0",
+        "@lebedevna/readonly-url": "^0.4.0",
         "@omnistream/packages": "workspace:*",
         "linkify-it": "^6.1.0",
         "postgres": "^3.4.9",
@@ -48,7 +48,7 @@
         "@base-ui/react": "^1.6.0",
         "@fontsource-variable/geist": "^5.3.0",
         "@lebedevna/match": "^0.2.0",
-        "@lebedevna/readonly-url": "^0.3.0",
+        "@lebedevna/readonly-url": "^0.4.0",
         "@lebedevna/use-helpers": "^0.0.1",
         "@omnistream/packages": "workspace:*",
         "@siberiacancode/reactuse": "^1.0.11",
@@ -224,7 +224,7 @@
 
     "@lebedevna/match": ["@lebedevna/match@0.2.0", "", {}, "sha512-YesMhGn2qeuUEVY+F2lIEePYEeoo1AWnE4kCInR+xLqgnx9z0mcUUgUIAGtSDgaawIjicwNBdy2NPpvFXej//w=="],
 
-    "@lebedevna/readonly-url": ["@lebedevna/readonly-url@0.3.0", "", {}, "sha512-sbYklf2hYWnZdIMQ6Kc5SHeGUvDrItDvx5R06sw2oKPpntjk+AWVn72h5ugOx+E5n31th1b2SFyhK1NVKFyPAQ=="],
+    "@lebedevna/readonly-url": ["@lebedevna/readonly-url@0.4.0", "", {}, "sha512-dCNCRestAxLThvyrLm+mSP/zuCjDWPSZk2TYRNEJmAxuh/M2blWsYb0rKZx09tKwfCW/FITpPHuT3tnPsgJVww=="],
 
     "@lebedevna/use-helpers": ["@lebedevna/use-helpers@0.0.1", "", { "peerDependencies": { "react": "^18.2.0 || ^19.0.0" } }, "sha512-4W+uAR3hEfRKkI9J/dmasa7GgpxNZxTGJe/2OJZB3WogGotTMCMW//n+pY6eciDcSZjk1lBBtlkWp92eJMsRGw=="],
 

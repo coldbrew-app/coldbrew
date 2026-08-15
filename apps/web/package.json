@@ -11,7 +11,7 @@
     "@base-ui/react": "^1.6.0",
     "@fontsource-variable/geist": "^5.3.0",
     "@lebedevna/match": "^0.2.0",
-    "@lebedevna/readonly-url": "^0.3.0",
+    "@lebedevna/readonly-url": "^0.4.0",
     "@lebedevna/use-helpers": "^0.0.1",
     "@omnistream/packages": "workspace:*",
     "@siberiacancode/reactuse": "^1.0.11",

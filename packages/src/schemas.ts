@@ -59,7 +59,7 @@ export type Video = z.infer<typeof VideoSchema>;
 
 export const VideoPrioritySchema = z.object({
   videoPriorityId: z.number().int().positive(),
-  label: z.string(),
+  label: z.string().trim().min(1).max(64),
   minPricePerMinute: z.number().nonnegative(),
 });
 export type VideoPriority = z.infer<typeof VideoPrioritySchema>;
