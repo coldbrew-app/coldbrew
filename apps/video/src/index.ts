@@ -1,7 +1,7 @@
 import { delay } from "@omnistream/packages/delay.js";
 import { isInstanceof } from "@omnistream/packages/isInstanceof.js";
 import { logger } from "@omnistream/packages/logger.js";
-import { HTTP_STATUS, HttpError } from "@omnistream/packages/neverthrow/fetch.js";
+import { HttpError } from "@omnistream/packages/neverthrow/fetch.js";
 import dayjs from "dayjs";
 import dedent from "dedent-js";
 
@@ -44,7 +44,7 @@ async function main() {
 
         if (
           isInstanceof($durationMinutes.error, HttpError) &&
-          $durationMinutes.error.status == HTTP_STATUS.TOO_MANY_REQUESTS
+          $durationMinutes.error.isTooManyRequests
         ) {
           continue donations_loop;
         } else {

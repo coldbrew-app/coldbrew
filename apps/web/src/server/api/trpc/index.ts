@@ -1,12 +1,11 @@
 import { url } from "@lebedevna/readonly-url";
-import { DONATION_ALERTS_SCOPES } from "@omnistream/packages/donationalerts.js";
 import { SlugSchema, VideoIdSchema, VideoPrioritySchema } from "@omnistream/packages/schemas.js";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { env } from "../../env.js";
 import { getRequestOrigin } from "../../lib/request-origin.js";
 import { store } from "../../sensors/db/index.js";
+import { donationAlerts } from "../../sensors/donationalerts.js";
 import { authenticatedProcedure, procedure, router } from "./_config.js";
 import { integrationRouter } from "./integration.js";
 
@@ -14,17 +13,11 @@ export const appRouter = router({
   integration: integrationRouter,
 
   authUrls: authenticatedProcedure.query(({ ctx }) => {
-    const donationAlerts = url("https://www.donationalerts.com/oauth/authorize")
-      .withSearchParam("client_id", env.DONATION_ALERTS_CLIENT_ID)
-      .withSearchParam(
-        "redirect_uri",
-        url("/api/integration/donationalerts/callback", getRequestOrigin(ctx.request)).href,
-      )
-      .withSearchParam("response_type", "code")
-      .withSearchParam("scope", DONATION_ALERTS_SCOPES)
-      .toString();
-
-    return { donationAlerts };
+    const redirectUri = url(
+      "/api/integration/donationalerts/callback",
+      getRequestOrigin(ctx.request),
+    ).href;
+    return { donationAlerts: donationAlerts.getAuthorizationUrl(redirectUri) };
   }),
 
   userInfo: procedure.query(async ({ ctx }) => {

@@ -65,9 +65,16 @@ export const VideoPrioritySchema = z.object({
 export type VideoPriority = z.infer<typeof VideoPrioritySchema>;
 
 export const UserInfoSchema = z.object({
-  userId: z.number(),
+  userId: UserIdSchema,
   slug: SlugSchema,
 
   hasDonationalertsRefreshToken: z.boolean(),
   hasDonationalertsAccessToken: z.boolean(),
 });
+
+export const DonationAlertsUserSchema = z.object({
+  userId: UserIdSchema,
+  accessToken: AccessTokenSchema,
+  refreshToken: RefreshTokenSchema,
+});
+export type DonationAlertsUser = z.infer<typeof DonationAlertsUserSchema>;

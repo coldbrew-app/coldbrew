@@ -29,18 +29,18 @@ export class Store {
 
   constructor(private readonly sql: Sql) {}
 
-  async insertDonations(userId: UserId, donations: Donation[]) {
+  async insertDonations(userId: UserId, donations: Omit<Donation, "donationId" | "userId">[]) {
     const input = jsonb(this.sql, donations);
 
     const rows = await this.sql`
       WITH input AS (
         SELECT *
-        FROM jsonb_to_recordset(${input}::jsonb) as t (donation_id int, donation_origin donation_origin, author text, message text, amount float, created_at js_date)
+        FROM jsonb_to_recordset(${input}::jsonb) as t (origin_donation_id text, origin donation_origin, author text, message text, amount float, created_at js_date)
       )
-      INSERT INTO donation (donation_id, donation_origin, user_id,   author, message, amount, created_at)
-      SELECT                donation_id, donation_origin, ${userId}, author, message, amount, created_at
+      INSERT INTO donation (origin_donation_id, origin, user_id,   author, message, amount, created_at)
+      SELECT                origin_donation_id, origin, ${userId}, author, message, amount, created_at
       FROM input
-      ON CONFLICT (donation_id, donation_origin) DO NOTHING
+      ON CONFLICT (origin, origin_donation_id) DO NOTHING
       RETURNING *
     `;
 

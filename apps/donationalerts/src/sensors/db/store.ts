@@ -2,13 +2,11 @@ import { jsonb } from "@omnistream/packages/jsonb.js";
 import { createSql } from "@omnistream/packages/pg.js";
 import {
   AccessToken,
-  AccessTokenSchema,
   Donation,
+  DonationAlertsUserSchema,
   DonationSchema,
   RefreshToken,
-  RefreshTokenSchema,
   UserId,
-  UserIdSchema,
 } from "@omnistream/packages/schemas.js";
 import { z } from "zod";
 
@@ -28,7 +26,7 @@ export class Store {
       INSERT INTO donation (origin_donation_id, origin, user_id,   author, message, amount, created_at)
       SELECT                origin_donation_id, origin, ${userId}, author, message, amount, created_at
       FROM input
-      ON CONFLICT (origin_donation_id, origin) DO NOTHING
+      ON CONFLICT (origin, origin_donation_id) DO NOTHING
       RETURNING *
     `;
 
@@ -45,13 +43,7 @@ export class Store {
         AND donationalerts_refresh_token IS NOT NULL
     `;
 
-    const schema = z.object({
-      userId: UserIdSchema,
-      accessToken: AccessTokenSchema,
-      refreshToken: RefreshTokenSchema,
-    });
-
-    return z.array(schema).parse(rows);
+    return z.array(DonationAlertsUserSchema).parse(rows);
   }
 
   async setTokens(userId: UserId, refreshToken: RefreshToken, accessToken: AccessToken) {

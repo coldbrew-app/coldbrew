@@ -7,6 +7,7 @@
   },
   "dependencies": {
     "@omnistream/packages": "workspace:*",
+    "cron": "^4.4.0",
     "postgres": "^3.4.9",
     "snakecase-keys": "^9.0.2",
     "zod": "^4.4.3"

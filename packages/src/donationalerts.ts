@@ -1,8 +1,18 @@
+import {
+  getAuthorizeLink,
+  getDonationsAlerts,
+  getOauthToken,
+  OAuthScope,
+  updateOauthToken,
+  WebServer,
+} from "@kash-88/alerts";
 import dayjs from "dayjs";
+import { ok, ResultAsync, safeTry } from "neverthrow";
 import { z } from "zod";
 
-import { fetchJson } from "./neverthrow/fetch.js";
-import { validate } from "./neverthrow/validate.js";
+import { delay } from "./delay.js";
+import { logger } from "./logger.js";
+import { validate, ValidationError } from "./neverthrow/validate.js";
 import {
   AccessToken,
   AccessTokenSchema,
@@ -11,117 +21,205 @@ import {
   RefreshTokenSchema,
 } from "./schemas.js";
 
-export const DONATION_ALERTS_SCOPES = [
-  "oauth-user-show",
-  "oauth-donation-subscribe",
-  "oauth-donation-index",
-  "oauth-custom_alert-store",
-  "oauth-goal-subscribe",
-  "oauth-poll-subscribe",
-].join(" ");
+export type RawDonation = Omit<Donation, "donationId" | "userId">;
 
-export class DonationAlerts {
+const scopes = [
+  OAuthScope.UserShow,
+  OAuthScope.DonationSubscribe,
+  OAuthScope.DonationIndex,
+  OAuthScope.CustomAlertStore,
+  OAuthScope.GoalSubscribe,
+  OAuthScope.PollSubscribe,
+];
+
+const DonationAlertsDonationSchema = z.object({
+  id: z.number(),
+  username: z.string().nullable(),
+  message: z.string().nullable(),
+  amount: z.number(),
+  currency: z.string(),
+  created_at: z.coerce.date().transform((date) => dayjs(date).add(3, "h").toDate()),
+  amount_in_user_currency: z.number(),
+});
+
+const DonationsPageSchema = z.object({
+  data: z.array(DonationAlertsDonationSchema),
+  meta: z.object({ last_page: z.number().int().positive() }),
+});
+
+const TokensSchema = z.object({
+  access_token: AccessTokenSchema,
+  refresh_token: RefreshTokenSchema,
+});
+
+const WsEventSchema = z.union([
+  z.object({
+    id: z.literal(1),
+    type: z.literal("step 1").default("step 1"),
+    result: z.object({
+      client: z.uuid(),
+      version: z.string(),
+    }),
+  }),
+  z.object({
+    id: z.literal(2),
+    type: z.literal("step 2").default("step 2"),
+    result: z.object({
+      recoverable: z.boolean(),
+      seq: z.number(),
+      epoch: z.string(),
+      offset: z.number(),
+    }),
+  }),
+  z.object({
+    type: z.literal("user client").default("user client"),
+    result: z.object({
+      type: z.literal(1),
+      channel: z.string(),
+      data: z.object({
+        info: z.object({
+          user: z.string(),
+          client: z.uuid(),
+        }),
+      }),
+    }),
+  }),
+  z.object({
+    type: z.literal("donation").default("donation"),
+    result: z.object({
+      channel: z.string(),
+      data: z.object({
+        data: DonationAlertsDonationSchema,
+      }),
+    }),
+  }),
+]);
+
+export class DonationAlertsRequestError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "DonationAlertsRequestError";
+  }
+}
+
+export class DonationAlertsUnauthorizedError extends DonationAlertsRequestError {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "DonationAlertsUnauthorizedError";
+  }
+}
+
+export interface DonationAlertsSubscription {
+  close(): void;
+}
+
+type DonationAlertsWebServer = {
+  authorization(): Promise<void>;
+  close(): void;
+  on(event: "open", listener: () => void): void;
+  on(event: "error", listener: (error: Error) => void): void;
+  on(event: "message", listener: (message: unknown) => void): void;
+};
+
+const toDonation = (donation: z.infer<typeof DonationAlertsDonationSchema>): RawDonation => ({
+  origin: "donationalerts",
+  originDonationId: String(donation.id),
+  amount: donation.amount,
+  author: donation.username,
+  message: donation.message,
+  createdAt: donation.created_at,
+});
+
+const toRequestError = (error: unknown) => {
+  if (error instanceof DonationAlertsRequestError) return error;
+
+  const message = error instanceof Error ? error.message : String(error);
+  return /status code 401|unauthorized/i.test(message)
+    ? new DonationAlertsUnauthorizedError(message, { cause: error })
+    : new DonationAlertsRequestError(message, { cause: error });
+};
+
+export class DonationAlertsFacade {
   constructor(
-    private config: {
+    private readonly config: {
       readonly clientId: string;
       readonly clientSecret: string;
     },
   ) {}
 
-  getDonations(accessToken: AccessToken) {
-    const ResDonationSchema = z.object({
-      id: z.number(),
-      name: z.string(),
-      username: z.string().nullable(),
-      message_type: z.string(),
-      message: z.string().nullable(),
-      amount: z.number(),
-      is_shown: z.number(),
-      created_at: z.coerce.date().transform((d) => dayjs(d).add(3, "h").toDate()),
-      shown_at: z.string().nullable(),
-    });
-
-    const schema = z.object({
-      data: z.array(ResDonationSchema),
-      meta: z.object({
-        last_page: z.number().int().positive(),
-        total: z.number().int().nonnegative(),
-      }),
-    });
-
-    return fetchJson("https://www.donationalerts.com/api/v1/alerts/donations", {
-      headers: { "Authorization": `Bearer ${accessToken}` },
-    })
-      .andThen((data) => validate(schema, data).map((v) => v.data))
-      .map((parsed) =>
-        parsed.map(
-          (donation): Omit<Donation, "donationId" | "userId"> => ({
-            origin: "donationalerts",
-            originDonationId: String(donation.id),
-            amount: donation.amount,
-            author: donation.username,
-            message: donation.message,
-            createdAt: donation.created_at,
-          }),
-        ),
-      );
+  getAuthorizationUrl(redirectUri: string) {
+    return getAuthorizeLink(this.config.clientId, redirectUri, scopes, "code");
   }
 
-  // TODO: remove redirectUri?
   issueTokens(authCode: string, redirectUri: string) {
-    const searchParams = new URLSearchParams({
-      "grant_type": "authorization_code",
-      "client_id": this.config.clientId,
-      "client_secret": this.config.clientSecret,
-      // not used for anything
-      "redirect_uri": redirectUri,
-      "code": authCode,
-    });
-
-    const schema = z.object({
-      "token_type": z.literal("Bearer"),
-      "expires_in": z.number(),
-      "access_token": AccessTokenSchema,
-      "refresh_token": RefreshTokenSchema,
-    });
-
-    return fetchJson("https://www.donationalerts.com/oauth/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: searchParams.toString(),
-    })
-      .andThen((data) => validate(schema, data))
-      .map((parsed) => ({
-        accessToken: parsed.access_token,
-        refreshToken: parsed.refresh_token,
-      }));
+    return ResultAsync.fromPromise(
+      getOauthToken(this.config.clientId, this.config.clientSecret, redirectUri, authCode),
+      toRequestError,
+    )
+      .andThen((tokens) => validate(TokensSchema, tokens))
+      .map((tokens) => ({ accessToken: tokens.access_token, refreshToken: tokens.refresh_token }));
   }
 
   refreshTokens(refreshToken: RefreshToken) {
-    const body = new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-      client_id: this.config.clientId,
-      client_secret: this.config.clientSecret,
-      scope: DONATION_ALERTS_SCOPES,
+    return ResultAsync.fromPromise(
+      updateOauthToken(this.config.clientId, this.config.clientSecret, refreshToken, scopes),
+      toRequestError,
+    )
+      .andThen((tokens) => validate(TokensSchema, tokens))
+      .map((tokens) => ({ accessToken: tokens.access_token, refreshToken: tokens.refresh_token }));
+  }
+
+  private getDonationsPage(accessToken: AccessToken, page: number) {
+    return ResultAsync.fromPromise(getDonationsAlerts(accessToken, page), toRequestError).andThen(
+      (data) => validate(DonationsPageSchema, data),
+    );
+  }
+
+  getDonations(accessToken: AccessToken) {
+    const self = this;
+
+    return safeTry(async function* () {
+      const donations: RawDonation[] = [];
+      for (let pageNum = 1; ; pageNum++) {
+        if (pageNum > 1) {
+          await delay(250);
+        }
+        const page = yield* self.getDonationsPage(accessToken, pageNum);
+        donations.push(...page.data.map(toDonation));
+
+        if (pageNum >= page.meta.last_page) return ok(donations);
+      }
+    });
+  }
+
+  subscribeToDonations(
+    accessToken: AccessToken,
+    options: {
+      readonly onDonation: (donation: RawDonation) => void;
+      readonly onError: (error: DonationAlertsRequestError | ValidationError) => void;
+    },
+  ): DonationAlertsSubscription {
+    // The SDK's declaration omits EventEmitter methods even though WebServer exposes them at runtime.
+    const client: DonationAlertsWebServer = new WebServer({
+      access_token: accessToken,
+      autoReconnect: true,
+    }) as any;
+
+    client.on("open", () => {
+      void client.authorization().catch((error: unknown) => options.onError(toRequestError(error)));
+    });
+    client.on("error", (error) => options.onError(toRequestError(error)));
+    client.on("message", (message: unknown) => {
+      validate(WsEventSchema, message).match(
+        (event) => {
+          if (event.type == "donation") {
+            options.onDonation(toDonation(event.result.data.data));
+          }
+        },
+        (error) => options.onError(error),
+      );
     });
 
-    const schema = z.object({
-      "token_type": z.literal("Bearer"),
-      "expires_in": z.number(),
-      "access_token": AccessTokenSchema,
-      "refresh_token": RefreshTokenSchema,
-    });
-
-    return fetchJson("https://www.donationalerts.com/oauth/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: body.toString(),
-    })
-      .andThen((data) => validate(schema, data))
-      .map((parsed) => ({
-        accessToken: parsed.access_token,
-        refreshToken: parsed.refresh_token,
-      }));
+    return { close: () => client.close() };
   }
 }

@@ -6,6 +6,7 @@
     "./*.js": "./src/*.ts"
   },
   "dependencies": {
+    "@kash-88/alerts": "^1.3.0",
     "consola": "^3.4.2",
     "json-bigint": "^1.0.0",
     "linkify-it": "^6.1.0",
