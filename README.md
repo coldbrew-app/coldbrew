@@ -1,10 +1,12 @@
 # Omnistream
 
-PNPM TypeScript monorepo with a TanStack Start/tRPC/Postgres web app and dedicated donation/video polling workers.
+Bun TypeScript monorepo with a TanStack Start/tRPC/Postgres web app and dedicated donation/video polling workers.
 
 Project tasks are managed with [just](https://just.systems/). Run `just` to list them.
 
 ## Start locally
+
+Install [Bun](https://bun.com/docs/installation), then run:
 
 ```sh
 cp .env.example .env

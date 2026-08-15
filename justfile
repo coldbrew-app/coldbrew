@@ -3,56 +3,56 @@ default:
   @just --list
 
 install:
-  nub install
+  bun install
 
 dev-donationalerts:
-  nubx dotenvx run -- nub --watch apps/donationalerts/src/index.ts
+  bunx dotenvx run -- nub --watch apps/donationalerts/src/index.ts
 
 dev-video:
-  nubx dotenvx run -- nub --watch apps/video/src/index.ts
+  bunx dotenvx run -- nub --watch apps/video/src/index.ts
 
 dev-web:
-  nubx dotenvx run -- sh -c 'cd apps/web && nub run dev'
+  bunx dotenvx run -- sh -c 'cd apps/web && nub run dev'
 
 dev:
-  nubx concurrently -n 'web,donationalerts,video' 'just dev-web' 'just dev-donationalerts' 'just dev-video'
+  bunx concurrently -n 'web,donationalerts,video' 'just dev-web' 'just dev-donationalerts' 'just dev-video'
 
 typecheck-web:
-  nubx tsc --noEmit -p apps/web/tsconfig.json
+  bunx tsc --noEmit -p apps/web/tsconfig.json
 
 typecheck-donationalerts:
-  nubx tsc --noEmit -p apps/donationalerts/tsconfig.json
+  bunx tsc --noEmit -p apps/donationalerts/tsconfig.json
 
 typecheck-video:
-  nubx tsc --noEmit -p apps/video/tsconfig.json
+  bunx tsc --noEmit -p apps/video/tsconfig.json
 
 typecheck-packages:
-  nubx tsc --noEmit -p packages/tsconfig.json
+  bunx tsc --noEmit -p packages/tsconfig.json
 
 typecheck: typecheck-web typecheck-donationalerts typecheck-video typecheck-packages
 
 
 fmt:
-  nubx oxfmt
+  bunx oxfmt
 
 fmt-check:
-  nubx oxfmt --check
+  bunx oxfmt --check
 
 
 build-web: install
-  cd apps/web && nubx vite build
+  cd apps/web && bunx vite build
 
 test-web: install
-  nubx dotenvx run -- nubx vitest --run apps/web
+  bunx dotenvx run -- bunx vitest --run apps/web
 
 test-donationalerts: install
-  nubx dotenvx run -- nubx vitest --run apps/donationalerts
+  bunx dotenvx run -- bunx vitest --run apps/donationalerts
 
 test-video: install
-  nubx dotenvx run -- nubx vitest --run apps/video
+  bunx dotenvx run -- bunx vitest --run apps/video
 
 test-packages: install
-  nubx dotenvx run -- nubx vitest --run packages
+  bunx dotenvx run -- bunx vitest --run packages
 
 test: test-web test-donationalerts test-video test-packages
 
@@ -67,14 +67,4 @@ schema-reset:
 
 
 count-lines path=".":
-  cloc --vcs=git --not-match-f='^(package\.json|pnpm-lock\.yaml)$' "{{path}}"
-
-dotenvx-test:
-  pnpm add -g @dotenvx/dotenvx
-  hyperfine --runs 5 'dotenvx run -q -- touch justfile'
-  pnpm rm -g @dotenvx/dotenvx
-
-  hyperfine --runs 5 'nubx dotenvx run -q -- touch justfile'
-  hyperfine --runs 5 'pnpm dlx @dotenvx/dotenvx run -q -- touch justfile'
-  hyperfine --runs 5 'pnpm exec dotenvx run -q -- touch justfile'
-  hyperfine --runs 5 'bunx @dotenvx/dotenvx run -q -- touch justfile'
+  cloc --vcs=git --not-match-f='^(package\.json|bun\.lock)$' "{{path}}"
