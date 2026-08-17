@@ -6,13 +6,13 @@ install:
   bun install
 
 dev-donationalerts:
-  bunx dotenvx run -- nub --watch apps/donationalerts/src/index.ts
+  bunx dotenvx run -- bun --watch apps/donationalerts/src/index.ts
 
 dev-video:
-  bunx dotenvx run -- nub --watch apps/video/src/index.ts
+  bunx dotenvx run -- bun --watch apps/video/src/index.ts
 
 dev-web:
-  bunx dotenvx run -- sh -c 'cd apps/web && nub run dev'
+  bunx dotenvx run -- sh -c 'cd apps/web && bun run dev'
 
 dev:
   bunx concurrently -n 'web,donationalerts,video' 'just dev-web' 'just dev-donationalerts' 'just dev-video'
