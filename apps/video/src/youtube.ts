@@ -1,8 +1,8 @@
 import { ReadonlyURL, rurl } from "@lebedevna/readonly-url";
+import { erro } from "@omnistream/packages/erro.js";
 import { fetchText } from "@omnistream/packages/neverthrow/fetch.js";
-import { createTaggedError } from "errore";
 import { LinkifyIt } from "linkify-it";
-import { err, ok } from "neverthrow";
+import { ok } from "neverthrow";
 
 const linkify = new LinkifyIt({ fuzzyLink: true });
 
@@ -18,16 +18,11 @@ export function extractYoutubeUrls(message: string | null) {
   return Array.from(new Set(youtubeUrls));
 }
 
-export class DataNotFoundError extends createTaggedError({
-  name: "DataNotFoundError",
-  message: "not found $data\nsource:\n$source",
-}) {}
-
 export function getYoutubeDurationMinutes(url: string) {
   return fetchText(url).andThen((html) => {
     const duration = html.match(/"lengthSeconds":"(\d+)"/)?.[1];
     if (duration === undefined) {
-      return err(new DataNotFoundError({ data: "duration", source: html }));
+      return erro({ type: "youtube: duration not found", html });
     }
     const { max, ceil } = Math;
     return ok(max(1, ceil((+duration - 15) / 60)));

@@ -15,6 +15,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/json-bigint": "^1.0.4"
+    "@types/json-bigint": "^1.0.4",
+    "type-fest": "^5.8.0"
   }
 }

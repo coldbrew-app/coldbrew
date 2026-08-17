@@ -1,8 +1,5 @@
-import {
-  DonationAlertsSubscription,
-  DonationAlertsUnauthorizedError,
-} from "@omnistream/packages/donationalerts.js";
-import { isInstanceof } from "@omnistream/packages/isInstanceof.js";
+import { DonationAlertsSubscription } from "@omnistream/packages/donationalerts.js";
+import { erro } from "@omnistream/packages/erro.js";
 import { logger } from "@omnistream/packages/logger.js";
 import { DonationAlertsUser, UserId } from "@omnistream/packages/schemas.js";
 import { ok, safeTry } from "neverthrow";
@@ -12,7 +9,10 @@ import { donationAlerts } from "../sensors/donationalerts.js";
 
 export const refreshAccessToken = (user: DonationAlertsUser) => {
   return safeTry(async function* () {
-    const tokens = yield* donationAlerts.refreshTokens(user.refreshToken);
+    const tokens = yield* donationAlerts
+      .refreshTokens(user.refreshToken)
+      .mapErr((err) => erro.fmt({ type: "donationalerts: failed to fetch tokens", cause: err }));
+
     await store.setTokens(user.userId, tokens.refreshToken, tokens.accessToken);
     return ok(tokens);
   });
@@ -44,46 +44,28 @@ export class Subscriptions {
   private async connect(user: DonationAlertsUser) {
     this.pending.add(user.userId);
 
-    try {
-      const subscription = donationAlerts.subscribeToDonations(user.accessToken, {
-        onDonation: (donation) => void store.insertDonations(user.userId, [donation]),
-        onError: (error) => void this.handleSubscriptionError(user, subscription, error),
-      });
-      this.subscriptions.set(user.userId, subscription);
-    } catch (error) {
-      await this.handleSubscriptionError(user, undefined, error);
-    } finally {
-      this.pending.delete(user.userId);
-    }
-  }
+    const subscription = donationAlerts.subscribeToDonations(user.accessToken, {
+      onDonation: (donation) => void store.insertDonations(user.userId, [donation]),
+      onError: async (error) => {
+        if (error.type == "donationalerts: unauthorized") return;
 
-  private async handleSubscriptionError(
-    user: DonationAlertsUser,
-    subscription: DonationAlertsSubscription | undefined,
-    error: unknown,
-  ) {
-    if (!isInstanceof(error, DonationAlertsUnauthorizedError)) {
-      logger.error(error);
-      return;
-    }
+        if (this.recovering.has(user.userId)) return;
+        this.recovering.add(user.userId);
 
-    if (this.recovering.has(user.userId)) return;
-    this.recovering.add(user.userId);
-    subscription?.close();
-    if (this.subscriptions.get(user.userId) === subscription) {
-      this.subscriptions.delete(user.userId);
-    }
+        subscription.close();
+        if (this.subscriptions.get(user.userId) === subscription) {
+          this.subscriptions.delete(user.userId);
+        }
 
-    const $tokens = await refreshAccessToken(user);
-    await $tokens.match(
-      async (tokens) =>
-        await this.connect({
-          ...user,
-          accessToken: tokens.accessToken,
-          refreshToken: tokens.refreshToken,
-        }),
-      (refreshError) => logger.error(refreshError),
-    );
-    this.recovering.delete(user.userId);
+        await refreshAccessToken(user).match(
+          ({ accessToken, refreshToken }) => this.connect({ ...user, accessToken, refreshToken }),
+          (error) => logger.error(error),
+        );
+
+        this.recovering.delete(user.userId);
+      },
+    });
+    this.subscriptions.set(user.userId, subscription);
+    this.pending.delete(user.userId);
   }
 }

@@ -1,5 +1,3 @@
-import { DonationAlertsUnauthorizedError } from "@omnistream/packages/donationalerts.js";
-import { isInstanceof } from "@omnistream/packages/isInstanceof.js";
 import { logger } from "@omnistream/packages/logger.js";
 import { DonationAlertsUser } from "@omnistream/packages/schemas.js";
 import { CronJob } from "cron";
@@ -21,7 +19,7 @@ const syncUserDonations = async (user: DonationAlertsUser) => {
     let accessToken = user.accessToken;
     let $donations = await donationAlerts.getDonations(accessToken);
 
-    if ($donations.isErr() && isInstanceof($donations.error, DonationAlertsUnauthorizedError)) {
+    if ($donations.isErr() && $donations.error.type == "donationalerts: unauthorized") {
       const tokens = yield* refreshAccessToken(user);
       $donations = await donationAlerts.getDonations(tokens.accessToken);
     }

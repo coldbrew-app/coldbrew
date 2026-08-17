@@ -11,6 +11,7 @@ import { ok, ResultAsync, safeTry } from "neverthrow";
 import { z } from "zod";
 
 import { delay } from "./delay.js";
+import { erro } from "./erro.js";
 import { validate, ValidationError } from "./neverthrow/validate.js";
 import {
   AccessToken,
@@ -94,23 +95,9 @@ const WsEventSchema = z.union([
   }),
 ]);
 
-export class DonationAlertsRequestError extends Error {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, options);
-    this.name = "DonationAlertsRequestError";
-  }
-}
-
-export class DonationAlertsUnauthorizedError extends DonationAlertsRequestError {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, options);
-    this.name = "DonationAlertsUnauthorizedError";
-  }
-}
-
-export interface DonationAlertsSubscription {
+export type DonationAlertsSubscription = {
   close(): void;
-}
+};
 
 type DonationAlertsWebServer = {
   authorization(): Promise<void>;
@@ -129,13 +116,32 @@ const toDonation = (donation: z.infer<typeof DonationAlertsDonationSchema>): Raw
   createdAt: donation.created_at,
 });
 
-const toRequestError = (error: unknown) => {
-  if (error instanceof DonationAlertsRequestError) return error;
+type DonationAlertsRequestError = {
+  type: "donationalerts: request error";
+  message: string;
+  cause: unknown;
+};
 
+type DonationAlertsUnauthorizedError = {
+  type: "donationalerts: unauthorized";
+  message: string;
+  cause: unknown;
+};
+
+const toRequestError = (error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
+
   return /status code 401|unauthorized/i.test(message)
-    ? new DonationAlertsUnauthorizedError(message, { cause: error })
-    : new DonationAlertsRequestError(message, { cause: error });
+    ? erro.fmt<DonationAlertsUnauthorizedError>({
+        type: "donationalerts: unauthorized",
+        cause: error,
+        message,
+      })
+    : erro.fmt<DonationAlertsRequestError>({
+        type: "donationalerts: request error",
+        message,
+        cause: error,
+      });
 };
 
 export class DonationAlertsFacade {
@@ -188,6 +194,13 @@ export class DonationAlertsFacade {
 
         if (pageNum >= page.meta.last_page) return ok(donations);
       }
+    }).mapErr((err) => {
+      switch (err.type) {
+        case "donationalerts: unauthorized":
+          return err;
+        default:
+          return erro.fmt({ type: "donationalerts: request error", cause: err });
+      }
     });
   }
 
@@ -195,7 +208,9 @@ export class DonationAlertsFacade {
     accessToken: AccessToken,
     options: {
       readonly onDonation: (donation: RawDonation) => void;
-      readonly onError: (error: DonationAlertsRequestError | ValidationError) => void;
+      readonly onError: (
+        error: DonationAlertsRequestError | DonationAlertsUnauthorizedError | ValidationError,
+      ) => void;
     },
   ): DonationAlertsSubscription {
     // The SDK's declaration omits EventEmitter methods even though WebServer exposes them at runtime.

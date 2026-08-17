@@ -1,15 +1,13 @@
-import { createTaggedError } from "errore";
-import { err, ok, Result } from "neverthrow";
+import { ok, safeTry } from "neverthrow";
 
-export class JsonParseError extends createTaggedError({
-  name: "JsonParseError",
-  message: "Invalid JSON:\n$source",
-}) {}
+import { erro } from "../erro.js";
 
-export function parseJson(source: string): Result<unknown, JsonParseError> {
-  try {
-    return ok(JSON.parse(source));
-  } catch (error) {
-    return err(new JsonParseError({ source }));
-  }
+export function parseJson(source: string) {
+  return safeTry(function* () {
+    try {
+      return ok(JSON.parse(source));
+    } catch (error) {
+      return erro({ type: "invalid json", source });
+    }
+  });
 }

@@ -1,17 +1,15 @@
-import { createTaggedError } from "errore";
-import { err, ok, Result } from "neverthrow";
+import { ok, safeTry } from "neverthrow";
 
-export class DivisionError extends createTaggedError({
-  name: "DivisionError",
-  message: "division error: $a / $b = $result",
-}) {}
+import { erro } from "../erro.js";
 
-export function divide(a: number, b: number): Result<number, DivisionError> {
-  const res = a / b;
+export function divide(a: number, b: number) {
+  return safeTry(function* () {
+    const res = a / b;
 
-  if (isNaN(res) || !Number.isFinite(res)) {
-    return err(new DivisionError({ a, b, result: res }));
-  }
+    if (isNaN(res) || !Number.isFinite(res)) {
+      return erro({ type: "division error", a, b, result: res });
+    }
 
-  return ok(res);
+    return ok(res);
+  });
 }

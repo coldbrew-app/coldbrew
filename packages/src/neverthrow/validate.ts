@@ -1,21 +1,26 @@
-import { createTaggedError } from "errore";
-import { err, ok, Result } from "neverthrow";
+import { ok, safeTry } from "neverthrow";
 import { ZodType } from "zod";
 
-export class ValidationError extends createTaggedError({
-  name: "ValidationError",
-  message: "$_message\n$_stack\n\nsource: $input",
-}) {}
+import { erro } from "../erro.js";
 
-export function validate<T>(schema: ZodType<T>, value: unknown): Result<T, ValidationError> {
-  const res = schema.safeParse(value);
-  return res.success
-    ? ok(res.data)
-    : err(
-        new ValidationError({
-          _message: "validation error",
-          input: JSON.stringify(value, null, 2),
-          _stack: res.error.stack ?? "",
-        }),
-      );
+export type ValidationError = {
+  type: "validation error";
+  input: string;
+  stack: string;
+};
+
+export function validate<T>(schema: ZodType<T>, value: unknown) {
+  return safeTry(function* () {
+    const res = schema.safeParse(value);
+
+    if (!res.success) {
+      return erro<ValidationError>({
+        type: "validation error",
+        input: JSON.stringify(value, null, 2),
+        stack: res.error.stack ?? "",
+      });
+    }
+
+    return ok(res.data);
+  });
 }

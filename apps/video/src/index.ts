@@ -1,7 +1,5 @@
 import { delay } from "@omnistream/packages/delay.js";
-import { isInstanceof } from "@omnistream/packages/isInstanceof.js";
 import { logger } from "@omnistream/packages/logger.js";
-import { HttpError } from "@omnistream/packages/neverthrow/fetch.js";
 import dayjs from "dayjs";
 import dedent from "dedent-js";
 import { ok, safeTry } from "neverthrow";
@@ -29,13 +27,14 @@ async function main() {
           return ok();
         });
         if ($iteration.isOk()) continue urls_loop;
+        const error = $iteration.error;
 
         logger.warn(dedent`
           skip url: "${url}".
-          ${$iteration.error}
+          ${error}
         `);
 
-        if (isInstanceof($iteration.error, HttpError) && $iteration.error.isTooManyRequests) {
+        if (error.type == "http error" && error.status == "too many requests") {
           continue donations_loop;
         }
       }
