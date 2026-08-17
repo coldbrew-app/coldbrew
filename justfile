@@ -6,13 +6,13 @@ install:
   bun install
 
 dev-donationalerts:
-  bunx dotenvx run -- bun --watch apps/donationalerts/src/index.ts
+  dotenvx run -f .env.dev -- bun --watch apps/donationalerts/src/index.ts
 
 dev-video:
-  bunx dotenvx run -- bun --watch apps/video/src/index.ts
+  dotenvx run -f .env.dev -- bun --watch apps/video/src/index.ts
 
 dev-web:
-  bunx dotenvx run -- sh -c 'cd apps/web && bun run dev'
+  dotenvx run -f .env.dev -- sh -c 'cd apps/web && bun run dev'
 
 dev:
   bunx concurrently -n 'web,donationalerts,video' 'just dev-web' 'just dev-donationalerts' 'just dev-video'
@@ -43,16 +43,16 @@ build-web: install
   cd apps/web && bunx vite build
 
 test-web: install
-  bunx dotenvx run -- bunx vitest --run apps/web
+  dotenvx run -f .env.dev -- bunx vitest --run apps/web
 
 test-donationalerts: install
-  bunx dotenvx run -- bunx vitest --run apps/donationalerts
+  dotenvx run -f .env.dev -- bunx vitest --run apps/donationalerts
 
 test-video: install
-  bunx dotenvx run -- bunx vitest --run apps/video
+  dotenvx run -f .env.dev -- bunx vitest --run apps/video
 
 test-packages: install
-  bunx dotenvx run -- bunx vitest --run packages
+  dotenvx run -f .env.dev -- bunx vitest --run packages
 
 test: test-web test-donationalerts test-video test-packages
 
@@ -68,3 +68,21 @@ schema-reset:
 
 count-lines path=".":
   cloc --vcs=git --not-match-f='^(package\.json|bun\.lock)$' "{{path}}"
+
+env-decrypt-prod:
+  dotenvx decrypt -f .env.prod
+
+env-decrypt-dev:
+  dotenvx decrypt -f .env.dev
+
+env-decrypt: env-decrypt-dev env-decrypt-prod
+
+
+env-encrypt-prod:
+  dotenvx encrypt -f .env.prod
+
+env-encrypt-dev:
+  dotenvx encrypt -f .env.dev
+
+env-encrypt: env-encrypt-dev env-encrypt-prod
+

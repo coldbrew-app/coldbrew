@@ -4,6 +4,14 @@ Bun TypeScript monorepo with a TanStack Start/tRPC/Postgres web app and dedicate
 
 Project tasks are managed with [just](https://just.systems/). Run `just` to list them.
 
+## Globally required utilities
+
+- [Bun](https://bun.com/docs/installation) — runs the project and its package scripts.
+- [just](https://just.systems/) — task runner.
+- [dotenvx](https://dotenvx.com/) — loads and encrypts environment files.
+- [pgschema](https://github.com/pgschema/pgschema) — applies and resets the database schema.
+- [cloc](https://github.com/AlDanial/cloc) — counts repository lines of code.
+
 ## Start locally
 
 Install [Bun](https://bun.com/docs/installation), then run:
