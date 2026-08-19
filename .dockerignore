@@ -1,8 +1,7 @@
 .git
 .github
 .agents
-.env
-.env.keys
+.env*
 node_modules
 .pnpm-store
 .tanstack

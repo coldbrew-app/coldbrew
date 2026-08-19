@@ -1,11 +1,8 @@
 x-app: &app
   image: ${IMAGE_REF:-coldbrew:local}
-  build:
-    context: .
-    dockerfile: Dockerfile
-  environment:
-    DOTENV_PRIVATE_KEY: ${DOTENV_PRIVATE_KEY:?Set DOTENV_PRIVATE_KEY in the environment}
-    APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN in the deployment environment}
+  env_file:
+    - .env
+
   init: true
   restart: unless-stopped
   networks:
@@ -35,6 +32,9 @@ services:
 
   web:
     <<: *app
+    build:
+      context: .
+      dockerfile: Dockerfile
     working_dir: /app/apps/web
     command: ["bun", "/app/apps/web/.output/server/index.mjs"]
     healthcheck:

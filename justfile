@@ -43,20 +43,11 @@ fmt-check:
 build-web: install
   cd apps/web && bunx vite build
 
-docker-build-dev image_ref="coldbrew:local": env-encrypt-dev
-  docker build --build-arg ENV_FILE='.env.dev'  --tag "{{image_ref}}" .
-
-docker-build-prod image_ref="coldbrew:local": env-encrypt-prod
-  docker build --build-arg ENV_FILE='.env.prod' --tag "{{image_ref}}" .
-
 compose-up:
-  dotenvx run -- docker compose up -d
+  docker compose up --build -d
 
 compose-down:
-  dotenvx run -- docker compose down
-
-compose-dev: compose-down docker-build-dev compose-up
-compose-prod: compose-down docker-build-prod compose-up
+  docker compose down
 
 test-web: install
   dotenvx run -f .env.dev -- bunx vitest --run apps/web

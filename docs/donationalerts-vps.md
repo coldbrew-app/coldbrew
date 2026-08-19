@@ -20,14 +20,13 @@ stack deliberately does not include a database service.
 
 Use the tracked deployment files as follows:
 
-1. Copy `deployment.env.example` to the tracked `.env.prod`, fill in the app
-   secrets and production `BETTER_AUTH_URL`, then encrypt it with
-   `dotenvx encrypt -f .env.prod`. Commit the encrypted file, but never commit
-   `.env.keys`. The Docker image includes only encrypted `.env.prod`.
+1. Copy decrypted `.env.prod` to `/opt/coldbrew/.env` on the VPS and fill in
+   the production values. Keep this unencrypted file readable only by the
+   deployment user and never commit it. Compose passes its values to the app
+   containers at runtime; the Docker image contains no environment file.
 2. Point the domain's DNS records at the VPS and permit ports 80 and 443.
-3. Configure the GitHub Actions secrets `DOTENV_PRIVATE_KEY` and
-   `DEPLOY_APP_DOMAIN`. The workflow passes the key only when starting the
-   containers and uses the domain only to configure Caddy.
+3. Configure the GitHub Actions deployment host and SSH secrets. Application
+   configuration, including the domain, remains only in the VPS `.env` file.
 4. Register `https://<domain>/api/auth/callback/google` with Google and
    `https://<domain>/api/integration/donationalerts/callback` with
    DonationAlerts.
@@ -35,8 +34,8 @@ Use the tracked deployment files as follows:
 The `deploy.yml` workflow publishes immutable GHCR images and deploys them by
 SSH. The VPS needs a one-time `docker login ghcr.io` using a read-only package
 token. Subsequent deployments upload the tracked `compose.yaml` and `Caddyfile`
-before replacing containers; the encrypted `.env.prod` is already in the image,
-while its private key remains only in GitHub Actions secrets.
+before replacing containers. The image is environment-independent, while the
+VPS `.env` supplies its runtime configuration.
 
 Run a single worker replica. Before adding a second replica, introduce a
 Postgres advisory lock (or equivalent leader election) so only one instance
