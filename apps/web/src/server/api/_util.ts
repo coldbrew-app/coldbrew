@@ -1,5 +1,5 @@
-import { AuthUserIdSchema, UserId } from "@omnistream/packages/schemas.js";
-import { slugFromEmail } from "@omnistream/packages/slug.js";
+import { AuthUserIdSchema, UserId } from "@coldbrew/packages/schemas.js";
+import { slugFromEmail } from "@coldbrew/packages/slug.js";
 
 import { auth } from "../lib/auth.js";
 import { store } from "../sensors/db/index.js";

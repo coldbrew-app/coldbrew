@@ -1,5 +1,5 @@
-import { jsonb } from "@omnistream/packages/jsonb.js";
-import { createSql } from "@omnistream/packages/pg.js";
+import { jsonb } from "@coldbrew/packages/jsonb.js";
+import { createSql } from "@coldbrew/packages/pg.js";
 import {
   AccessToken,
   Donation,
@@ -7,7 +7,7 @@ import {
   DonationSchema,
   RefreshToken,
   UserId,
-} from "@omnistream/packages/schemas.js";
+} from "@coldbrew/packages/schemas.js";
 import { z } from "zod";
 
 import { env } from "../../env.js";

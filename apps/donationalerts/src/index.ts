@@ -1,5 +1,5 @@
-import { logger } from "@omnistream/packages/logger.js";
-import { DonationAlertsUser } from "@omnistream/packages/schemas.js";
+import { logger } from "@coldbrew/packages/logger.js";
+import { DonationAlertsUser } from "@coldbrew/packages/schemas.js";
 import { CronJob } from "cron";
 import { safeTry } from "neverthrow";
 

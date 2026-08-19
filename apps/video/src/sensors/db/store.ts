@@ -1,6 +1,6 @@
-import { jsonb } from "@omnistream/packages/jsonb.js";
-import { createSql } from "@omnistream/packages/pg.js";
-import { Donation, DonationSchema } from "@omnistream/packages/schemas.js";
+import { jsonb } from "@coldbrew/packages/jsonb.js";
+import { createSql } from "@coldbrew/packages/pg.js";
+import { Donation, DonationSchema } from "@coldbrew/packages/schemas.js";
 import { Sql } from "postgres";
 import { z } from "zod";
 

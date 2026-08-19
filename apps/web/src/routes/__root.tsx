@@ -41,7 +41,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { content: "width=device-width, initial-scale=1", name: "viewport" },
     ],
     links: [{ href: appCss, rel: "stylesheet" }],
-    title: "omnistream",
+    title: "coldbrew",
   }),
   component: RootDocument,
 });
@@ -185,7 +185,7 @@ function AuthenticatedApplicationContent() {
               className="flex items-center gap-2.5 px-1 text-xl font-bold tracking-tight text-[#292640] dark:text-white"
             >
               <img src={logo} className="h-[24px]" />
-              omnistream
+              Coldbrew
             </Link>
           </div>
           <nav className="mt-11 grid gap-1" aria-label={t("overview")}>
@@ -349,7 +349,7 @@ function AuthenticatedApplicationContent() {
             className="flex items-center gap-2 text-lg font-bold tracking-tight text-[#292640] dark:text-white"
           >
             <img alt="" src={logo} className="h-5" />
-            omnistream
+            coldbrew
           </Link>
         </header>
         <div

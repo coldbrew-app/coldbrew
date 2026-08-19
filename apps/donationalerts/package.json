@@ -1,12 +1,12 @@
 {
-  "name": "@omnistream/donationalerts",
+  "name": "@coldbrew/donationalerts",
   "private": true,
   "type": "module",
   "scripts": {
     "start": "tsx src/index.ts"
   },
   "dependencies": {
-    "@omnistream/packages": "workspace:*",
+    "@coldbrew/packages": "workspace:*",
     "cron": "^4.4.0",
     "neverthrow": "^8.2.0",
     "postgres": "^3.4.9",

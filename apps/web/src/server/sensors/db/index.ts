@@ -1,4 +1,4 @@
-import { createSql } from "@omnistream/packages/pg.js";
+import { createSql } from "@coldbrew/packages/pg.js";
 
 import { env } from "../../env.js";
 import { Store } from "./store.js";

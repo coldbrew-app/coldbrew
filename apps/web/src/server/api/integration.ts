@@ -1,5 +1,5 @@
+import { logger } from "@coldbrew/packages/logger.js";
 import { rurl } from "@lebedevna/readonly-url";
-import { logger } from "@omnistream/packages/logger.js";
 import { ok, safeTry } from "neverthrow";
 
 import { getRequestOrigin } from "../lib/request-origin.js";

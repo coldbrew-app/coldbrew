@@ -1,5 +1,5 @@
-import { delay } from "@omnistream/packages/delay.js";
-import { logger } from "@omnistream/packages/logger.js";
+import { delay } from "@coldbrew/packages/delay.js";
+import { logger } from "@coldbrew/packages/logger.js";
 import dayjs from "dayjs";
 import dedent from "dedent-js";
 import { ok, safeTry } from "neverthrow";

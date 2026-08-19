@@ -1,5 +1,5 @@
 {
-  "name": "@omnistream/packages",
+  "name": "@coldbrew/packages",
   "private": true,
   "type": "module",
   "exports": {

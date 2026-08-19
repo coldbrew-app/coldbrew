@@ -1,7 +1,7 @@
 # DonationAlerts worker on a VPS
 
 `apps/donationalerts` is a long-lived WebSocket worker. It opens one outgoing
-DonationAlerts connection per connected Omnistream user and writes received
+DonationAlerts connection per connected Coldbrew user and writes received
 donations to Postgres. Deploy it as a persistent process, not a serverless
 function.
 

@@ -1,4 +1,4 @@
-# Omnistream
+# Coldbrew
 
 This app is created for streamers. It connects to many donation platforms (such as donationalerts.com), fetches donates from all of them and displays them all in one place.
 

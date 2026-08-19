@@ -1,4 +1,4 @@
-import { DonationSourceSchema } from "@omnistream/packages/schemas.js";
+import { DonationSourceSchema } from "@coldbrew/packages/schemas.js";
 import { z } from "zod";
 
 import { store } from "../../sensors/db/index.js";

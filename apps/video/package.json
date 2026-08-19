@@ -1,13 +1,13 @@
 {
-  "name": "@omnistream/video",
+  "name": "@coldbrew/video",
   "private": true,
   "type": "module",
   "scripts": {
     "start": "tsx src/index.ts"
   },
   "dependencies": {
+    "@coldbrew/packages": "workspace:*",
     "@lebedevna/readonly-url": "^0.4.0",
-    "@omnistream/packages": "workspace:*",
     "dayjs": "^1.11.22",
     "dedent-js": "^1.0.1",
     "linkify-it": "^6.1.0",

@@ -14,7 +14,7 @@ export default function SignIn() {
       <section className="flex w-full max-w-sm flex-col gap-6 rounded-2xl border border-[#ebeaf1] bg-white p-5 shadow-xl shadow-violet-950/5 sm:p-8">
         <div className="flex items-center gap-2.5 text-xl font-bold tracking-tight text-[#292640]">
           <img alt="" className="h-6" src={logo} />
-          omnistream
+          coldbrew
         </div>
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-bold tracking-tight">{t("welcomeBack")}</h1>

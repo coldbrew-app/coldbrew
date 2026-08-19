@@ -1,5 +1,5 @@
 {
-  "name": "@omnistream/web",
+  "name": "@coldbrew/web",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,11 +9,11 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
+    "@coldbrew/packages": "workspace:*",
     "@fontsource-variable/geist": "^5.3.0",
     "@lebedevna/match": "^0.2.0",
     "@lebedevna/readonly-url": "^0.4.0",
     "@lebedevna/use-helpers": "^0.0.1",
-    "@omnistream/packages": "workspace:*",
     "@siberiacancode/reactuse": "^1.0.11",
     "@tanstack/react-query": "^5.85.5",
     "@tanstack/react-router": "1.170.27",

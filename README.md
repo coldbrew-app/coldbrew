@@ -1,4 +1,4 @@
-# Omnistream
+# Coldbrew
 
 Bun TypeScript monorepo with a TanStack Start/tRPC/Postgres web app and dedicated donation/video polling workers.
 
@@ -23,5 +23,5 @@ just dev
 ```
 
 Before starting the app, install and start PostgreSQL locally, then create the
-database named in `DATABASE_URL` (by default, `omnistream`). The client runs at
+database named in `DATABASE_URL` (by default, `coldbrew`). The client runs at
 `http://localhost:3000`, including the web UI, authentication, tRPC API, and OAuth callbacks.

@@ -58,7 +58,7 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          ssh -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p /opt/omnistream"
-          scp -P "$DEPLOY_PORT" compose.yaml Caddyfile "$DEPLOY_USER@$DEPLOY_HOST:/opt/omnistream/"
+          ssh -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p /opt/coldbrew"
+          scp -P "$DEPLOY_PORT" compose.yaml Caddyfile "$DEPLOY_USER@$DEPLOY_HOST:/opt/coldbrew/"
           ssh -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "cd /opt/omnistream && DOTENV_PRIVATE_KEY='$DOTENV_PRIVATE_KEY' APP_DOMAIN='$APP_DOMAIN' IMAGE_REF='$IMAGE_REF' docker compose pull && DOTENV_PRIVATE_KEY='$DOTENV_PRIVATE_KEY' APP_DOMAIN='$APP_DOMAIN' IMAGE_REF='$IMAGE_REF' docker compose up -d --remove-orphans"
+            "cd /opt/coldbrew && DOTENV_PRIVATE_KEY='$DOTENV_PRIVATE_KEY' APP_DOMAIN='$APP_DOMAIN' IMAGE_REF='$IMAGE_REF' docker compose pull && DOTENV_PRIVATE_KEY='$DOTENV_PRIVATE_KEY' APP_DOMAIN='$APP_DOMAIN' IMAGE_REF='$IMAGE_REF' docker compose up -d --remove-orphans"

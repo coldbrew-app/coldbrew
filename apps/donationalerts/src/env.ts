@@ -1,4 +1,4 @@
-import { getEnv } from "@omnistream/packages/getenv.js";
+import { getEnv } from "@coldbrew/packages/getenv.js";
 import { z } from "zod";
 
 export const env = getEnv({

@@ -1,4 +1,4 @@
-import { SlugSchema } from "@omnistream/packages/schemas.js";
+import { SlugSchema } from "@coldbrew/packages/schemas.js";
 import { Button } from "@web/components/ui/button";
 import { useSetSlugM, useSlug } from "@web/hooks/api";
 import { cn } from "@web/lib/utils";

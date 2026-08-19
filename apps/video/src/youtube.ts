@@ -1,6 +1,6 @@
+import { erro } from "@coldbrew/packages/erro.js";
+import { fetchText } from "@coldbrew/packages/neverthrow/fetch.js";
 import { ReadonlyURL, rurl } from "@lebedevna/readonly-url";
-import { erro } from "@omnistream/packages/erro.js";
-import { fetchText } from "@omnistream/packages/neverthrow/fetch.js";
 import { LinkifyIt } from "linkify-it";
 import { ok } from "neverthrow";
 

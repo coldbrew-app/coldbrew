@@ -1,4 +1,4 @@
-import { SlugSchema } from "@omnistream/packages/schemas.js";
+import { SlugSchema } from "@coldbrew/packages/schemas.js";
 import { createFileRoute } from "@tanstack/react-router";
 import { Icons } from "@web/components/icons";
 import { VideoListSkeleton } from "@web/components/loading-skeletons";

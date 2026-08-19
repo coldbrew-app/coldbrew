@@ -1,7 +1,7 @@
-import { DonationAlertsSubscription } from "@omnistream/packages/donationalerts.js";
-import { erro } from "@omnistream/packages/erro.js";
-import { logger } from "@omnistream/packages/logger.js";
-import { DonationAlertsUser, UserId } from "@omnistream/packages/schemas.js";
+import { DonationAlertsSubscription } from "@coldbrew/packages/donationalerts.js";
+import { erro } from "@coldbrew/packages/erro.js";
+import { logger } from "@coldbrew/packages/logger.js";
+import { DonationAlertsUser, UserId } from "@coldbrew/packages/schemas.js";
 import { ok, safeTry } from "neverthrow";
 
 import { store } from "../sensors/db/index.js";

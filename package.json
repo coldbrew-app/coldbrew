@@ -1,5 +1,5 @@
 {
-  "name": "omnistream",
+  "name": "coldbrew",
   "private": true,
   "workspaces": [
     "apps/*",

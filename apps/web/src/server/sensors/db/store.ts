@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
-import { jsonb } from "@omnistream/packages/jsonb.js";
-import { createSql } from "@omnistream/packages/pg.js";
+import { jsonb } from "@coldbrew/packages/jsonb.js";
+import { createSql } from "@coldbrew/packages/pg.js";
 import {
   AccessToken,
   AccessTokenSchema,
@@ -18,7 +18,7 @@ import {
   VideoPriority,
   VideoPrioritySchema,
   VideoSchema,
-} from "@omnistream/packages/schemas.js";
+} from "@coldbrew/packages/schemas.js";
 import { UndefinedInitialDataInfiniteOptions } from "@tanstack/react-query";
 import { Sql } from "postgres";
 import { z } from "zod";

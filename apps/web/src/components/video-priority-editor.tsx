@@ -1,4 +1,4 @@
-import { VideoPriority } from "@omnistream/packages/schemas.js";
+import { VideoPriority } from "@coldbrew/packages/schemas.js";
 import { Link } from "@tanstack/react-router";
 import { useUpdateVideoPriorityM } from "@web/hooks/api";
 import { cn } from "@web/lib/utils";

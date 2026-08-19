@@ -1,5 +1,5 @@
 x-app: &app
-  image: ${IMAGE_REF:-omnistream:local}
+  image: ${IMAGE_REF:-coldbrew:local}
   build:
     context: .
     dockerfile: Dockerfile

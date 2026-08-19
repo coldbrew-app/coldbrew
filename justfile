@@ -43,10 +43,10 @@ fmt-check:
 build-web: install
   cd apps/web && bunx vite build
 
-docker-build-dev image_ref="omnistream:local": env-encrypt-dev
+docker-build-dev image_ref="coldbrew:local": env-encrypt-dev
   docker build --build-arg ENV_FILE='.env.dev'  --tag "{{image_ref}}" .
 
-docker-build-prod image_ref="omnistream:local": env-encrypt-prod
+docker-build-prod image_ref="coldbrew:local": env-encrypt-prod
   docker build --build-arg ENV_FILE='.env.prod' --tag "{{image_ref}}" .
 
 compose-up:

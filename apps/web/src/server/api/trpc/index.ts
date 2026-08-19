@@ -1,5 +1,5 @@
+import { SlugSchema, VideoIdSchema, VideoPrioritySchema } from "@coldbrew/packages/schemas.js";
 import { rurl } from "@lebedevna/readonly-url";
-import { SlugSchema, VideoIdSchema, VideoPrioritySchema } from "@omnistream/packages/schemas.js";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 

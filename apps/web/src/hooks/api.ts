@@ -1,4 +1,4 @@
-import type { Slug } from "@omnistream/packages/schemas.js";
+import type { Slug } from "@coldbrew/packages/schemas.js";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 
 import { trpc } from "../lib/trpc";

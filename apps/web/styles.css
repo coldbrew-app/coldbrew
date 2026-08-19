@@ -49,7 +49,7 @@
 }
 
 :root {
-  /* Omnistream's soft-violet dashboard palette. */
+  /* Coldbrew's soft-violet dashboard palette. */
   --background: oklch(0.974 0.007 286);
   --foreground: oklch(0.252 0.026 286);
   --card: oklch(1 0 0);

@@ -1,4 +1,4 @@
-import { DonationAlertsFacade } from "@omnistream/packages/donationalerts.js";
+import { DonationAlertsFacade } from "@coldbrew/packages/donationalerts.js";
 
 import { env } from "../env.js";
 

@@ -4,9 +4,9 @@ import { getRequestOrigin } from "./request-origin";
 
 describe("getRequestOrigin", () => {
   it("returns the origin from the active request URL", () => {
-    const request = new Request("https://preview.omnistream.example/api/trpc/authUrls");
+    const request = new Request("https://preview.coldbrew.example/api/trpc/authUrls");
 
-    expect(getRequestOrigin(request)).toBe("https://preview.omnistream.example");
+    expect(getRequestOrigin(request)).toBe("https://preview.coldbrew.example");
   });
 
   it("preserves the development protocol and port", () => {
