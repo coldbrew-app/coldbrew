@@ -8,7 +8,10 @@
   "dependencies": {
     "@lebedevna/readonly-url": "^0.4.0",
     "@omnistream/packages": "workspace:*",
+    "dayjs": "^1.11.22",
+    "dedent-js": "^1.0.1",
     "linkify-it": "^6.1.0",
+    "neverthrow": "^8.2.0",
     "postgres": "^3.4.9",
     "zod": "^4.4.3"
   }

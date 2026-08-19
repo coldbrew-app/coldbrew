@@ -6,12 +6,10 @@
     "packages"
   ],
   "dependencies": {
-    "dayjs": "^1.11.21",
-    "dedent-js": "^1.0.1",
+    "@dotenvx/dotenvx": "^2.19.2",
     "neverthrow": "^8.2.0"
   },
   "devDependencies": {
-    "@dotenvx/dotenvx": "^2.19.2",
     "@types/node": "^24.13.3",
     "concurrently": "^10.0.4",
     "oxfmt": "^0.60.0",

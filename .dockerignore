@@ -1,0 +1,14 @@
+.git
+.github
+.agents
+.env
+.env.keys
+node_modules
+.pnpm-store
+.tanstack
+**/node_modules
+**/.output
+**/dist
+**/*.tsbuildinfo
+coverage
+docs

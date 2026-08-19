@@ -49,9 +49,6 @@ export class Subscriptions {
       onError: async (error) => {
         if (error.type == "donationalerts: unauthorized") return;
 
-        if (this.recovering.has(user.userId)) return;
-        this.recovering.add(user.userId);
-
         subscription.close();
         if (this.subscriptions.get(user.userId) === subscription) {
           this.subscriptions.delete(user.userId);

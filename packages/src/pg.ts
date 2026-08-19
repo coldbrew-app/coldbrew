@@ -6,6 +6,7 @@ const jsonParser = jsonBigint({ storeAsString: false });
 
 export function createSql(url: string) {
   return postgres(url, {
+    max: 10,
     transform: postgres.camel,
     types: {
       // Int64 in JSONB does not fit into JS number.

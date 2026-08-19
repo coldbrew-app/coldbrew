@@ -18,6 +18,7 @@ dev:
   bunx concurrently -n 'web,donationalerts,video' 'just dev-web' 'just dev-donationalerts' 'just dev-video'
 
 typecheck-web:
+  bunx tsc --noEmit -p apps/web/tsconfig.node.json
   bunx tsc --noEmit -p apps/web/tsconfig.json
 
 typecheck-donationalerts:
@@ -41,6 +42,21 @@ fmt-check:
 
 build-web: install
   cd apps/web && bunx vite build
+
+docker-build-dev image_ref="omnistream:local": env-encrypt-dev
+  docker build --build-arg ENV_FILE='.env.dev'  --tag "{{image_ref}}" .
+
+docker-build-prod image_ref="omnistream:local": env-encrypt-prod
+  docker build --build-arg ENV_FILE='.env.prod' --tag "{{image_ref}}" .
+
+compose-up:
+  dotenvx run -- docker compose up -d
+
+compose-down:
+  dotenvx run -- docker compose down
+
+compose-dev: compose-down docker-build-dev compose-up
+compose-prod: compose-down docker-build-prod compose-up
 
 test-web: install
   dotenvx run -f .env.dev -- bunx vitest --run apps/web
@@ -85,4 +101,3 @@ env-encrypt-dev:
   dotenvx encrypt -f .env.dev
 
 env-encrypt: env-encrypt-dev env-encrypt-prod
-

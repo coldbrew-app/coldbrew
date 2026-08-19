@@ -1,3 +1,4 @@
 [post-start]
-copy-env = "cp {{ primary_worktree_path }}/.env.keys {{ worktree_path }}/.env.keys"
-install-deps = "nub install"
+copy-env =      "cp {{ primary_worktree_path }}/.env      {{ worktree_path }}/.env"
+copy-env-keys = "cp {{ primary_worktree_path }}/.env.keys {{ worktree_path }}/.env.keys"
+install-deps = "bun install"

@@ -6,12 +6,7 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   envDir: "../..",
-  plugins: [
-    tanstackStart({ router: { autoCodeSplitting: true } }),
-    nitro(),
-    react(),
-    tailwindcss(),
-  ],
+  plugins: [tanstackStart(), nitro({ preset: "bun" }), react(), tailwindcss()],
   resolve: { tsconfigPaths: true },
   server: { port: 3000 },
 });

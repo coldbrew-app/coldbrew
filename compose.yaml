@@ -1,0 +1,71 @@
+x-app: &app
+  image: ${IMAGE_REF:-omnistream:local}
+  build:
+    context: .
+    dockerfile: Dockerfile
+  environment:
+    DOTENV_PRIVATE_KEY: ${DOTENV_PRIVATE_KEY:?Set DOTENV_PRIVATE_KEY in the environment}
+    APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN in the deployment environment}
+  init: true
+  restart: unless-stopped
+  networks:
+    - internal
+
+services:
+  caddy:
+    image: caddy:2.10.2-alpine
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN in .env}
+    depends_on:
+      web:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "3000:3000"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+    networks:
+      - internal
+    mem_limit: 128m
+    cpus: 0.25
+
+  web:
+    <<: *app
+    working_dir: /app/apps/web
+    command: ["bun", "/app/apps/web/.output/server/index.mjs"]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'bun -e ''fetch("http://127.0.0.1:3000/api/health").then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))''',
+        ]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    mem_limit: 512m
+    cpus: 0.75
+
+  donationalerts:
+    <<: *app
+    command: ["bun", "apps/donationalerts/src/index.ts"]
+    mem_limit: 384m
+    cpus: 0.5
+
+  video:
+    <<: *app
+    command: ["bun", "apps/video/src/index.ts"]
+    mem_limit: 256m
+    cpus: 0.5
+
+networks:
+  internal:
+
+volumes:
+  caddy_data:
+  caddy_config:

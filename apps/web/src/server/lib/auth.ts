@@ -5,9 +5,7 @@ import { env } from "../env.js";
 import { sql } from "../sensors/db/index.js";
 
 export const auth = betterAuth({
-  baseURL: {
-    allowedHosts: ["localhost:3000", "*.vercel.app"],
-  },
+  baseURL: env.APP_DOMAIN,
   database: {
     type: "postgres",
     dialect: new PostgresJSDialect({ postgres: sql }),

@@ -14,6 +14,7 @@ import { Route as AlertsRouteImport } from './routes/alerts'
 import { Route as DonationsRouteImport } from './routes/donations'
 import { Route as IntegrationsRouteImport } from './routes/integrations'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as DonationsIndexRouteImport } from './routes/donations.index'
 import { Route as DonationsVideosRouteImport } from './routes/donations.videos'
 import { Route as ShareSlugRouteImport } from './routes/share.$slug'
@@ -44,6 +45,11 @@ const IntegrationsRoute = IntegrationsRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHealthRoute = ApiHealthRouteImport.update({
+  id: '/api/health',
+  path: '/api/health',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DonationsIndexRoute = DonationsIndexRouteImport.update({
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/donations': typeof DonationsRouteWithChildren
   '/integrations': typeof IntegrationsRoute
   '/settings': typeof SettingsRoute
+  '/api/health': typeof ApiHealthRoute
   '/donations/videos': typeof DonationsVideosRoute
   '/share/$slug': typeof ShareSlugRoute
   '/donations/': typeof DonationsIndexRoute
@@ -96,6 +103,7 @@ export interface FileRoutesByTo {
   '/alerts': typeof AlertsRoute
   '/integrations': typeof IntegrationsRoute
   '/settings': typeof SettingsRoute
+  '/api/health': typeof ApiHealthRoute
   '/donations/videos': typeof DonationsVideosRoute
   '/share/$slug': typeof ShareSlugRoute
   '/donations': typeof DonationsIndexRoute
@@ -110,6 +118,7 @@ export interface FileRoutesById {
   '/donations': typeof DonationsRouteWithChildren
   '/integrations': typeof IntegrationsRoute
   '/settings': typeof SettingsRoute
+  '/api/health': typeof ApiHealthRoute
   '/donations/videos': typeof DonationsVideosRoute
   '/share/$slug': typeof ShareSlugRoute
   '/donations/': typeof DonationsIndexRoute
@@ -125,6 +134,7 @@ export interface FileRouteTypes {
     | '/donations'
     | '/integrations'
     | '/settings'
+    | '/api/health'
     | '/donations/videos'
     | '/share/$slug'
     | '/donations/'
@@ -137,6 +147,7 @@ export interface FileRouteTypes {
     | '/alerts'
     | '/integrations'
     | '/settings'
+    | '/api/health'
     | '/donations/videos'
     | '/share/$slug'
     | '/donations'
@@ -150,6 +161,7 @@ export interface FileRouteTypes {
     | '/donations'
     | '/integrations'
     | '/settings'
+    | '/api/health'
     | '/donations/videos'
     | '/share/$slug'
     | '/donations/'
@@ -164,6 +176,7 @@ export interface RootRouteChildren {
   DonationsRoute: typeof DonationsRouteWithChildren
   IntegrationsRoute: typeof IntegrationsRoute
   SettingsRoute: typeof SettingsRoute
+  ApiHealthRoute: typeof ApiHealthRoute
   ShareSlugRoute: typeof ShareSlugRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
@@ -205,6 +218,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/health': {
+      id: '/api/health'
+      path: '/api/health'
+      fullPath: '/api/health'
+      preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/donations/': {
@@ -272,6 +292,7 @@ const rootRouteChildren: RootRouteChildren = {
   DonationsRoute: DonationsRouteWithChildren,
   IntegrationsRoute: IntegrationsRoute,
   SettingsRoute: SettingsRoute,
+  ApiHealthRoute: ApiHealthRoute,
   ShareSlugRoute: ShareSlugRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,

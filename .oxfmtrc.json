@@ -7,6 +7,6 @@
     "stylesheet": "apps/client/styles.css",
     "functions": ["clsx", "cn", "cva", "tw", "withProps"]
   },
-  "ignorePatterns": ["*.gen.*", "*.yaml"],
+  "ignorePatterns": ["*.gen.*", "*.yaml", "*.toml"],
   "sortImports": true
 }

@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { delay } from "./delay.js";
 import { erro } from "./erro.js";
+import { logger } from "./logger.js";
 import { validate, ValidationError } from "./neverthrow/validate.js";
 import {
   AccessToken,
@@ -209,7 +210,7 @@ export class DonationAlertsFacade {
     options: {
       readonly onDonation: (donation: RawDonation) => void;
       readonly onError: (
-        error: DonationAlertsRequestError | DonationAlertsUnauthorizedError | ValidationError,
+        error: DonationAlertsRequestError | DonationAlertsUnauthorizedError,
       ) => void;
     },
   ): DonationAlertsSubscription {
@@ -230,7 +231,7 @@ export class DonationAlertsFacade {
             options.onDonation(toDonation(event.result.data.data));
           }
         },
-        (error) => options.onError(error),
+        (error) => logger.error(error),
       );
     });
 
