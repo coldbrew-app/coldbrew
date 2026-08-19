@@ -8,10 +8,13 @@ import VideoPriorities from "@web/components/video-priorities";
 import { z } from "zod";
 
 import { useUpdateVideoM, useUpdateVideoStatusM, useVideosQ } from "../hooks/api";
-import { useI18n } from "../lib/i18n";
+import { createTranslator, useI18n } from "../lib/i18n";
 
 export const Route = createFileRoute("/donations/videos")({
   component: VideoQueue,
+  head: ({ match }) => ({
+    meta: [{ title: `${createTranslator(match.context.locale)("videoQueue")} · Coldbrew` }],
+  }),
   validateSearch: z.object({
     videoPriorityId: z
       .union([z.literal("all"), z.coerce.number().int().positive()])

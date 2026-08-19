@@ -6,10 +6,17 @@ import VideoCard from "@web/components/video-card";
 import { z } from "zod";
 
 import { useSharedVideosQ } from "../hooks/api";
-import { useI18n } from "../lib/i18n";
+import { createTranslator, useI18n } from "../lib/i18n";
 
 export const Route = createFileRoute("/share/$slug")({
   component: SharedVideoQueue,
+  head: ({ match, params }) => ({
+    meta: [
+      {
+        title: `${createTranslator(match.context.locale)("videoQueueBy", { slug: params.slug })} · Coldbrew`,
+      },
+    ],
+  }),
   params: z.object({
     slug: SlugSchema,
   }),

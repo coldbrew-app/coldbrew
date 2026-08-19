@@ -24,6 +24,17 @@ Add helper scripts to `justfile`, not `package.json`
 - `just fmt` - for formatting
 - Make sure that file `vite.config.js` does not exist. You already have `vite.config.ts`.
 
+## Creating new page
+
+- every new page should declare a document.title like this:
+
+  ```ts
+  export const Route = createFileRoute("/donations")({
+    component: DonationsLayout,
+    head: () => ({ meta: [{ title: "Donations · Coldbrew" }] }),
+  });
+  ```
+
 ## Code style
 
 - variables of types `Result` and `ResultAsync` from "neverthrow" should start with `$` (for example: `const $donations = ResultAsync.fromPromise(...)`)

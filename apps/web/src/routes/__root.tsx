@@ -26,6 +26,7 @@ import { Skeleton } from "../components/ui/skeleton";
 import { signOut, useSession } from "../lib/auth-client";
 import type { Locale } from "../lib/i18n";
 import { I18nProvider, useI18n } from "../lib/i18n";
+import { getRequestLocale } from "../server/locale";
 
 import appCss from "../../styles.css?url";
 
@@ -34,29 +35,37 @@ const navItem =
 const activeNavItem = "bg-violet-100 font-bold text-violet-700";
 const localeFlags: Record<Locale, string> = { en: "🇬🇧", ru: "🇷🇺" };
 
-export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+export const Route = createRootRouteWithContext<{
+  locale: Locale;
+  queryClient: QueryClient;
+}>()({
+  beforeLoad: async ({ context }) => ({
+    locale: typeof document === "undefined" ? await getRequestLocale() : context.locale,
+  }),
   head: () => ({
     meta: [
       { charSet: "utf-8" },
       { content: "width=device-width, initial-scale=1", name: "viewport" },
+      { title: "Coldbrew" },
     ],
     links: [
       { href: appCss, rel: "stylesheet" },
       { href: logo, rel: "icon", type: "image/svg+xml" },
     ],
-    title: "coldbrew",
   }),
   component: RootDocument,
 });
 
 function RootDocument() {
+  const { locale } = Route.useRouteContext();
+
   return (
-    <html lang="en">
+    <html lang={locale}>
       <head>
         <HeadContent />
       </head>
       <body>
-        <I18nProvider>
+        <I18nProvider initialLocale={locale}>
           <TooltipProvider>
             <Application />
           </TooltipProvider>

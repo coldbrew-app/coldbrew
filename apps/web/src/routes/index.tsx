@@ -6,13 +6,16 @@ import { DashboardSkeleton } from "@web/components/loading-skeletons";
 import MockChart from "@web/components/mock-chart";
 import { Button } from "@web/components/ui/button";
 import { fmtAmount } from "@web/lib/fmt";
-import { useI18n } from "@web/lib/i18n";
+import { createTranslator, useI18n } from "@web/lib/i18n";
 import { z } from "zod";
 
 import { useAuthUrl, useDonationsQ as useDonations, useUserInfo } from "../hooks/api";
 
 export const Route = createFileRoute("/")({
   component: Overview,
+  head: ({ match }) => ({
+    meta: [{ title: `${createTranslator(match.context.locale)("overview")} · Coldbrew` }],
+  }),
   validateSearch: z.object({ success: z.boolean().optional() }),
 });
 

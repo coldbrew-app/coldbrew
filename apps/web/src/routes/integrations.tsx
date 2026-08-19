@@ -3,10 +3,13 @@ import { Icons } from "@web/components/icons";
 import { Button } from "@web/components/ui/button";
 
 import { useAuthUrl, useDisconnectM, useUserInfo } from "../hooks/api";
-import { useI18n } from "../lib/i18n";
+import { createTranslator, useI18n } from "../lib/i18n";
 
 export const Route = createFileRoute("/integrations")({
   component: RouteComponent,
+  head: ({ match }) => ({
+    meta: [{ title: `${createTranslator(match.context.locale)("integrations")} · Coldbrew` }],
+  }),
 });
 
 function RouteComponent() {

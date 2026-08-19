@@ -1,9 +1,18 @@
-import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from "react";
+import { useRouter } from "@tanstack/react-router";
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
-export const locales = ["en", "ru"] as const;
-export type Locale = (typeof locales)[number];
+import { localeCookieName, locales, type Locale, resolveLocale } from "./locale";
 
-const storageKey = "locale";
+export { locales, resolveLocale };
+export type { Locale };
 
 const en = {
   overview: "Overview",
@@ -279,17 +288,18 @@ type TranslationArguments<Key extends TranslationKey> = (typeof en)[Key] extends
   ? Args
   : [];
 
-type Translate = <Key extends TranslationKey>(
+export type Translate = <Key extends TranslationKey>(
   key: Key,
   ...args: TranslationArguments<Key>
 ) => string;
 
-export function resolveLocale(
-  storedLocale: string | null,
-  browserLanguage: string | undefined,
-): Locale {
-  if (storedLocale === "ru" || storedLocale === "en") return storedLocale;
-  return browserLanguage?.toLowerCase().startsWith("ru") ? "ru" : "en";
+export function createTranslator(locale: Locale): Translate {
+  return ((key: TranslationKey, ...args: unknown[]) => {
+    const message = messages[locale][key];
+    return typeof message === "function"
+      ? (message as (values: unknown) => string)(args[0])
+      : message;
+  }) as Translate;
 }
 
 type I18n = {
@@ -300,16 +310,32 @@ type I18n = {
 
 const I18nContext = createContext<I18n | null>(null);
 
-export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocale] = useState<Locale>(() =>
-    resolveLocale(
-      typeof window === "undefined" ? null : window.localStorage.getItem(storageKey),
-      typeof navigator === "undefined" ? undefined : navigator.language,
-    ),
+export function I18nProvider({
+  children,
+  initialLocale,
+}: {
+  children: ReactNode;
+  initialLocale: Locale;
+}) {
+  const router = useRouter();
+  const [locale, setLocaleState] = useState<Locale>(initialLocale);
+
+  const setLocale = useCallback(
+    (nextLocale: Locale) => {
+      setLocaleState(nextLocale);
+      document.cookie = `${localeCookieName}=${nextLocale}; Path=/; Max-Age=31536000; SameSite=Lax`;
+      router.update({
+        context: {
+          ...router.options.context,
+          locale: nextLocale,
+        },
+      });
+      void router.invalidate();
+    },
+    [router],
   );
 
   useEffect(() => {
-    window.localStorage.setItem(storageKey, locale);
     document.documentElement.lang = locale;
   }, [locale]);
 
@@ -317,14 +343,9 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     () => ({
       locale,
       setLocale,
-      t: ((key: TranslationKey, ...args: unknown[]) => {
-        const message = messages[locale][key];
-        return typeof message === "function"
-          ? (message as (values: unknown) => string)(args[0])
-          : message;
-      }) as Translate,
+      t: createTranslator(locale),
     }),
-    [locale],
+    [locale, setLocale],
   );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
