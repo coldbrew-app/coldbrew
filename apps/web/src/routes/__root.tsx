@@ -40,7 +40,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { content: "width=device-width, initial-scale=1", name: "viewport" },
     ],
-    links: [{ href: appCss, rel: "stylesheet" }],
+    links: [
+      { href: appCss, rel: "stylesheet" },
+      { href: logo, rel: "icon", type: "image/svg+xml" },
+    ],
     title: "coldbrew",
   }),
   component: RootDocument,
