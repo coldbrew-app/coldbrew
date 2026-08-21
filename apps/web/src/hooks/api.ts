@@ -1,13 +1,15 @@
 import type { Slug } from "@coldbrew/packages/schemas.js";
-import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useSuspenseQuery } from "@tanstack/react-query";
 
-import { trpc } from "../lib/trpc";
+import { useApi } from "../lib/trpc";
 
 export function useUserInfo() {
+  const { trpc } = useApi();
   return useSuspenseQuery(trpc.userInfo.queryOptions()).data;
 }
 
 export function useSlug() {
+  const { trpc } = useApi();
   const slug = useSuspenseQuery(
     trpc.userInfo.queryOptions(undefined, { select: (data) => data?.slug }),
   );
@@ -17,78 +19,83 @@ export function useSlug() {
 }
 
 export function useSetSlugM() {
-  const client = useQueryClient();
+  const { queryClient, trpc } = useApi();
   return useMutation(
     trpc.updateSlug.mutationOptions({
       onSuccess() {
-        client.invalidateQueries({ queryKey: trpc.userInfo.queryKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.userInfo.queryKey() });
       },
     }),
   );
 }
 
 export function useDisconnectM() {
-  const client = useQueryClient();
+  const { queryClient, trpc } = useApi();
 
   return useMutation(
     trpc.integration.disconnect.mutationOptions({
       onSuccess() {
-        client.invalidateQueries({ queryKey: trpc.userInfo.queryKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.userInfo.queryKey() });
       },
     }),
   );
 }
 
 export function useDonationsQ() {
+  const { trpc } = useApi();
   return useQuery(trpc.donations.queryOptions());
 }
 
 export function useVideosQ() {
+  const { trpc } = useApi();
   return useQuery(trpc.videos.queryOptions());
 }
 
 export function useVideoPrioritiesQ() {
+  const { trpc } = useApi();
   return useQuery(trpc.videoPriorities.queryOptions());
 }
 
 export function useUpdateVideoPriorityM() {
-  const client = useQueryClient();
+  const { queryClient, trpc } = useApi();
   return useMutation(
     trpc.updateVideoPriority.mutationOptions({
       onSuccess() {
-        client.invalidateQueries({ queryKey: trpc.videoPriorities.queryKey() });
-        client.invalidateQueries({ queryKey: trpc.videos.queryKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.videoPriorities.queryKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.videos.queryKey() });
       },
     }),
   );
 }
 
 export function useUpdateVideoStatusM() {
-  const client = useQueryClient();
+  const { queryClient, trpc } = useApi();
   return useMutation(
     trpc.updateVideoStatus.mutationOptions({
       onSuccess() {
-        client.invalidateQueries({ queryKey: trpc.videos.queryKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.videos.queryKey() });
       },
     }),
   );
 }
 
 export function useUpdateVideoM() {
-  const client = useQueryClient();
+  const { queryClient, trpc } = useApi();
   return useMutation(
     trpc.updateVideo.mutationOptions({
       onSuccess() {
-        client.invalidateQueries({ queryKey: trpc.videos.queryKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.videos.queryKey() });
       },
     }),
   );
 }
 
 export function useSharedVideosQ(slug: Slug) {
+  const { trpc } = useApi();
   return useQuery(trpc.sharedVideos.queryOptions({ slug }));
 }
 
 export function useAuthUrl() {
+  const { trpc } = useApi();
   return useSuspenseQuery(trpc.authUrls.queryOptions()).data;
 }

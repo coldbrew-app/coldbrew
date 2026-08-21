@@ -9,64 +9,72 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as AlertsRouteImport } from './routes/alerts'
-import { Route as DonationsRouteImport } from './routes/donations'
-import { Route as IntegrationsRouteImport } from './routes/integrations'
-import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedAlertsRouteImport } from './routes/_authenticated/alerts'
+import { Route as AuthenticatedDonationsRouteImport } from './routes/_authenticated/donations'
+import { Route as AuthenticatedIntegrationsRouteImport } from './routes/_authenticated/integrations'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
-import { Route as DonationsIndexRouteImport } from './routes/donations.index'
-import { Route as DonationsVideosRouteImport } from './routes/donations.videos'
 import { Route as ShareSlugRouteImport } from './routes/share.$slug'
+import { Route as AuthenticatedDonationsIndexRouteImport } from './routes/_authenticated/donations.index'
+import { Route as AuthenticatedDonationsVideosRouteImport } from './routes/_authenticated/donations.videos'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api/trpc/$'
 import { Route as ApiIntegrationDonationalertsCallbackRouteImport } from './routes/api/integration/donationalerts/callback'
 
-const IndexRoute = IndexRouteImport.update({
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AlertsRoute = AlertsRouteImport.update({
+const AuthenticatedAlertsRoute = AuthenticatedAlertsRouteImport.update({
   id: '/alerts',
   path: '/alerts',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
-const DonationsRoute = DonationsRouteImport.update({
+const AuthenticatedDonationsRoute = AuthenticatedDonationsRouteImport.update({
   id: '/donations',
   path: '/donations',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
-const IntegrationsRoute = IntegrationsRouteImport.update({
-  id: '/integrations',
-  path: '/integrations',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SettingsRoute = SettingsRouteImport.update({
+const AuthenticatedIntegrationsRoute =
+  AuthenticatedIntegrationsRouteImport.update({
+    id: '/integrations',
+    path: '/integrations',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const ApiHealthRoute = ApiHealthRouteImport.update({
   id: '/api/health',
   path: '/api/health',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DonationsIndexRoute = DonationsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => DonationsRoute,
-} as any)
-const DonationsVideosRoute = DonationsVideosRouteImport.update({
-  id: '/videos',
-  path: '/videos',
-  getParentRoute: () => DonationsRoute,
-} as any)
 const ShareSlugRoute = ShareSlugRouteImport.update({
   id: '/share/$slug',
   path: '/share/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedDonationsIndexRoute =
+  AuthenticatedDonationsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedDonationsRoute,
+  } as any)
+const AuthenticatedDonationsVideosRoute =
+  AuthenticatedDonationsVideosRouteImport.update({
+    id: '/videos',
+    path: '/videos',
+    getParentRoute: () => AuthenticatedDonationsRoute,
+  } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -85,45 +93,46 @@ const ApiIntegrationDonationalertsCallbackRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/alerts': typeof AlertsRoute
-  '/donations': typeof DonationsRouteWithChildren
-  '/integrations': typeof IntegrationsRoute
-  '/settings': typeof SettingsRoute
+  '/': typeof AuthenticatedIndexRoute
+  '/alerts': typeof AuthenticatedAlertsRoute
+  '/donations': typeof AuthenticatedDonationsRouteWithChildren
+  '/integrations': typeof AuthenticatedIntegrationsRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/api/health': typeof ApiHealthRoute
-  '/donations/videos': typeof DonationsVideosRoute
   '/share/$slug': typeof ShareSlugRoute
-  '/donations/': typeof DonationsIndexRoute
+  '/donations/videos': typeof AuthenticatedDonationsVideosRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/donations/': typeof AuthenticatedDonationsIndexRoute
   '/api/integration/donationalerts/callback': typeof ApiIntegrationDonationalertsCallbackRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/alerts': typeof AlertsRoute
-  '/integrations': typeof IntegrationsRoute
-  '/settings': typeof SettingsRoute
+  '/alerts': typeof AuthenticatedAlertsRoute
+  '/integrations': typeof AuthenticatedIntegrationsRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/api/health': typeof ApiHealthRoute
-  '/donations/videos': typeof DonationsVideosRoute
   '/share/$slug': typeof ShareSlugRoute
-  '/donations': typeof DonationsIndexRoute
+  '/': typeof AuthenticatedIndexRoute
+  '/donations/videos': typeof AuthenticatedDonationsVideosRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/donations': typeof AuthenticatedDonationsIndexRoute
   '/api/integration/donationalerts/callback': typeof ApiIntegrationDonationalertsCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/alerts': typeof AlertsRoute
-  '/donations': typeof DonationsRouteWithChildren
-  '/integrations': typeof IntegrationsRoute
-  '/settings': typeof SettingsRoute
+  '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/_authenticated/alerts': typeof AuthenticatedAlertsRoute
+  '/_authenticated/donations': typeof AuthenticatedDonationsRouteWithChildren
+  '/_authenticated/integrations': typeof AuthenticatedIntegrationsRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/api/health': typeof ApiHealthRoute
-  '/donations/videos': typeof DonationsVideosRoute
   '/share/$slug': typeof ShareSlugRoute
-  '/donations/': typeof DonationsIndexRoute
+  '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/donations/videos': typeof AuthenticatedDonationsVideosRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/_authenticated/donations/': typeof AuthenticatedDonationsIndexRoute
   '/api/integration/donationalerts/callback': typeof ApiIntegrationDonationalertsCallbackRoute
 }
 export interface FileRouteTypes {
@@ -135,47 +144,44 @@ export interface FileRouteTypes {
     | '/integrations'
     | '/settings'
     | '/api/health'
-    | '/donations/videos'
     | '/share/$slug'
-    | '/donations/'
+    | '/donations/videos'
     | '/api/auth/$'
     | '/api/trpc/$'
+    | '/donations/'
     | '/api/integration/donationalerts/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/alerts'
     | '/integrations'
     | '/settings'
     | '/api/health'
-    | '/donations/videos'
     | '/share/$slug'
-    | '/donations'
+    | '/'
+    | '/donations/videos'
     | '/api/auth/$'
     | '/api/trpc/$'
+    | '/donations'
     | '/api/integration/donationalerts/callback'
   id:
     | '__root__'
-    | '/'
-    | '/alerts'
-    | '/donations'
-    | '/integrations'
-    | '/settings'
+    | '/_authenticated'
+    | '/_authenticated/alerts'
+    | '/_authenticated/donations'
+    | '/_authenticated/integrations'
+    | '/_authenticated/settings'
     | '/api/health'
-    | '/donations/videos'
     | '/share/$slug'
-    | '/donations/'
+    | '/_authenticated/'
+    | '/_authenticated/donations/videos'
     | '/api/auth/$'
     | '/api/trpc/$'
+    | '/_authenticated/donations/'
     | '/api/integration/donationalerts/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  AlertsRoute: typeof AlertsRoute
-  DonationsRoute: typeof DonationsRouteWithChildren
-  IntegrationsRoute: typeof IntegrationsRoute
-  SettingsRoute: typeof SettingsRoute
+  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   ApiHealthRoute: typeof ApiHealthRoute
   ShareSlugRoute: typeof ShareSlugRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -185,40 +191,47 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/': {
+      id: '/_authenticated/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/alerts': {
-      id: '/alerts'
+    '/_authenticated/alerts': {
+      id: '/_authenticated/alerts'
       path: '/alerts'
       fullPath: '/alerts'
-      preLoaderRoute: typeof AlertsRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthenticatedAlertsRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/donations': {
-      id: '/donations'
+    '/_authenticated/donations': {
+      id: '/_authenticated/donations'
       path: '/donations'
       fullPath: '/donations'
-      preLoaderRoute: typeof DonationsRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthenticatedDonationsRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/integrations': {
-      id: '/integrations'
+    '/_authenticated/integrations': {
+      id: '/_authenticated/integrations'
       path: '/integrations'
       fullPath: '/integrations'
-      preLoaderRoute: typeof IntegrationsRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthenticatedIntegrationsRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/settings': {
-      id: '/settings'
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
       path: '/settings'
       fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/api/health': {
       id: '/api/health'
@@ -227,26 +240,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/donations/': {
-      id: '/donations/'
-      path: '/'
-      fullPath: '/donations/'
-      preLoaderRoute: typeof DonationsIndexRouteImport
-      parentRoute: typeof DonationsRoute
-    }
-    '/donations/videos': {
-      id: '/donations/videos'
-      path: '/videos'
-      fullPath: '/donations/videos'
-      preLoaderRoute: typeof DonationsVideosRouteImport
-      parentRoute: typeof DonationsRoute
-    }
     '/share/$slug': {
       id: '/share/$slug'
       path: '/share/$slug'
       fullPath: '/share/$slug'
       preLoaderRoute: typeof ShareSlugRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/donations/': {
+      id: '/_authenticated/donations/'
+      path: '/'
+      fullPath: '/donations/'
+      preLoaderRoute: typeof AuthenticatedDonationsIndexRouteImport
+      parentRoute: typeof AuthenticatedDonationsRoute
+    }
+    '/_authenticated/donations/videos': {
+      id: '/_authenticated/donations/videos'
+      path: '/videos'
+      fullPath: '/donations/videos'
+      preLoaderRoute: typeof AuthenticatedDonationsVideosRouteImport
+      parentRoute: typeof AuthenticatedDonationsRoute
     }
     '/api/auth/$': {
       id: '/api/auth/$'
@@ -272,26 +285,44 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface DonationsRouteChildren {
-  DonationsVideosRoute: typeof DonationsVideosRoute
-  DonationsIndexRoute: typeof DonationsIndexRoute
+interface AuthenticatedDonationsRouteChildren {
+  AuthenticatedDonationsVideosRoute: typeof AuthenticatedDonationsVideosRoute
+  AuthenticatedDonationsIndexRoute: typeof AuthenticatedDonationsIndexRoute
 }
 
-const DonationsRouteChildren: DonationsRouteChildren = {
-  DonationsVideosRoute: DonationsVideosRoute,
-  DonationsIndexRoute: DonationsIndexRoute,
+const AuthenticatedDonationsRouteChildren: AuthenticatedDonationsRouteChildren =
+  {
+    AuthenticatedDonationsVideosRoute: AuthenticatedDonationsVideosRoute,
+    AuthenticatedDonationsIndexRoute: AuthenticatedDonationsIndexRoute,
+  }
+
+const AuthenticatedDonationsRouteWithChildren =
+  AuthenticatedDonationsRoute._addFileChildren(
+    AuthenticatedDonationsRouteChildren,
+  )
+
+interface AuthenticatedRouteChildren {
+  AuthenticatedAlertsRoute: typeof AuthenticatedAlertsRoute
+  AuthenticatedDonationsRoute: typeof AuthenticatedDonationsRouteWithChildren
+  AuthenticatedIntegrationsRoute: typeof AuthenticatedIntegrationsRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
-const DonationsRouteWithChildren = DonationsRoute._addFileChildren(
-  DonationsRouteChildren,
+const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedAlertsRoute: AuthenticatedAlertsRoute,
+  AuthenticatedDonationsRoute: AuthenticatedDonationsRouteWithChildren,
+  AuthenticatedIntegrationsRoute: AuthenticatedIntegrationsRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+}
+
+const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
+  AuthenticatedRouteChildren,
 )
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  AlertsRoute: AlertsRoute,
-  DonationsRoute: DonationsRouteWithChildren,
-  IntegrationsRoute: IntegrationsRoute,
-  SettingsRoute: SettingsRoute,
+  AuthenticatedRoute: AuthenticatedRouteWithChildren,
   ApiHealthRoute: ApiHealthRoute,
   ShareSlugRoute: ShareSlugRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

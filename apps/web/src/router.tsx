@@ -1,9 +1,9 @@
-import { QueryClient } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 import { parseCookie } from "cookie-es";
 
 import { localeCookieName, resolveLocale } from "./lib/locale";
+import { createApi } from "./lib/trpc";
 import { routeTree } from "./routeTree.gen";
 
 function getInitialLocale() {
@@ -13,18 +13,16 @@ function getInitialLocale() {
 
 export function getRouter() {
   const locale = getInitialLocale();
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: 0 } },
-  });
+  const api = createApi();
   const router = createRouter({
     routeTree,
-    context: { locale, queryClient },
+    context: { locale, viewer: null, ...api },
     defaultPreload: "intent",
     defaultPreloadStaleTime: 0,
     scrollRestoration: true,
   });
 
-  setupRouterSsrQueryIntegration({ router, queryClient });
+  setupRouterSsrQueryIntegration({ router, queryClient: api.queryClient });
   return router;
 }
 

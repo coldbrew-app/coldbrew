@@ -4,11 +4,15 @@ import { Icons } from "@web/components/icons";
 import { DonationListSkeleton } from "@web/components/loading-skeletons";
 import { useMemo, useState } from "react";
 
-import { useDonationsQ } from "../hooks/api";
-import { useI18n } from "../lib/i18n";
+import { useDonationsQ } from "../../hooks/api";
+import { useI18n } from "../../lib/i18n";
 
-export const Route = createFileRoute("/donations/")({
+export const Route = createFileRoute("/_authenticated/donations/")({
   component: DonationsIndex,
+  loader: async ({ context }) => {
+    if (!context.viewer) return;
+    await context.queryClient.ensureQueryData(context.trpc.donations.queryOptions());
+  },
 });
 
 function DonationsIndex() {

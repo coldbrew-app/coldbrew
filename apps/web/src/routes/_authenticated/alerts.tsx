@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { createTranslator, useI18n } from "../lib/i18n";
+import { createTranslator, useI18n } from "../../lib/i18n";
 
-export const Route = createFileRoute("/alerts")({
+export const Route = createFileRoute("/_authenticated/alerts")({
   component: RouteComponent,
   head: ({ match }) => ({
     meta: [{ title: `${createTranslator(match.context.locale)("alerts")} · Coldbrew` }],

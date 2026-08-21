@@ -20,6 +20,10 @@ export const Route = createFileRoute("/share/$slug")({
   params: z.object({
     slug: SlugSchema,
   }),
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      context.trpc.sharedVideos.queryOptions({ slug: params.slug }),
+    ),
 });
 
 function SharedVideoQueue() {

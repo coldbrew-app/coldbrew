@@ -15,7 +15,7 @@ async function deployListener(
     while (true) {
       if (signal.aborted) return ok();
 
-      inner: for await (const event of donationAlerts.subscribeToDonations2(accessToken, signal)) {
+      inner: for await (const event of donationAlerts.subscribeToDonations(accessToken, signal)) {
         if (signal.aborted) return ok();
 
         if (event.name == "donation") {

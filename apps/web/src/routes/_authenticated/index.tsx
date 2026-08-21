@@ -9,13 +9,17 @@ import { fmtAmount } from "@web/lib/fmt";
 import { createTranslator, useI18n } from "@web/lib/i18n";
 import { z } from "zod";
 
-import { useAuthUrl, useDonationsQ as useDonations, useUserInfo } from "../hooks/api";
+import { useAuthUrl, useDonationsQ as useDonations, useUserInfo } from "../../hooks/api";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_authenticated/")({
   component: Overview,
   head: ({ match }) => ({
     meta: [{ title: `${createTranslator(match.context.locale)("overview")} · Coldbrew` }],
   }),
+  loader: async ({ context }) => {
+    if (!context.viewer) return;
+    await context.queryClient.ensureQueryData(context.trpc.donations.queryOptions());
+  },
   validateSearch: z.object({ success: z.boolean().optional() }),
 });
 

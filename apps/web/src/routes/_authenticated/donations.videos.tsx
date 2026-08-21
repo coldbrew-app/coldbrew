@@ -7,14 +7,21 @@ import VideoCard from "@web/components/video-card";
 import VideoPriorities from "@web/components/video-priorities";
 import { z } from "zod";
 
-import { useUpdateVideoM, useUpdateVideoStatusM, useVideosQ } from "../hooks/api";
-import { createTranslator, useI18n } from "../lib/i18n";
+import { useUpdateVideoM, useUpdateVideoStatusM, useVideosQ } from "../../hooks/api";
+import { createTranslator, useI18n } from "../../lib/i18n";
 
-export const Route = createFileRoute("/donations/videos")({
+export const Route = createFileRoute("/_authenticated/donations/videos")({
   component: VideoQueue,
   head: ({ match }) => ({
     meta: [{ title: `${createTranslator(match.context.locale)("videoQueue")} · Coldbrew` }],
   }),
+  loader: async ({ context }) => {
+    if (!context.viewer) return;
+    await Promise.all([
+      context.queryClient.ensureQueryData(context.trpc.videos.queryOptions()),
+      context.queryClient.ensureQueryData(context.trpc.videoPriorities.queryOptions()),
+    ]);
+  },
   validateSearch: z.object({
     videoPriorityId: z
       .union([z.literal("all"), z.coerce.number().int().positive()])

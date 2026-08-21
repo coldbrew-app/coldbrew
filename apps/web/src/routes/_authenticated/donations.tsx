@@ -1,9 +1,9 @@
 import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
 import { Icons } from "@web/components/icons";
 
-import { createTranslator, useI18n } from "../lib/i18n";
+import { createTranslator, useI18n } from "../../lib/i18n";
 
-export const Route = createFileRoute("/donations")({
+export const Route = createFileRoute("/_authenticated/donations")({
   component: DonationsLayout,
   head: ({ match }) => ({
     meta: [{ title: `${createTranslator(match.context.locale)("donations")} · Coldbrew` }],

@@ -2,10 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Icons } from "@web/components/icons";
 import { Button } from "@web/components/ui/button";
 
-import { useAuthUrl, useDisconnectM, useUserInfo } from "../hooks/api";
-import { createTranslator, useI18n } from "../lib/i18n";
+import { useAuthUrl, useDisconnectM, useUserInfo } from "../../hooks/api";
+import { createTranslator, useI18n } from "../../lib/i18n";
 
-export const Route = createFileRoute("/integrations")({
+export const Route = createFileRoute("/_authenticated/integrations")({
   component: RouteComponent,
   head: ({ match }) => ({
     meta: [{ title: `${createTranslator(match.context.locale)("integrations")} · Coldbrew` }],

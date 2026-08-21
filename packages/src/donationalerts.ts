@@ -205,7 +205,7 @@ export class DonationAlertsFacade {
     });
   }
 
-  subscribeToDonations2(accessToken: AccessToken, signal: AbortSignal) {
+  subscribeToDonations(accessToken: AccessToken, signal: AbortSignal) {
     // The SDK's declaration omits EventEmitter methods even though WebServer exposes them at runtime.
     const client: DonationAlertsWebServer = new alerts.WebServer({
       access_token: accessToken,
@@ -240,38 +240,5 @@ export class DonationAlertsFacade {
     });
 
     return emt.events(["donation", "error"]);
-  }
-
-  subscribeToDonations(
-    accessToken: AccessToken,
-    options: {
-      readonly onDonation: (donation: RawDonation) => void;
-      readonly onError: (
-        error: DonationAlertsRequestError | DonationAlertsUnauthorizedError,
-      ) => void;
-    },
-  ): DonationAlertsSubscription {
-    // The SDK's declaration omits EventEmitter methods even though WebServer exposes them at runtime.
-    const client: DonationAlertsWebServer = new alerts.WebServer({
-      access_token: accessToken,
-      autoReconnect: true,
-    }) as any;
-
-    client.on("open", () => {
-      void client.authorization().catch((error: unknown) => options.onError(toRequestError(error)));
-    });
-    client.on("error", (error) => options.onError(toRequestError(error)));
-    client.on("message", (message: unknown) => {
-      validate(WsEventSchema, message).match(
-        (event) => {
-          if (event.type == "donation") {
-            options.onDonation(toDonation(event.result.data.data));
-          }
-        },
-        (error) => logger.error(error),
-      );
-    });
-
-    return { close: () => client.close() };
   }
 }

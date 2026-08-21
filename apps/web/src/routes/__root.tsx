@@ -1,12 +1,10 @@
 import { useLocalStorage } from "@siberiacancode/reactuse";
-import type { QueryClient } from "@tanstack/react-query";
 import {
   HeadContent,
   Link,
   Outlet,
   Scripts,
   createRootRouteWithContext,
-  useRouterState,
 } from "@tanstack/react-router";
 import { Icons } from "@web/components/icons";
 import SignIn from "@web/components/sign-in";
@@ -23,10 +21,14 @@ import { Suspense, useEffect, useRef, useState } from "react";
 
 import logo from "../../assets/logo.svg";
 import { Skeleton } from "../components/ui/skeleton";
-import { signOut, useSession } from "../lib/auth-client";
+import { signOut } from "../lib/auth-client";
 import type { Locale } from "../lib/i18n";
 import { I18nProvider, useI18n } from "../lib/i18n";
+import type { Api } from "../lib/trpc";
+import type { Viewer } from "../server/api/_util";
 import { getRequestLocale } from "../server/locale";
+import { getCurrentViewer } from "../server/viewer";
+import PageLoadingSkeleton from "./-components/page-loading-skeleton";
 
 import appCss from "../../styles.css?url";
 
@@ -35,13 +37,16 @@ const navItem =
 const activeNavItem = "bg-violet-100 font-bold text-violet-700";
 const localeFlags: Record<Locale, string> = { en: "🇬🇧", ru: "🇷🇺" };
 
-export const Route = createRootRouteWithContext<{
-  locale: Locale;
-  queryClient: QueryClient;
-}>()({
-  beforeLoad: async ({ context }) => ({
-    locale: typeof document === "undefined" ? await getRequestLocale() : context.locale,
-  }),
+export const Route = createRootRouteWithContext<
+  Api & {
+    locale: Locale;
+    viewer: Viewer | null;
+  }
+>()({
+  beforeLoad: async () => {
+    const [locale, viewer] = await Promise.all([getRequestLocale(), getCurrentViewer()]);
+    return { locale, viewer };
+  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -67,61 +72,12 @@ function RootDocument() {
       <body>
         <I18nProvider initialLocale={locale}>
           <TooltipProvider>
-            <Application />
+            <Outlet />
           </TooltipProvider>
         </I18nProvider>
         <Scripts />
       </body>
     </html>
-  );
-}
-
-function Application() {
-  const [hasHydrated, setHasHydrated] = useState(false);
-
-  useEffect(() => setHasHydrated(true), []);
-
-  if (!hasHydrated) return <PageLoadingSkeleton />;
-  return <Root />;
-}
-
-function PageLoadingSkeleton() {
-  return (
-    <main aria-busy="true" className="flex min-h-dvh bg-[#f7f7fb]">
-      <aside className="hidden w-[244px] shrink-0 flex-col border-r border-[#ebeaf1] bg-white px-4 pt-8 pb-5 lg:flex">
-        <div className="flex items-center gap-2.5 px-1">
-          <Skeleton className="size-6 rounded-lg" />
-          <Skeleton className="h-5 w-24" />
-        </div>
-        <div className="mt-11 flex flex-col gap-1">
-          <Skeleton className="h-11 rounded-lg" />
-          <Skeleton className="h-11 rounded-lg" />
-          <Skeleton className="h-11 rounded-lg" />
-          <Skeleton className="h-11 rounded-lg" />
-        </div>
-        <div className="mt-auto flex items-center gap-2.5 border-t border-[#eeedf2] px-2 pt-5">
-          <Skeleton className="size-8 rounded-lg" />
-          <div className="flex min-w-0 grow flex-col gap-1.5">
-            <Skeleton className="h-3 w-20" />
-            <Skeleton className="h-2.5 w-28" />
-          </div>
-          <Skeleton className="size-5 rounded" />
-        </div>
-      </aside>
-      <div className="flex min-w-0 grow flex-col">
-        <Skeleton className="h-14 w-full rounded-none lg:hidden" />
-        <Skeleton className="h-12 w-full rounded-none" />
-        <div className="flex flex-col gap-4 px-3 py-2 sm:px-5 sm:py-3">
-          <Skeleton className="h-8 w-40" />
-          <Skeleton className="h-40" />
-          <div className="grid gap-4 md:grid-cols-3">
-            <Skeleton className="h-28" />
-            <Skeleton className="h-28" />
-            <Skeleton className="h-28" />
-          </div>
-        </div>
-      </div>
-    </main>
   );
 }
 
@@ -132,13 +88,10 @@ function useDark() {
   return { isDark, toggleDark };
 }
 
-function Root() {
-  const session = useSession();
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
+export function AuthenticatedRoot() {
+  const { viewer } = Route.useRouteContext();
 
-  if (pathname.startsWith("/share/")) return <Outlet />;
-  if (session.isPending) return <PageLoadingSkeleton />;
-  if (!session.data) return <SignIn />;
+  if (!viewer) return <SignIn />;
 
   return (
     <Suspense fallback={<PageLoadingSkeleton />}>
@@ -156,7 +109,7 @@ function AuthenticatedApplication() {
 }
 
 function AuthenticatedApplicationContent() {
-  const session = useSession();
+  const { viewer } = Route.useRouteContext();
   const { isDark, toggleDark } = useDark();
   const { locale, setLocale, t } = useI18n();
   const { setOpenMobile } = useSidebar();
@@ -181,11 +134,11 @@ function AuthenticatedApplicationContent() {
     return () => document.removeEventListener("mousedown", closeLanguageMenu);
   }, []);
 
-  if (!session.data || !userInfo) {
+  if (!viewer || !userInfo) {
     return <SignIn />;
   }
 
-  const user = session.data.user;
+  const user = viewer.user;
 
   return (
     <main className="flex h-dvh w-full min-w-0 bg-[#f7f7fb] font-sans text-[#242238] transition-colors duration-300 dark:bg-[#11111a] dark:text-[#f1efff]">
