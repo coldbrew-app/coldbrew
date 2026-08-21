@@ -39,3 +39,14 @@ export function extractYoutubeUrls(message: string | null) {
 
   return Array.from(new Set(youtubeUrls));
 }
+
+export function youtubeVideoId(url: string) {
+  const parsed = rurl(url);
+  const host = parsed.hostname.toLowerCase();
+  const id =
+    host === "youtu.be"
+      ? parsed.pathname.split("/")[1]
+      : (parsed.searchParams.get("v") ??
+        parsed.pathname.match(/^\/(?:embed|shorts)\/([^/]+)/)?.[1]);
+  return id || null;
+}

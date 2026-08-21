@@ -15,7 +15,7 @@ export const Route = createFileRoute("/_authenticated/integrations")({
 function RouteComponent() {
   const authUrl = useAuthUrl();
   const userInfo = useUserInfo();
-  const connected = userInfo !== null && userInfo.hasDonationalertsAccessToken;
+  const connected = userInfo !== null && userInfo.hasDonationAlertsConnection;
 
   const disconnectM = useDisconnectM();
   const { t } = useI18n();

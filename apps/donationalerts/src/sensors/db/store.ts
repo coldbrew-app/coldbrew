@@ -12,22 +12,34 @@ import { z } from "zod";
 
 import { env } from "../../env.js";
 
-export const sql = createSql(env.DATABASE_URL);
+const sql = createSql(env.DATABASE_URL);
 
 export class Store {
-  async insertDonations(userId: UserId, donations: Omit<Donation, "donationId" | "userId">[]) {
-    const input = jsonb(sql, donations);
+  async insertDonations(
+    userId: UserId,
+    donations: readonly Omit<Donation, "donationId" | "userId">[],
+  ) {
+    if (donations.length === 0) return [];
+    const input = jsonb(
+      sql,
+      donations.map((donation) => ({ ...donation, ...donation.money })),
+    );
 
     const rows = await sql`
       WITH input AS (
-        SELECT *
-        FROM jsonb_to_recordset(${input}::jsonb) as t (origin_donation_id int, origin donation_origin, author text, message text, amount float, created_at js_date)
+        SELECT * FROM jsonb_to_recordset(${input}::jsonb) AS t (
+          source donation_source, source_donation_id text, author text, message text,
+          amount money_amount, currency currency_code, amount_in_user_currency money_amount,
+          source_created_at text, occurred_at js_date
+        )
       )
-      INSERT INTO donation (origin_donation_id, origin, user_id,   author, message, amount, created_at)
-      SELECT                origin_donation_id, origin, ${userId}, author, message, amount, created_at
-      FROM input
-      ON CONFLICT (origin, origin_donation_id) DO NOTHING
-      RETURNING *
+      INSERT INTO donation (
+        source, source_donation_id, user_id, author, message, amount, currency,
+        amount_in_user_currency, source_created_at, occurred_at
+      ) SELECT source, source_donation_id, ${userId}, author, message, amount, currency,
+        amount_in_user_currency, source_created_at, occurred_at FROM input
+      ON CONFLICT (user_id, source, source_donation_id) DO NOTHING
+      RETURNING *, jsonb_build_object('amount', amount::text, 'currency', currency) as money
     `;
 
     return z.array(DonationSchema).parse(rows);
@@ -35,23 +47,13 @@ export class Store {
 
   async getUsersAuthenticatedInDonationAlerts() {
     const rows = await sql`
-      SELECT user_id,
-        donationalerts_access_token   AS access_token,
-        donationalerts_refresh_token  AS refresh_token
-      FROM "user"
-      WHERE donationalerts_access_token IS NOT NULL
-        AND donationalerts_refresh_token IS NOT NULL
+      SELECT user_id, source_user_id, access_token, refresh_token, token_version, history_checkpoint
+      FROM donationalerts_connection ORDER BY user_id
     `;
-
     return z.array(DonationAlertsUserSchema).parse(rows);
   }
 
   async setTokens(userId: UserId, refreshToken: RefreshToken, accessToken: AccessToken) {
-    await sql`
-      UPDATE "user" SET
-        donationalerts_refresh_token = ${refreshToken},
-        donationalerts_access_token = ${accessToken}
-      WHERE user_id = ${userId}
-    `;
+    await sql`UPDATE donationalerts_connection SET refresh_token = ${refreshToken}, access_token = ${accessToken}, token_version = token_version + 1, updated_at = now() WHERE user_id = ${userId}`;
   }
 }

@@ -1,6 +1,9 @@
 import * as alerts from "@kash-88/alerts";
 import { erro, validate } from "@lebedevna/neverthrow-utils";
 import dayjs from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat.js";
+import timezone from "dayjs/plugin/timezone.js";
+import utc from "dayjs/plugin/utc.js";
 import Emittery from "emittery";
 import { ok, ResultAsync, safeTry } from "neverthrow";
 import { z } from "zod";
@@ -10,10 +13,16 @@ import { logger } from "./logger.js";
 import {
   AccessToken,
   AccessTokenSchema,
+  CurrencyCodeSchema,
   Donation,
+  MoneyAmountSchema,
   RefreshToken,
   RefreshTokenSchema,
 } from "./schemas.js";
+
+dayjs.extend(customParseFormat);
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 export type RawDonation = Omit<Donation, "donationId" | "userId">;
 
@@ -21,19 +30,16 @@ const scopes = [
   alerts.OAuthScope.UserShow,
   alerts.OAuthScope.DonationSubscribe,
   alerts.OAuthScope.DonationIndex,
-  alerts.OAuthScope.CustomAlertStore,
-  alerts.OAuthScope.GoalSubscribe,
-  alerts.OAuthScope.PollSubscribe,
 ];
 
 const DonationAlertsDonationSchema = z.object({
   id: z.number(),
   username: z.string().nullable(),
   message: z.string().nullable(),
-  amount: z.number(),
-  currency: z.string(),
-  created_at: z.coerce.date().transform((date) => dayjs(date).add(3, "h").toDate()),
-  amount_in_user_currency: z.number(),
+  amount: MoneyAmountSchema,
+  currency: CurrencyCodeSchema,
+  created_at: z.string().min(1),
+  amount_in_user_currency: MoneyAmountSchema.optional(),
 });
 
 const DonationsPageSchema = z.object({
@@ -89,6 +95,10 @@ const TokensSchema = z.object({
   refresh_token: RefreshTokenSchema,
 });
 
+const UserProfileSchema = z.object({
+  id: z.union([z.number(), z.string()]),
+});
+
 export type DonationAlertsSubscription = {
   close(): void;
 };
@@ -100,15 +110,6 @@ type DonationAlertsWebServer = {
   on(event: "error", listener: (error: Error) => void): void;
   on(event: "message", listener: (message: unknown) => void): void;
 };
-
-const toDonation = (donation: z.infer<typeof DonationAlertsDonationSchema>): RawDonation => ({
-  origin: "donationalerts",
-  originDonationId: String(donation.id),
-  amount: donation.amount,
-  author: donation.username,
-  message: donation.message,
-  createdAt: donation.created_at,
-});
 
 type DonationAlertsRequestError = {
   type: "donationalerts: request error";
@@ -143,6 +144,7 @@ export class DonationAlertsFacade {
     private readonly config: {
       readonly clientId: string;
       readonly clientSecret: string;
+      readonly timeZone: string;
     },
   ) {}
 
@@ -150,16 +152,21 @@ export class DonationAlertsFacade {
     return alerts.getAuthorizeLink(this.config.clientId, redirectUri, scopes, "code");
   }
 
-  issueTokens(authCode: string, redirectUri: string) {
+  issueConnection(authCode: string, redirectUri: string) {
     return ResultAsync.fromPromise(
       alerts.getOauthToken(this.config.clientId, this.config.clientSecret, redirectUri, authCode),
       toRequestError,
     )
       .andThen((tokens) => validate(TokensSchema, tokens))
-      .map(({ access_token, refresh_token }) => ({
-        accessToken: access_token,
-        refreshToken: refresh_token,
-      }));
+      .andThen(({ access_token, refresh_token }) =>
+        ResultAsync.fromPromise(alerts.getUser(access_token), toRequestError)
+          .andThen((profile) => validate(UserProfileSchema, profile))
+          .map((profile) => ({
+            accessToken: access_token,
+            refreshToken: refresh_token,
+            sourceUserId: String(profile.id),
+          })),
+      );
   }
 
   refreshTokens(refreshToken: RefreshToken) {
@@ -181,6 +188,24 @@ export class DonationAlertsFacade {
     ).andThen((data) => validate(DonationsPageSchema, data));
   }
 
+  private toDonation(donation: z.infer<typeof DonationAlertsDonationSchema>): RawDonation {
+    const occurredAt = dayjs.tz(donation.created_at, "YYYY-MM-DD HH:mm:ss", this.config.timeZone);
+    if (!occurredAt.isValid()) {
+      throw new Error(`Invalid DonationAlerts donation date: ${donation.created_at}`);
+    }
+
+    return {
+      source: "donationalerts",
+      sourceDonationId: String(donation.id),
+      author: donation.username,
+      message: donation.message,
+      money: { amount: donation.amount, currency: donation.currency },
+      amountInUserCurrency: donation.amount_in_user_currency ?? null,
+      sourceCreatedAt: donation.created_at,
+      occurredAt: occurredAt.toDate(),
+    };
+  }
+
   getDonations(accessToken: AccessToken) {
     const self = this;
 
@@ -191,7 +216,7 @@ export class DonationAlertsFacade {
           await delay(250);
         }
         const page = yield* self.getDonationsPage(accessToken, pageNum);
-        donations.push(...page.data.map(toDonation));
+        donations.push(...page.data.map((donation) => self.toDonation(donation)));
 
         if (pageNum >= page.meta.last_page) return ok(donations);
       }
@@ -232,7 +257,7 @@ export class DonationAlertsFacade {
       validate(WsEventSchema, message).match(
         (event) => {
           if (event.type == "donation") {
-            emt.emit("donation", toDonation(event.result.data.data));
+            emt.emit("donation", this.toDonation(event.result.data.data));
           }
         },
         (error) => logger.error(error),

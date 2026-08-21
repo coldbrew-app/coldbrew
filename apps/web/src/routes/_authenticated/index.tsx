@@ -30,10 +30,11 @@ function Overview() {
   const authUrl = useAuthUrl();
   const donationsQ = useDonations();
   const success = Route.useSearch({ select: (search) => search.success });
-  const donationAlertsConnected = userInfo !== null && userInfo.hasDonationalertsAccessToken;
+  const donationAlertsConnected = userInfo !== null && userInfo.hasDonationAlertsConnection;
   const { locale, t } = useI18n();
 
-  const total = donationsQ.data?.reduce((sum, donation) => sum + donation.amount, 0) ?? 0;
+  const total =
+    donationsQ.data?.reduce((sum, donation) => sum + Number(donation.money.amount), 0) ?? 0;
   const donationsLength = donationsQ.data?.length ?? 0;
   const chartDates = ["2026-06-29", "2026-07-06", "2026-07-13", "2026-07-20", "2026-07-27"].map(
     (date) =>

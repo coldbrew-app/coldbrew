@@ -6,7 +6,7 @@ import { ok, safeTry } from "neverthrow";
 
 import { store } from "./sensors/db/index.js";
 import { VideoToSave } from "./sensors/db/store.js";
-import { extractYoutubeUrls, getYoutubeDurationMinutes } from "./youtube.js";
+import { extractYoutubeUrls, getYoutubeDurationMinutes, youtubeVideoId } from "./youtube.js";
 
 async function main() {
   while (true) {
@@ -22,8 +22,20 @@ async function main() {
       urls_loop: for (const url of urls) {
         const $iteration = await safeTry(async function* () {
           const durationMinutes = yield* getYoutubeDurationMinutes(url);
-          logger.debug("videos.push", { url, amount: donation.amount, durationMinutes });
-          videos.push({ url, amount: donation.amount, durationMinutes });
+          const providerVideoId = youtubeVideoId(url);
+          if (providerVideoId === null) return ok();
+          const queueAmount =
+            donation.amountInUserCurrency ??
+            (donation.money.currency === donation.queueCurrency ? donation.money.amount : null);
+          logger.debug("videos.push", { url, queueAmount, durationMinutes });
+          videos.push({
+            provider: "youtube",
+            providerVideoId,
+            url,
+            queueAmount,
+            queueCurrency: donation.queueCurrency,
+            durationMinutes,
+          });
           return ok();
         });
         if ($iteration.isOk()) continue urls_loop;

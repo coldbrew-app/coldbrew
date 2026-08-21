@@ -1,6 +1,10 @@
-CREATE TYPE donation_origin AS ENUM ('donationalerts');
+CREATE TYPE donation_source AS ENUM ('donationalerts');
+CREATE TYPE video_provider AS ENUM ('youtube');
+
 CREATE DOMAIN js_date AS timestamptz(3);
-CREATE DOMAIN uint AS integer CHECK (VALUE >= 0);
+CREATE DOMAIN positive_int AS integer CHECK (VALUE > 0);
+CREATE DOMAIN currency_code AS char(3) CHECK (VALUE ~ '^[A-Z]{3}$');
+CREATE DOMAIN money_amount AS numeric(20, 2) CHECK (VALUE >= 0);
 -- auth
 
 CREATE TABLE auth_user (
@@ -21,14 +25,14 @@ CREATE TABLE auth_session (
   "updatedAt" js_date NOT NULL,
   "ipAddress" text        NULL,
   "userAgent" text        NULL,
-  "userId"    text    NOT NULL REFERENCES "auth_user" ("id") ON DELETE CASCADE
+  "userId"    text    NOT NULL REFERENCES auth_user ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE auth_account (
   "id"                    text    PRIMARY KEY,
   "accountId"             text    NOT NULL,
   "providerId"            text    NOT NULL,
-  "userId"                text    NOT NULL REFERENCES "auth_user" ("id") ON DELETE CASCADE,
+  "userId"                text    NOT NULL REFERENCES auth_user ("id") ON DELETE CASCADE,
   "accessToken"           text        NULL,
   "refreshToken"          text        NULL,
   "idToken"               text        NULL,
@@ -49,56 +53,78 @@ CREATE TABLE auth_verification (
   "updatedAt"   js_date NOT NULL DEFAULT now()
 );
 
-CREATE INDEX "auth_session_userId_idx" ON "auth_session" ("userId");
-CREATE INDEX "auth_account_userId_idx" ON "auth_account" ("userId");
-CREATE INDEX "auth_verification_identifier_idx" ON "auth_verification" ("identifier");
+CREATE INDEX "auth_session_userId_idx" ON auth_session ("userId");
+CREATE INDEX "auth_account_userId_idx" ON auth_account ("userId");
+CREATE INDEX "auth_verification_identifier_idx" ON auth_verification ("identifier");
 
--- main
+-- streamers and integrations
 
 CREATE TABLE "user" (
-  user_id                       serial      PRIMARY KEY,
-  auth_user_id                  text        UNIQUE NOT NULL REFERENCES auth_user (id),
-  slug                          varchar(48) UNIQUE NOT NULL DEFAULT ('@' || gen_random_uuid()::text) CHECK (slug ~ '^@[a-zA-Z0-9\\-]{3,47}$'),
+  user_id        serial        PRIMARY KEY,
+  auth_user_id   text          UNIQUE NOT NULL REFERENCES auth_user (id),
+  slug           varchar(48)   UNIQUE NOT NULL DEFAULT ('@' || gen_random_uuid()::text)
+                               CHECK (slug ~ '^@[a-zA-Z0-9\-]{3,47}$'),
+  queue_currency currency_code NOT NULL DEFAULT 'RUB'
+);
 
-  donationalerts_access_token   text NULL,
-  donationalerts_refresh_token  text NULL
+CREATE TABLE donationalerts_connection (
+  user_id            int     PRIMARY KEY REFERENCES "user" (user_id) ON DELETE CASCADE,
+  source_user_id     text    NOT NULL UNIQUE,
+  access_token       text    NOT NULL,
+  refresh_token      text    NOT NULL,
+  token_version      int     NOT NULL DEFAULT 1 CHECK (token_version > 0),
+  history_checkpoint text        NULL,
+  connected_at       js_date NOT NULL DEFAULT now(),
+  updated_at         js_date NOT NULL DEFAULT now()
 );
 
 CREATE TABLE donation (
-  donation_id         bigint          PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-
-  origin              donation_origin NOT NULL,
-  origin_donation_id  text            NOT NULL,
-
-  user_id             int             NOT NULL REFERENCES "user" (user_id),
-  author              text                NULL,
-  message             text                NULL,
-  amount              float           NOT NULL,
-  created_at          js_date         NOT NULL,
-  videos_parsed_at    js_date             NULL,
-  UNIQUE (origin, origin_donation_id)
+  donation_id             bigint          PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  source                  donation_source NOT NULL,
+  source_donation_id      text            NOT NULL,
+  user_id                 int             NOT NULL REFERENCES "user" (user_id) ON DELETE CASCADE,
+  author                  text                NULL,
+  message                 text                NULL,
+  amount                  money_amount    NOT NULL,
+  currency                currency_code   NOT NULL,
+  amount_in_user_currency money_amount        NULL,
+  source_created_at       text            NOT NULL,
+  occurred_at             js_date         NOT NULL,
+  videos_parsed_at        js_date             NULL,
+  UNIQUE (user_id, source, source_donation_id)
 );
 
-CREATE INDEX donation_videos_unparsed_idx ON donation (created_at) WHERE videos_parsed_at IS NULL;
+CREATE INDEX donation_videos_unparsed_idx ON donation (occurred_at) WHERE videos_parsed_at IS NULL;
 
 CREATE TABLE video_priority (
-  video_priority_id     serial  PRIMARY KEY,
-  user_id               int     REFERENCES "user" (user_id),
-  label                 text    NOT NULL,
-  min_price_per_minute  float   NOT NULL,
-  UNIQUE (user_id, min_price_per_minute)
+  video_priority_id    serial        PRIMARY KEY,
+  user_id              int           NOT NULL REFERENCES "user" (user_id) ON DELETE CASCADE,
+  currency             currency_code NOT NULL,
+  label                text          NOT NULL CHECK (char_length(trim(label)) BETWEEN 1 AND 64),
+  min_price_per_minute money_amount  NOT NULL,
+  is_default           boolean       NOT NULL DEFAULT false,
+  CHECK ((is_default AND min_price_per_minute = 0) OR
+         (NOT is_default AND min_price_per_minute > 0)),
+  UNIQUE (user_id, currency, min_price_per_minute)
 );
 
+CREATE UNIQUE INDEX video_priority_default_idx
+  ON video_priority (user_id, currency)
+  WHERE is_default;
+
 CREATE TABLE video (
-  video_id          serial  PRIMARY KEY,
-  donation_id       int     NOT NULL REFERENCES donation (donation_id),
-  url               text    NOT NULL,
-  amount            float   NOT NULL,
-  duration_minutes  uint        NULL,
-  watched_at        js_date     NULL,
-  saved_at          js_date     NULL,
-  video_priority_id int     NOT NULL REFERENCES video_priority (video_priority_id),
-  UNIQUE (donation_id, url)
+  video_id          bigint         PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  donation_id       bigint         NOT NULL REFERENCES donation (donation_id) ON DELETE CASCADE,
+  provider          video_provider NOT NULL,
+  provider_video_id text           NOT NULL,
+  url               text           NOT NULL,
+  queue_amount      money_amount       NULL,
+  queue_currency    currency_code  NOT NULL,
+  duration_minutes  positive_int   NOT NULL,
+  watched_at        js_date            NULL,
+  saved_at          js_date            NULL,
+  video_priority_id int                NULL REFERENCES video_priority (video_priority_id),
+  UNIQUE (donation_id, provider, provider_video_id)
 );
 
 -- functions and triggers
@@ -108,20 +134,33 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
+  IF NEW.queue_amount IS NULL THEN
+    NEW.video_priority_id := NULL;
+    RETURN NEW;
+  END IF;
+
   SELECT video_priority.video_priority_id
   INTO NEW.video_priority_id
   FROM donation
-  JOIN video_priority ON video_priority.user_id = donation.user_id
+  JOIN video_priority
+    ON video_priority.user_id = donation.user_id
+   AND video_priority.currency = NEW.queue_currency
   WHERE donation.donation_id = NEW.donation_id
-    AND video_priority.min_price_per_minute < NEW.amount / NEW.duration_minutes
+    AND video_priority.min_price_per_minute <= NEW.queue_amount / NEW.duration_minutes
   ORDER BY video_priority.min_price_per_minute DESC, video_priority.video_priority_id ASC
   LIMIT 1;
+
+  IF NEW.video_priority_id IS NULL THEN
+    RAISE EXCEPTION 'no video priority for user %, currency %, amount %, duration %',
+      (SELECT user_id FROM donation WHERE donation_id = NEW.donation_id),
+      NEW.queue_currency, NEW.queue_amount, NEW.duration_minutes;
+  END IF;
 
   RETURN NEW;
 END;
 $$;
 
 CREATE TRIGGER set_video_priority_id
-BEFORE INSERT OR UPDATE OF amount, duration_minutes, donation_id ON video
+BEFORE INSERT OR UPDATE OF queue_amount, queue_currency, duration_minutes, donation_id ON video
 FOR EACH ROW
 EXECUTE FUNCTION set_video_priority_id();

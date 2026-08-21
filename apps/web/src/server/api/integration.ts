@@ -17,12 +17,12 @@ export async function handleDonationAlertsCallback(request: Request): Promise<Re
   const appUrl = rurl("/integrations", getRequestOrigin(request));
 
   return await safeTry(async function* () {
-    const tokens = yield* donationAlerts.issueTokens(
+    const connection = yield* donationAlerts.issueConnection(
       authCode,
       rurl(request.url).withSearch("").href,
     );
-    const donations = yield* donationAlerts.getDonations(tokens.accessToken);
-    await store.setTokens(userId, tokens.refreshToken, tokens.accessToken);
+    const donations = yield* donationAlerts.getDonations(connection.accessToken);
+    await store.saveDonationAlertsConnection(userId, connection);
     await store.insertDonations(userId, donations);
 
     return ok();

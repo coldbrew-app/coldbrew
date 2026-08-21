@@ -52,7 +52,9 @@ function VideoQueue() {
   });
   const videoCountByPriorityId = videosForActiveStatus.reduce<Record<number, number>>(
     (counts, video) => {
-      counts[video.videoPriorityId] = (counts[video.videoPriorityId] ?? 0) + 1;
+      if (video.videoPriorityId !== null) {
+        counts[video.videoPriorityId] = (counts[video.videoPriorityId] ?? 0) + 1;
+      }
       return counts;
     },
     {},
@@ -68,13 +70,13 @@ function VideoQueue() {
           ? left.watchedAt
           : activeTab === "saved"
             ? left.savedAt
-            : left.donation.createdAt;
+            : left.donation.occurredAt;
       const rightDate =
         activeTab === "watched"
           ? right.watchedAt
           : activeTab === "saved"
             ? right.savedAt
-            : right.donation.createdAt;
+            : right.donation.occurredAt;
 
       return rightDate!.getTime() - leftDate!.getTime() || Number(right.videoId - left.videoId);
     });

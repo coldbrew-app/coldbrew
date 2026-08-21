@@ -31,12 +31,12 @@ function DonationsIndex() {
   const filteredDonations = useMemo(
     () =>
       donations
-        .filter((donation) => donation.createdAt.getTime() >= periodStart)
+        .filter((donation) => donation.occurredAt.getTime() >= periodStart)
         .filter((donation) => {
           const searchText = `${donation.author ?? t("anonymous")} ${donation.message ?? ""}`;
           return searchText.toLowerCase().includes(query.trim().toLowerCase());
         })
-        .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime()),
+        .sort((left, right) => right.occurredAt.getTime() - left.occurredAt.getTime()),
     [donations, periodStart, query, t],
   );
 

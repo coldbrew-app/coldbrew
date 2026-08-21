@@ -1,3 +1,4 @@
+import { MoneyAmountSchema } from "@coldbrew/packages/schemas.js";
 import { fmtAmount, fmtDate, formatRelativeDate } from "@web/lib/fmt";
 import type { Video } from "@web/server/exports";
 import { clsx } from "clsx";
@@ -12,12 +13,12 @@ import { Button } from "./ui/button";
 type Props = {
   video: Video;
   onStatusChange?: (status: { watchedAt?: Date | null; savedAt?: Date | null }) => void;
-  onUpdate?: (input: { amount: number; durationMinutes: number }) => Promise<void>;
+  onUpdate?: (input: { amount: string; durationMinutes: number }) => Promise<void>;
   isUpdating?: boolean;
 };
 
 type VideoFormValues = {
-  amount: number;
+  amount: string;
   durationMinutes: number;
 };
 
@@ -50,19 +51,19 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
   const [isEditing, setIsEditing] = useState(false);
   const { formState, handleSubmit, register, reset } = useForm<VideoFormValues>({
     defaultValues: {
-      amount: video.amount,
-      durationMinutes: video.durationMinutes ?? 0,
+      amount: video.queueMoney?.amount ?? "0.00",
+      durationMinutes: video.durationMinutes,
     },
     mode: "onChange",
   });
 
   const startEditing = () => {
-    reset({ amount: video.amount, durationMinutes: video.durationMinutes ?? 0 });
+    reset({ amount: video.queueMoney?.amount ?? "0.00", durationMinutes: video.durationMinutes });
     setIsEditing(true);
   };
 
   const cancelEditing = () => {
-    reset({ amount: video.amount, durationMinutes: video.durationMinutes ?? 0 });
+    reset({ amount: video.queueMoney?.amount ?? "0.00", durationMinutes: video.durationMinutes });
     setIsEditing(false);
   };
 
@@ -109,17 +110,17 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
               </div>
               <time
                 className="block text-[10px] text-[#aaa7b4]"
-                dateTime={video.donation.createdAt.toISOString()}
-                title={fmtDate(video.donation.createdAt, locale)}
+                dateTime={video.donation.occurredAt.toISOString()}
+                title={fmtDate(video.donation.occurredAt, locale)}
               >
-                {formatRelativeDate(video.donation.createdAt, locale)}
+                {formatRelativeDate(video.donation.occurredAt, locale)}
               </time>
             </div>
 
             <div className="flex shrink-0 items-start gap-2">
               <div className="flex flex-col items-end gap-0.5">
                 <strong className="block text-[13px] text-[#3f3b50]">
-                  {fmtAmount(video.amount, locale)}
+                  {fmtAmount(video.queueMoney ?? video.donation.money, locale)}
                 </strong>
                 {!isEditing && (
                   <span className="text-xs text-[#777385]">
@@ -164,9 +165,8 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
                     type="number"
                     {...register("amount", {
                       required: t("enterPriorityAmount"),
-                      valueAsNumber: true,
                       validate: (value) =>
-                        (Number.isFinite(value) && value >= 0) || t("enterAmountZeroOrMore"),
+                        MoneyAmountSchema.safeParse(value).success || t("enterAmountZeroOrMore"),
                     })}
                   />
                   <span className="text-[11px] leading-snug text-[#777385]" id="video-amount-help">

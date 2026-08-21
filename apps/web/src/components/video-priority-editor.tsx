@@ -1,4 +1,4 @@
-import { VideoPriority } from "@coldbrew/packages/schemas.js";
+import { MoneyAmountSchema, VideoPriority } from "@coldbrew/packages/schemas.js";
 import { Link } from "@tanstack/react-router";
 import { useUpdateVideoPriorityM } from "@web/hooks/api";
 import { cn } from "@web/lib/utils";
@@ -11,7 +11,7 @@ import { Button } from "./ui/button";
 
 type VideoPriorityFormValues = {
   label: string;
-  minPricePerMinute: number;
+  minPricePerMinute: string;
 };
 
 type Props = {
@@ -37,7 +37,7 @@ export default function VideoPriorityEditor({ priority, isSelected, videoCount }
       videoPriorityId: priority.videoPriorityId,
       ...values,
     });
-    reset(updatedPriority);
+    reset({ label: updatedPriority.label, minPricePerMinute: updatedPriority.minPricePerMinute });
     setIsEditing(false);
   };
 
@@ -89,7 +89,7 @@ export default function VideoPriorityEditor({ priority, isSelected, videoCount }
         <div className="pointer-events-none flex min-w-0 grow items-center gap-2 px-1.5 py-1 text-left text-xs">
           <span className="min-w-0 grow truncate">{priority.label}</span>
           <span className="w-20 shrink-0 text-right">
-            {priority.minPricePerMinute} ₽/{t("perMinute")}
+            {priority.minPricePerMinute} {priority.currency}/{t("perMinute")}
           </span>
           <span className="shrink-0 text-[10px] font-bold">{videoCount}</span>
         </div>
@@ -134,9 +134,8 @@ export default function VideoPriorityEditor({ priority, isSelected, videoCount }
             type="number"
             {...register("minPricePerMinute", {
               required: t("enterMinimumAmount"),
-              valueAsNumber: true,
               validate: (value) =>
-                (Number.isFinite(value) && value >= 0) || t("enterAmountZeroOrMore"),
+                MoneyAmountSchema.safeParse(value).success || t("enterAmountZeroOrMore"),
             })}
           />
         </label>

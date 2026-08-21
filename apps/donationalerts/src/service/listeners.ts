@@ -7,10 +7,9 @@ import { store } from "../sensors/db/index.js";
 import { donationAlerts } from "../sensors/donationalerts.js";
 import { refreshAccessToken } from "./refresh-access-token.js";
 
-async function deployListener(
-  { userId, accessToken, refreshToken }: DonationAlertsUser,
-  signal: AbortSignal,
-) {
+async function deployListener(user: DonationAlertsUser, signal: AbortSignal) {
+  const { userId } = user;
+  let { accessToken, refreshToken } = user;
   await safeTry(async function* () {
     while (true) {
       if (signal.aborted) return ok();

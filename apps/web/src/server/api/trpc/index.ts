@@ -1,4 +1,4 @@
-import { SlugSchema, VideoIdSchema, VideoPrioritySchema } from "@coldbrew/packages/schemas.js";
+import { MoneyAmountSchema, SlugSchema, VideoIdSchema } from "@coldbrew/packages/schemas.js";
 import { rurl } from "@lebedevna/readonly-url";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -38,7 +38,13 @@ export const appRouter = router({
   }),
 
   updateVideoPriority: authenticatedProcedure
-    .input(VideoPrioritySchema)
+    .input(
+      z.object({
+        videoPriorityId: z.number().int().positive(),
+        label: z.string().trim().min(1).max(64),
+        minPricePerMinute: MoneyAmountSchema,
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const priority = await store.updateVideoPriority(
         ctx.userId,
@@ -76,8 +82,8 @@ export const appRouter = router({
     .input(
       z.object({
         videoId: VideoIdSchema,
-        amount: z.number().nonnegative(),
-        durationMinutes: z.number().int().nonnegative(),
+        amount: MoneyAmountSchema,
+        durationMinutes: z.number().int().positive(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
