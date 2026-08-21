@@ -1,0 +1,20 @@
+{
+  "categories": {
+    "correctness": "off",
+    "nursery": "off",
+    "pedantic": "off",
+    "perf": "off",
+    "restriction": "off",
+    "style": "off",
+    "suspicious": "off"
+  },
+  "plugins": [],
+  "overrides": [
+    {
+      "files": ["*.ts"],
+      "rules": {
+        "no-use-before-define": "error"
+      }
+    }
+  ]
+}

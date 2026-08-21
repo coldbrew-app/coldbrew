@@ -34,7 +34,7 @@ async function main() {
           ${error}
         `);
 
-        if (error.type == "http error" && error.status == "too many requests") {
+        if (error.type == "http error" && error.status == 429) {
           continue donations_loop;
         }
       }

@@ -1,19 +1,12 @@
-import {
-  getAuthorizeLink,
-  getDonationsAlerts,
-  getOauthToken,
-  OAuthScope,
-  updateOauthToken,
-  WebServer,
-} from "@kash-88/alerts";
+import * as alerts from "@kash-88/alerts";
+import { erro, validate } from "@lebedevna/neverthrow-utils";
 import dayjs from "dayjs";
+import Emittery from "emittery";
 import { ok, ResultAsync, safeTry } from "neverthrow";
 import { z } from "zod";
 
 import { delay } from "./delay.js";
-import { erro } from "./erro.js";
 import { logger } from "./logger.js";
-import { validate, ValidationError } from "./neverthrow/validate.js";
 import {
   AccessToken,
   AccessTokenSchema,
@@ -25,12 +18,12 @@ import {
 export type RawDonation = Omit<Donation, "donationId" | "userId">;
 
 const scopes = [
-  OAuthScope.UserShow,
-  OAuthScope.DonationSubscribe,
-  OAuthScope.DonationIndex,
-  OAuthScope.CustomAlertStore,
-  OAuthScope.GoalSubscribe,
-  OAuthScope.PollSubscribe,
+  alerts.OAuthScope.UserShow,
+  alerts.OAuthScope.DonationSubscribe,
+  alerts.OAuthScope.DonationIndex,
+  alerts.OAuthScope.CustomAlertStore,
+  alerts.OAuthScope.GoalSubscribe,
+  alerts.OAuthScope.PollSubscribe,
 ];
 
 const DonationAlertsDonationSchema = z.object({
@@ -46,11 +39,6 @@ const DonationAlertsDonationSchema = z.object({
 const DonationsPageSchema = z.object({
   data: z.array(DonationAlertsDonationSchema),
   meta: z.object({ last_page: z.number().int().positive() }),
-});
-
-const TokensSchema = z.object({
-  access_token: AccessTokenSchema,
-  refresh_token: RefreshTokenSchema,
 });
 
 const WsEventSchema = z.union([
@@ -95,6 +83,11 @@ const WsEventSchema = z.union([
     }),
   }),
 ]);
+
+const TokensSchema = z.object({
+  access_token: AccessTokenSchema,
+  refresh_token: RefreshTokenSchema,
+});
 
 export type DonationAlertsSubscription = {
   close(): void;
@@ -154,31 +147,38 @@ export class DonationAlertsFacade {
   ) {}
 
   getAuthorizationUrl(redirectUri: string) {
-    return getAuthorizeLink(this.config.clientId, redirectUri, scopes, "code");
+    return alerts.getAuthorizeLink(this.config.clientId, redirectUri, scopes, "code");
   }
 
   issueTokens(authCode: string, redirectUri: string) {
     return ResultAsync.fromPromise(
-      getOauthToken(this.config.clientId, this.config.clientSecret, redirectUri, authCode),
+      alerts.getOauthToken(this.config.clientId, this.config.clientSecret, redirectUri, authCode),
       toRequestError,
     )
       .andThen((tokens) => validate(TokensSchema, tokens))
-      .map((tokens) => ({ accessToken: tokens.access_token, refreshToken: tokens.refresh_token }));
+      .map(({ access_token, refresh_token }) => ({
+        accessToken: access_token,
+        refreshToken: refresh_token,
+      }));
   }
 
   refreshTokens(refreshToken: RefreshToken) {
     return ResultAsync.fromPromise(
-      updateOauthToken(this.config.clientId, this.config.clientSecret, refreshToken, scopes),
+      alerts.updateOauthToken(this.config.clientId, this.config.clientSecret, refreshToken, scopes),
       toRequestError,
     )
       .andThen((tokens) => validate(TokensSchema, tokens))
-      .map((tokens) => ({ accessToken: tokens.access_token, refreshToken: tokens.refresh_token }));
+      .map(({ access_token, refresh_token }) => ({
+        accessToken: access_token,
+        refreshToken: refresh_token,
+      }));
   }
 
   private getDonationsPage(accessToken: AccessToken, page: number) {
-    return ResultAsync.fromPromise(getDonationsAlerts(accessToken, page), toRequestError).andThen(
-      (data) => validate(DonationsPageSchema, data),
-    );
+    return ResultAsync.fromPromise(
+      alerts.getDonationsAlerts(accessToken, page),
+      toRequestError,
+    ).andThen((data) => validate(DonationsPageSchema, data));
   }
 
   getDonations(accessToken: AccessToken) {
@@ -205,6 +205,43 @@ export class DonationAlertsFacade {
     });
   }
 
+  subscribeToDonations2(accessToken: AccessToken, signal: AbortSignal) {
+    // The SDK's declaration omits EventEmitter methods even though WebServer exposes them at runtime.
+    const client: DonationAlertsWebServer = new alerts.WebServer({
+      access_token: accessToken,
+      autoReconnect: true,
+    }) as any;
+
+    signal.addEventListener("abort", () => void client.close());
+
+    const emt = new Emittery<{
+      "donation": RawDonation;
+      "error": DonationAlertsRequestError | DonationAlertsUnauthorizedError;
+    }>();
+
+    client.on("open", () => {
+      void client
+        .authorization()
+        .catch((error: unknown) => emt.emit("error", toRequestError(error)));
+    });
+    client.on("error", (error) => {
+      client.close();
+      emt.emit("error", toRequestError(error));
+    });
+    client.on("message", (message: unknown) => {
+      validate(WsEventSchema, message).match(
+        (event) => {
+          if (event.type == "donation") {
+            emt.emit("donation", toDonation(event.result.data.data));
+          }
+        },
+        (error) => logger.error(error),
+      );
+    });
+
+    return emt.events(["donation", "error"]);
+  }
+
   subscribeToDonations(
     accessToken: AccessToken,
     options: {
@@ -215,7 +252,7 @@ export class DonationAlertsFacade {
     },
   ): DonationAlertsSubscription {
     // The SDK's declaration omits EventEmitter methods even though WebServer exposes them at runtime.
-    const client: DonationAlertsWebServer = new WebServer({
+    const client: DonationAlertsWebServer = new alerts.WebServer({
       access_token: accessToken,
       autoReconnect: true,
     }) as any;

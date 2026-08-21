@@ -8,9 +8,11 @@
   "dependencies": {
     "@coldbrew/packages": "workspace:*",
     "cron": "^4.4.0",
+    "emittery": "^2.0.0",
     "neverthrow": "^8.2.0",
     "postgres": "^3.4.9",
     "snakecase-keys": "^9.0.2",
+    "using-defer": "^0.0.7",
     "zod": "^4.4.3"
   },
   "devDependencies": {

@@ -39,6 +39,8 @@ fmt:
 fmt-check:
   bunx oxfmt --check
 
+lint:
+  bunx oxlint
 
 build-web: install
   cd apps/web && bunx vite build
@@ -63,7 +65,7 @@ test-packages: install
 
 test: test-web test-donationalerts test-video test-packages
 
-check: test fmt-check
+check: lint fmt-check test
 
 schema-apply:
   pgschema apply --auto-approve --file db/schema.sql

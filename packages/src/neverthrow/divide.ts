@@ -1,6 +1,5 @@
+import { erro } from "@lebedevna/neverthrow-utils";
 import { ok, safeTry } from "neverthrow";
-
-import { erro } from "../erro.js";
 
 export function divide(a: number, b: number) {
   return safeTry(function* () {
