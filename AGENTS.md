@@ -37,5 +37,5 @@ Add helper scripts to `justfile`, not `package.json`
 
 ## Code style
 
-- variables of types `Result` and `ResultAsync` from "neverthrow" should start with `$` (for example: `const $donations = ResultAsync.fromPromise(...)`)
+- variables of types `Result` and `ResultAsync` from "neverthrow" should start with `$` (for example: `const $donations = ResultAsync.fromThrowable(...)(...)`)
 - avoid mutating objects

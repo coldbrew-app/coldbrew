@@ -153,13 +153,13 @@ export class DonationAlertsFacade {
   }
 
   issueConnection(authCode: string, redirectUri: string) {
-    return ResultAsync.fromPromise(
-      alerts.getOauthToken(this.config.clientId, this.config.clientSecret, redirectUri, authCode),
-      toRequestError,
-    )
+    const getUser = ResultAsync.fromThrowable(alerts.getUser, toRequestError);
+    const getOauthToken = ResultAsync.fromThrowable(alerts.getOauthToken, toRequestError);
+
+    return getOauthToken(this.config.clientId, this.config.clientSecret, redirectUri, authCode)
       .andThen((tokens) => validate(TokensSchema, tokens))
       .andThen(({ access_token, refresh_token }) =>
-        ResultAsync.fromPromise(alerts.getUser(access_token), toRequestError)
+        getUser(access_token)
           .andThen((profile) => validate(UserProfileSchema, profile))
           .map((profile) => ({
             accessToken: access_token,
@@ -170,10 +170,9 @@ export class DonationAlertsFacade {
   }
 
   refreshTokens(refreshToken: RefreshToken) {
-    return ResultAsync.fromPromise(
-      alerts.updateOauthToken(this.config.clientId, this.config.clientSecret, refreshToken, scopes),
-      toRequestError,
-    )
+    const updateOauthToken = ResultAsync.fromThrowable(alerts.updateOauthToken, toRequestError);
+
+    return updateOauthToken(this.config.clientId, this.config.clientSecret, refreshToken, scopes)
       .andThen((tokens) => validate(TokensSchema, tokens))
       .map(({ access_token, refresh_token }) => ({
         accessToken: access_token,
@@ -182,10 +181,11 @@ export class DonationAlertsFacade {
   }
 
   private getDonationsPage(accessToken: AccessToken, page: number) {
-    return ResultAsync.fromPromise(
-      alerts.getDonationsAlerts(accessToken, page),
-      toRequestError,
-    ).andThen((data) => validate(DonationsPageSchema, data));
+    const getDonationsAlerts = ResultAsync.fromThrowable(alerts.getDonationsAlerts, toRequestError);
+
+    return getDonationsAlerts(accessToken, page).andThen((data) =>
+      validate(DonationsPageSchema, data),
+    );
   }
 
   private toDonation(donation: z.infer<typeof DonationAlertsDonationSchema>): RawDonation {

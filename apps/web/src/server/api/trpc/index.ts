@@ -1,9 +1,8 @@
 import { MoneyAmountSchema, SlugSchema, VideoIdSchema } from "@coldbrew/packages/schemas.js";
-import { rurl } from "@lebedevna/readonly-url";
 import { TRPCError } from "@trpc/server";
+import { getRedirectUri } from "@web/server/lib/getRedirectUrl.js";
 import { z } from "zod";
 
-import { getRequestOrigin } from "../../lib/request-origin.js";
 import { store } from "../../sensors/db/index.js";
 import { donationAlerts } from "../../sensors/donationalerts.js";
 import { authenticatedProcedure, procedure, router } from "./_config.js";
@@ -12,12 +11,8 @@ import { integrationRouter } from "./integration.js";
 export const appRouter = router({
   integration: integrationRouter,
 
-  authUrls: authenticatedProcedure.query(({ ctx }) => {
-    const redirectUri = rurl(
-      "/api/integration/donationalerts/callback",
-      getRequestOrigin(ctx.request),
-    ).href;
-    return { donationAlerts: donationAlerts.getAuthorizationUrl(redirectUri) };
+  authUrls: authenticatedProcedure.query(() => {
+    return { donationAlerts: donationAlerts.getAuthorizationUrl(getRedirectUri()) };
   }),
 
   userInfo: procedure.query(async ({ ctx }) => {

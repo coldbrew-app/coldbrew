@@ -2,7 +2,8 @@ import { logger } from "@coldbrew/packages/logger.js";
 import { rurl } from "@lebedevna/readonly-url";
 import { ok, safeTry } from "neverthrow";
 
-import { getRequestOrigin } from "../lib/request-origin.js";
+import { env } from "../env.js";
+import { getRedirectUri } from "../lib/getRedirectUrl.js";
 import { store } from "../sensors/db/index.js";
 import { donationAlerts } from "../sensors/donationalerts.js";
 import { getUserId } from "./_util.js";
@@ -14,13 +15,10 @@ export async function handleDonationAlertsCallback(request: Request): Promise<Re
   const userId = await getUserId(request);
   if (!userId) return new Response("Unauthorized", { status: 401 });
 
-  const appUrl = rurl("/integrations", getRequestOrigin(request));
+  const appUrl = rurl("/integrations", env.APP_DOMAIN);
 
   return await safeTry(async function* () {
-    const connection = yield* donationAlerts.issueConnection(
-      authCode,
-      rurl(request.url).withSearch("").href,
-    );
+    const connection = yield* donationAlerts.issueConnection(authCode, getRedirectUri());
     const donations = yield* donationAlerts.getDonations(connection.accessToken);
     await store.saveDonationAlertsConnection(userId, connection);
     await store.insertDonations(userId, donations);
