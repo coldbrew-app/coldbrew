@@ -14,20 +14,25 @@ no public HTTP ports: they only make outgoing connections and talk to Postgres.
 Configure a restart policy so containers are restarted after a process or host
 failure.
 
-Use a managed/serverless Postgres instance. Its pooled, TLS-enabled connection
-URL is supplied as `DATABASE_URL` to every application container. The Compose
-stack deliberately does not include a database service.
+Compose runs a persistent PostgreSQL container on the VPS. Its data is stored
+in the `postgres_data` volume and application containers reach it at the
+internal hostname `postgres`. PostgreSQL's port is bound only to the VPS
+loopback interface for host-side administration.
 
 Use the tracked deployment files as follows:
 
 1. Copy decrypted `.env.prod` to `/opt/coldbrew/.env` on the VPS and fill in
-   the production values. Keep this unencrypted file readable only by the
-   deployment user and never commit it. Compose passes its values to the app
-   containers at runtime; the Docker image contains no environment file.
-2. Point the domain's DNS records at the VPS and permit ports 80 and 443.
-3. Configure the GitHub Actions deployment host and SSH secrets. Application
+   the production values. Set `PGHOST=127.0.0.1`, `PGPORT=5432`,
+   `PGDATABASE`, `PGUSER`, and `PGPASSWORD`; set `DATABASE_URL` to the same
+   database with host `postgres`. Keep this unencrypted file readable only by
+   the deployment user and never commit it. Compose passes its values to the
+   app containers at runtime; the Docker image contains no environment file.
+2. On the first deployment, run `just compose-db-up` followed by `just
+   schema-apply` before starting the full stack with `just compose-up`.
+3. Point the domain's DNS records at the VPS and permit ports 80 and 443.
+4. Configure the GitHub Actions deployment host and SSH secrets. Application
    configuration, including the domain, remains only in the VPS `.env` file.
-4. Register `https://<domain>/api/auth/callback/google` with Google and
+5. Register `https://<domain>/api/auth/callback/google` with Google and
    `https://<domain>/api/integration/donationalerts/callback` with
    DonationAlerts.
 

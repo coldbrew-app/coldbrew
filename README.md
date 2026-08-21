@@ -17,11 +17,39 @@ Project tasks are managed with [just](https://just.systems/). Run `just` to list
 Install [Bun](https://bun.com/docs/installation), then run:
 
 ```sh
-cp .env.example .env
 just install
 just dev
 ```
 
-Before starting the app, install and start PostgreSQL locally, then create the
-database named in `DATABASE_URL` (by default, `coldbrew`). The client runs at
-`http://localhost:3000`, including the web UI, authentication, tRPC API, and OAuth callbacks.
+Configure `.env.dev` with a reachable PostgreSQL instance before starting the
+app. The client runs at `http://localhost:3000`, including the web UI,
+authentication, tRPC API, and OAuth callbacks.
+
+## Run the complete stack with Docker Compose
+
+Create a decrypted, untracked `.env` file with `PGHOST=127.0.0.1`,
+`PGPORT=5432`, `PGDATABASE`, `PGUSER`, and `PGPASSWORD`. Set `DATABASE_URL`
+to the same database using the Docker hostname `postgres`, for example:
+
+```sh
+DATABASE_URL=postgresql://coldbrew:password@postgres:5432/coldbrew
+```
+
+For a new database volume, start PostgreSQL and apply the schema before
+starting the application services:
+
+```sh
+just compose-db-up
+just schema-apply
+just compose-up
+```
+
+PostgreSQL data is retained in the `postgres_data` Docker volume. Its port is
+bound to `127.0.0.1`, so host-side tools such as `pgschema` can connect while
+the database remains unavailable from the network.
+
+PostgreSQL 18 stores database clusters in a version-specific subdirectory of
+that volume. If upgrading an existing PostgreSQL 17-or-earlier volume, migrate
+the database with `pg_dump`/`pg_restore` (or `pg_upgrade`) before starting the
+PostgreSQL 18 container; do not delete the old volume until the migration is
+verified.

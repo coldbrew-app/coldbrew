@@ -48,6 +48,9 @@ build-web: install
 compose-up:
   docker compose up --build -d
 
+compose-db-up:
+  docker compose up -d postgres
+
 compose-down:
   docker compose down
 
