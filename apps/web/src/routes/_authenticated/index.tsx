@@ -55,7 +55,8 @@ function Overview() {
         <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
           <div>
             <h1 className="font-heading text-[clamp(30px,3vw,38px)] font-semibold tracking-tight text-foreground">
-              {t("greeting", { name: "Nikita" })} <span className="text-[#c98545]">✦</span>
+              {t("greeting", { name: "Nikita" })}{" "}
+              <Icons.greetingAccent aria-hidden="true" className="inline size-5 text-primary" />
             </h1>
             <p className="mt-2.5 text-sm text-muted-foreground">{t("streamUpdate")}</p>
           </div>
@@ -102,14 +103,14 @@ function Overview() {
                 note="↗ 12.5%"
                 subnote={t("versusPreviousPeriod")}
                 icon={Icons.donations}
-                iconClass="bg-orange-50 text-orange-500"
+                iconClass="bg-primary/10 text-primary"
               />
               <Metric
                 title={t("averageDonation")}
                 value={fmtAmount(Math.round(total / donationsLength), locale)}
                 note={t("acrossPlatforms")}
                 icon={Icons.platform}
-                iconClass="bg-sky-50 text-sky-500"
+                iconClass="bg-muted text-muted-foreground"
               />
             </section>
             <section className="mt-4 grid gap-4 xl:grid-cols-[1.03fr_.97fr]">

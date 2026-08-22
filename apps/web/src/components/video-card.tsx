@@ -275,7 +275,6 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
                 </Button>
                 <Button
                   aria-label={t(isSaved ? "removeVideoSaved" : "saveVideo")}
-                  className={clsx(isSaved && "bg-yellow-100 text-yellow-700 hover:bg-yellow-200")}
                   disabled={isUpdating}
                   onClick={() => onStatusChange({ savedAt: isSaved ? null : new Date() })}
                   size="sm"

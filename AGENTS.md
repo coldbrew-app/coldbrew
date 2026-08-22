@@ -16,6 +16,7 @@ This app is created for streamers. It connects to many donation platforms (such 
 ## Frontend Styling
 
 - Follow the [Coldbrew UI Style Guide](docs/ui-style-guide.md) for visual direction, semantic colors, typography, components, and responsive behavior
+- Follow the [Coldbrew Icon Guide](docs/icons.md) when selecting, importing, sizing, or labelling icons
 - Use `tailwindcss` for styling
 - Use `flex`, `gap` and `padding` instead of margins wherever possible
 - Pass external positioning (`margin`, `width`, `grow` etc) of the root element of components via `className` instead of hardcoding it inside component. It is similar to modifiers in BEM methodology.

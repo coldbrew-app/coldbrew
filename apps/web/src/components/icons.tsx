@@ -1,5 +1,7 @@
 import * as icons from "lucide-react";
 
+export type IconComponent = icons.LucideIcon;
+
 export const Icons = {
   alerts: icons.Bell,
   bookmark: icons.Bookmark,
@@ -10,10 +12,11 @@ export const Icons = {
   copied: icons.Check,
   copy: icons.Copy,
   dashboard: icons.LayoutDashboard,
-  dateRange: icons.ChevronRight,
+  dateRange: icons.ChevronDown,
   donations: icons.Sparkles,
   edit: icons.Pencil,
   filter: icons.SlidersHorizontal,
+  greetingAccent: icons.Sparkles,
   integrations: icons.Plug,
   list: icons.List,
   loader: icons.LoaderCircle,

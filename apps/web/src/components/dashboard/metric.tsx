@@ -1,4 +1,4 @@
-import type { LucideIcon } from "lucide-react";
+import type { IconComponent } from "../icons";
 
 const panel = "rounded-2xl border border-border bg-card shadow-sm shadow-primary/5";
 
@@ -7,7 +7,7 @@ type MetricProps = {
   value: string;
   note: string;
   subnote?: string;
-  icon: LucideIcon;
+  icon: IconComponent;
   iconClass: string;
 };
 

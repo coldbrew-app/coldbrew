@@ -105,7 +105,7 @@ function RouteComponent() {
         </article>
 
         <div className="mt-5 flex items-center gap-2 text-xs text-muted-foreground">
-          <Icons.checked aria-hidden="true" size={15} className="text-emerald-600" />
+          <Icons.checked aria-hidden="true" size={15} className="text-primary" />
           {t("moreIntegrationsSoon")}
         </div>
       </div>

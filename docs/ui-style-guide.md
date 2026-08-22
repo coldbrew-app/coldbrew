@@ -55,4 +55,3 @@ Coldbrew is a tool for streamers first. Its visual identity may reference specia
 - Test both themes, including navigation, forms, loading states, empty states, and overlays.
 - Ensure there is no horizontal page overflow at 390 px, including with unbroken URLs.
 - Keep text and control contrast accessible and never rely on color alone to communicate status.
-
