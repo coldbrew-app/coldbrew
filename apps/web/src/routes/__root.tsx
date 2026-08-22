@@ -30,8 +30,6 @@ import type { Theme } from "../lib/theme";
 import { resolveTheme, themeCookieName } from "../lib/theme";
 import type { Api } from "../lib/trpc";
 import type { Viewer } from "../server/api/_util";
-import { getRequestLocale } from "../server/locale";
-import { getRequestTheme } from "../server/theme";
 import { currentViewerQueryOptions } from "../server/viewer";
 import PageLoadingSkeleton from "./-components/page-loading-skeleton";
 
@@ -43,13 +41,21 @@ const activeNavItem = "bg-sidebar-accent font-bold text-sidebar-accent-foregroun
 const localeFlags: Record<Locale, string> = { en: "🇬🇧", ru: "🇷🇺" };
 const themeCookieMaxAge = 60 * 60 * 24 * 365;
 
-const getRouteLocale = createIsomorphicFn()
-  .client(() => resolveLocale(parseCookie(document.cookie)[localeCookieName], navigator.language))
-  .server(() => getRequestLocale());
-
-const getRouteTheme = createIsomorphicFn()
-  .client(() => resolveTheme(parseCookie(document.cookie)[themeCookieName]))
-  .server(() => getRequestTheme());
+const getRoutePreferences = createIsomorphicFn()
+  .client(() => {
+    const cookies = parseCookie(document.cookie);
+    return {
+      locale: resolveLocale(cookies[localeCookieName], navigator.language),
+      theme: resolveTheme(cookies[themeCookieName]),
+    };
+  })
+  .server(async () => {
+    const { getCookie, getRequestHeader } = await import("@tanstack/react-start/server");
+    return {
+      locale: resolveLocale(getCookie(localeCookieName), getRequestHeader("accept-language")),
+      theme: resolveTheme(getCookie(themeCookieName)),
+    };
+  });
 
 export const Route = createRootRouteWithContext<
   Api & {
@@ -59,15 +65,14 @@ export const Route = createRootRouteWithContext<
   }
 >()({
   beforeLoad: async ({ context }) => {
-    const [locale, theme, viewer] = await Promise.all([
-      getRouteLocale(),
-      getRouteTheme(),
+    const [preferences, viewer] = await Promise.all([
+      getRoutePreferences(),
       context.queryClient.ensureQueryData({
         ...currentViewerQueryOptions(),
         revalidateIfStale: true,
       }),
     ]);
-    return { locale, theme, viewer };
+    return { ...preferences, viewer };
   },
   head: () => ({
     meta: [

@@ -24,7 +24,7 @@ has been identified.
 The selected theme is stored in the `theme` cookie. `dark` is the only
 non-default value; absent or invalid values resolve to `light`.
 
-1. The server reads the cookie with `getRequestTheme`.
+1. The server branch of `getRoutePreferences` reads the cookie from the current request.
 2. The root route puts the resolved `Theme` in route context.
 3. `RootDocument` renders `className="dark"` on `<html>` when the context is
    dark.
@@ -43,7 +43,7 @@ The selected locale is stored in the `locale` cookie. Supported values are
 the request's `Accept-Language` header and the client falls back to
 `navigator.language`.
 
-1. The server reads and resolves the value with `getRequestLocale`.
+1. The server branch of `getRoutePreferences` reads and resolves the value from the current request.
 2. The root route puts the resolved `Locale` in route context.
 3. `RootDocument` uses it for `<html lang>` and as the initial value for
    `I18nProvider`.
