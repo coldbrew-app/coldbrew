@@ -1,0 +1,10 @@
+{
+  "$schema": "https://t3.codes/schema/t3.json",
+  "scripts": [
+    {
+      "name": "Link worktree env keys",
+      "command": "ln -sf \"$T3CODE_PROJECT_ROOT/.env.keys\" .env.keys",
+      "runOnWorktreeCreate": true
+    }
+  ]
+}
