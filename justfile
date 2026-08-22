@@ -54,6 +54,15 @@ compose-db-up:
 compose-down:
   docker compose down
 
+backup-now:
+  docker compose run --rm --no-deps wal-g wal-g backup-push
+
+backup-list:
+  docker compose run --rm --no-deps wal-g wal-g backup-list
+
+backup-verify:
+  docker compose run --rm --no-deps wal-g wal-g wal-verify integrity
+
 test-web: install
   dotenvx run -f .env.dev -- bunx vitest --run apps/web
 

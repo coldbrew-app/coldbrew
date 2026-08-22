@@ -11,13 +11,38 @@ x-app: &app
     postgres:
       condition: service_healthy
 
+x-wal-g-environment: &wal-g-environment
+  WALG_S3_PREFIX: ${WALG_S3_PREFIX:?Set WALG_S3_PREFIX in .env}
+  AWS_REGION: ${AWS_REGION:?Set AWS_REGION in .env}
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+  AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
+  AWS_ENDPOINT: ${AWS_ENDPOINT:-}
+
 services:
   postgres:
-    image: postgres:18-alpine
+    build:
+      context: ./docker/postgres-walg
+    image: coldbrew-postgres-walg:local
     environment:
+      <<: *wal-g-environment
       POSTGRES_DB: ${PGDATABASE:?Set PGDATABASE in .env}
       POSTGRES_USER: ${PGUSER:?Set PGUSER in .env}
       POSTGRES_PASSWORD: ${PGPASSWORD:?Set PGPASSWORD in .env}
+    command:
+      [
+        "postgres",
+        "-c",
+        "wal_level=replica",
+        "-c",
+        "archive_mode=on",
+        "-c",
+        "archive_command=/usr/local/bin/wal-g wal-push %p",
+        "-c",
+        "archive_timeout=${WALG_ARCHIVE_TIMEOUT_SECONDS:-300}",
+        "-c",
+        "hba_file=/etc/postgresql/pg_hba.conf",
+      ]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 5s
@@ -32,6 +57,31 @@ services:
     restart: unless-stopped
     networks:
       - internal
+
+  wal-g:
+    image: coldbrew-postgres-walg:local
+    # This image is built by the postgres service in this Compose project.
+    # Never fall back to a registry while that local build is being created.
+    pull_policy: never
+    environment:
+      <<: *wal-g-environment
+      PGHOST: postgres
+      PGPORT: 5432
+      PGDATABASE: ${PGDATABASE:?Set PGDATABASE in .env}
+      PGUSER: ${PGUSER:?Set PGUSER in .env}
+      PGPASSWORD: ${PGPASSWORD:?Set PGPASSWORD in .env}
+      WALG_BACKUP_INTERVAL_SECONDS: ${WALG_BACKUP_INTERVAL_SECONDS:-86400}
+      WALG_KEEP_FULL_BACKUPS: ${WALG_KEEP_FULL_BACKUPS:-7}
+    command: ["/usr/local/bin/backup-scheduler", "/var/lib/postgresql/18/docker"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - internal
+    volumes:
+      # WAL-G performs local physical backups from a read-only view of PGDATA.
+      - postgres_data:/var/lib/postgresql:ro
 
   caddy:
     image: caddy:2.10.2-alpine
