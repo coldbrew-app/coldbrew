@@ -3,6 +3,7 @@ import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query
 import { parseCookie } from "cookie-es";
 
 import { localeCookieName, resolveLocale } from "./lib/locale";
+import { resolveTheme, themeCookieName } from "./lib/theme";
 import { createApi } from "./lib/trpc";
 import { routeTree } from "./routeTree.gen";
 
@@ -11,12 +12,18 @@ function getInitialLocale() {
   return resolveLocale(parseCookie(document.cookie)[localeCookieName], navigator.language);
 }
 
+function getInitialTheme() {
+  if (typeof document === "undefined") return "light" as const;
+  return resolveTheme(parseCookie(document.cookie)[themeCookieName]);
+}
+
 export function getRouter() {
   const locale = getInitialLocale();
+  const theme = getInitialTheme();
   const api = createApi();
   const router = createRouter({
     routeTree,
-    context: { locale, viewer: null, ...api },
+    context: { locale, theme, viewer: null, ...api },
     defaultPreload: "intent",
     defaultPreloadStaleTime: 0,
     scrollRestoration: true,

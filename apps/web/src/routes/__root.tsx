@@ -1,4 +1,3 @@
-import { useLocalStorage } from "@siberiacancode/reactuse";
 import {
   HeadContent,
   Link,
@@ -27,9 +26,12 @@ import { signOut } from "../lib/auth-client";
 import type { Locale } from "../lib/i18n";
 import { I18nProvider, useI18n } from "../lib/i18n";
 import { localeCookieName, resolveLocale } from "../lib/locale";
+import type { Theme } from "../lib/theme";
+import { resolveTheme, themeCookieName } from "../lib/theme";
 import type { Api } from "../lib/trpc";
 import type { Viewer } from "../server/api/_util";
 import { getRequestLocale } from "../server/locale";
+import { getRequestTheme } from "../server/theme";
 import { currentViewerQueryOptions } from "../server/viewer";
 import PageLoadingSkeleton from "./-components/page-loading-skeleton";
 
@@ -39,26 +41,33 @@ const navItem =
   "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium text-muted-foreground transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground";
 const activeNavItem = "bg-sidebar-accent font-bold text-sidebar-accent-foreground";
 const localeFlags: Record<Locale, string> = { en: "🇬🇧", ru: "🇷🇺" };
+const themeCookieMaxAge = 60 * 60 * 24 * 365;
 
 const getRouteLocale = createIsomorphicFn()
   .client(() => resolveLocale(parseCookie(document.cookie)[localeCookieName], navigator.language))
   .server(() => getRequestLocale());
 
+const getRouteTheme = createIsomorphicFn()
+  .client(() => resolveTheme(parseCookie(document.cookie)[themeCookieName]))
+  .server(() => getRequestTheme());
+
 export const Route = createRootRouteWithContext<
   Api & {
     locale: Locale;
+    theme: Theme;
     viewer: Viewer | null;
   }
 >()({
   beforeLoad: async ({ context }) => {
-    const [locale, viewer] = await Promise.all([
+    const [locale, theme, viewer] = await Promise.all([
       getRouteLocale(),
+      getRouteTheme(),
       context.queryClient.ensureQueryData({
         ...currentViewerQueryOptions(),
         revalidateIfStale: true,
       }),
     ]);
-    return { locale, viewer };
+    return { locale, theme, viewer };
   },
   head: () => ({
     meta: [
@@ -75,10 +84,10 @@ export const Route = createRootRouteWithContext<
 });
 
 function RootDocument() {
-  const { locale } = Route.useRouteContext();
+  const { locale, theme } = Route.useRouteContext();
 
   return (
-    <html lang={locale}>
+    <html className={theme === "dark" ? "dark" : undefined} lang={locale} suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
@@ -94,10 +103,13 @@ function RootDocument() {
   );
 }
 
-function useDark() {
-  const theme = useLocalStorage<"light" | "dark">("theme", "light");
-  const isDark = theme.value == "dark";
-  const toggleDark = () => theme.set(theme.value == "dark" ? "light" : "dark");
+function useDark(initialTheme: Theme) {
+  const [isDark, setIsDark] = useState(initialTheme === "dark");
+  const toggleDark = () => {
+    const theme = isDark ? "light" : "dark";
+    setIsDark(theme === "dark");
+    document.cookie = `${themeCookieName}=${theme}; Path=/; Max-Age=${themeCookieMaxAge}; SameSite=Lax`;
+  };
   return { isDark, toggleDark };
 }
 
@@ -122,8 +134,8 @@ function AuthenticatedApplication() {
 }
 
 function AuthenticatedApplicationContent() {
-  const { viewer } = Route.useRouteContext();
-  const { isDark, toggleDark } = useDark();
+  const { theme, viewer } = Route.useRouteContext();
+  const { isDark, toggleDark } = useDark(theme);
   const { locale, setLocale, t } = useI18n();
   const { setOpenMobile } = useSidebar();
   const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
