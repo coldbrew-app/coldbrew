@@ -40,7 +40,7 @@ starting the application services:
 
 ```sh
 just compose-db-up
-just schema-apply
+dotenvx run -f .env -- just schema-apply
 just compose-up
 ```
 

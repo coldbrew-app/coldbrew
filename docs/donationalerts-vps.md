@@ -1,126 +1,162 @@
-# DonationAlerts worker on a VPS
+# Coldbrew on a VPS
 
-`apps/donationalerts` is a long-lived WebSocket worker. It opens one outgoing
-DonationAlerts connection per connected Coldbrew user and writes received
-donations to Postgres. Deploy it as a persistent process, not a serverless
+Coldbrew is deployed from a Git checkout on the VPS. Docker Compose builds the
+application image locally and runs the web app, the DonationAlerts and video
+workers, PostgreSQL, WAL-G, and Caddy. A regular deployment is:
+
+```sh
+git pull && just compose-up
+```
+
+`apps/donationalerts` is a long-lived process. It keeps one outgoing WebSocket
+connection per connected Coldbrew user and writes received donations to
+PostgreSQL, so it must run as a persistent worker rather than as a serverless
 function.
 
-## Recommended deployment
+## Runtime layout
 
-Deploy the complete runtime on a VPS using Docker Compose: `apps/web`,
-`apps/donationalerts`, and `apps/video`. Caddy is the only public container; it
-terminates TLS and proxies requests to the web container. The two workers have
-no public HTTP ports: they only make outgoing connections and talk to Postgres.
-Configure a restart policy so containers are restarted after a process or host
-failure.
+- `caddy` is the only public-facing service. It listens on TCP ports 80 and
+  443 and UDP port 443, terminates TLS, and proxies requests to `web:3000`.
+- `web`, `donationalerts`, and `video` share the locally built
+  `coldbrew:local` image. Only `web` has an HTTP health check.
+- `postgres` stores data in the `postgres_data` volume. Application containers
+  connect to `postgres:5432` through the private `internal` network. The host
+  can reach it at `127.0.0.1:${PGPORT:-5432}` for schema administration.
+- `wal-g` creates periodic base backups, while PostgreSQL continuously archives
+  WAL files to the configured S3-compatible storage.
+- All services use `restart: unless-stopped`. The app containers wait for a
+  healthy PostgreSQL instance, and Caddy waits for a healthy web app.
 
-Compose runs a persistent PostgreSQL container on the VPS. Its data is stored
-in the `postgres_data` volume and application containers reach it at the
-internal hostname `postgres`. PostgreSQL's port is bound only to the VPS
-loopback interface for host-side administration.
+Run only one `donationalerts` replica. The worker has no leader election, so
+multiple replicas could subscribe and refresh tokens for the same users.
 
-Use the tracked deployment files as follows:
+## One-time VPS setup
 
-1. Copy decrypted `.env.prod` to `/opt/coldbrew/.env` on the VPS and fill in
-   the production values. Set `PGHOST=127.0.0.1`, `PGPORT=5432`,
-   `PGDATABASE`, `PGUSER`, and `PGPASSWORD`; set `DATABASE_URL` to the same
-   database with host `postgres`. Keep this unencrypted file readable only by
-   the deployment user and never commit it. Compose passes its values to the
-   app containers at runtime; the Docker image contains no environment file.
-2. On the first deployment, run `just compose-db-up` followed by `just
-   schema-apply` before starting the full stack with `just compose-up`.
-3. Point the domain's DNS records at the VPS and permit ports 80 and 443.
-4. Configure the GitHub Actions deployment host and SSH secrets. Application
-   configuration, including the domain, remains only in the VPS `.env` file.
-5. Register `https://<domain>/api/auth/callback/google` with Google and
-   `https://<domain>/api/integration/donationalerts/callback` with
-   DonationAlerts.
+Install Git, Docker with the Compose plugin, Bun, `just`, `dotenvx`, and
+`pgschema`. Clone the repository into its permanent directory, for example
+`/opt/coldbrew`, and run all commands below from that directory.
 
-The `deploy.yml` workflow publishes immutable GHCR images and deploys them by
-SSH. The VPS needs a one-time `docker login ghcr.io` using a read-only package
-token. Subsequent deployments upload the tracked `compose.yaml` and `Caddyfile`
-before replacing containers. The image is environment-independent, while the
-VPS `.env` supplies its runtime configuration.
+Create an untracked `/opt/coldbrew/.env`. One way to initialize it when the
+production decryption key is available is:
 
-Run a single worker replica. Before adding a second replica, introduce a
-Postgres advisory lock (or equivalent leader election) so only one instance
-owns subscriptions and refreshes tokens at a time.
+```sh
+dotenvx decrypt -f .env.prod --stdout > .env
+chmod 600 .env
+```
 
-## Capacity estimate
+The file must contain:
 
-The estimate below assumes a typical $5 VPS: 1 vCPU, 1 GB RAM and 20--25 GB
-SSD. It describes users with a connected DonationAlerts integration, because
-each one has an open WebSocket; it is not a limit on all registered users.
+- `APP_DOMAIN`, including the scheme, for example
+  `https://coldbrew.example.com`;
+- `PGDATABASE`, `PGUSER`, `PGPASSWORD`, and optionally `PGPORT` for the
+  host-side PostgreSQL binding;
+- `DATABASE_URL` with the Compose hostname, for example
+  `postgresql://coldbrew:password@postgres:5432/coldbrew`;
+- `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET`;
+- `DONATION_ALERTS_CLIENT_ID` and `DONATION_ALERTS_CLIENT_SECRET`;
+- `WALG_S3_PREFIX` and `AWS_REGION`, plus AWS credentials unless the VPS uses
+  an IAM role or another supported credential provider.
 
-| Deployment                                                   |                               Conservative starting capacity |
-| ------------------------------------------------------------ | -----------------------------------------------------------: |
-| DonationAlerts worker only, Postgres elsewhere               |                                     300--500 connected users |
-| DonationAlerts and video workers, Postgres elsewhere         |                                     150--300 connected users |
-| Web app, both workers, and Postgres on the same VPS          | 50--100 connected users; 1 GB RAM is not a production target |
-| 2 vCPU / 4 GB with Postgres elsewhere, after the fixes below |                                       1,000+ connected users |
+`localhost` has different meanings on the host and in a container. Host-side
+tools use `PGHOST=127.0.0.1`; application containers must use `postgres` in
+`DATABASE_URL`. Do not put `localhost` in the containers' `DATABASE_URL`.
 
-These are operating targets, not guarantees. DonationAlerts API limits,
-historical donation volume, the number of simultaneously active streamers, and
-Postgres latency determine the real limit. Confirm it with a load test and
-monitor resident memory, CPU, DB latency, connection count, and reconnect
-rate.
+For a new database volume, start PostgreSQL, apply the schema using the
+host-side port, and then start the complete stack:
 
-WebSocket handling is inexpensive in the current code: each user has one
-client plus small in-memory bookkeeping, and each received donation does
-validation and an insert. The current scale limit is instead the REST
-reconciliation and unbounded database writes.
+```sh
+just compose-db-up
+dotenvx run -f .env -- just schema-apply
+just compose-up
+```
 
-## Required changes before growth
+Point the domain's DNS records to the VPS and allow TCP 80 and 443 and UDP 443
+through its firewall. Register these OAuth callback URLs:
 
-### Make history reconciliation incremental
+- `https://<domain>/api/auth/callback/google`
+- `https://<domain>/api/integration/donationalerts/callback`
 
-The daily job synchronizes users sequentially and `getDonations` traverses all
-pages of a user's history. Every page after the first also waits 250 ms. This
-makes run time grow with both the number of users and their lifetime donation
-history.
+PostgreSQL 18 keeps the cluster in a version-specific subdirectory under
+`/var/lib/postgresql`; `compose.yaml` therefore mounts the volume at that
+directory. When upgrading a PostgreSQL 17-or-earlier volume, migrate it with
+`pg_dump`/`pg_restore` or `pg_upgrade`. Do not delete the old volume as an
+upgrade shortcut.
 
-Store a per-user checkpoint, or stop after encountering an already-persisted
-DonationAlerts ID. Keep the unique database constraint as the final
-idempotency guard, but do not fetch the entire history every day.
+## Deploying updates
 
-### Batch and retry database writes
+Deploy from the checkout on the VPS:
 
-The WebSocket handler currently starts `insertDonations` without awaiting it.
-A donation burst can create an unbounded number of concurrent Postgres queries
-and errors are not retried. Put received events into a bounded in-memory queue,
-flush small batches, and retry transient database failures with backoff. Expose
-queue depth as a metric.
+```sh
+cd /opt/coldbrew
+git pull && just compose-up
+```
 
-### Avoid reconnect and token-refresh races
+`just compose-up` runs `docker compose up --build -d`: it rebuilds the local
+application image and recreates changed services while preserving the named
+PostgreSQL and Caddy volumes. It does not apply `db/schema.sql`. When an update
+changes the schema, apply it explicitly before starting code that depends on
+it:
 
-On startup, establish subscriptions with a concurrency limit and jitter.
-Otherwise a restart reconnects every user simultaneously. Serialize OAuth token
-refresh per user because the web OAuth callback and worker can otherwise
-overwrite one another's refresh tokens.
+```sh
+dotenvx run -f .env -- just schema-apply
+just compose-up
+```
 
-### Handle termination and observe liveness
+If `.env` changes, `just compose-up` recreates affected containers and loads
+the new values. A plain `docker compose restart` does not refresh environment
+variables injected when a container was created.
 
-On `SIGTERM`, stop opening subscriptions, close existing sockets, flush the
-write queue within a short deadline, and exit. Record a worker heartbeat in
-Postgres or expose a health endpoint and alert when it is stale.
+Useful checks after deployment:
 
-### Bound database resources
+```sh
+docker compose ps
+docker compose logs --tail=100 web donationalerts video postgres wal-g caddy
+```
 
-Set explicit small Postgres connection-pool limits for worker processes and
-size Postgres `max_connections` accordingly. Do not rely on implicit driver
-defaults when the web app and both workers use the same database.
+## Backups
 
-### Keep donation IDs as text
+The `wal-g` service creates a base backup as soon as PostgreSQL is healthy and
+then repeats every `WALG_BACKUP_INTERVAL_SECONDS` (24 hours by default). It
+retains `WALG_KEEP_FULL_BACKUPS` full backups (7 by default) and the WAL needed
+by them. `WALG_ARCHIVE_TIMEOUT_SECONDS` controls how often PostgreSQL forces a
+WAL segment switch (5 minutes by default).
 
-The database schema stores `donation.origin_donation_id` as `text`, while the
-DonationAlerts worker decodes it as `int` during insertion. Decode it as
-`text`, matching the schema and domain model, so large upstream IDs cannot
-overflow a 32-bit integer.
+Use the tracked helper commands to operate backups:
 
-## Video worker note
+```sh
+just backup-now
+just backup-list
+just backup-verify
+```
 
-`apps/video` polls every 2.5 seconds and processes YouTube URLs serially. Its
-limit is generally YouTube latency and rate limiting rather than CPU. A 429
-currently leaves the donation unparsed, so the next polling iteration tries it
-again; add a retry schedule/backoff before putting a large volume of video
-links through the same VPS.
+A successful upload is not sufficient proof of recoverability. Regularly test
+a restore into a separate empty volume before relying on the backup setup.
+
+## Current scaling constraints
+
+The practical capacity depends on DonationAlerts rate limits, donation history,
+PostgreSQL latency, and the number of simultaneously active streamers. Monitor
+container memory and CPU, database latency and connections, WebSocket reconnect
+rate, and WAL-G failures instead of treating a VPS size as a guaranteed user
+limit.
+
+The main known constraints in the current implementation are:
+
+- the hourly history sync processes users sequentially but fetches every page
+  of every user's lifetime donation history, despite the schema already having
+  a `history_checkpoint` field;
+- subscription startup is staggered by 50 ms, but there is no explicit
+  concurrency limit or reconnect jitter;
+- token refresh is not serialized per user across the worker and the web OAuth
+  callback;
+- the workers do not handle `SIGTERM` explicitly and expose no health endpoint
+  or heartbeat;
+- each process uses a PostgreSQL pool with a maximum of 10 connections, so
+  PostgreSQL capacity must account for the web app and both workers;
+- the video worker polls up to 100 unparsed donations every 2.5 seconds and
+  processes them serially. A YouTube 429 leaves the donation pending for a
+  later polling iteration, without a separate retry schedule or backoff.
+
+Donation insertion already batches reconciled history, awaits live WebSocket
+writes, keeps upstream donation IDs as text, and uses the database uniqueness
+constraint as the final idempotency guard.
