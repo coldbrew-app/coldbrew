@@ -15,10 +15,10 @@ import { Route as AuthenticatedAlertsRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedDonationsRouteImport } from './routes/_authenticated/donations'
 import { Route as AuthenticatedIntegrationsRouteImport } from './routes/_authenticated/integrations'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedVideosRouteImport } from './routes/_authenticated/videos'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ShareSlugRouteImport } from './routes/share.$slug'
 import { Route as AuthenticatedDonationsIndexRouteImport } from './routes/_authenticated/donations.index'
-import { Route as AuthenticatedDonationsVideosRouteImport } from './routes/_authenticated/donations.videos'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api/trpc/$'
 import { Route as ApiIntegrationDonationalertsCallbackRouteImport } from './routes/api/integration/donationalerts/callback'
@@ -53,6 +53,11 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedVideosRoute = AuthenticatedVideosRouteImport.update({
+  id: '/videos',
+  path: '/videos',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const ApiHealthRoute = ApiHealthRouteImport.update({
   id: '/api/health',
   path: '/api/health',
@@ -67,12 +72,6 @@ const AuthenticatedDonationsIndexRoute =
   AuthenticatedDonationsIndexRouteImport.update({
     id: '/',
     path: '/',
-    getParentRoute: () => AuthenticatedDonationsRoute,
-  } as any)
-const AuthenticatedDonationsVideosRoute =
-  AuthenticatedDonationsVideosRouteImport.update({
-    id: '/videos',
-    path: '/videos',
     getParentRoute: () => AuthenticatedDonationsRoute,
   } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
@@ -98,9 +97,9 @@ export interface FileRoutesByFullPath {
   '/donations': typeof AuthenticatedDonationsRouteWithChildren
   '/integrations': typeof AuthenticatedIntegrationsRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/videos': typeof AuthenticatedVideosRoute
   '/api/health': typeof ApiHealthRoute
   '/share/$slug': typeof ShareSlugRoute
-  '/donations/videos': typeof AuthenticatedDonationsVideosRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/donations/': typeof AuthenticatedDonationsIndexRoute
@@ -110,10 +109,10 @@ export interface FileRoutesByTo {
   '/alerts': typeof AuthenticatedAlertsRoute
   '/integrations': typeof AuthenticatedIntegrationsRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/videos': typeof AuthenticatedVideosRoute
   '/api/health': typeof ApiHealthRoute
   '/share/$slug': typeof ShareSlugRoute
   '/': typeof AuthenticatedIndexRoute
-  '/donations/videos': typeof AuthenticatedDonationsVideosRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/donations': typeof AuthenticatedDonationsIndexRoute
@@ -126,10 +125,10 @@ export interface FileRoutesById {
   '/_authenticated/donations': typeof AuthenticatedDonationsRouteWithChildren
   '/_authenticated/integrations': typeof AuthenticatedIntegrationsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/videos': typeof AuthenticatedVideosRoute
   '/api/health': typeof ApiHealthRoute
   '/share/$slug': typeof ShareSlugRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
-  '/_authenticated/donations/videos': typeof AuthenticatedDonationsVideosRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/_authenticated/donations/': typeof AuthenticatedDonationsIndexRoute
@@ -143,9 +142,9 @@ export interface FileRouteTypes {
     | '/donations'
     | '/integrations'
     | '/settings'
+    | '/videos'
     | '/api/health'
     | '/share/$slug'
-    | '/donations/videos'
     | '/api/auth/$'
     | '/api/trpc/$'
     | '/donations/'
@@ -155,10 +154,10 @@ export interface FileRouteTypes {
     | '/alerts'
     | '/integrations'
     | '/settings'
+    | '/videos'
     | '/api/health'
     | '/share/$slug'
     | '/'
-    | '/donations/videos'
     | '/api/auth/$'
     | '/api/trpc/$'
     | '/donations'
@@ -170,10 +169,10 @@ export interface FileRouteTypes {
     | '/_authenticated/donations'
     | '/_authenticated/integrations'
     | '/_authenticated/settings'
+    | '/_authenticated/videos'
     | '/api/health'
     | '/share/$slug'
     | '/_authenticated/'
-    | '/_authenticated/donations/videos'
     | '/api/auth/$'
     | '/api/trpc/$'
     | '/_authenticated/donations/'
@@ -233,6 +232,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/videos': {
+      id: '/_authenticated/videos'
+      path: '/videos'
+      fullPath: '/videos'
+      preLoaderRoute: typeof AuthenticatedVideosRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/api/health': {
       id: '/api/health'
       path: '/api/health'
@@ -252,13 +258,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/donations/'
       preLoaderRoute: typeof AuthenticatedDonationsIndexRouteImport
-      parentRoute: typeof AuthenticatedDonationsRoute
-    }
-    '/_authenticated/donations/videos': {
-      id: '/_authenticated/donations/videos'
-      path: '/videos'
-      fullPath: '/donations/videos'
-      preLoaderRoute: typeof AuthenticatedDonationsVideosRouteImport
       parentRoute: typeof AuthenticatedDonationsRoute
     }
     '/api/auth/$': {
@@ -286,13 +285,11 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedDonationsRouteChildren {
-  AuthenticatedDonationsVideosRoute: typeof AuthenticatedDonationsVideosRoute
   AuthenticatedDonationsIndexRoute: typeof AuthenticatedDonationsIndexRoute
 }
 
 const AuthenticatedDonationsRouteChildren: AuthenticatedDonationsRouteChildren =
   {
-    AuthenticatedDonationsVideosRoute: AuthenticatedDonationsVideosRoute,
     AuthenticatedDonationsIndexRoute: AuthenticatedDonationsIndexRoute,
   }
 
@@ -306,6 +303,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDonationsRoute: typeof AuthenticatedDonationsRouteWithChildren
   AuthenticatedIntegrationsRoute: typeof AuthenticatedIntegrationsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedVideosRoute: typeof AuthenticatedVideosRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
@@ -314,6 +312,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDonationsRoute: AuthenticatedDonationsRouteWithChildren,
   AuthenticatedIntegrationsRoute: AuthenticatedIntegrationsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedVideosRoute: AuthenticatedVideosRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
 

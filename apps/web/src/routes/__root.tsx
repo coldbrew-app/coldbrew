@@ -177,6 +177,15 @@ function AuthenticatedApplicationContent() {
               activeProps={{ className: activeNavItem }}
               className={navItem}
               onClick={() => setOpenMobile(false)}
+              to="/videos"
+            >
+              <Icons.video aria-hidden="true" />
+              {t("videos")}
+            </Link>
+            <Link
+              activeProps={{ className: activeNavItem }}
+              className={navItem}
+              onClick={() => setOpenMobile(false)}
               to="/integrations"
             >
               <Icons.integrations aria-hidden="true" />
