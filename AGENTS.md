@@ -8,6 +8,10 @@ This app is created for streamers. It connects to many donation platforms (such 
 - Wrap `fetch`-requests to foreign services into neverthrow's `Result` to improve durabilty
 - Use `shadcn` for UI components
 
+## Documentation
+
+- Documentation files referenced by this guide may and should be edited whenever needed, and kept up to date with the codebase and project conventions.
+
 ## Frontend Styling
 
 - Follow the [Coldbrew UI Style Guide](docs/ui-style-guide.md) for visual direction, semantic colors, typography, components, and responsive behavior
