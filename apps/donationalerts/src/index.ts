@@ -40,7 +40,7 @@ async function main() {
   CronJob.from({
     start: true,
     onTick: () => void refreshListeners(inWork),
-    cronTime: "*/10 * * * *",
+    cronTime: "*/10 * * * * *",
   });
 
   CronJob.from({

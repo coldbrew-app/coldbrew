@@ -2,6 +2,7 @@ import { delay } from "@coldbrew/packages/delay.js";
 import { logger } from "@coldbrew/packages/logger.js";
 import { DonationAlertsUser, UserId } from "@coldbrew/packages/schemas.js";
 import { ok, safeTry } from "neverthrow";
+import { defer } from "using-defer";
 
 import { store } from "../sensors/db/index.js";
 import { donationAlerts } from "../sensors/donationalerts.js";
@@ -10,11 +11,12 @@ import { refreshAccessToken } from "./refresh-access-token.js";
 async function deployListener(user: DonationAlertsUser, signal: AbortSignal) {
   const { userId } = user;
   let { accessToken, refreshToken } = user;
+
   await safeTry(async function* () {
-    while (true) {
+    outer_loop: while (true) {
       if (signal.aborted) return ok();
 
-      inner: for await (const event of donationAlerts.subscribeToDonations(accessToken, signal)) {
+      for await (const event of donationAlerts.subscribeToDonations(accessToken, signal)) {
         if (signal.aborted) return ok();
 
         if (event.name == "donation") {
@@ -24,17 +26,33 @@ async function deployListener(user: DonationAlertsUser, signal: AbortSignal) {
           const tokens = yield* refreshAccessToken({ userId, accessToken, refreshToken });
           accessToken = tokens.accessToken;
           refreshToken = tokens.refreshToken;
-          break inner;
+          continue outer_loop;
         }
       }
     }
   }).match(
     () => logger.info(`listener exited gracefully: userId=${userId}`),
-    (error) => logger.error(error),
+    async (error) => {
+      if (error.type == "donationalerts: failed to fetch tokens") {
+        if (error.cause.type == "donationalerts: unauthorized") {
+          await store.disconnectDonationAlerts(userId);
+        }
+      }
+      logger.error(error);
+    },
   );
 }
 
+let isRunning = false;
 export async function refreshListeners(running: Map<UserId, AbortController>) {
+  if (isRunning) {
+    logger.debug("refreshListeners: skip (is running)");
+    return;
+  }
+  isRunning = true;
+  using _ = defer(() => (isRunning = false));
+
+  const start = performance.now();
   const users = await store.getUsersAuthenticatedInDonationAlerts();
   const activeUserIds = new Set(users.map((user) => user.userId));
 
@@ -49,8 +67,10 @@ export async function refreshListeners(running: Map<UserId, AbortController>) {
     if (!running.has(user.userId)) {
       const userController = new AbortController();
       running.set(user.userId, userController);
-      deployListener(user, userController.signal);
+      deployListener(user, userController.signal).finally(() => running.delete(user.userId));
       await delay(50);
     }
   }
+  const end = performance.now();
+  logger.debug(`refreshListeners: ${Math.round(end - start) / 1000}`);
 }

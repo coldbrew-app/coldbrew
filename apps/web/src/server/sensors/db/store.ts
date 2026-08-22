@@ -283,11 +283,20 @@ export class Store {
   }
 
   async setTokens(userId: UserId, refreshToken: RefreshToken, accessToken: AccessToken) {
-    await this
-      .sql`UPDATE donationalerts_connection SET refresh_token = ${refreshToken}, access_token = ${accessToken}, token_version = token_version + 1, updated_at = now() WHERE user_id = ${userId}`;
+    await this.sql`
+      UPDATE donationalerts_connection SET
+      refresh_token = ${refreshToken},
+      access_token = ${accessToken},
+      token_version = token_version + 1,
+      updated_at = now()
+      WHERE user_id = ${userId}
+    `;
   }
 
   async disconnectDonationAlerts(userId: UserId) {
-    await this.sql`DELETE FROM donationalerts_connection WHERE user_id = ${userId}`;
+    await this.sql`
+      DELETE FROM donationalerts_connection
+      WHERE user_id = ${userId}
+    `;
   }
 }
