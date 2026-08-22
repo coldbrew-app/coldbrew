@@ -99,10 +99,6 @@ const UserProfileSchema = z.object({
   id: z.union([z.number(), z.string()]),
 });
 
-export type DonationAlertsSubscription = {
-  close(): void;
-};
-
 type DonationAlertsWebServer = {
   authorization(): Promise<void>;
   close(): void;
@@ -230,40 +226,50 @@ export class DonationAlertsFacade {
     });
   }
 
-  subscribeToDonations(accessToken: AccessToken, signal: AbortSignal) {
+  async *subscribeToDonations(accessToken: AccessToken, signal: AbortSignal) {
+    if (signal.aborted) return;
+
     // The SDK's declaration omits EventEmitter methods even though WebServer exposes them at runtime.
     const client: DonationAlertsWebServer = new alerts.WebServer({
       access_token: accessToken,
       autoReconnect: true,
     }) as any;
 
-    signal.addEventListener("abort", () => void client.close());
+    signal.addEventListener("abort", () => client.close(), { once: true });
 
-    const emt = new Emittery<{
+    const emitter = new Emittery<{
       "donation": RawDonation;
       "error": DonationAlertsRequestError | DonationAlertsUnauthorizedError;
+      "end": undefined;
     }>();
 
-    client.on("open", () => {
-      void client
-        .authorization()
-        .catch((error: unknown) => emt.emit("error", toRequestError(error)));
-    });
-    client.on("error", (error) => {
+    let ended = false;
+    const endWithError = (error: unknown) => {
+      if (ended || signal.aborted) return;
+
+      ended = true;
       client.close();
-      emt.emit("error", toRequestError(error));
-    });
-    client.on("message", (message: unknown) => {
+      void emitter.emit("error", toRequestError(error));
+      void emitter.emit("end");
+    };
+
+    const onMessage = (message: unknown) => {
       validate(WsEventSchema, message).match(
         (event) => {
-          if (event.type == "donation") {
-            emt.emit("donation", this.toDonation(event.result.data.data));
-          }
+          event.type === "donation" &&
+            emitter.emit("donation", this.toDonation(event.result.data.data));
         },
         (error) => logger.error(error),
       );
-    });
+    };
 
-    return emt.events(["donation", "error"]);
+    client.on("open", () => client.authorization().catch(endWithError));
+    client.on("error", endWithError);
+    client.on("message", onMessage);
+
+    for await (const event of emitter.events(["donation", "error", "end"], { signal })) {
+      if (event.name === "end") return;
+      yield event;
+    }
   }
 }
