@@ -63,8 +63,8 @@ export default function VideoPriorityEditor({ priority, isSelected, videoCount }
         className={cn(
           "relative flex items-center gap-2 rounded-lg border px-2 py-1.5",
           isSelected
-            ? "border-violet-200 bg-violet-100 hover:bg-violet-200 dark:border-violet-400/40 dark:bg-violet-400/20 dark:hover:bg-violet-400/30"
-            : "border-[#e5e3ea] bg-white hover:bg-[#f3f1f6] dark:border-[#393442] dark:bg-[#24202d] dark:hover:bg-[#2b2735]",
+            ? "border-ring/35 bg-secondary hover:bg-accent"
+            : "border-border bg-card hover:bg-muted",
         )}
       >
         <Link
@@ -99,7 +99,7 @@ export default function VideoPriorityEditor({ priority, isSelected, videoCount }
 
   return (
     <form
-      className="flex flex-col gap-2 rounded-lg border border-[#e5e3ea] bg-white px-2 py-1.5 dark:border-[#393442] dark:bg-[#24202d]"
+      className="flex flex-col gap-2 rounded-lg border border-border bg-card px-2 py-1.5"
       onSubmit={(event) => void handleSubmit(savePriority)(event)}
     >
       <div className="flex items-center gap-2">
@@ -118,7 +118,7 @@ export default function VideoPriorityEditor({ priority, isSelected, videoCount }
           <input
             autoComplete="off"
             aria-invalid={Boolean(formState.errors.label)}
-            className="h-6 w-full rounded-md border border-[#e5e3ea] bg-transparent px-2 text-xs text-[#353248] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-[#4a4455] dark:text-[#e4dfed]"
+            className="h-6 w-full rounded-md border border-input bg-transparent px-2 text-xs text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
             maxLength={64}
             {...register("label", { required: t("enterQueueName") })}
           />
@@ -128,7 +128,7 @@ export default function VideoPriorityEditor({ priority, isSelected, videoCount }
           <input
             autoComplete="off"
             aria-invalid={Boolean(formState.errors.minPricePerMinute)}
-            className="h-6 w-full rounded-md border border-[#e5e3ea] bg-transparent px-2 text-xs text-[#353248] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-[#4a4455] dark:text-[#e4dfed]"
+            className="h-6 w-full rounded-md border border-input bg-transparent px-2 text-xs text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
             min="0"
             step="any"
             type="number"

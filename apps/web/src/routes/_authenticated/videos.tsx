@@ -111,10 +111,12 @@ function VideoQueue() {
   return (
     <section className="flex min-w-0 flex-1 flex-col">
       <div className="w-full">
-        <article className="mt-4 overflow-hidden rounded-xl border border-[#eae8ef] bg-white">
-          <div className="border-b border-[#efedf3] p-4 sm:p-5">
-            <h1 className="text-[15px] font-semibold text-[#353248]">{t("videoQueue")}</h1>
-            <p className="mt-1 text-xs text-[#9491a1]">{t("videosForStream")}</p>
+        <article className="mt-4 overflow-hidden rounded-2xl border border-border bg-card shadow-sm shadow-primary/5">
+          <div className="border-b border-border p-4 sm:p-5">
+            <h1 className="font-heading text-lg font-semibold text-card-foreground">
+              {t("videoQueue")}
+            </h1>
+            <p className="mt-1 text-xs text-muted-foreground">{t("videosForStream")}</p>
           </div>
           <SlugEditor />
           <div className="flex flex-col lg:flex-row">
@@ -126,7 +128,7 @@ function VideoQueue() {
                   withActions
                 />
               ) : visibleVideos.length ? (
-                <div className="divide-y divide-[#f0eff3]">
+                <div className="divide-y divide-border">
                   {visibleVideos.map((video) => (
                     <VideoCard
                       isUpdating={updateVideoStatusM.isPending || updateVideoM.isPending}
@@ -147,10 +149,10 @@ function VideoQueue() {
               ) : (
                 <div className="grid min-h-64 place-items-center px-5 text-center">
                   <div className="flex flex-col items-center gap-2">
-                    <div className="grid size-11 place-items-center rounded-xl bg-violet-100 text-violet-600">
+                    <div className="grid size-11 place-items-center rounded-xl bg-secondary text-secondary-foreground">
                       <Icons.wallet aria-hidden="true" size={20} />
                     </div>
-                    <h3 className="text-sm font-semibold text-[#4c485b]">
+                    <h3 className="text-sm font-semibold text-card-foreground">
                       {videos.length
                         ? activeTab !== "all"
                           ? t("noFilteredVideos", {
@@ -160,7 +162,7 @@ function VideoQueue() {
                           : t("noVideos")
                         : t("noVideosInQueue")}
                     </h3>
-                    <p className="max-w-xs text-xs leading-relaxed text-[#908d9d]">
+                    <p className="max-w-xs text-xs leading-relaxed text-muted-foreground">
                       {videos.length ? t("filteredVideosWillAppear") : t("videoLinksWillAppear")}
                     </p>
                   </div>
@@ -168,7 +170,7 @@ function VideoQueue() {
               )}
             </div>
 
-            <aside className="order-1 border-b border-[#efedf3] bg-[#fcfbfd] p-3 lg:order-2 lg:w-72 lg:shrink-0 lg:border-b-0 lg:border-l dark:border-[#302c3b] dark:bg-[#1c1925]">
+            <aside className="order-1 border-b border-border bg-muted/45 p-3 lg:order-2 lg:w-72 lg:shrink-0 lg:border-b-0 lg:border-l">
               <nav className="flex flex-col gap-1" aria-label={t("videoStatusFilters")}>
                 {tabs.map(({ id, label, count, icon: Icon }) => {
                   const isActive = id === activeTab;

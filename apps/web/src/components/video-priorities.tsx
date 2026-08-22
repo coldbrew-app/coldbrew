@@ -23,18 +23,18 @@ export default function VideoPriorities({
   );
 
   return (
-    <section className="mt-3 flex flex-col gap-2 border-t border-[#efedf3] pt-3 dark:border-[#302c3b]">
+    <section className="mt-3 flex flex-col gap-2 border-t border-border pt-3">
       <div className="flex flex-col gap-0.5 px-1">
-        <h2 className="text-xs font-semibold text-[#4c485b] dark:text-[#e4dfed]">{t("queues")}</h2>
-        <p className="text-[10px] text-[#908d9d]">{t("minimumDonation")}</p>
+        <h2 className="text-xs font-semibold text-card-foreground">{t("queues")}</h2>
+        <p className="text-[10px] text-muted-foreground">{t("minimumDonation")}</p>
       </div>
       <Link
         aria-current={selectedVideoPriorityId === null ? "page" : undefined}
         className={cn(
           "flex rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
           selectedVideoPriorityId === null
-            ? "border-violet-200 bg-violet-100 text-violet-800 hover:bg-violet-200 dark:border-violet-400/40 dark:bg-violet-400/20 dark:text-violet-100 dark:hover:bg-violet-400/30"
-            : "border-[#e5e3ea] bg-white text-[#595565] hover:bg-[#f3f1f6] dark:border-[#393442] dark:bg-[#24202d] dark:text-[#c9c3d4] dark:hover:bg-[#2b2735] dark:hover:text-white",
+            ? "border-ring/35 bg-secondary text-secondary-foreground hover:bg-accent"
+            : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
         )}
         search={(previous) => ({
           videoPriorityId: "all",
@@ -58,7 +58,7 @@ export default function VideoPriorities({
           />
         ))
       ) : (
-        <p className="px-1 text-xs text-[#908d9d]">{t("noQueuesYet")}</p>
+        <p className="px-1 text-xs text-muted-foreground">{t("noQueuesYet")}</p>
       )}
 
       {prioritiesQ.error && (

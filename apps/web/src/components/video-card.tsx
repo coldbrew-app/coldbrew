@@ -78,7 +78,7 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
       <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-start">
         <div className="flex flex-col gap-3 sm:shrink-0">
           {embedUrl && (
-            <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-[#f0eff3] sm:w-60">
+            <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-muted sm:w-60">
               <iframe
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
@@ -101,15 +101,15 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="flex min-w-0 grow items-center gap-3">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <strong className="text-[13px] text-[#454157]">{author}</strong>
+                <strong className="text-[13px] text-card-foreground">{author}</strong>
                 {video.priorityLabel && (
-                  <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
+                  <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-secondary-foreground">
                     {video.priorityLabel}
                   </span>
                 )}
               </div>
               <time
-                className="block text-[10px] text-[#aaa7b4]"
+                className="block text-[10px] text-muted-foreground"
                 dateTime={video.donation.occurredAt.toISOString()}
                 title={fmtDate(video.donation.occurredAt, locale)}
               >
@@ -119,11 +119,11 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
 
             <div className="flex shrink-0 items-start gap-2">
               <div className="flex flex-col items-end gap-0.5">
-                <strong className="block text-[13px] text-[#3f3b50]">
+                <strong className="block text-[13px] text-card-foreground">
                   {fmtAmount(video.queueMoney ?? video.donation.money, locale)}
                 </strong>
                 {!isEditing && (
-                  <span className="text-xs text-[#777385]">
+                  <span className="text-xs text-muted-foreground">
                     {video.durationMinutes === null
                       ? t("unknownDuration")
                       : t("minutes", { count: video.durationMinutes })}
@@ -146,19 +146,17 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
           </div>
           {isEditing && (
             <form
-              className="flex flex-col gap-3 rounded-lg border border-violet-100 bg-violet-50/60 p-3 dark:border-violet-900/60 dark:bg-violet-950/20"
+              className="flex flex-col gap-3 rounded-lg border border-border bg-muted/60 p-3"
               onSubmit={(event) => void handleSubmit(save)(event)}
             >
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-medium text-[#454157] dark:text-[#e4dfed]">
-                    {t("amount")}
-                  </span>
+                  <span className="text-xs font-medium text-foreground">{t("amount")}</span>
                   <input
                     aria-describedby="video-amount-help"
                     aria-invalid={Boolean(formState.errors.amount)}
                     autoComplete="off"
-                    className="h-8 w-full rounded-md border border-[#e5e3ea] bg-white px-2 text-sm text-[#353248] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-[#4a4455] dark:bg-transparent dark:text-[#e4dfed]"
+                    className="h-8 w-full rounded-md border border-input bg-card px-2 text-sm text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
                     disabled={isUpdating}
                     min="0"
                     step="any"
@@ -169,7 +167,10 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
                         MoneyAmountSchema.safeParse(value).success || t("enterAmountZeroOrMore"),
                     })}
                   />
-                  <span className="text-[11px] leading-snug text-[#777385]" id="video-amount-help">
+                  <span
+                    className="text-[11px] leading-snug text-muted-foreground"
+                    id="video-amount-help"
+                  >
                     {t("donationAmountHelp")}
                   </span>
                   {formState.errors.amount && (
@@ -179,14 +180,14 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
                   )}
                 </label>
                 <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-medium text-[#454157] dark:text-[#e4dfed]">
+                  <span className="text-xs font-medium text-foreground">
                     {t("durationMinutes")}
                   </span>
                   <input
                     aria-describedby="video-duration-help"
                     aria-invalid={Boolean(formState.errors.durationMinutes)}
                     autoComplete="off"
-                    className="h-8 w-full rounded-md border border-[#e5e3ea] bg-white px-2 text-sm text-[#353248] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-[#4a4455] dark:bg-transparent dark:text-[#e4dfed]"
+                    className="h-8 w-full rounded-md border border-input bg-card px-2 text-sm text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
                     disabled={isUpdating}
                     min="0"
                     step="1"
@@ -199,7 +200,7 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
                     })}
                   />
                   <span
-                    className="text-[11px] leading-snug text-[#777385]"
+                    className="text-[11px] leading-snug text-muted-foreground"
                     id="video-duration-help"
                   >
                     {t("durationHelp")}
@@ -229,7 +230,7 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
               </div>
             </form>
           )}
-          <p className="min-w-0 grow text-xs leading-relaxed text-[#8e8b9b] sm:py-1">
+          <p className="min-w-0 grow text-xs leading-relaxed text-muted-foreground sm:py-1">
             {messageChunks.map((chunk, index) => {
               if (chunk.type === "string") {
                 return <span key={index}>{chunk.value}</span>;
@@ -241,8 +242,8 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
                 <a
                   className={
                     isVideoLink
-                      ? "rounded bg-violet-100 px-1 py-0.5 font-semibold text-violet-700 hover:bg-violet-200"
-                      : "font-semibold text-violet-600 hover:underline"
+                      ? "rounded bg-secondary px-1 py-0.5 font-semibold text-secondary-foreground hover:bg-accent"
+                      : "font-semibold text-primary hover:underline"
                   }
                   href={chunk.href}
                   key={index}
@@ -287,7 +288,7 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
             )}
 
             {(video.watchedAt || video.savedAt) && (
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-[#777385]">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
                 {video.watchedAt && (
                   <time
                     dateTime={video.watchedAt.toISOString()}

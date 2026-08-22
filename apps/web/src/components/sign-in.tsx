@@ -10,15 +10,15 @@ export default function SignIn() {
   const { t } = useI18n();
 
   return (
-    <main className="grid min-h-dvh place-items-center bg-[#f7f7fb] p-4 text-[#242238] sm:p-6">
-      <section className="flex w-full max-w-sm flex-col gap-6 rounded-2xl border border-[#ebeaf1] bg-white p-5 shadow-xl shadow-violet-950/5 sm:p-8">
-        <div className="flex items-center gap-2.5 text-xl font-bold tracking-tight text-[#292640]">
+    <main className="grid min-h-dvh place-items-center bg-background p-4 text-foreground sm:p-6">
+      <section className="flex w-full max-w-sm flex-col gap-6 rounded-3xl border border-border bg-card p-5 shadow-xl shadow-primary/10 sm:p-8">
+        <div className="flex items-center gap-2.5 font-heading text-2xl font-semibold tracking-tight text-foreground">
           <img alt="" className="h-6" src={logo} />
           coldbrew
         </div>
         <div className="flex flex-col gap-2">
-          <h1 className="text-2xl font-bold tracking-tight">{t("welcomeBack")}</h1>
-          <p className="text-sm text-[#77758b]">{t("signInDescription")}</p>
+          <h1 className="font-heading text-3xl font-semibold tracking-tight">{t("welcomeBack")}</h1>
+          <p className="text-sm text-muted-foreground">{t("signInDescription")}</p>
         </div>
         <Button
           className="w-full"

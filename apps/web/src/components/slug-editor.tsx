@@ -2,7 +2,7 @@ import { SlugSchema } from "@coldbrew/packages/schemas.js";
 import { Button } from "@web/components/ui/button";
 import { useSetSlugM, useSlug } from "@web/hooks/api";
 import { cn } from "@web/lib/utils";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { useI18n } from "../lib/i18n";
@@ -19,7 +19,10 @@ type SlugFormValues = {
 export function SlugEditor({ className }: Props) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
+  const [origin, setOrigin] = useState("");
   const slug = useSlug();
+
+  useEffect(() => setOrigin(window.location.origin), []);
 
   const { formState, handleSubmit, register, reset } = useForm<SlugFormValues>({
     defaultValues: { slug },
@@ -43,7 +46,7 @@ export function SlugEditor({ className }: Props) {
   };
 
   return (
-    <div className={cn("border-b border-[#f0eff3] p-3 sm:px-5", className)}>
+    <div className={cn("border-b border-border p-3 sm:px-5", className)}>
       <form
         className="flex flex-col gap-2"
         onSubmit={(event) => void handleSubmit(saveSlug)(event)}
@@ -54,15 +57,15 @@ export function SlugEditor({ className }: Props) {
             <span className="sr-only" id="slug-help">
               {t("slugHelp")}
             </span>
-            <div className="flex min-w-0 rounded-lg border border-[#e5e3ea] bg-[#fcfcfd] focus-within:border-violet-400 focus-within:ring-3 focus-within:ring-violet-100">
-              <span className="shrink-0 border-r border-[#e5e3ea] px-2.5 py-1.5 text-sm text-[#908d9d]">
-                {window.location.origin}/share/
+            <div className="flex min-w-0 rounded-lg border border-input bg-background/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/20">
+              <span className="shrink-0 border-r border-input px-2.5 py-1.5 text-sm text-muted-foreground">
+                {origin}/share/
               </span>
               <input
                 autoComplete="off"
                 aria-describedby="slug-help"
                 aria-invalid={Boolean(formState.errors.slug)}
-                className="min-w-0 grow bg-transparent px-2.5 py-1.5 text-sm text-[#353248] outline-none"
+                className="min-w-0 grow bg-transparent px-2.5 py-1.5 text-sm text-foreground outline-none"
                 maxLength={48}
                 {...register("slug", {
                   onChange: (event) => {

@@ -23,19 +23,21 @@ function RouteComponent() {
   return (
     <section className="flex min-w-0 flex-1 flex-col">
       <div className="w-full">
-        <h1 className="text-[clamp(27px,3vw,33px)] font-bold tracking-tight text-[#27243a]">
+        <h1 className="font-heading text-[clamp(30px,3vw,38px)] font-semibold tracking-tight text-foreground">
           {t("integrations")}
         </h1>
-        <p className="mt-2.5 max-w-xl text-sm text-[#888597]">{t("integrationsDescription")}</p>
+        <p className="mt-2.5 max-w-xl text-sm text-muted-foreground">
+          {t("integrationsDescription")}
+        </p>
 
-        <article className="mt-8 overflow-hidden rounded-xl border border-[#eae8ef] bg-white sm:mt-10">
+        <article className="mt-8 overflow-hidden rounded-2xl border border-border bg-card shadow-sm shadow-primary/5 sm:mt-10">
           <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-6">
             <div className="grid size-12 shrink-0 place-items-center rounded-xl bg-linear-to-br from-orange-400 to-rose-500 text-sm font-bold text-white shadow-sm">
               DA
             </div>
             <div className="min-w-0 grow">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-base font-semibold text-[#403c52]">
+                <h2 className="font-heading text-lg font-semibold text-card-foreground">
                   {/* TODO: add payment link */}
                   <a
                     href="https://donationalerts.com/dashboard"
@@ -52,7 +54,7 @@ function RouteComponent() {
                   {t(connected ? "connected" : "notConnected")}
                 </span>
               </div>
-              <p className="mt-1.5 text-sm text-[#888597]">
+              <p className="mt-1.5 text-sm text-muted-foreground">
                 {connected ? t("donationsSyncing") : t("importDonations")}
               </p>
             </div>
@@ -75,13 +77,13 @@ function RouteComponent() {
               </a>
             )}
           </div>
-          <div className="flex items-center gap-2 border-t border-[#f0eff3] bg-[#fcfcfd] px-5 py-3 text-xs text-[#888597] sm:px-6">
-            <Icons.secure aria-hidden="true" size={15} className="shrink-0 text-violet-600" />
+          <div className="flex items-center gap-2 border-t border-border bg-muted/55 px-5 py-3 text-xs text-muted-foreground sm:px-6">
+            <Icons.secure aria-hidden="true" size={15} className="shrink-0 text-primary" />
             {t("secureAuthorization")}
           </div>
         </article>
 
-        <div className="mt-5 flex items-center gap-2 text-xs text-[#9895a6]">
+        <div className="mt-5 flex items-center gap-2 text-xs text-muted-foreground">
           <Icons.checked aria-hidden="true" size={15} className="text-emerald-600" />
           {t("moreIntegrationsSoon")}
         </div>

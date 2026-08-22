@@ -16,16 +16,18 @@ function DonationsLayout() {
   return (
     <section className="flex min-w-0 flex-1 flex-col">
       <div className="w-full">
-        <article className="mt-4 overflow-hidden rounded-xl border border-[#eae8ef] bg-white">
-          <div className="flex flex-col gap-4 border-b border-[#efedf3] p-4 sm:p-5">
+        <article className="mt-4 overflow-hidden rounded-2xl border border-border bg-card shadow-sm shadow-primary/5">
+          <div className="flex flex-col gap-4 border-b border-border p-4 sm:p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-[15px] font-semibold text-[#353248]">{t("allDonations")}</h2>
-                <p className="mt-1 text-xs text-[#9491a1]">{t("browseDonations")}</p>
+                <h2 className="font-heading text-lg font-semibold text-card-foreground">
+                  {t("allDonations")}
+                </h2>
+                <p className="mt-1 text-xs text-muted-foreground">{t("browseDonations")}</p>
               </div>
               <div className="flex items-center gap-2">
-                <Icons.filter aria-hidden="true" size={15} className="text-violet-600" />
-                <span className="text-xs font-semibold text-[#676376]">DonationAlerts</span>
+                <Icons.filter aria-hidden="true" size={15} className="text-primary" />
+                <span className="text-xs font-semibold text-muted-foreground">DonationAlerts</span>
               </div>
             </div>
           </div>

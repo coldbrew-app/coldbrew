@@ -42,16 +42,16 @@ function DonationsIndex() {
 
   return (
     <>
-      <div className="flex flex-col gap-2 border-b border-[#efedf3] p-4 sm:flex-row sm:p-5">
+      <div className="flex flex-col gap-2 border-b border-border p-4 sm:flex-row sm:p-5">
         <label className="relative min-w-0 grow">
           <Icons.search
             aria-hidden="true"
             size={16}
-            className="absolute top-1/2 left-3 -translate-y-1/2 text-[#a19eae]"
+            className="absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
           />
           <span className="sr-only">{t("searchDonations")}</span>
           <input
-            className="h-9 w-full rounded-lg border border-[#e5e3ea] bg-[#fcfcfd] pr-3 pl-9 text-xs text-[#4a465b] outline-none placeholder:text-[#aaa7b5] focus:border-violet-400 focus:ring-3 focus:ring-violet-100"
+            className="h-9 w-full rounded-lg border border-input bg-background/60 pr-3 pl-9 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-3 focus:ring-ring/20"
             onChange={(event) => setQuery(event.target.value)}
             placeholder={t("searchBySupporter")}
             value={query}
@@ -60,7 +60,7 @@ function DonationsIndex() {
         <label className="relative w-full sm:w-auto">
           <span className="sr-only">{t("dateRange")}</span>
           <select
-            className="h-9 w-full appearance-none rounded-lg border border-[#e5e3ea] bg-white py-0 pr-8 pl-3 text-xs font-semibold text-[#605c70] outline-none focus:border-violet-400 sm:w-36"
+            className="h-9 w-full appearance-none rounded-lg border border-input bg-background/60 py-0 pr-8 pl-3 text-xs font-semibold text-foreground outline-none focus:border-ring sm:w-36"
             onChange={(event) => setPeriod(event.target.value as typeof period)}
             value={period}
           >
@@ -71,7 +71,7 @@ function DonationsIndex() {
           <Icons.chevronDown
             aria-hidden="true"
             size={15}
-            className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-[#898596]"
+            className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-muted-foreground"
           />
         </label>
       </div>
@@ -79,7 +79,7 @@ function DonationsIndex() {
       {donationsQ.isLoading ? (
         <DonationListSkeleton aria-busy="true" aria-label={t("loadingDonations")} />
       ) : filteredDonations.length ? (
-        <div className="divide-y divide-[#f0eff3]">
+        <div className="divide-y divide-border">
           {filteredDonations.map((donation) => (
             <DonationCard key={donation.donationId} donation={donation} />
           ))}
@@ -96,13 +96,13 @@ function EmptyDonations({ query }: { query: string }) {
   return (
     <div className="grid min-h-64 place-items-center px-5 text-center">
       <div>
-        <div className="mx-auto grid size-11 place-items-center rounded-xl bg-violet-100 text-violet-600">
+        <div className="mx-auto grid size-11 place-items-center rounded-xl bg-secondary text-secondary-foreground">
           <Icons.wallet aria-hidden="true" size={20} />
         </div>
-        <h3 className="mt-4 text-sm font-semibold text-[#4c485b]">
+        <h3 className="mt-4 text-sm font-semibold text-card-foreground">
           {t(query ? "noMatchingDonations" : "noDonationsYet")}
         </h3>
-        <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-[#908d9d]">
+        <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-muted-foreground">
           {query ? t("tryAnotherSearch") : t("donationsWillAppear")}
         </p>
       </div>

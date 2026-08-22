@@ -25,18 +25,23 @@ export default function DonationCard({ donation, ...props }: Props) {
   const messageChunks = useTextWithLinks(donation.message ?? t("sentDonation"));
 
   return (
-    <div className={clsx("flex gap-3 px-4 py-4 sm:items-center sm:px-5", props.className)}>
-      <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-violet-100 text-[10px] font-bold text-violet-700">
+    <div
+      className={clsx(
+        "flex min-w-0 overflow-hidden gap-3 px-4 py-4 sm:items-center sm:px-5",
+        props.className,
+      )}
+    >
+      <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-secondary text-[10px] font-bold text-secondary-foreground">
         {getInitials(author)}
       </div>
       <div className="min-w-0 grow">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <strong className="text-[13px] text-[#454157]">{author}</strong>
-          <span className="rounded bg-[#f0edf7] px-1.5 py-0.5 text-[9px] font-semibold text-[#8d899b]">
+          <strong className="text-[13px] text-card-foreground">{author}</strong>
+          <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-semibold text-muted-foreground">
             DonationAlerts
           </span>
         </div>
-        <p className="mt-1 truncate text-xs text-[#8e8b9b]">
+        <p className="mt-1 truncate text-xs text-muted-foreground">
           {messageChunks.map((chunk, index) =>
             chunk.type == "string" ? (
               <span key={index}>{chunk.value}</span>
@@ -54,11 +59,11 @@ export default function DonationCard({ donation, ...props }: Props) {
         </p>
       </div>
       <div className="shrink-0 text-right">
-        <strong className="block text-[13px] text-[#3f3b50]">
+        <strong className="block text-[13px] text-card-foreground">
           {fmtAmount(donation.money, locale)}
         </strong>
         <time
-          className="mt-1 block text-[10px] text-[#aaa7b4]"
+          className="mt-1 block text-[10px] text-muted-foreground"
           dateTime={donation.occurredAt.toISOString()}
           title={fmtDate(donation.occurredAt, locale)}
         >
