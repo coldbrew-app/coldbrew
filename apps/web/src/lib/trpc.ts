@@ -1,3 +1,4 @@
+import type { DefaultError, FetchQueryOptions, QueryKey } from "@tanstack/react-query";
 import { QueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { createIsomorphicFn } from "@tanstack/react-start";
@@ -52,4 +53,18 @@ export type Api = ReturnType<typeof createApi>;
 export function useApi() {
   const { queryClient, trpc } = useRouter().options.context;
   return { queryClient, trpc };
+}
+
+export async function preloadRouteQuery<
+  TQueryFnData = unknown,
+  TError = DefaultError,
+  TData = TQueryFnData,
+  TQueryKey extends QueryKey = QueryKey,
+>(queryClient: QueryClient, options: FetchQueryOptions<TQueryFnData, TError, TData, TQueryKey>) {
+  if (import.meta.env.SSR) {
+    await queryClient.ensureQueryData(options);
+    return;
+  }
+
+  void queryClient.prefetchQuery(options);
 }

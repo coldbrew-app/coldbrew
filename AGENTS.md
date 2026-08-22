@@ -5,6 +5,7 @@ This app is created for streamers. It connects to many donation platforms (such 
 ## Libraries
 
 - Use `tRPC` for client-server interactions
+- Follow the [data loading guide](docs/data-loading.md) when choosing between route loaders, `useQuery`, and `useSuspenseQuery`
 - Wrap `fetch`-requests to foreign services into neverthrow's `Result` to improve durabilty
 - Use `shadcn` for UI components
 

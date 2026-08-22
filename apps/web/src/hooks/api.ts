@@ -9,13 +9,10 @@ export function useUserInfo() {
 }
 
 export function useSlug() {
-  const { trpc } = useApi();
-  const slug = useSuspenseQuery(
-    trpc.userInfo.queryOptions(undefined, { select: (data) => data?.slug }),
-  );
+  const userInfo = useUserInfo();
 
-  if (!slug.data) throw new Error("not slug");
-  return slug.data;
+  if (!userInfo?.slug) throw new Error("not slug");
+  return userInfo.slug;
 }
 
 export function useSetSlugM() {
@@ -95,7 +92,7 @@ export function useSharedVideosQ(slug: Slug) {
   return useQuery(trpc.sharedVideos.queryOptions({ slug }));
 }
 
-export function useAuthUrl() {
+export function useAuthUrlQ(enabled = true) {
   const { trpc } = useApi();
-  return useSuspenseQuery(trpc.authUrls.queryOptions()).data;
+  return useQuery({ ...trpc.authUrls.queryOptions(), enabled });
 }

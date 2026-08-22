@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { VideoPrioritiesSkeleton } from "@web/components/loading-skeletons";
+import QueryErrorState from "@web/components/query-error-state";
 import { useVideoPrioritiesQ } from "@web/hooks/api";
 import { cn } from "@web/lib/utils";
 
@@ -48,6 +49,12 @@ export default function VideoPriorities({
 
       {prioritiesQ.isLoading ? (
         <VideoPrioritiesSkeleton aria-busy="true" aria-label={t("loadingVideoPriorities")} />
+      ) : prioritiesQ.isError ? (
+        <QueryErrorState
+          className="min-h-28 p-2"
+          isRetrying={prioritiesQ.isFetching}
+          onRetry={() => void prioritiesQ.refetch()}
+        />
       ) : prioritiesQ.data?.length ? (
         prioritiesQ.data.map((priority) => (
           <VideoPriorityEditor
@@ -59,12 +66,6 @@ export default function VideoPriorities({
         ))
       ) : (
         <p className="px-1 text-xs text-muted-foreground">{t("noQueuesYet")}</p>
-      )}
-
-      {prioritiesQ.error && (
-        <p className="px-1 text-xs text-red-600" role="alert">
-          {prioritiesQ.error.message}
-        </p>
       )}
     </section>
   );

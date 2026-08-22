@@ -1,10 +1,12 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { Icons } from "@web/components/icons";
 import { VideoListSkeleton } from "@web/components/loading-skeletons";
+import QueryErrorState from "@web/components/query-error-state";
 import { SlugEditor } from "@web/components/slug-editor";
 import { buttonVariants } from "@web/components/ui/button";
 import VideoCard from "@web/components/video-card";
 import VideoPriorities from "@web/components/video-priorities";
+import { preloadRouteQuery } from "@web/lib/trpc";
 import { z } from "zod";
 
 import { useUpdateVideoM, useUpdateVideoStatusM, useVideosQ } from "../../hooks/api";
@@ -18,8 +20,8 @@ export const Route = createFileRoute("/_authenticated/videos")({
   loader: async ({ context }) => {
     if (!context.viewer) return;
     await Promise.all([
-      context.queryClient.ensureQueryData(context.trpc.videos.queryOptions()),
-      context.queryClient.ensureQueryData(context.trpc.videoPriorities.queryOptions()),
+      preloadRouteQuery(context.queryClient, context.trpc.videos.queryOptions()),
+      preloadRouteQuery(context.queryClient, context.trpc.videoPriorities.queryOptions()),
     ]);
   },
   validateSearch: z.object({
@@ -126,6 +128,11 @@ function VideoQueue() {
                   aria-busy="true"
                   aria-label={t("loadingVideoQueue")}
                   withActions
+                />
+              ) : videosQ.isError ? (
+                <QueryErrorState
+                  isRetrying={videosQ.isFetching}
+                  onRetry={() => void videosQ.refetch()}
                 />
               ) : visibleVideos.length ? (
                 <div className="divide-y divide-border">

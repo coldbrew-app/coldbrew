@@ -4,12 +4,14 @@ import DonationCard from "@web/components/donation-card";
 import { Icons } from "@web/components/icons";
 import { DashboardSkeleton } from "@web/components/loading-skeletons";
 import MockChart from "@web/components/mock-chart";
+import QueryErrorState from "@web/components/query-error-state";
 import { Button } from "@web/components/ui/button";
 import { fmtAmount } from "@web/lib/fmt";
 import { createTranslator, useI18n } from "@web/lib/i18n";
+import { preloadRouteQuery } from "@web/lib/trpc";
 import { z } from "zod";
 
-import { useAuthUrl, useDonationsQ as useDonations, useUserInfo } from "../../hooks/api";
+import { useAuthUrlQ, useDonationsQ as useDonations, useUserInfo } from "../../hooks/api";
 
 export const Route = createFileRoute("/_authenticated/")({
   component: Overview,
@@ -18,7 +20,10 @@ export const Route = createFileRoute("/_authenticated/")({
   }),
   loader: async ({ context }) => {
     if (!context.viewer) return;
-    await context.queryClient.ensureQueryData(context.trpc.donations.queryOptions());
+    await Promise.all([
+      preloadRouteQuery(context.queryClient, context.trpc.donations.queryOptions()),
+      preloadRouteQuery(context.queryClient, context.trpc.authUrls.queryOptions()),
+    ]);
   },
   validateSearch: z.object({ success: z.boolean().optional() }),
 });
@@ -27,7 +32,7 @@ const panel = "rounded-2xl border border-border bg-card shadow-sm shadow-primary
 
 function Overview() {
   const userInfo = useUserInfo();
-  const authUrl = useAuthUrl();
+  const authUrlQ = useAuthUrlQ();
   const donationsQ = useDonations();
   const success = Route.useSearch({ select: (search) => search.success });
   const donationAlertsConnected = userInfo !== null && userInfo.hasDonationAlertsConnection;
@@ -71,6 +76,12 @@ function Overview() {
         )}
         {donationsQ.isLoading ? (
           <DashboardSkeleton aria-busy="true" aria-label={t("loadingDonations")} />
+        ) : donationsQ.isError ? (
+          <QueryErrorState
+            className="mt-7 rounded-2xl border border-border bg-card sm:mt-9"
+            isRetrying={donationsQ.isFetching}
+            onRetry={() => void donationsQ.refetch()}
+          />
         ) : (
           <>
             <section
@@ -184,12 +195,30 @@ function Overview() {
                     {donationAlertsConnected ? t("automaticSync") : t("connectAllDonations")}
                   </p>
                 </div>
-                <a
-                  className="ml-auto flex items-center gap-1 rounded-lg border border-border px-2.5 py-2 text-[11px] font-bold text-foreground transition hover:bg-muted"
-                  href={authUrl.donationAlerts}
-                >
-                  {t("manage")} <Icons.chevronRight aria-hidden="true" size={16} />
-                </a>
+                {authUrlQ.data ? (
+                  <a
+                    className="ml-auto flex items-center gap-1 rounded-lg border border-border px-2.5 py-2 text-[11px] font-bold text-foreground transition hover:bg-muted"
+                    href={authUrlQ.data.donationAlerts}
+                  >
+                    {t("manage")} <Icons.chevronRight aria-hidden="true" size={16} />
+                  </a>
+                ) : (
+                  <Button
+                    className="ml-auto h-auto px-2.5 py-2 text-[11px] font-bold"
+                    disabled={authUrlQ.isLoading}
+                    onClick={() => void authUrlQ.refetch()}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    {authUrlQ.isLoading ? (
+                      <Icons.loader aria-hidden="true" className="animate-spin" />
+                    ) : (
+                      <Icons.retry aria-hidden="true" />
+                    )}
+                    {t(authUrlQ.isLoading ? "loadingAuthorization" : "authorizationUnavailable")}
+                  </Button>
+                )}
               </article>
               <article className="relative flex min-h-[120px] flex-wrap items-center gap-3 overflow-hidden rounded-2xl bg-linear-to-r from-[#3b2418] via-[#6f4e37] to-[#c98545] p-5 text-white shadow-sm shadow-primary/10">
                 <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-white/15">

@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import DonationCard from "@web/components/donation-card";
 import { Icons } from "@web/components/icons";
 import { DonationListSkeleton } from "@web/components/loading-skeletons";
+import QueryErrorState from "@web/components/query-error-state";
+import { preloadRouteQuery } from "@web/lib/trpc";
 import { useMemo, useState } from "react";
 
 import { useDonationsQ } from "../../hooks/api";
@@ -11,7 +13,7 @@ export const Route = createFileRoute("/_authenticated/donations/")({
   component: DonationsIndex,
   loader: async ({ context }) => {
     if (!context.viewer) return;
-    await context.queryClient.ensureQueryData(context.trpc.donations.queryOptions());
+    await preloadRouteQuery(context.queryClient, context.trpc.donations.queryOptions());
   },
 });
 
@@ -78,6 +80,11 @@ function DonationsIndex() {
 
       {donationsQ.isLoading ? (
         <DonationListSkeleton aria-busy="true" aria-label={t("loadingDonations")} />
+      ) : donationsQ.isError ? (
+        <QueryErrorState
+          isRetrying={donationsQ.isFetching}
+          onRetry={() => void donationsQ.refetch()}
+        />
       ) : filteredDonations.length ? (
         <div className="divide-y divide-border">
           {filteredDonations.map((donation) => (

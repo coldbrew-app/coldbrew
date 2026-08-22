@@ -6,6 +6,7 @@ import {
   Scripts,
   createRootRouteWithContext,
 } from "@tanstack/react-router";
+import { createIsomorphicFn } from "@tanstack/react-start";
 import { Icons } from "@web/components/icons";
 import SignIn from "@web/components/sign-in";
 import { Button } from "@web/components/ui/button";
@@ -17,6 +18,7 @@ import {
   TooltipTrigger,
 } from "@web/components/ui/tooltip";
 import { useUserInfo } from "@web/hooks/api";
+import { parseCookie } from "cookie-es";
 import { Suspense, useEffect, useRef, useState } from "react";
 
 import logo from "../../assets/logo.svg";
@@ -24,10 +26,11 @@ import { Skeleton } from "../components/ui/skeleton";
 import { signOut } from "../lib/auth-client";
 import type { Locale } from "../lib/i18n";
 import { I18nProvider, useI18n } from "../lib/i18n";
+import { localeCookieName, resolveLocale } from "../lib/locale";
 import type { Api } from "../lib/trpc";
 import type { Viewer } from "../server/api/_util";
 import { getRequestLocale } from "../server/locale";
-import { getCurrentViewer } from "../server/viewer";
+import { currentViewerQueryOptions } from "../server/viewer";
 import PageLoadingSkeleton from "./-components/page-loading-skeleton";
 
 import appCss from "../../styles.css?url";
@@ -37,14 +40,24 @@ const navItem =
 const activeNavItem = "bg-sidebar-accent font-bold text-sidebar-accent-foreground";
 const localeFlags: Record<Locale, string> = { en: "🇬🇧", ru: "🇷🇺" };
 
+const getRouteLocale = createIsomorphicFn()
+  .client(() => resolveLocale(parseCookie(document.cookie)[localeCookieName], navigator.language))
+  .server(() => getRequestLocale());
+
 export const Route = createRootRouteWithContext<
   Api & {
     locale: Locale;
     viewer: Viewer | null;
   }
 >()({
-  beforeLoad: async () => {
-    const [locale, viewer] = await Promise.all([getRequestLocale(), getCurrentViewer()]);
+  beforeLoad: async ({ context }) => {
+    const [locale, viewer] = await Promise.all([
+      getRouteLocale(),
+      context.queryClient.ensureQueryData({
+        ...currentViewerQueryOptions(),
+        revalidateIfStale: true,
+      }),
+    ]);
     return { locale, viewer };
   },
   head: () => ({
