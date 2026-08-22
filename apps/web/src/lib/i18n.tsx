@@ -31,6 +31,7 @@ const en = {
   russian: "Russian",
   activeDevelopment:
     "Coldbrew is under active development. Breaking changes and data loss are possible.",
+  dismissDevelopmentWarning: "Dismiss development warning",
   greeting: ({ name }: { name: string }) => `Good evening, ${name}`,
   streamUpdate: "An overview of your stream.",
   streamStatistics: "Stream stats",
@@ -177,6 +178,7 @@ const ru = defineTranslations({
   russian: "Русский",
   activeDevelopment:
     "Coldbrew находится в активной разработке. Возможны несовместимые изменения и потеря данных.",
+  dismissDevelopmentWarning: "Закрыть предупреждение о разработке",
   greeting: ({ name }: { name: string }) => `Добрый вечер, ${name}`,
   streamUpdate: "Главное по вашему стриму.",
   streamStatistics: "Статистика стрима",

@@ -127,6 +127,7 @@ function AuthenticatedApplicationContent() {
   const { locale, setLocale, t } = useI18n();
   const { setOpenMobile } = useSidebar();
   const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
+  const [isDevelopmentWarningVisible, setIsDevelopmentWarningVisible] = useState(true);
   const languageMenuRef = useRef<HTMLDivElement>(null);
   const userInfo = useUserInfo();
 
@@ -341,16 +342,27 @@ function AuthenticatedApplicationContent() {
             coldbrew
           </Link>
         </header>
-        <div
-          className="flex shrink-0 items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-100"
-          role="alert"
-        >
-          <Icons.warn
-            aria-hidden="true"
-            className="size-5 shrink-0 text-amber-600 dark:text-amber-300"
-          />
-          <p>{t("activeDevelopment")}</p>
-        </div>
+        {isDevelopmentWarningVisible && (
+          <div
+            className="flex shrink-0 items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-100"
+            role="alert"
+          >
+            <Icons.warn
+              aria-hidden="true"
+              className="size-5 shrink-0 text-amber-600 dark:text-amber-300"
+            />
+            <p className="min-w-0 grow">{t("activeDevelopment")}</p>
+            <Button
+              aria-label={t("dismissDevelopmentWarning")}
+              onClick={() => setIsDevelopmentWarningVisible(false)}
+              size="icon-sm"
+              type="button"
+              variant="ghost"
+            >
+              <Icons.cancel aria-hidden="true" size={16} />
+            </Button>
+          </div>
+        )}
         <div className="min-h-0 min-w-0 grow overflow-y-auto overscroll-contain">
           <div className="min-h-full w-full px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-5 sm:py-3">
             <Suspense
