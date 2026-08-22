@@ -25,6 +25,7 @@ export const Icons = {
   settings: icons.Settings,
   submit: icons.Check,
   sun: icons.Sun,
+  video: icons.Video,
   wallet: icons.Wallet,
   warn: icons.TriangleAlert,
   watched: icons.CheckCircle2,

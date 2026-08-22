@@ -74,7 +74,7 @@ export default function VideoPriorityEditor({ priority, isSelected, videoCount }
             videoPriorityId: priority.videoPriorityId,
             videoStatus: previous.videoStatus ?? "all",
           })}
-          to="/donations/videos"
+          to="/videos"
         />
         <Button
           aria-label={t("editQueue")}

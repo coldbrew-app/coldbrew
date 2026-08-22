@@ -40,7 +40,7 @@ export default function VideoPriorities({
           videoPriorityId: "all",
           videoStatus: previous.videoStatus ?? "all",
         })}
-        to="/donations/videos"
+        to="/videos"
       >
         <span className="grow">{t("all")}</span>
         <span className="text-[10px] font-bold">{videoCount}</span>
