@@ -27,19 +27,45 @@ export class Store {
 
     const rows = await sql`
       WITH input AS (
-        SELECT * FROM jsonb_to_recordset(${input}::jsonb) AS t (
-          source donation_source, source_donation_id text, author text, message text,
-          amount money_amount, currency currency_code, amount_in_user_currency money_amount,
-          source_created_at text, occurred_at js_date
+        SELECT *
+        FROM jsonb_to_recordset(${input}::jsonb) AS t (
+          source donation_source,
+          source_donation_id text,
+          author text,
+          message text,
+          amount money_amount,
+          currency currency_code,
+          amount_in_user_currency money_amount,
+          source_created_at text,
+          occurred_at js_date
         )
       )
       INSERT INTO donation (
-        source, source_donation_id, user_id, author, message, amount, currency,
-        amount_in_user_currency, source_created_at, occurred_at
-      ) SELECT source, source_donation_id, ${userId}, author, message, amount, currency,
-        amount_in_user_currency, source_created_at, occurred_at FROM input
+        source,
+        source_donation_id,
+        user_id,
+        author,
+        message,
+        amount,
+        currency,
+        amount_in_user_currency,
+        source_created_at,
+        occurred_at
+      )
+      SELECT
+        source,
+        source_donation_id,
+        ${userId},
+        author,
+        message,
+        amount,
+        currency,
+        amount_in_user_currency,
+        source_created_at,
+        occurred_at
+      FROM input
       ON CONFLICT (user_id, source, source_donation_id) DO NOTHING
-      RETURNING *, jsonb_build_object('amount', amount::text, 'currency', currency) as money
+      RETURNING *, jsonb_build_object('amount', amount::text, 'currency', currency) AS money
     `;
 
     return z.array(DonationSchema).parse(rows);
@@ -47,15 +73,23 @@ export class Store {
 
   async getUsersAuthenticatedInDonationAlerts() {
     const rows = await sql`
-      SELECT user_id, source_user_id, access_token, refresh_token, token_version, history_checkpoint
-      FROM donationalerts_connection ORDER BY user_id
+      SELECT
+        user_id,
+        source_user_id,
+        access_token,
+        refresh_token,
+        token_version,
+        history_checkpoint
+      FROM donationalerts_connection
+      ORDER BY user_id
     `;
     return z.array(DonationAlertsUserSchema).parse(rows);
   }
 
   async setTokens(userId: UserId, refreshToken: RefreshToken, accessToken: AccessToken) {
     await sql`
-      UPDATE donationalerts_connection SET
+      UPDATE donationalerts_connection
+      SET
         refresh_token = ${refreshToken},
         access_token = ${accessToken},
         token_version = token_version + 1,

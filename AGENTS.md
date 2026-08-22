@@ -40,3 +40,4 @@ Add helper scripts to `justfile`, not `package.json`
 
 - variables of types `Result` and `ResultAsync` from "neverthrow" should start with `$` (for example: `const $donations = ResultAsync.fromThrowable(...)(...)`)
 - avoid mutating objects
+- Follow the [SQL style guide](docs/sql-style.md) for schema and database queries.

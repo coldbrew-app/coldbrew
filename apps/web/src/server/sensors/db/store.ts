@@ -19,30 +19,6 @@ import {
 import { Sql } from "postgres";
 import { z } from "zod";
 
-const DonationRowSchema = z.object({
-  donationId: z.coerce.bigint(),
-  source: z.literal("donationalerts"),
-  sourceDonationId: z.string(),
-  userId: UserIdSchema,
-  author: z.string().nullable(),
-  message: z.string().nullable(),
-  amount: z.string(),
-  currency: z.string(),
-  amountInUserCurrency: z.string().nullable(),
-  sourceCreatedAt: z.string(),
-  occurredAt: z.coerce.date(),
-});
-
-const toDonation = (row: z.infer<typeof DonationRowSchema>) =>
-  DonationSchema.parse({
-    ...row,
-    money: { amount: row.amount, currency: row.currency },
-  });
-
-const donationColumns = `donation_id, source, source_donation_id, user_id, author, message,
-  amount::text AS amount, currency, amount_in_user_currency::text AS amount_in_user_currency,
-  source_created_at, occurred_at`;
-
 export class Store {
   static fromDbUrl(dbUrl: string) {
     return new Store(createSql(dbUrl));
@@ -71,41 +47,102 @@ export class Store {
     );
     const rows = await this.sql`
       WITH input AS (
-        SELECT * FROM jsonb_to_recordset(${input}::jsonb) AS t (
-          source donation_source, source_donation_id text, author text, message text,
-          amount money_amount, currency currency_code, amount_in_user_currency money_amount,
-          source_created_at text, occurred_at js_date
+        SELECT *
+        FROM jsonb_to_recordset(${input}::jsonb) AS t (
+          source donation_source,
+          source_donation_id text,
+          author text,
+          message text,
+          amount money_amount,
+          currency currency_code,
+          amount_in_user_currency money_amount,
+          source_created_at text,
+          occurred_at js_date
         )
       )
       INSERT INTO donation (
-        source, source_donation_id, user_id, author, message, amount, currency,
-        amount_in_user_currency, source_created_at, occurred_at
+        source,
+        source_donation_id,
+        user_id,
+        author,
+        message,
+        amount,
+        currency,
+        amount_in_user_currency,
+        source_created_at,
+        occurred_at
       )
-      SELECT source, source_donation_id, ${userId}, author, message, amount, currency,
-        amount_in_user_currency, source_created_at, occurred_at
+      SELECT
+        source,
+        source_donation_id,
+        ${userId},
+        author,
+        message,
+        amount,
+        currency,
+        amount_in_user_currency,
+        source_created_at,
+        occurred_at
       FROM input
       ON CONFLICT (user_id, source, source_donation_id) DO NOTHING
-      RETURNING ${this.sql.unsafe(donationColumns)}
+      RETURNING *, jsonb_build_object('amount', amount::text, 'currency', currency) AS money
     `;
-    return z.array(DonationRowSchema).parse(rows).map(toDonation);
+    return z.array(DonationSchema).parse(rows);
   }
 
   async listDonations(userId: UserId) {
-    const rows = await this.sql.unsafe(
-      `SELECT ${donationColumns} FROM donation WHERE user_id = $1 ORDER BY occurred_at DESC, donation_id DESC`,
-      [userId],
-    );
-    return z.array(DonationRowSchema).parse(rows).map(toDonation);
+    const rows = await this.sql`
+      SELECT *,
+        jsonb_build_object('amount', amount::text, 'currency', currency) AS money
+      FROM donation
+      WHERE user_id = ${userId}
+      ORDER BY occurred_at DESC, donation_id DESC
+    `;
+    return z.array(DonationSchema).parse(rows);
   }
 
   async listVideos(userId: UserId) {
-    return await this.listVideosWhere("donation.user_id = $1", [userId]);
+    const rows = await this.sql`
+      SELECT
+        video.video_id,
+        video.video_priority_id,
+        video.provider,
+        video.provider_video_id,
+        video.url,
+        video.duration_minutes,
+        video.watched_at,
+        video.saved_at,
+        video_priority.label AS priority_label,
+        CASE WHEN video.queue_amount IS NULL THEN NULL
+          ELSE jsonb_build_object('amount', video.queue_amount::text, 'currency', video.queue_currency)
+        END AS queue_money,
+        jsonb_build_object(
+          'donationId',            donation.donation_id::text,
+          'source',                donation.source,
+          'sourceDonationId',      donation.source_donation_id,
+          'userId',                donation.user_id,
+          'author',                donation.author,
+          'message',               donation.message,
+          'money',                 jsonb_build_object('amount', donation.amount::text, 'currency', donation.currency),
+          'amountInUserCurrency', donation.amount_in_user_currency::text,
+          'sourceCreatedAt',       donation.source_created_at,
+          'occurredAt',            donation.occurred_at
+        ) AS donation
+      FROM video
+      JOIN donation USING (donation_id)
+      LEFT JOIN video_priority USING (video_priority_id)
+      WHERE donation.user_id = ${userId}
+      ORDER BY donation.occurred_at DESC, video.video_id DESC
+    `;
+    return z.array(VideoSchema).parse(rows);
   }
 
   async listVideoPriorities(userId: UserId) {
     const rows = await this.sql`
-      SELECT video_priority_id, label, currency, min_price_per_minute::text AS min_price_per_minute, is_default
-      FROM video_priority WHERE user_id = ${userId}
+      SELECT video_priority_id, label, currency, is_default,
+        min_price_per_minute::text AS min_price_per_minute
+      FROM video_priority
+      WHERE user_id = ${userId}
       ORDER BY min_price_per_minute DESC, video_priority_id ASC
     `;
     return z.array(VideoPrioritySchema).parse(rows);
@@ -118,11 +155,14 @@ export class Store {
     minPricePerMinute: string,
   ) {
     const rows = await this.sql`
-      UPDATE video_priority SET label = ${label}, min_price_per_minute = CASE
-        WHEN is_default THEN 0 ELSE ${minPricePerMinute}
-      END
-      WHERE user_id = ${userId} AND video_priority_id = ${videoPriorityId}
-      RETURNING video_priority_id, label, currency, min_price_per_minute::text AS min_price_per_minute, is_default
+      UPDATE video_priority
+      SET
+        label = ${label},
+        min_price_per_minute = CASE WHEN is_default THEN 0 ELSE ${minPricePerMinute} END
+      WHERE user_id = ${userId}
+        AND video_priority_id = ${videoPriorityId}
+      RETURNING video_priority_id, label, currency, is_default,
+        min_price_per_minute::text AS min_price_per_minute
     `;
     return VideoPrioritySchema.nullable().parse(rows[0] ?? null);
   }
@@ -133,11 +173,13 @@ export class Store {
     status: { watchedAt?: Date | null; savedAt?: Date | null },
   ) {
     const rows = await this.sql`
-      UPDATE video SET
+      UPDATE video
+      SET
         watched_at = CASE WHEN ${status.watchedAt !== undefined} THEN ${status.watchedAt ?? null} ELSE watched_at END,
         saved_at = CASE WHEN ${status.savedAt !== undefined} THEN ${status.savedAt ?? null} ELSE saved_at END
       FROM donation
-      WHERE video.donation_id = donation.donation_id AND donation.user_id = ${userId}
+      WHERE video.donation_id = donation.donation_id
+        AND donation.user_id = ${userId}
         AND video.video_id = ${String(videoId)}
       RETURNING video.video_id
     `;
@@ -151,9 +193,13 @@ export class Store {
     durationMinutes: number,
   ) {
     const rows = await this.sql`
-      UPDATE video SET queue_amount = ${queueAmount}, duration_minutes = ${durationMinutes}
+      UPDATE video
+      SET
+        queue_amount = ${queueAmount},
+        duration_minutes = ${durationMinutes}
       FROM donation
-      WHERE video.donation_id = donation.donation_id AND donation.user_id = ${userId}
+      WHERE video.donation_id = donation.donation_id
+        AND donation.user_id = ${userId}
         AND video.video_id = ${String(videoId)}
       RETURNING video.video_id
     `;
@@ -162,66 +208,69 @@ export class Store {
 
   async setSlug(userId: UserId, slug: string) {
     const rows = await this.sql`
-      UPDATE "user" SET slug = ${slug}
-      WHERE user_id = ${userId} AND NOT EXISTS (
-        SELECT 1 FROM "user" other WHERE other.slug = ${slug} AND other.user_id <> ${userId}
-      ) RETURNING slug
+      UPDATE "user"
+      SET slug = ${slug}
+      WHERE user_id = ${userId}
+        AND NOT EXISTS (
+          SELECT 1
+          FROM "user" other
+          WHERE other.slug = ${slug}
+            AND other.user_id <> ${userId}
+        )
+      RETURNING slug
     `;
     return rows.length > 0;
   }
 
   async listSharedVideos(slug: string) {
-    const users = await this.sql`SELECT 1 FROM "user" WHERE slug = ${slug}`;
-    return users.length === 0 ? null : await this.listVideosWhere('"user".slug = $1', [slug], true);
-  }
-
-  private async listVideosWhere(where: string, values: (string | number)[], joinUser = false) {
-    const rows = await this.sql.unsafe(
-      `SELECT video.video_id, video.video_priority_id, video.provider, video.provider_video_id, video.url,
-        video.queue_amount::text AS queue_amount, video.queue_currency, video.duration_minutes,
-        video.watched_at, video.saved_at, video_priority.label AS priority_label,
-        jsonb_build_object('donationId', donation.donation_id::text, 'source', donation.source,
-          'sourceDonationId', donation.source_donation_id, 'userId', donation.user_id,
-          'author', donation.author, 'message', donation.message, 'amount', donation.amount::text,
-          'currency', donation.currency, 'amountInUserCurrency', donation.amount_in_user_currency::text,
-          'sourceCreatedAt', donation.source_created_at, 'occurredAt', donation.occurred_at) AS donation
-       FROM video JOIN donation USING (donation_id)
-       LEFT JOIN video_priority USING (video_priority_id)
-       ${joinUser ? 'JOIN "user" ON "user".user_id = donation.user_id' : ""}
-       WHERE ${where} ORDER BY donation.occurred_at DESC, video.video_id DESC`,
-      values,
-    );
-    const rowSchema = z.object({
-      videoId: z.coerce.bigint(),
-      videoPriorityId: z.number().nullable(),
-      provider: z.literal("youtube"),
-      providerVideoId: z.string(),
-      url: z.url(),
-      queueAmount: z.string().nullable(),
-      queueCurrency: z.string(),
-      durationMinutes: z.number().int().positive(),
-      priorityLabel: z.string().nullable(),
-      watchedAt: z.coerce.date().nullable(),
-      savedAt: z.coerce.date().nullable(),
-      donation: DonationRowSchema,
-    });
-    return z
-      .array(rowSchema)
-      .parse(rows)
-      .map((row) =>
-        VideoSchema.parse({
-          ...row,
-          queueMoney:
-            row.queueAmount === null
-              ? null
-              : { amount: row.queueAmount, currency: row.queueCurrency },
-          donation: toDonation(row.donation),
-        }),
-      );
+    const users = await this.sql`
+      SELECT 1
+      FROM "user"
+      WHERE slug = ${slug}
+    `;
+    if (users.length === 0) return null;
+    const rows = await this.sql`
+      SELECT
+        video.video_id,
+        video.video_priority_id,
+        video.provider,
+        video.provider_video_id,
+        video.url,
+        video.duration_minutes,
+        video.watched_at,
+        video.saved_at,
+        video_priority.label AS priority_label,
+        CASE WHEN video.queue_amount IS NULL THEN NULL
+          ELSE jsonb_build_object('amount', video.queue_amount::text, 'currency', video.queue_currency)
+        END AS queue_money,
+        jsonb_build_object(
+          'donationId',            donation.donation_id::text,
+          'source',                donation.source,
+          'sourceDonationId',      donation.source_donation_id,
+          'userId',                donation.user_id,
+          'author',                donation.author,
+          'message',               donation.message,
+          'money',                 jsonb_build_object('amount', donation.amount::text, 'currency', donation.currency),
+          'amountInUserCurrency', donation.amount_in_user_currency::text,
+          'sourceCreatedAt',       donation.source_created_at,
+          'occurredAt',            donation.occurred_at
+        ) AS donation
+      FROM video
+      JOIN donation USING (donation_id)
+      LEFT JOIN video_priority USING (video_priority_id)
+      JOIN "user" ON "user".user_id = donation.user_id
+      WHERE "user".slug = ${slug}
+      ORDER BY donation.occurred_at DESC, video.video_id DESC
+    `;
+    return z.array(VideoSchema).parse(rows);
   }
 
   private async getUserId(authUserId: AuthUserId) {
-    const rows = await this.sql`SELECT user_id FROM "user" WHERE auth_user_id = ${authUserId}`;
+    const rows = await this.sql`
+      SELECT user_id
+      FROM "user"
+      WHERE auth_user_id = ${authUserId}
+    `;
     return (
       z
         .object({ userId: UserIdSchema })
@@ -236,17 +285,24 @@ export class Store {
     return await this.sql
       .begin(async (sql) => {
         const rows = await sql`
-        INSERT INTO "user" (auth_user_id, slug) VALUES (${authUserId}, ${preferredSlug})
-        ON CONFLICT (auth_user_id) DO UPDATE SET auth_user_id = EXCLUDED.auth_user_id
-        RETURNING user_id
-      `;
+          INSERT INTO "user" (auth_user_id, slug)
+          VALUES (${authUserId}, ${preferredSlug})
+          ON CONFLICT (auth_user_id) DO UPDATE
+          SET auth_user_id = EXCLUDED.auth_user_id
+          RETURNING user_id
+        `;
         const userId = z.object({ userId: UserIdSchema }).parse(rows[0]).userId;
         await sql`
-        INSERT INTO video_priority (user_id, currency, label, min_price_per_minute, is_default) VALUES
-          (${userId}, 'RUB', 'queue 0', 0, true), (${userId}, 'RUB', 'queue 1', 50, false),
-          (${userId}, 'RUB', 'queue 2', 100, false), (${userId}, 'RUB', 'queue 3', 200, false)
-        ON CONFLICT DO NOTHING
-      `;
+          INSERT INTO video_priority (
+            user_id, currency, label, min_price_per_minute, is_default
+          )
+          VALUES
+            (${userId}, 'RUB', 'queue 0', 0, true),
+            (${userId}, 'RUB', 'queue 1', 50, false),
+            (${userId}, 'RUB', 'queue 2', 100, false),
+            (${userId}, 'RUB', 'queue 3', 200, false)
+          ON CONFLICT DO NOTHING
+        `;
         return userId;
       })
       .catch(async () => await this.getOrCreateUserId(authUserId, `@${randomUUID()}`));
@@ -254,17 +310,29 @@ export class Store {
 
   async getUsersAuthenticatedInDonationAlerts() {
     const rows = await this.sql`
-      SELECT user_id, source_user_id, access_token, refresh_token, token_version, history_checkpoint
-      FROM donationalerts_connection ORDER BY user_id
+      SELECT
+        user_id,
+        source_user_id,
+        access_token,
+        refresh_token,
+        token_version,
+        history_checkpoint
+      FROM donationalerts_connection
+      ORDER BY user_id
     `;
     return z.array(DonationAlertsUserSchema).parse(rows);
   }
 
   async getUserInfo(userId: UserId) {
     const rows = await this.sql`
-      SELECT "user".user_id, "user".slug, "user".queue_currency,
+      SELECT
+        "user".user_id,
+        "user".slug,
+        "user".queue_currency,
         donationalerts_connection.user_id IS NOT NULL AS has_donation_alerts_connection
-      FROM "user" LEFT JOIN donationalerts_connection USING (user_id) WHERE "user".user_id = ${userId}
+      FROM "user"
+      LEFT JOIN donationalerts_connection USING (user_id)
+      WHERE "user".user_id = ${userId}
     `;
     return UserInfoSchema.nullable().parse(rows[0] ?? null);
   }
@@ -274,21 +342,28 @@ export class Store {
     connection: { sourceUserId: string; accessToken: AccessToken; refreshToken: RefreshToken },
   ) {
     await this.sql`
-      INSERT INTO donationalerts_connection (user_id, source_user_id, access_token, refresh_token)
+      INSERT INTO donationalerts_connection (
+        user_id, source_user_id, access_token, refresh_token
+      )
       VALUES (${userId}, ${connection.sourceUserId}, ${connection.accessToken}, ${connection.refreshToken})
-      ON CONFLICT (user_id) DO UPDATE SET source_user_id = EXCLUDED.source_user_id,
-        access_token = EXCLUDED.access_token, refresh_token = EXCLUDED.refresh_token,
-        token_version = donationalerts_connection.token_version + 1, updated_at = now()
+      ON CONFLICT (user_id) DO UPDATE
+      SET
+        source_user_id = EXCLUDED.source_user_id,
+        access_token = EXCLUDED.access_token,
+        refresh_token = EXCLUDED.refresh_token,
+        token_version = donationalerts_connection.token_version + 1,
+        updated_at = now()
     `;
   }
 
   async setTokens(userId: UserId, refreshToken: RefreshToken, accessToken: AccessToken) {
     await this.sql`
-      UPDATE donationalerts_connection SET
-      refresh_token = ${refreshToken},
-      access_token = ${accessToken},
-      token_version = token_version + 1,
-      updated_at = now()
+      UPDATE donationalerts_connection
+      SET
+        refresh_token = ${refreshToken},
+        access_token = ${accessToken},
+        token_version = token_version + 1,
+        updated_at = now()
       WHERE user_id = ${userId}
     `;
   }
