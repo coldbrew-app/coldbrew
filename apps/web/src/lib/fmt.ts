@@ -14,14 +14,21 @@ export function fmtDate(date: Date, locale: Locale) {
 }
 
 export function fmtAmount(money: Money | number, locale: Locale) {
+  const amount = typeof money === "number" ? money : Number(money.amount);
+  const fractionDigits = amount < 10 ? 2 : 0;
+
   if (typeof money === "number") {
-    return `${new Intl.NumberFormat(localeTag[locale], { maximumFractionDigits: 0 }).format(money)} ₽`;
+    return `${new Intl.NumberFormat(localeTag[locale], {
+      maximumFractionDigits: fractionDigits,
+      minimumFractionDigits: fractionDigits,
+    }).format(money)} ₽`;
   }
   return new Intl.NumberFormat(localeTag[locale], {
     currency: money.currency,
-    maximumFractionDigits: 2,
+    maximumFractionDigits: fractionDigits,
+    minimumFractionDigits: fractionDigits,
     style: "currency",
-  }).format(Number(money.amount));
+  }).format(amount);
 }
 
 export function formatRelativeDate(date: Date, locale: Locale) {
