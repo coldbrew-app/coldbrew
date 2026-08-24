@@ -98,7 +98,7 @@ function RouteComponent() {
           </div>
           <div className="flex items-center gap-2 border-t border-border bg-muted/55 px-5 py-3 text-xs text-muted-foreground sm:px-6">
             <Icons.secure aria-hidden="true" size={15} className="shrink-0 text-primary" />
-            {t("secureAuthorization")}
+            {t(connected ? "secureConnection" : "secureAuthorization")}
           </div>
         </article>
 
