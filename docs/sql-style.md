@@ -57,12 +57,10 @@ values with `${value}`; never assemble values into a SQL string.
   application and pass values through its parameter array.
 - Use `WITH input AS (...)` with `jsonb_to_recordset` for batch inserts. Name
   the source CTE `input` and list its record columns and types explicitly.
-- When preparing batch input from an object with a nested value, use object
-  destructuring and spreads instead of repeating every retained field by hand;
-  for example: `({ money, ...donation }) => ({ ...donation, ...money })`.
 - Build JSON values in SQL with `jsonb_build_object` when a query returns a
-  structured value. Do not reconstruct that value outside SQL with a Zod
-  schema; use Zod to validate and parse the returned JSON instead.
+  genuinely structured domain value. Keep flat domain fields as ordinary
+  selected columns; do not group related columns into a JSON object only for
+  transport. Use Zod to validate and parse returned JSON.
 - When `json_build_object` or `jsonb_build_object` has more than four
   key-value pairs, format it across multiple lines with one pair per line and
   align the values in a second column.

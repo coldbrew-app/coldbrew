@@ -38,10 +38,11 @@ export class Store {
         donation.user_id,
         author,
         message,
+        amount,
+        currency,
         source_created_at,
         occurred_at,
-        "user".queue_currency,
-        jsonb_build_object('amount', amount::text, 'currency', currency) AS money
+        "user".queue_currency
       FROM donation
       JOIN "user" USING (user_id)
       WHERE videos_parsed_at IS NULL

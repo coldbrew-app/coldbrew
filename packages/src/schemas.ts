@@ -44,7 +44,10 @@ export type QueueCurrency = z.infer<typeof QueueCurrencySchema>;
 
 const MoneyAmountStringSchema = z.string().regex(/^\d{1,18}(?:\.\d{1,2})?$/);
 export const MoneyAmountSchema = z
-  .union([z.number().nonnegative().safe().transform(String), MoneyAmountStringSchema])
+  .union([
+    z.number().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(String),
+    MoneyAmountStringSchema,
+  ])
   .pipe(MoneyAmountStringSchema)
   .transform((value) => {
     const [integer, fraction = ""] = value.split(".");
@@ -53,12 +56,6 @@ export const MoneyAmountSchema = z
   .brand("money amount");
 export type MoneyAmount = z.infer<typeof MoneyAmountSchema>;
 
-export const MoneySchema = z.object({
-  amount: MoneyAmountSchema,
-  currency: CurrencyCodeSchema,
-});
-export type Money = z.infer<typeof MoneySchema>;
-
 export const DonationSchema = z.object({
   donationId: DonationIdSchema,
   source: DonationSourceSchema,
@@ -66,7 +63,8 @@ export const DonationSchema = z.object({
   userId: UserIdSchema,
   author: z.string().nullable(),
   message: z.string().nullable(),
-  money: MoneySchema,
+  amount: MoneyAmountSchema,
+  currency: CurrencyCodeSchema,
   sourceCreatedAt: z.string().min(1),
   occurredAt: z.coerce.date(),
 });

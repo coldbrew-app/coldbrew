@@ -1,7 +1,7 @@
-import { MoneySchema } from "@coldbrew/packages/schemas.js";
+import { CurrencyCodeSchema, MoneyAmountSchema } from "@coldbrew/packages/schemas.js";
 import { describe, expect, it } from "vitest";
 
-import { fmtAmount, fmtDate } from "./fmt";
+import { fmtAmount, fmtDate, fmtRubles } from "./fmt";
 import { resolveLocale } from "./i18n";
 
 describe("resolveLocale", () => {
@@ -22,8 +22,8 @@ describe("localized formatters", () => {
   it("formats amounts and dates with the selected locale", () => {
     const date = new Date("2026-08-12T13:45:00Z");
 
-    expect(fmtAmount(12345.6, "en")).toBe("12,346 ₽");
-    expect(fmtAmount(12345.6, "ru")).toBe("12 346 ₽");
+    expect(fmtRubles(12345.6, "en")).toBe("12,346 ₽");
+    expect(fmtRubles(12345.6, "ru")).toBe("12 346 ₽");
     expect(fmtDate(date, "en")).not.toBe(fmtDate(date, "ru"));
   });
 
@@ -33,12 +33,14 @@ describe("localized formatters", () => {
     [10, "10 ₽", "10 ₽"],
     [10.6, "11 ₽", "11 ₽"],
   ])("formats %d rubles with amount-dependent precision", (amount, en, ru) => {
-    expect(fmtAmount(amount, "en")).toBe(en);
-    expect(fmtAmount(amount, "ru")).toBe(ru);
+    expect(fmtRubles(amount, "en")).toBe(en);
+    expect(fmtRubles(amount, "ru")).toBe(ru);
   });
 
   it("uses amount-dependent precision for currency-aware money", () => {
-    expect(fmtAmount(MoneySchema.parse({ amount: "9.50", currency: "USD" }), "en")).toBe("$9.50");
-    expect(fmtAmount(MoneySchema.parse({ amount: "10.60", currency: "USD" }), "en")).toBe("$11");
+    const usd = CurrencyCodeSchema.parse("USD");
+
+    expect(fmtAmount(MoneyAmountSchema.parse("9.50"), usd, "en")).toBe("$9.50");
+    expect(fmtAmount(MoneyAmountSchema.parse("10.60"), usd, "en")).toBe("$11");
   });
 });

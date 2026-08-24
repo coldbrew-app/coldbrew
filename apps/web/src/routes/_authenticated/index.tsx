@@ -7,7 +7,7 @@ import { DashboardSkeleton } from "@web/components/loading-skeletons";
 import MockChart from "@web/components/mock-chart";
 import QueryErrorState from "@web/components/query-error-state";
 import { Button } from "@web/components/ui/button";
-import { fmtAmount } from "@web/lib/fmt";
+import { fmtRubles } from "@web/lib/fmt";
 import { createTranslator, useI18n } from "@web/lib/i18n";
 import { preloadRouteQuery } from "@web/lib/trpc";
 import { z } from "zod";
@@ -103,7 +103,7 @@ function Overview() {
             <section className="grid gap-4 md:grid-cols-3" aria-label={t("streamStatistics")}>
               <Metric
                 title={t("totalReceived")}
-                value={fmtAmount(total, locale)}
+                value={fmtRubles(total, locale)}
                 note="↗ 18.2%"
                 subnote={t("versusPreviousPeriod")}
                 icon={Icons.wallet}
@@ -119,7 +119,7 @@ function Overview() {
               />
               <Metric
                 title={t("averageDonation")}
-                value={fmtAmount(donationsLength ? Math.round(total / donationsLength) : 0, locale)}
+                value={fmtRubles(donationsLength ? Math.round(total / donationsLength) : 0, locale)}
                 note={t("acrossPlatforms")}
                 icon={Icons.platform}
                 iconClass="bg-[#54cfa5]/18 text-[#188965] dark:text-[#67dfb8]"

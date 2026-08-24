@@ -2,7 +2,11 @@ import jsonBigint from "json-bigint";
 import postgres from "postgres";
 
 const JSONB_OID = 3802;
-const jsonParser = jsonBigint({ storeAsString: false });
+const jsonParser = jsonBigint({ storeAsString: true });
+
+export function parseJsonb(value: string) {
+  return jsonParser.parse(value);
+}
 
 export function createSql(url: string) {
   return postgres(url, {
@@ -15,7 +19,7 @@ export function createSql(url: string) {
         from: [JSONB_OID],
         to: JSONB_OID,
         serialize: JSON.stringify,
-        parse: (str: string) => jsonParser.parse(str),
+        parse: parseJsonb,
       },
     },
   });

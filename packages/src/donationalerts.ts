@@ -197,7 +197,8 @@ export class DonationAlertsFacade {
       sourceDonationId: String(donation.id),
       author: donation.username,
       message: donation.message,
-      money: { amount: donation.amount, currency: donation.currency },
+      amount: donation.amount,
+      currency: donation.currency,
       sourceCreatedAt: donation.created_at,
       occurredAt: occurredAt.toDate(),
     };

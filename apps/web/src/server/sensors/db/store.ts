@@ -37,10 +37,7 @@ export class Store {
   ) {
     if (donations.length === 0) return [];
     return await this.sql.begin(async (sql) => {
-      const input = jsonb(
-        sql,
-        donations.map(({ money, ...donation }) => ({ ...donation, ...money })),
-      );
+      const input = jsonb(sql, donations);
       const rows = await sql`
       WITH input AS (
         SELECT *
@@ -78,8 +75,7 @@ export class Store {
         occurred_at
       FROM input
       ON CONFLICT (user_id, source, source_donation_id) DO NOTHING
-      RETURNING
-        *, jsonb_build_object('amount', amount::text, 'currency', currency) AS money
+      RETURNING *
     `;
       return z.array(DonationSchema).parse(rows);
     });
@@ -110,8 +106,7 @@ export class Store {
     const page = Math.min(input.page, Math.max(totalPages, 1));
     const offset = (page - 1) * input.pageSize;
     const rows = await this.sql`
-      SELECT *,
-        jsonb_build_object('amount', amount::text, 'currency', currency) AS money
+      SELECT *
       FROM donation
       WHERE user_id = ${userId}
         AND (${input.occurredAfter}::timestamptz IS NULL OR occurred_at >= ${input.occurredAfter})
@@ -138,13 +133,12 @@ export class Store {
       this.sql`
         SELECT
           count(*)::int AS donation_count,
-          coalesce(sum(amount), 0)::text AS total_amount
+          coalesce(sum(amount), 0) AS total_amount
         FROM donation
         WHERE user_id = ${userId}
       `,
       this.sql`
-        SELECT *,
-          jsonb_build_object('amount', amount::text, 'currency', currency) AS money
+        SELECT *
         FROM donation
         WHERE user_id = ${userId}
         ORDER BY occurred_at DESC, donation_id DESC
@@ -225,7 +219,7 @@ export class Store {
         video.watched_at,
         video.saved_at,
         video_priority.label AS priority_label,
-        video.queue_amount::text AS queue_amount,
+        video.queue_amount,
         "user".queue_currency,
         CASE
           WHEN donation.donation_id IS NULL THEN 'manual'
@@ -241,7 +235,8 @@ export class Store {
             'userId',                donation.user_id,
             'author',                donation.author,
             'message',               donation.message,
-            'money',                 jsonb_build_object('amount', donation.amount::text, 'currency', donation.currency),
+            'amount',                donation.amount,
+            'currency',              donation.currency,
             'sourceCreatedAt',       donation.source_created_at,
             'occurredAt',            donation.occurred_at
           )
@@ -338,7 +333,7 @@ export class Store {
   async listVideoPriorities(userId: UserId) {
     const rows = await this.sql`
       SELECT video_priority_id, label, is_default,
-        min_price_per_minute::text AS min_price_per_minute
+        min_price_per_minute
       FROM video_priority
       WHERE user_id = ${userId}
       ORDER BY video_priority.min_price_per_minute DESC, video_priority_id ASC
@@ -360,7 +355,7 @@ export class Store {
       WHERE user_id = ${userId}
         AND video_priority_id = ${videoPriorityId}
       RETURNING video_priority_id, label, is_default,
-        min_price_per_minute::text AS min_price_per_minute
+        min_price_per_minute
     `;
     return VideoPrioritySchema.nullable().parse(rows[0] ?? null);
   }
@@ -516,7 +511,7 @@ export class Store {
         video.watched_at,
         video.saved_at,
         video_priority.label AS priority_label,
-        video.queue_amount::text AS queue_amount,
+        video.queue_amount,
         "user".queue_currency,
         CASE
           WHEN donation.donation_id IS NULL THEN 'manual'
@@ -532,7 +527,8 @@ export class Store {
             'userId',                donation.user_id,
             'author',                donation.author,
             'message',               donation.message,
-            'money',                 jsonb_build_object('amount', donation.amount::text, 'currency', donation.currency),
+            'amount',                donation.amount,
+            'currency',              donation.currency,
             'sourceCreatedAt',       donation.source_created_at,
             'occurredAt',            donation.occurred_at
           )

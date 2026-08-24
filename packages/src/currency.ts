@@ -1,5 +1,5 @@
 import { MoneyAmountSchema } from "./schemas.js";
-import type { CurrencyCode, Money, MoneyAmount, QueueCurrency } from "./schemas.js";
+import type { CurrencyCode, MoneyAmount, QueueCurrency } from "./schemas.js";
 
 export const queueCurrencies = ["RUB", "USD", "EUR"] as const;
 
@@ -26,17 +26,19 @@ export function isQueueCurrency(currency: CurrencyCode) {
   return queueCurrencies.includes(currency as QueueCurrency);
 }
 
-export function convertWithDefaultRate(money: Money, currency: QueueCurrency) {
-  if (!isQueueCurrency(money.currency)) return null;
-  const sourceCurrency = money.currency as QueueCurrency;
+export function convertWithDefaultRate(
+  amount: MoneyAmount,
+  sourceCurrencyCode: CurrencyCode,
+  currency: QueueCurrency,
+) {
+  if (!isQueueCurrency(sourceCurrencyCode)) return null;
+  const sourceCurrency = sourceCurrencyCode as QueueCurrency;
 
   return {
-    money: {
-      amount: moneyAmount(
-        roundDiv(cents(money.amount) * rublesPerUnit[sourceCurrency], rublesPerUnit[currency]),
-      ),
-      currency,
-    },
+    amount: moneyAmount(
+      roundDiv(cents(amount) * rublesPerUnit[sourceCurrency], rublesPerUnit[currency]),
+    ),
+    currency,
     rate: `${rublesPerUnit[sourceCurrency]}/${rublesPerUnit[currency]}`,
   };
 }

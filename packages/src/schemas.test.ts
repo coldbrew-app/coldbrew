@@ -1,6 +1,20 @@
 import { describe, expect, it } from "vitest";
 
-import { VideoSchema } from "./schemas.js";
+import { MoneyAmountSchema, VideoSchema } from "./schemas.js";
+
+describe("MoneyAmountSchema", () => {
+  it.each([
+    [12.34, "12.34"],
+    [0.1, "0.10"],
+    [12, "12.00"],
+  ])("parses a database JSON number %s", (value, expected) => {
+    expect(MoneyAmountSchema.parse(value)).toBe(expected);
+  });
+
+  it("rejects an unsafe JavaScript number", () => {
+    expect(MoneyAmountSchema.safeParse(Number.MAX_SAFE_INTEGER + 1).success).toBe(false);
+  });
+});
 
 const baseVideo = {
   videoId: "1",
@@ -25,7 +39,8 @@ const donation = {
   userId: 1,
   author: "Viewer",
   message: "Play this",
-  money: { amount: "10.00", currency: "RUB" },
+  amount: "10.00",
+  currency: "RUB",
   sourceCreatedAt: "source-date",
   occurredAt: "2026-08-24T12:00:00.000Z",
 };

@@ -30,7 +30,8 @@ async function main() {
           const providerVideoId = youtubeVideoId(url);
           if (providerVideoId === null) return ok();
           const queueAmount =
-            convertWithDefaultRate(donation.money, donation.queueCurrency)?.money.amount ?? null;
+            convertWithDefaultRate(donation.amount, donation.currency, donation.queueCurrency)
+              ?.amount ?? null;
           logger.debug("videos.push", { url, queueAmount, ...timing });
           videos.push({
             provider: "youtube",

@@ -21,21 +21,7 @@ export class Store {
   ) {
     if (donations.length === 0) return [];
     return await sql.begin(async (tx) => {
-      const input = jsonb(
-        tx,
-        donations.map((donation) => {
-          return {
-            source: donation.source,
-            sourceDonationId: donation.sourceDonationId,
-            author: donation.author,
-            message: donation.message,
-            amount: donation.money.amount,
-            currency: donation.money.currency,
-            sourceCreatedAt: donation.sourceCreatedAt,
-            occurredAt: donation.occurredAt,
-          };
-        }),
-      );
+      const input = jsonb(tx, donations);
 
       const rows = await tx`
       WITH input AS (
@@ -74,7 +60,7 @@ export class Store {
         occurred_at
       FROM input
       ON CONFLICT (user_id, source, source_donation_id) DO NOTHING
-      RETURNING *, jsonb_build_object('amount', amount::text, 'currency', currency) AS money
+      RETURNING *
     `;
 
       return z.array(DonationSchema).parse(rows);

@@ -1,4 +1,4 @@
-import type { Money } from "@coldbrew/packages/schemas.js";
+import type { CurrencyCode, MoneyAmount } from "@coldbrew/packages/schemas.js";
 
 import type { Locale } from "./i18n";
 
@@ -13,22 +13,25 @@ export function fmtDate(date: Date, locale: Locale) {
   }).format(date);
 }
 
-export function fmtAmount(money: Money | number, locale: Locale) {
-  const amount = typeof money === "number" ? money : Number(money.amount);
-  const fractionDigits = amount < 10 ? 2 : 0;
+export function fmtAmount(amount: MoneyAmount, currency: CurrencyCode, locale: Locale) {
+  const numericAmount = Number(amount);
+  const fractionDigits = numericAmount < 10 ? 2 : 0;
 
-  if (typeof money === "number") {
-    return `${new Intl.NumberFormat(localeTag[locale], {
-      maximumFractionDigits: fractionDigits,
-      minimumFractionDigits: fractionDigits,
-    }).format(money)} ₽`;
-  }
   return new Intl.NumberFormat(localeTag[locale], {
-    currency: money.currency,
+    currency,
     maximumFractionDigits: fractionDigits,
     minimumFractionDigits: fractionDigits,
     style: "currency",
-  }).format(amount);
+  }).format(numericAmount);
+}
+
+export function fmtRubles(amount: number, locale: Locale) {
+  const fractionDigits = amount < 10 ? 2 : 0;
+
+  return `${new Intl.NumberFormat(localeTag[locale], {
+    maximumFractionDigits: fractionDigits,
+    minimumFractionDigits: fractionDigits,
+  }).format(amount)} ₽`;
 }
 
 export function formatRelativeDate(date: Date, locale: Locale) {

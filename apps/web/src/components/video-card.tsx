@@ -74,6 +74,14 @@ export default function VideoCard({
   const isWatched = video.watchedAt !== null;
   const isSaved = video.savedAt !== null;
   const SourceIcon = video.source === "donation" ? Icons.videoFromDonation : Icons.manualVideo;
+  const displayedAmount =
+    video.queueAmount === null && video.source === "donation"
+      ? video.donation.amount
+      : (video.queueAmount ?? MoneyAmountSchema.parse("0.00"));
+  const displayedCurrency =
+    video.queueAmount === null && video.source === "donation"
+      ? video.donation.currency
+      : CurrencyCodeSchema.parse(video.queueCurrency);
   const amountHelpId = `video-amount-help-${video.videoId}`;
   const timingHelpId = `video-timing-help-${video.videoId}`;
   const [isEditing, setIsEditing] = useState(false);
@@ -179,15 +187,7 @@ export default function VideoCard({
             <div className="flex shrink-0 items-start gap-2">
               <div className="flex flex-col items-end gap-0.5">
                 <strong className="block text-[13px] text-card-foreground">
-                  {fmtAmount(
-                    video.queueAmount === null && video.source === "donation"
-                      ? video.donation.money
-                      : {
-                          amount: video.queueAmount ?? MoneyAmountSchema.parse("0.00"),
-                          currency: CurrencyCodeSchema.parse(video.queueCurrency),
-                        },
-                    locale,
-                  )}
+                  {fmtAmount(displayedAmount, displayedCurrency, locale)}
                 </strong>
                 {!isEditing && (
                   <span className="text-xs text-muted-foreground">
