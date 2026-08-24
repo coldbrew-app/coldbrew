@@ -1,0 +1,4 @@
+--vcs=git
+--read-lang-def=.config/cloc-lang-def.txt
+--force-lang=TSX,tsx
+--not-match-f=^(package\.json|bun\.lock)$

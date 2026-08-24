@@ -89,7 +89,7 @@ schema-reset:
 
 # Count production code and TypeScript tests in one report.
 count-lines path=".":
-  cloc --vcs=git --read-lang-def=cloc-lang-def.txt --not-match-f='^(package\.json|bun\.lock)$' "{{path}}"
+  cloc --config .config/cloc-options.txt "{{path}}"
 
 env-decrypt-prod:
   dotenvx decrypt -f .env.prod
