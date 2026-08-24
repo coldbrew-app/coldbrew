@@ -61,6 +61,17 @@ export function useVideosQ() {
   return useQuery(trpc.videos.queryOptions());
 }
 
+export function useAddVideoM() {
+  const { queryClient, trpc } = useApi();
+  return useMutation(
+    trpc.addVideo.mutationOptions({
+      onSuccess() {
+        queryClient.invalidateQueries({ queryKey: trpc.videos.queryKey() });
+      },
+    }),
+  );
+}
+
 export function useVideoPrioritiesQ() {
   const { trpc } = useApi();
   return useQuery(trpc.videoPriorities.queryOptions());

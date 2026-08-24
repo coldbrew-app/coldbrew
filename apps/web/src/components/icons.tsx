@@ -3,6 +3,7 @@ import * as icons from "lucide-react";
 export type IconComponent = icons.LucideIcon;
 
 export const Icons = {
+  addVideo: icons.ListPlus,
   alerts: icons.Bell,
   bookmark: icons.Bookmark,
   cancel: icons.X,
@@ -15,6 +16,7 @@ export const Icons = {
   dateRange: icons.ChevronDown,
   donations: icons.Sparkles,
   edit: icons.Pencil,
+  externalLink: icons.ExternalLink,
   filter: icons.SlidersHorizontal,
   greetingAccent: icons.Sparkles,
   help: icons.CircleHelp,
@@ -23,6 +25,7 @@ export const Icons = {
   loader: icons.LoaderCircle,
   logout: icons.LogOut,
   moon: icons.Moon,
+  manualVideo: icons.UserRoundPlus,
   notWatched: icons.Circle,
   platform: icons.Share2,
   retry: icons.RotateCcw,
@@ -32,6 +35,7 @@ export const Icons = {
   submit: icons.Check,
   sun: icons.Sun,
   video: icons.Video,
+  videoFromDonation: icons.Sparkles,
   wallet: icons.Wallet,
   warn: icons.TriangleAlert,
   watched: icons.CheckCircle2,

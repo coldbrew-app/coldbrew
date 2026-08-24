@@ -17,6 +17,7 @@ import {
   UserIdSchema,
   UserInfoSchema,
   VideoId,
+  VideoIdSchema,
   VideoPrioritySchema,
   VideoSchema,
 } from "@coldbrew/packages/schemas.js";
@@ -110,25 +111,70 @@ export class Store {
         video_priority.label AS priority_label,
         video.queue_amount::text AS queue_amount,
         "user".queue_currency,
-        jsonb_build_object(
-          'donationId',            donation.donation_id::text,
-          'source',                donation.source,
-          'sourceDonationId',      donation.source_donation_id,
-          'userId',                donation.user_id,
-          'author',                donation.author,
-          'message',               donation.message,
-          'money',                 jsonb_build_object('amount', donation.amount::text, 'currency', donation.currency),
-          'sourceCreatedAt',       donation.source_created_at,
-          'occurredAt',            donation.occurred_at
-        ) AS donation
+        CASE
+          WHEN donation.donation_id IS NULL THEN 'manual'
+          ELSE 'donation'
+        END AS source,
+        COALESCE(donation.occurred_at, video.added_at) AS created_at,
+        CASE
+          WHEN donation.donation_id IS NULL THEN NULL
+          ELSE jsonb_build_object(
+            'donationId',            donation.donation_id::text,
+            'source',                donation.source,
+            'sourceDonationId',      donation.source_donation_id,
+            'userId',                donation.user_id,
+            'author',                donation.author,
+            'message',               donation.message,
+            'money',                 jsonb_build_object('amount', donation.amount::text, 'currency', donation.currency),
+            'sourceCreatedAt',       donation.source_created_at,
+            'occurredAt',            donation.occurred_at
+          )
+        END AS donation
       FROM video
-      JOIN donation USING (donation_id)
-      JOIN "user" USING (user_id)
+      LEFT JOIN donation USING (donation_id)
+      JOIN "user"
+        ON "user".user_id = COALESCE(video.user_id, donation.user_id)
       LEFT JOIN video_priority USING (video_priority_id)
-      WHERE donation.user_id = ${userId}
-      ORDER BY donation.occurred_at DESC, video.video_id DESC
+      WHERE "user".user_id = ${userId}
+      ORDER BY COALESCE(donation.occurred_at, video.added_at) DESC, video.video_id DESC
     `;
     return z.array(VideoSchema).parse(rows);
+  }
+
+  async addManualVideo(
+    userId: UserId,
+    input: {
+      providerVideoId: string;
+      url: string;
+      queueAmount: MoneyAmount;
+      startSeconds: number;
+      endSeconds: number;
+    },
+  ) {
+    const rows = await this.sql`
+      INSERT INTO video (
+        user_id,
+        added_at,
+        provider,
+        provider_video_id,
+        url,
+        queue_amount,
+        start_seconds,
+        end_seconds
+      )
+      VALUES (
+        ${userId},
+        now(),
+        'youtube',
+        ${input.providerVideoId},
+        ${input.url},
+        ${input.queueAmount},
+        ${input.startSeconds},
+        ${input.endSeconds}
+      )
+      RETURNING video_id
+    `;
+    return VideoIdSchema.parse(rows[0]?.videoId);
   }
 
   async listVideoPriorities(userId: UserId) {
@@ -171,10 +217,16 @@ export class Store {
       SET
         watched_at = CASE WHEN ${status.watchedAt !== undefined} THEN ${status.watchedAt ?? null} ELSE watched_at END,
         saved_at = CASE WHEN ${status.savedAt !== undefined} THEN ${status.savedAt ?? null} ELSE saved_at END
-      FROM donation
-      WHERE video.donation_id = donation.donation_id
-        AND donation.user_id = ${userId}
-        AND video.video_id = ${String(videoId)}
+      WHERE video.video_id = ${String(videoId)}
+        AND (
+          video.user_id = ${userId} OR
+          EXISTS (
+            SELECT 1
+            FROM donation
+            WHERE donation.donation_id = video.donation_id
+              AND donation.user_id = ${userId}
+          )
+        )
       RETURNING video.video_id
     `;
     return rows.length > 0;
@@ -193,10 +245,16 @@ export class Store {
         queue_amount = ${queueAmount},
         start_seconds = ${startSeconds},
         end_seconds = ${endSeconds}
-      FROM donation
-      WHERE video.donation_id = donation.donation_id
-        AND donation.user_id = ${userId}
-        AND video.video_id = ${String(videoId)}
+      WHERE video.video_id = ${String(videoId)}
+        AND (
+          video.user_id = ${userId} OR
+          EXISTS (
+            SELECT 1
+            FROM donation
+            WHERE donation.donation_id = video.donation_id
+              AND donation.user_id = ${userId}
+          )
+        )
       RETURNING video.video_id
     `;
     return rows.length > 0;
@@ -247,10 +305,16 @@ export class Store {
         UPDATE video
         SET
           queue_amount = ROUND(queue_amount * ${numeratorText} / ${denominatorText}, 2)
-        FROM donation
-        WHERE video.donation_id = donation.donation_id
-          AND donation.user_id = ${userId}
-          AND video.queue_amount IS NOT NULL
+        WHERE video.queue_amount IS NOT NULL
+          AND (
+            video.user_id = ${userId} OR
+            EXISTS (
+              SELECT 1
+              FROM donation
+              WHERE donation.donation_id = video.donation_id
+                AND donation.user_id = ${userId}
+            )
+          )
       `;
       await sql`
         UPDATE "user"
@@ -282,23 +346,32 @@ export class Store {
         video_priority.label AS priority_label,
         video.queue_amount::text AS queue_amount,
         "user".queue_currency,
-        jsonb_build_object(
-          'donationId',            donation.donation_id::text,
-          'source',                donation.source,
-          'sourceDonationId',      donation.source_donation_id,
-          'userId',                donation.user_id,
-          'author',                donation.author,
-          'message',               donation.message,
-          'money',                 jsonb_build_object('amount', donation.amount::text, 'currency', donation.currency),
-          'sourceCreatedAt',       donation.source_created_at,
-          'occurredAt',            donation.occurred_at
-        ) AS donation
+        CASE
+          WHEN donation.donation_id IS NULL THEN 'manual'
+          ELSE 'donation'
+        END AS source,
+        COALESCE(donation.occurred_at, video.added_at) AS created_at,
+        CASE
+          WHEN donation.donation_id IS NULL THEN NULL
+          ELSE jsonb_build_object(
+            'donationId',            donation.donation_id::text,
+            'source',                donation.source,
+            'sourceDonationId',      donation.source_donation_id,
+            'userId',                donation.user_id,
+            'author',                donation.author,
+            'message',               donation.message,
+            'money',                 jsonb_build_object('amount', donation.amount::text, 'currency', donation.currency),
+            'sourceCreatedAt',       donation.source_created_at,
+            'occurredAt',            donation.occurred_at
+          )
+        END AS donation
       FROM video
-      JOIN donation USING (donation_id)
+      LEFT JOIN donation USING (donation_id)
       LEFT JOIN video_priority USING (video_priority_id)
-      JOIN "user" ON "user".user_id = donation.user_id
+      JOIN "user"
+        ON "user".user_id = COALESCE(video.user_id, donation.user_id)
       WHERE "user".slug = ${slug}
-      ORDER BY donation.occurred_at DESC, video.video_id DESC
+      ORDER BY COALESCE(donation.occurred_at, video.added_at) DESC, video.video_id DESC
     `;
     return z.array(VideoSchema).parse(rows);
   }

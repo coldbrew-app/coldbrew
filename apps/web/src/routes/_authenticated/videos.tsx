@@ -1,14 +1,16 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { AddVideoForm } from "@web/components/add-video-form";
 import { CosmicArt } from "@web/components/cosmic-art";
 import { CosmicPageHeader } from "@web/components/cosmic-page-header";
 import { Icons } from "@web/components/icons";
 import { VideoListSkeleton } from "@web/components/loading-skeletons";
 import QueryErrorState from "@web/components/query-error-state";
 import { SlugEditor } from "@web/components/slug-editor";
-import { buttonVariants } from "@web/components/ui/button";
+import { Button, buttonVariants } from "@web/components/ui/button";
 import VideoCard from "@web/components/video-card";
 import VideoPriorities from "@web/components/video-priorities";
 import { preloadRouteQuery } from "@web/lib/trpc";
+import { useState } from "react";
 import { z } from "zod";
 
 import { useUpdateVideoM, useUpdateVideoStatusM, useVideosQ } from "../../hooks/api";
@@ -39,6 +41,7 @@ export const Route = createFileRoute("/_authenticated/videos")({
 });
 
 function VideoQueue() {
+  const [isAddingVideo, setIsAddingVideo] = useState(false);
   const videosQ = useVideosQ();
   const updateVideoStatusM = useUpdateVideoStatusM();
   const updateVideoM = useUpdateVideoM();
@@ -74,13 +77,13 @@ function VideoQueue() {
           ? left.watchedAt
           : activeTab === "saved"
             ? left.savedAt
-            : left.donation.occurredAt;
+            : left.createdAt;
       const rightDate =
         activeTab === "watched"
           ? right.watchedAt
           : activeTab === "saved"
             ? right.savedAt
-            : right.donation.occurredAt;
+            : right.createdAt;
 
       return rightDate!.getTime() - leftDate!.getTime() || Number(right.videoId - left.videoId);
     });
@@ -121,12 +124,26 @@ function VideoQueue() {
       />
       <div className="w-full">
         <article className="cosmic-panel overflow-hidden">
-          <div className="border-b border-border p-4 sm:p-5">
-            <h1 className="font-heading text-lg font-semibold text-card-foreground">
-              {t("videoQueue")}
-            </h1>
-            <p className="mt-1 text-xs text-muted-foreground">{t("videosForStream")}</p>
+          <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+            <div className="flex flex-col gap-1">
+              <h1 className="font-heading text-lg font-semibold text-card-foreground">
+                {t("videoQueue")}
+              </h1>
+              <p className="text-xs text-muted-foreground">{t("videosForStream")}</p>
+            </div>
+            <Button
+              aria-controls="add-video-form"
+              aria-expanded={isAddingVideo}
+              onClick={() => setIsAddingVideo((isOpen) => !isOpen)}
+              size="sm"
+              type="button"
+              variant={isAddingVideo ? "secondary" : "default"}
+            >
+              <Icons.addVideo aria-hidden="true" />
+              {t("addVideo")}
+            </Button>
           </div>
+          {isAddingVideo && <AddVideoForm onCancel={() => setIsAddingVideo(false)} />}
           <SlugEditor />
           <div className="flex flex-col lg:flex-row">
             <div className="order-2 min-w-0 grow lg:order-1">
@@ -156,6 +173,7 @@ function VideoQueue() {
                       onStatusChange={(status) =>
                         updateVideoStatusM.mutate({ videoId: video.videoId, ...status })
                       }
+                      showSource
                       video={video}
                     />
                   ))}
@@ -168,7 +186,7 @@ function VideoQueue() {
                       variant="orbit"
                     />
                     <div className="grid size-11 place-items-center rounded-xl bg-secondary text-secondary-foreground">
-                      <Icons.wallet aria-hidden="true" size={20} />
+                      <Icons.video aria-hidden="true" size={20} />
                     </div>
                     <h3 className="text-sm font-semibold text-card-foreground">
                       {videos.length

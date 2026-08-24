@@ -1,6 +1,10 @@
+import {
+  extractYoutubeUrls,
+  getYoutubeTiming,
+  parseYoutubeTimestamp,
+  youtubeVideoId,
+} from "@coldbrew/packages/youtube.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
-
-import { extractYoutubeUrls, getYoutubeTiming, parseYoutubeTimestamp } from "./youtube.js";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -23,6 +27,18 @@ describe("findYoutubeUrls", () => {
   it("replaces http with https", () => {
     const result = extractYoutubeUrls("http://youtu.be/dQw4w9WgXcQ");
     expect(result).toEqual(["https://youtu.be/dQw4w9WgXcQ"]);
+  });
+});
+
+describe("youtubeVideoId", () => {
+  it("extracts IDs from supported YouTube URLs", () => {
+    expect(youtubeVideoId("https://youtu.be/dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
+    expect(youtubeVideoId("https://www.youtube.com/shorts/dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
+  });
+
+  it("rejects invalid and non-YouTube URLs", () => {
+    expect(youtubeVideoId("not a url")).toBeNull();
+    expect(youtubeVideoId("https://example.com/watch?v=dQw4w9WgXcQ")).toBeNull();
   });
 });
 
@@ -60,6 +76,46 @@ describe("YouTube timing", () => {
     });
   });
 
+  it("uses an explicitly requested range instead of URL timestamps", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response('{"lengthSeconds":"213"}')));
+
+    const $timing = getYoutubeTiming("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=15s&end=180", {
+      startSeconds: 30,
+      endSeconds: 90,
+    });
+
+    await expect($timing).resolves.toMatchObject({
+      value: { startSeconds: 30, endSeconds: 90 },
+    });
+  });
+
+  it("uses the video length when the requested end is omitted", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response('{"lengthSeconds":"213"}')));
+
+    const $timing = getYoutubeTiming("https://youtu.be/dQw4w9WgXcQ?end=180", {
+      startSeconds: 30,
+      endSeconds: null,
+    });
+
+    await expect($timing).resolves.toMatchObject({
+      value: { startSeconds: 30, endSeconds: 213 },
+    });
+  });
+
+  it.each([
+    { startSeconds: 213, endSeconds: null },
+    { startSeconds: 30, endSeconds: 30 },
+    { startSeconds: 30, endSeconds: 214 },
+  ])("rejects an invalid requested range: %o", async (requestedTiming) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response('{"lengthSeconds":"213"}')));
+
+    const $timing = getYoutubeTiming("https://youtu.be/dQw4w9WgXcQ", requestedTiming);
+
+    await expect($timing).resolves.toMatchObject({
+      error: { type: "youtube: invalid timing" },
+    });
+  });
+
   it.each([
     ["https://youtu.be/dQw4w9WgXcQ?t=300", { startSeconds: 0, endSeconds: 213 }],
     ["https://youtu.be/dQw4w9WgXcQ?t=30&end=20", { startSeconds: 0, endSeconds: 20 }],
@@ -70,5 +126,15 @@ describe("YouTube timing", () => {
     const $timing = getYoutubeTiming(url);
 
     await expect($timing).resolves.toMatchObject({ value: expected });
+  });
+
+  it("rejects unsupported URLs without fetching them", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const $timing = getYoutubeTiming("https://example.com/watch?v=dQw4w9WgXcQ");
+
+    await expect($timing).resolves.toMatchObject({ error: { type: "youtube: invalid url" } });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

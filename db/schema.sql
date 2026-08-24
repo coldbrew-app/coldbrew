@@ -113,7 +113,9 @@ CREATE UNIQUE INDEX video_priority_default_idx
 
 CREATE TABLE video (
   video_id          bigint         PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-  donation_id       bigint         NOT NULL REFERENCES donation (donation_id) ON DELETE CASCADE,
+  donation_id       bigint             NULL REFERENCES donation (donation_id) ON DELETE CASCADE,
+  user_id           int                NULL REFERENCES "user" (user_id) ON DELETE CASCADE,
+  added_at          js_date             NULL,
   provider          video_provider NOT NULL,
   provider_video_id text           NOT NULL,
   url               text           NOT NULL,
@@ -124,6 +126,10 @@ CREATE TABLE video (
   saved_at          js_date            NULL,
   video_priority_id int                NULL REFERENCES video_priority (video_priority_id),
   UNIQUE (donation_id, provider, provider_video_id),
+  CHECK (
+    (donation_id IS NOT NULL AND user_id IS NULL AND added_at IS NULL) OR
+    (donation_id IS NULL AND user_id IS NOT NULL AND added_at IS NOT NULL)
+  ),
   CHECK (end_seconds > start_seconds)
 );
 
@@ -141,10 +147,13 @@ BEGIN
 
   SELECT video_priority.video_priority_id
   INTO NEW.video_priority_id
-  FROM donation
-  JOIN video_priority
-    ON video_priority.user_id = donation.user_id
-  WHERE donation.donation_id = NEW.donation_id
+  FROM video_priority
+  WHERE video_priority.user_id = COALESCE(
+      NEW.user_id,
+      (SELECT donation.user_id
+       FROM donation
+       WHERE donation.donation_id = NEW.donation_id)
+    )
     AND video_priority.min_price_per_minute <=
       NEW.queue_amount * 60 / (NEW.end_seconds - NEW.start_seconds)
   ORDER BY video_priority.min_price_per_minute DESC, video_priority.video_priority_id ASC
@@ -152,7 +161,12 @@ BEGIN
 
   IF NEW.video_priority_id IS NULL THEN
     RAISE EXCEPTION 'no video priority for user %, amount %, start %, end %',
-      (SELECT user_id FROM donation WHERE donation_id = NEW.donation_id),
+      COALESCE(
+        NEW.user_id,
+        (SELECT donation.user_id
+         FROM donation
+         WHERE donation.donation_id = NEW.donation_id)
+      ),
       NEW.queue_amount, NEW.start_seconds, NEW.end_seconds;
   END IF;
 
@@ -161,6 +175,6 @@ END;
 $$;
 
 CREATE TRIGGER set_video_priority_id
-BEFORE INSERT OR UPDATE OF queue_amount, start_seconds, end_seconds, donation_id ON video
+BEFORE INSERT OR UPDATE OF queue_amount, start_seconds, end_seconds, donation_id, user_id ON video
 FOR EACH ROW
 EXECUTE FUNCTION set_video_priority_id();

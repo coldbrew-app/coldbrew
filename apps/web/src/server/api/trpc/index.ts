@@ -4,6 +4,7 @@ import {
   SlugSchema,
   VideoIdSchema,
 } from "@coldbrew/packages/schemas.js";
+import { getYoutubeTiming, youtubeVideoId } from "@coldbrew/packages/youtube.js";
 import { TRPCError } from "@trpc/server";
 import { getRedirectUri } from "@web/server/lib/getRedirectUrl.js";
 import { z } from "zod";
@@ -43,6 +44,49 @@ export const appRouter = router({
   videos: authenticatedProcedure.query(async ({ ctx }) => {
     return await store.listVideos(ctx.userId);
   }),
+
+  addVideo: authenticatedProcedure
+    .input(
+      z
+        .object({
+          url: z.url().refine((url) => youtubeVideoId(url) !== null),
+          amount: MoneyAmountSchema,
+          startSeconds: z.number().int().nonnegative(),
+          endSeconds: z.number().int().positive().nullable(),
+        })
+        .refine(
+          ({ startSeconds, endSeconds }) => endSeconds === null || endSeconds > startSeconds,
+          {
+            message: "Video end must be after video start.",
+            path: ["endSeconds"],
+          },
+        ),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const providerVideoId = youtubeVideoId(input.url);
+      if (providerVideoId === null) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid YouTube URL." });
+      }
+
+      const $timing = await getYoutubeTiming(input.url, {
+        startSeconds: input.startSeconds,
+        endSeconds: input.endSeconds,
+      });
+      if ($timing.isErr()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Could not read this YouTube video.",
+        });
+      }
+
+      const videoId = await store.addManualVideo(ctx.userId, {
+        providerVideoId,
+        url: input.url,
+        queueAmount: input.amount,
+        ...$timing.value,
+      });
+      return { videoId };
+    }),
 
   videoPriorities: authenticatedProcedure.query(async ({ ctx }) => {
     return await store.listVideoPriorities(ctx.userId);

@@ -30,6 +30,9 @@ export type AccessToken = z.infer<typeof AccessTokenSchema>;
 export const DonationSourceSchema = z.enum(["donationalerts"]);
 export type DonationSource = z.infer<typeof DonationSourceSchema>;
 
+export const VideoSourceSchema = z.enum(["donation", "manual"]);
+export type VideoSource = z.infer<typeof VideoSourceSchema>;
+
 export const CurrencyCodeSchema = z
   .string()
   .regex(/^[A-Z]{3}$/)
@@ -66,22 +69,33 @@ export const DonationSchema = z.object({
 });
 export type Donation = z.infer<typeof DonationSchema>;
 
+const VideoBaseSchema = z.object({
+  videoId: VideoIdSchema,
+  videoPriorityId: VideoPriorityIdSchema.nullable(),
+  provider: z.literal("youtube"),
+  providerVideoId: z.string().min(1),
+  url: z.url(),
+  queueAmount: MoneyAmountSchema.nullable(),
+  queueCurrency: QueueCurrencySchema,
+  startSeconds: z.number().int().nonnegative(),
+  endSeconds: z.number().int().positive(),
+  priorityLabel: z.string().nullable(),
+  watchedAt: z.coerce.date().nullable(),
+  savedAt: z.coerce.date().nullable(),
+  createdAt: z.coerce.date(),
+});
+
 export const VideoSchema = z
-  .object({
-    videoId: VideoIdSchema,
-    videoPriorityId: VideoPriorityIdSchema.nullable(),
-    provider: z.literal("youtube"),
-    providerVideoId: z.string().min(1),
-    url: z.url(),
-    queueAmount: MoneyAmountSchema.nullable(),
-    queueCurrency: QueueCurrencySchema,
-    startSeconds: z.number().int().nonnegative(),
-    endSeconds: z.number().int().positive(),
-    priorityLabel: z.string().nullable(),
-    watchedAt: z.coerce.date().nullable(),
-    savedAt: z.coerce.date().nullable(),
-    donation: DonationSchema,
-  })
+  .discriminatedUnion("source", [
+    VideoBaseSchema.extend({
+      source: z.literal("donation"),
+      donation: DonationSchema,
+    }),
+    VideoBaseSchema.extend({
+      source: z.literal("manual"),
+      donation: z.null(),
+    }),
+  ])
   .refine(({ startSeconds, endSeconds }) => endSeconds > startSeconds, {
     error: "video end must be after video start",
     path: ["endSeconds"],
