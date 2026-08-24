@@ -23,7 +23,9 @@ and database stores. Apply it to `db/*.sql` and SQL embedded in TypeScript.
 ## Layout
 
 - Put each major clause on its own line: `SELECT`, `FROM`, `WHERE`, `ORDER BY`,
-  `RETURNING`, `INSERT INTO`, `VALUES`, `ON CONFLICT`, and `UPDATE`.
+  `INSERT INTO`, `VALUES`, `ON CONFLICT`, and `UPDATE`. Keep a short
+  `RETURNING` expression on the same line as `RETURNING`; wrap only long
+  expressions.
 - Keep a short column list on one line. For a long list, wrap it after the
   opening parenthesis and align continuation lines by two spaces.
 - Put one column definition or assignment per line when it does not fit
@@ -55,6 +57,9 @@ values with `${value}`; never assemble values into a SQL string.
   application and pass values through its parameter array.
 - Use `WITH input AS (...)` with `jsonb_to_recordset` for batch inserts. Name
   the source CTE `input` and list its record columns and types explicitly.
+- When preparing batch input from an object with a nested value, use object
+  destructuring and spreads instead of repeating every retained field by hand;
+  for example: `({ money, ...donation }) => ({ ...donation, ...money })`.
 - Build JSON values in SQL with `jsonb_build_object` when a query returns a
   structured value. Do not reconstruct that value outside SQL with a Zod
   schema; use Zod to validate and parse the returned JSON instead.

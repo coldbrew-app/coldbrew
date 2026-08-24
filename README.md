@@ -2,6 +2,9 @@
 
 Bun TypeScript monorepo with a TanStack Start/tRPC/Postgres web app and dedicated donation/video polling workers.
 
+See [currency and video-queue rules](docs/currencies.md) for the fixed exchange
+rates and queue-currency transition semantics.
+
 Project tasks are managed with [just](https://just.systems/). Run `just` to list them.
 
 ## Globally required utilities

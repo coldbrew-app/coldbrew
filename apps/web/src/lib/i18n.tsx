@@ -20,6 +20,14 @@ const en = {
   integrations: "Integrations",
   alerts: "Alerts",
   settings: "Settings",
+  queueCurrency: "Queue currency",
+  queueCurrencyDescription: "Videos and queue thresholds use this currency.",
+  changeQueueCurrency: "Change currency",
+  queueCurrencyRate: ({ larger, smaller }: { larger: string; smaller: string }) =>
+    `1 ${larger} = amount in ${smaller}`,
+  queueCurrencyWarning:
+    "Changing currency converts existing video amounts and queue thresholds. Videos keep their current queue.",
+  enterExchangeRate: "Enter an exchange rate greater than zero.",
   underConstruction: "Under construction",
   signOut: "Sign out",
   logOut: "Log out",
@@ -167,6 +175,14 @@ const ru = defineTranslations({
   integrations: "Интеграции",
   alerts: "Оповещения",
   settings: "Настройки",
+  queueCurrency: "Валюта очереди",
+  queueCurrencyDescription: "Видео и пороги очередей рассчитываются в этой валюте.",
+  changeQueueCurrency: "Изменить валюту",
+  queueCurrencyRate: ({ larger, smaller }: { larger: string; smaller: string }) =>
+    `1 ${larger} = количество в ${smaller}`,
+  queueCurrencyWarning:
+    "При смене валюты суммы видео и пороги очередей пересчитаются. Видео останутся в текущих очередях.",
+  enterExchangeRate: "Введите курс больше нуля.",
   underConstruction: "В разработке",
   signOut: "Выйти",
   logOut: "Выйти",

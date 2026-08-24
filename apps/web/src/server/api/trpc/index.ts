@@ -1,4 +1,9 @@
-import { MoneyAmountSchema, SlugSchema, VideoIdSchema } from "@coldbrew/packages/schemas.js";
+import {
+  MoneyAmountSchema,
+  QueueCurrencySchema,
+  SlugSchema,
+  VideoIdSchema,
+} from "@coldbrew/packages/schemas.js";
 import { TRPCError } from "@trpc/server";
 import { getRedirectUri } from "@web/server/lib/getRedirectUrl.js";
 import { z } from "zod";
@@ -19,6 +24,17 @@ export const appRouter = router({
     if (ctx.userId === null) return null;
     return await store.getUserInfo(ctx.userId);
   }),
+
+  updateQueueCurrency: authenticatedProcedure
+    .input(
+      z.object({
+        queueCurrency: QueueCurrencySchema,
+        rate: MoneyAmountSchema.refine((rate) => rate !== "0.00"),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return await store.setQueueCurrency(ctx.userId, input.queueCurrency, input.rate);
+    }),
 
   donations: authenticatedProcedure.query(async ({ ctx }) => {
     return await store.listDonations(ctx.userId);

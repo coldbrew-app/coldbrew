@@ -17,6 +17,7 @@ export const Icons = {
   edit: icons.Pencil,
   filter: icons.SlidersHorizontal,
   greetingAccent: icons.Sparkles,
+  help: icons.CircleHelp,
   integrations: icons.Plug,
   list: icons.List,
   loader: icons.LoaderCircle,

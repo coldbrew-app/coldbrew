@@ -1,3 +1,4 @@
+import { convertWithDefaultRate } from "@coldbrew/packages/currency.js";
 import { delay } from "@coldbrew/packages/delay.js";
 import { logger } from "@coldbrew/packages/logger.js";
 import dayjs from "dayjs";
@@ -25,15 +26,13 @@ async function main() {
           const providerVideoId = youtubeVideoId(url);
           if (providerVideoId === null) return ok();
           const queueAmount =
-            donation.amountInUserCurrency ??
-            (donation.money.currency === donation.queueCurrency ? donation.money.amount : null);
+            convertWithDefaultRate(donation.money, donation.queueCurrency)?.money.amount ?? null;
           logger.debug("videos.push", { url, queueAmount, durationMinutes });
           videos.push({
             provider: "youtube",
             providerVideoId,
             url,
             queueAmount,
-            queueCurrency: donation.queueCurrency,
             durationMinutes,
           });
           return ok();

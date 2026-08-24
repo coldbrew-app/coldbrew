@@ -26,6 +26,19 @@ export function useSetSlugM() {
   );
 }
 
+export function useUpdateQueueCurrencyM() {
+  const { queryClient, trpc } = useApi();
+  return useMutation(
+    trpc.updateQueueCurrency.mutationOptions({
+      onSuccess() {
+        queryClient.invalidateQueries({ queryKey: trpc.userInfo.queryKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.videos.queryKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.videoPriorities.queryKey() });
+      },
+    }),
+  );
+}
+
 export function useDisconnectM() {
   const { queryClient, trpc } = useApi();
 

@@ -1,11 +1,10 @@
 import { jsonb } from "@coldbrew/packages/jsonb.js";
 import { createSql } from "@coldbrew/packages/pg.js";
 import {
-  CurrencyCode,
-  CurrencyCodeSchema,
   Donation,
   DonationSchema,
   MoneyAmount,
+  QueueCurrencySchema,
 } from "@coldbrew/packages/schemas.js";
 import { Sql } from "postgres";
 import { z } from "zod";
@@ -15,12 +14,11 @@ export type VideoToSave = {
   providerVideoId: string;
   url: string;
   queueAmount: MoneyAmount | null;
-  queueCurrency: CurrencyCode;
   durationMinutes: number;
 };
 
 const JobSchema = DonationSchema.extend({
-  queueCurrency: CurrencyCodeSchema,
+  queueCurrency: QueueCurrencySchema,
 });
 
 export class Store {
@@ -42,8 +40,7 @@ export class Store {
         source_created_at,
         occurred_at,
         "user".queue_currency,
-        jsonb_build_object('amount', amount::text, 'currency', currency) AS money,
-        amount_in_user_currency::text AS amount_in_user_currency
+        jsonb_build_object('amount', amount::text, 'currency', currency) AS money
       FROM donation
       JOIN "user" USING (user_id)
       WHERE videos_parsed_at IS NULL
@@ -69,7 +66,6 @@ export class Store {
             provider_video_id text,
             url text,
             queue_amount money_amount,
-            queue_currency currency_code,
             duration_minutes positive_int
           )
         )
@@ -79,7 +75,6 @@ export class Store {
           provider_video_id,
           url,
           queue_amount,
-          queue_currency,
           duration_minutes
         )
         SELECT
@@ -88,7 +83,6 @@ export class Store {
           provider_video_id,
           url,
           queue_amount,
-          queue_currency,
           duration_minutes
         FROM input
         ON CONFLICT (donation_id, provider, provider_video_id) DO NOTHING

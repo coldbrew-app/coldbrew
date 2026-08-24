@@ -36,6 +36,9 @@ export const CurrencyCodeSchema = z
   .brand("currency code");
 export type CurrencyCode = z.infer<typeof CurrencyCodeSchema>;
 
+export const QueueCurrencySchema = z.enum(["RUB", "USD", "EUR"]);
+export type QueueCurrency = z.infer<typeof QueueCurrencySchema>;
+
 const MoneyAmountStringSchema = z.string().regex(/^\d{1,18}(?:\.\d{1,2})?$/);
 export const MoneyAmountSchema = z
   .union([z.number().nonnegative().safe().transform(String), MoneyAmountStringSchema])
@@ -58,7 +61,6 @@ export const DonationSchema = z.object({
   author: z.string().nullable(),
   message: z.string().nullable(),
   money: MoneySchema,
-  amountInUserCurrency: MoneyAmountSchema.nullable(),
   sourceCreatedAt: z.string().min(1),
   occurredAt: z.coerce.date(),
 });
@@ -70,7 +72,8 @@ export const VideoSchema = z.object({
   provider: z.literal("youtube"),
   providerVideoId: z.string().min(1),
   url: z.url(),
-  queueMoney: MoneySchema.nullable(),
+  queueAmount: MoneyAmountSchema.nullable(),
+  queueCurrency: QueueCurrencySchema,
   durationMinutes: z.number().int().positive(),
   priorityLabel: z.string().nullable(),
   watchedAt: z.coerce.date().nullable(),
@@ -82,7 +85,6 @@ export type Video = z.infer<typeof VideoSchema>;
 export const VideoPrioritySchema = z.object({
   videoPriorityId: VideoPriorityIdSchema,
   label: z.string().trim().min(1).max(64),
-  currency: CurrencyCodeSchema,
   minPricePerMinute: MoneyAmountSchema,
   isDefault: z.boolean(),
 });
@@ -91,7 +93,7 @@ export type VideoPriority = z.infer<typeof VideoPrioritySchema>;
 export const UserInfoSchema = z.object({
   userId: UserIdSchema,
   slug: SlugSchema,
-  queueCurrency: CurrencyCodeSchema,
+  queueCurrency: QueueCurrencySchema,
   hasDonationAlertsConnection: z.boolean(),
 });
 export type UserInfo = z.infer<typeof UserInfoSchema>;

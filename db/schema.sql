@@ -87,7 +87,6 @@ CREATE TABLE donation (
   message                 text                NULL,
   amount                  money_amount    NOT NULL,
   currency                currency_code   NOT NULL,
-  amount_in_user_currency money_amount        NULL,
   source_created_at       text            NOT NULL,
   occurred_at             js_date         NOT NULL,
   videos_parsed_at        js_date             NULL,
@@ -99,17 +98,16 @@ CREATE INDEX donation_videos_unparsed_idx ON donation (occurred_at) WHERE videos
 CREATE TABLE video_priority (
   video_priority_id    serial        PRIMARY KEY,
   user_id              int           NOT NULL REFERENCES "user" (user_id) ON DELETE CASCADE,
-  currency             currency_code NOT NULL,
   label                text          NOT NULL CHECK (char_length(trim(label)) BETWEEN 1 AND 64),
   min_price_per_minute money_amount  NOT NULL,
   is_default           boolean       NOT NULL DEFAULT false,
   CHECK ((is_default AND min_price_per_minute = 0) OR
          (NOT is_default AND min_price_per_minute > 0)),
-  UNIQUE (user_id, currency, min_price_per_minute)
+  UNIQUE (user_id, label)
 );
 
 CREATE UNIQUE INDEX video_priority_default_idx
-  ON video_priority (user_id, currency)
+  ON video_priority (user_id)
   WHERE is_default;
 
 CREATE TABLE video (
@@ -119,7 +117,6 @@ CREATE TABLE video (
   provider_video_id text           NOT NULL,
   url               text           NOT NULL,
   queue_amount      money_amount       NULL,
-  queue_currency    currency_code  NOT NULL,
   duration_minutes  positive_int   NOT NULL,
   watched_at        js_date            NULL,
   saved_at          js_date            NULL,
@@ -144,16 +141,15 @@ BEGIN
   FROM donation
   JOIN video_priority
     ON video_priority.user_id = donation.user_id
-   AND video_priority.currency = NEW.queue_currency
   WHERE donation.donation_id = NEW.donation_id
     AND video_priority.min_price_per_minute <= NEW.queue_amount / NEW.duration_minutes
   ORDER BY video_priority.min_price_per_minute DESC, video_priority.video_priority_id ASC
   LIMIT 1;
 
   IF NEW.video_priority_id IS NULL THEN
-    RAISE EXCEPTION 'no video priority for user %, currency %, amount %, duration %',
+    RAISE EXCEPTION 'no video priority for user %, amount %, duration %',
       (SELECT user_id FROM donation WHERE donation_id = NEW.donation_id),
-      NEW.queue_currency, NEW.queue_amount, NEW.duration_minutes;
+      NEW.queue_amount, NEW.duration_minutes;
   END IF;
 
   RETURN NEW;
@@ -161,6 +157,6 @@ END;
 $$;
 
 CREATE TRIGGER set_video_priority_id
-BEFORE INSERT OR UPDATE OF queue_amount, queue_currency, duration_minutes, donation_id ON video
+BEFORE INSERT OR UPDATE OF queue_amount, duration_minutes, donation_id ON video
 FOR EACH ROW
 EXECUTE FUNCTION set_video_priority_id();

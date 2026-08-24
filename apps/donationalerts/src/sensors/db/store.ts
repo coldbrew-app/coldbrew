@@ -20,12 +20,24 @@ export class Store {
     donations: readonly Omit<Donation, "donationId" | "userId">[],
   ) {
     if (donations.length === 0) return [];
-    const input = jsonb(
-      sql,
-      donations.map((donation) => ({ ...donation, ...donation.money })),
-    );
+    return await sql.begin(async (tx) => {
+      const input = jsonb(
+        tx,
+        donations.map((donation) => {
+          return {
+            source: donation.source,
+            sourceDonationId: donation.sourceDonationId,
+            author: donation.author,
+            message: donation.message,
+            amount: donation.money.amount,
+            currency: donation.money.currency,
+            sourceCreatedAt: donation.sourceCreatedAt,
+            occurredAt: donation.occurredAt,
+          };
+        }),
+      );
 
-    const rows = await sql`
+      const rows = await tx`
       WITH input AS (
         SELECT *
         FROM jsonb_to_recordset(${input}::jsonb) AS t (
@@ -35,7 +47,6 @@ export class Store {
           message text,
           amount money_amount,
           currency currency_code,
-          amount_in_user_currency money_amount,
           source_created_at text,
           occurred_at js_date
         )
@@ -48,7 +59,6 @@ export class Store {
         message,
         amount,
         currency,
-        amount_in_user_currency,
         source_created_at,
         occurred_at
       )
@@ -60,7 +70,6 @@ export class Store {
         message,
         amount,
         currency,
-        amount_in_user_currency,
         source_created_at,
         occurred_at
       FROM input
@@ -68,7 +77,8 @@ export class Store {
       RETURNING *, jsonb_build_object('amount', amount::text, 'currency', currency) AS money
     `;
 
-    return z.array(DonationSchema).parse(rows);
+      return z.array(DonationSchema).parse(rows);
+    });
   }
 
   async getUsersAuthenticatedInDonationAlerts() {

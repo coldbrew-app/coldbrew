@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { conversionFactorForCurrencyChange } from "@coldbrew/packages/currency.js";
 import { jsonb } from "@coldbrew/packages/jsonb.js";
 import { createSql } from "@coldbrew/packages/pg.js";
 import {
@@ -8,6 +9,9 @@ import {
   Donation,
   DonationAlertsUserSchema,
   DonationSchema,
+  MoneyAmount,
+  QueueCurrencySchema,
+  QueueCurrency,
   RefreshToken,
   UserId,
   UserIdSchema,
@@ -31,21 +35,12 @@ export class Store {
     donations: readonly Omit<Donation, "donationId" | "userId">[],
   ) {
     if (donations.length === 0) return [];
-    const input = jsonb(
-      this.sql,
-      donations.map((donation) => ({
-        source: donation.source,
-        sourceDonationId: donation.sourceDonationId,
-        author: donation.author,
-        message: donation.message,
-        amount: donation.money.amount,
-        currency: donation.money.currency,
-        amountInUserCurrency: donation.amountInUserCurrency,
-        sourceCreatedAt: donation.sourceCreatedAt,
-        occurredAt: donation.occurredAt,
-      })),
-    );
-    const rows = await this.sql`
+    return await this.sql.begin(async (sql) => {
+      const input = jsonb(
+        sql,
+        donations.map(({ money, ...donation }) => ({ ...donation, ...money })),
+      );
+      const rows = await sql`
       WITH input AS (
         SELECT *
         FROM jsonb_to_recordset(${input}::jsonb) AS t (
@@ -55,7 +50,6 @@ export class Store {
           message text,
           amount money_amount,
           currency currency_code,
-          amount_in_user_currency money_amount,
           source_created_at text,
           occurred_at js_date
         )
@@ -68,7 +62,6 @@ export class Store {
         message,
         amount,
         currency,
-        amount_in_user_currency,
         source_created_at,
         occurred_at
       )
@@ -80,14 +73,15 @@ export class Store {
         message,
         amount,
         currency,
-        amount_in_user_currency,
         source_created_at,
         occurred_at
       FROM input
       ON CONFLICT (user_id, source, source_donation_id) DO NOTHING
-      RETURNING *, jsonb_build_object('amount', amount::text, 'currency', currency) AS money
+      RETURNING
+        *, jsonb_build_object('amount', amount::text, 'currency', currency) AS money
     `;
-    return z.array(DonationSchema).parse(rows);
+      return z.array(DonationSchema).parse(rows);
+    });
   }
 
   async listDonations(userId: UserId) {
@@ -113,9 +107,8 @@ export class Store {
         video.watched_at,
         video.saved_at,
         video_priority.label AS priority_label,
-        CASE WHEN video.queue_amount IS NULL THEN NULL
-          ELSE jsonb_build_object('amount', video.queue_amount::text, 'currency', video.queue_currency)
-        END AS queue_money,
+        video.queue_amount::text AS queue_amount,
+        "user".queue_currency,
         jsonb_build_object(
           'donationId',            donation.donation_id::text,
           'source',                donation.source,
@@ -124,12 +117,12 @@ export class Store {
           'author',                donation.author,
           'message',               donation.message,
           'money',                 jsonb_build_object('amount', donation.amount::text, 'currency', donation.currency),
-          'amountInUserCurrency', donation.amount_in_user_currency::text,
           'sourceCreatedAt',       donation.source_created_at,
           'occurredAt',            donation.occurred_at
         ) AS donation
       FROM video
       JOIN donation USING (donation_id)
+      JOIN "user" USING (user_id)
       LEFT JOIN video_priority USING (video_priority_id)
       WHERE donation.user_id = ${userId}
       ORDER BY donation.occurred_at DESC, video.video_id DESC
@@ -139,7 +132,7 @@ export class Store {
 
   async listVideoPriorities(userId: UserId) {
     const rows = await this.sql`
-      SELECT video_priority_id, label, currency, is_default,
+      SELECT video_priority_id, label, is_default,
         min_price_per_minute::text AS min_price_per_minute
       FROM video_priority
       WHERE user_id = ${userId}
@@ -161,7 +154,7 @@ export class Store {
         min_price_per_minute = CASE WHEN is_default THEN 0 ELSE ${minPricePerMinute} END
       WHERE user_id = ${userId}
         AND video_priority_id = ${videoPriorityId}
-      RETURNING video_priority_id, label, currency, is_default,
+      RETURNING video_priority_id, label, is_default,
         min_price_per_minute::text AS min_price_per_minute
     `;
     return VideoPrioritySchema.nullable().parse(rows[0] ?? null);
@@ -222,6 +215,49 @@ export class Store {
     return rows.length > 0;
   }
 
+  async setQueueCurrency(userId: UserId, queueCurrency: QueueCurrency, rate: MoneyAmount) {
+    return await this.sql.begin(async (sql) => {
+      const userRows = await sql`
+        SELECT queue_currency
+        FROM "user"
+        WHERE user_id = ${userId}
+        FOR UPDATE
+      `;
+      const previousCurrency = QueueCurrencySchema.parse(userRows[0]?.queueCurrency);
+      if (previousCurrency === queueCurrency) return previousCurrency;
+
+      const { numerator, denominator } = conversionFactorForCurrencyChange(
+        previousCurrency,
+        queueCurrency,
+        rate,
+      );
+      const numeratorText = numerator.toString();
+      const denominatorText = denominator.toString();
+
+      await sql`
+        UPDATE video_priority
+        SET
+          min_price_per_minute = ROUND(min_price_per_minute * ${numeratorText} / ${denominatorText}, 2)
+        WHERE user_id = ${userId}
+      `;
+      await sql`
+        UPDATE video
+        SET
+          queue_amount = ROUND(queue_amount * ${numeratorText} / ${denominatorText}, 2)
+        FROM donation
+        WHERE video.donation_id = donation.donation_id
+          AND donation.user_id = ${userId}
+          AND video.queue_amount IS NOT NULL
+      `;
+      await sql`
+        UPDATE "user"
+        SET queue_currency = ${queueCurrency}
+        WHERE user_id = ${userId}
+      `;
+      return queueCurrency;
+    });
+  }
+
   async listSharedVideos(slug: string) {
     const users = await this.sql`
       SELECT 1
@@ -240,9 +276,8 @@ export class Store {
         video.watched_at,
         video.saved_at,
         video_priority.label AS priority_label,
-        CASE WHEN video.queue_amount IS NULL THEN NULL
-          ELSE jsonb_build_object('amount', video.queue_amount::text, 'currency', video.queue_currency)
-        END AS queue_money,
+        video.queue_amount::text AS queue_amount,
+        "user".queue_currency,
         jsonb_build_object(
           'donationId',            donation.donation_id::text,
           'source',                donation.source,
@@ -251,7 +286,6 @@ export class Store {
           'author',                donation.author,
           'message',               donation.message,
           'money',                 jsonb_build_object('amount', donation.amount::text, 'currency', donation.currency),
-          'amountInUserCurrency', donation.amount_in_user_currency::text,
           'sourceCreatedAt',       donation.source_created_at,
           'occurredAt',            donation.occurred_at
         ) AS donation
@@ -294,13 +328,13 @@ export class Store {
         const userId = z.object({ userId: UserIdSchema }).parse(rows[0]).userId;
         await sql`
           INSERT INTO video_priority (
-            user_id, currency, label, min_price_per_minute, is_default
+            user_id, label, min_price_per_minute, is_default
           )
           VALUES
-            (${userId}, 'RUB', 'queue 0', 0, true),
-            (${userId}, 'RUB', 'queue 1', 50, false),
-            (${userId}, 'RUB', 'queue 2', 100, false),
-            (${userId}, 'RUB', 'queue 3', 200, false)
+            (${userId}, 'queue 0', 0, true),
+            (${userId}, 'queue 1', 50, false),
+            (${userId}, 'queue 2', 100, false),
+            (${userId}, 'queue 3', 200, false)
           ON CONFLICT DO NOTHING
         `;
         return userId;

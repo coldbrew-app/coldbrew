@@ -1,6 +1,6 @@
 import { MoneyAmountSchema, VideoPriority } from "@coldbrew/packages/schemas.js";
 import { Link } from "@tanstack/react-router";
-import { useUpdateVideoPriorityM } from "@web/hooks/api";
+import { useUpdateVideoPriorityM, useUserInfo } from "@web/hooks/api";
 import { cn } from "@web/lib/utils";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -22,6 +22,8 @@ type Props = {
 
 export default function VideoPriorityEditor({ priority, isSelected, videoCount }: Props) {
   const { t } = useI18n();
+  const userInfo = useUserInfo();
+  if (userInfo === null) throw new Error("Authenticated user info is required.");
   const [isEditing, setIsEditing] = useState(false);
   const updateVideoPriorityM = useUpdateVideoPriorityM();
   const { formState, handleSubmit, register, reset } = useForm<VideoPriorityFormValues>({
@@ -89,7 +91,7 @@ export default function VideoPriorityEditor({ priority, isSelected, videoCount }
         <div className="pointer-events-none flex min-w-0 grow items-center gap-2 px-1.5 py-1 text-left text-xs">
           <span className="min-w-0 grow truncate">{priority.label}</span>
           <span className="w-20 shrink-0 text-right">
-            {priority.minPricePerMinute} {priority.currency}/{t("perMinute")}
+            {priority.minPricePerMinute} {userInfo.queueCurrency}/{t("perMinute")}
           </span>
           <span className="shrink-0 text-[10px] font-bold">{videoCount}</span>
         </div>

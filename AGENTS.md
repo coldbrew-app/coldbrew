@@ -12,6 +12,7 @@ This app is created for streamers. It connects to many donation platforms (such 
 ## Documentation
 
 - Documentation files referenced by this guide may and should be edited whenever needed, and kept up to date with the codebase and project conventions.
+- Use the [glossary](docs/glossary.md) for all donation and queue terminology in code, SQL, UI, and documentation.
 - Follow the [SSR and hydration guide](docs/ssr-and-hydration.md) when working on server-rendered UI, route context, browser-persisted state, or hydration warnings.
 
 ## Frontend Styling

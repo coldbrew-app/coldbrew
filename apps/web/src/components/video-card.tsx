@@ -1,4 +1,4 @@
-import { MoneyAmountSchema } from "@coldbrew/packages/schemas.js";
+import { CurrencyCodeSchema, MoneyAmountSchema } from "@coldbrew/packages/schemas.js";
 import { fmtAmount, fmtDate, formatRelativeDate } from "@web/lib/fmt";
 import type { Video } from "@web/server/exports";
 import { clsx } from "clsx";
@@ -51,19 +51,19 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
   const [isEditing, setIsEditing] = useState(false);
   const { formState, handleSubmit, register, reset } = useForm<VideoFormValues>({
     defaultValues: {
-      amount: video.queueMoney?.amount ?? "0.00",
+      amount: video.queueAmount ?? "0.00",
       durationMinutes: video.durationMinutes,
     },
     mode: "onChange",
   });
 
   const startEditing = () => {
-    reset({ amount: video.queueMoney?.amount ?? "0.00", durationMinutes: video.durationMinutes });
+    reset({ amount: video.queueAmount ?? "0.00", durationMinutes: video.durationMinutes });
     setIsEditing(true);
   };
 
   const cancelEditing = () => {
-    reset({ amount: video.queueMoney?.amount ?? "0.00", durationMinutes: video.durationMinutes });
+    reset({ amount: video.queueAmount ?? "0.00", durationMinutes: video.durationMinutes });
     setIsEditing(false);
   };
 
@@ -120,7 +120,15 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
             <div className="flex shrink-0 items-start gap-2">
               <div className="flex flex-col items-end gap-0.5">
                 <strong className="block text-[13px] text-card-foreground">
-                  {fmtAmount(video.queueMoney ?? video.donation.money, locale)}
+                  {fmtAmount(
+                    video.queueAmount === null
+                      ? video.donation.money
+                      : {
+                          amount: video.queueAmount,
+                          currency: CurrencyCodeSchema.parse(video.queueCurrency),
+                        },
+                    locale,
+                  )}
                 </strong>
                 {!isEditing && (
                   <span className="text-xs text-muted-foreground">
