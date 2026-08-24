@@ -1,4 +1,5 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { CosmicPageHeader } from "@web/components/cosmic-page-header";
 import { Icons } from "@web/components/icons";
 
 import { createTranslator, useI18n } from "../../lib/i18n";
@@ -14,9 +15,14 @@ function DonationsLayout() {
   const { t } = useI18n();
 
   return (
-    <section className="flex min-w-0 flex-1 flex-col">
+    <section className="flex min-w-0 flex-1 flex-col gap-4">
+      <CosmicPageHeader
+        description={t("browseDonations")}
+        eyebrow={t("donationOrbit")}
+        title={t("donations")}
+      />
       <div className="w-full">
-        <article className="mt-4 overflow-hidden rounded-2xl border border-border bg-card shadow-sm shadow-primary/5">
+        <article className="cosmic-panel overflow-hidden">
           <div className="flex flex-col gap-4 border-b border-border p-4 sm:p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>

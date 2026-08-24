@@ -6,7 +6,7 @@
 - `apps/web/src/components/icons.tsx` imports Lucide as `import * as icons from "lucide-react"`; preserve this namespace import when editing the catalog.
 - Feature code imports semantic names from `apps/web/src/components/icons.tsx`, for example `Icons.wallet` and `Icons.retry`.
 - A small number of generic shadcn/Base UI primitives import a Lucide icon directly. Keep this exception limited to the primitive that owns the control (for example, a sheet close button or sidebar toggle).
-- The product mark and favicon use `apps/web/assets/logo.svg`; it is not a replacement for Lucide UI icons.
+- The product mark and browser favicon use the simplified raster artwork at `apps/web/assets/logo.png`. It is not a replacement for Lucide UI icons.
 
 ## Choosing and importing icons
 
@@ -15,7 +15,7 @@
 - Name entries for their product meaning, not their glyph: use `retry`, `donations`, or `notWatched`, rather than `rotateCcw`, `sparkles`, or `circle`.
 - Keep separate semantic aliases when one glyph has different meanings, such as `checked`, `copied`, and `submit`. They may share a Lucide implementation today but can diverge without a broad refactor.
 - Prefer an established semantic icon before adding another glyph. Add a new entry only when it makes the action, object, or state clearer.
-- Do not introduce a second icon library, inline SVG UI icons, or emoji as an icon substitute. Exception: third-party service logos and the Coldbrew brand asset.
+- Do not introduce a second icon library, inline SVG UI icons, or emoji as an icon substitute. Exceptions are third-party service logos, the Coldbrew brand asset, and the decorative coffee-cosmic illustrations documented below.
 
 ## Size, layout, and appearance
 
@@ -34,11 +34,14 @@
 - Loading icons should be decorative and paired with an accessible loading or busy state on the relevant region/control.
 - Preserve the parent control's hover, disabled, active, and `focus-visible` styles. An icon must not suppress keyboard focus or pointer events intended for its control.
 
-## Brand asset
+## Brand assets and decorative illustrations
 
-- Use `apps/web/assets/logo.svg` only for the Coldbrew identity and favicon.
-- Keep the mark legible at 20–24px and visually centred in its circular background, as specified in the [UI style guide](ui-style-guide.md#brand-assets).
-- Reserve the espresso-to-caramel gradient for prominent brand moments; routine UI actions use semantic UI colours and Lucide icons.
+- Use `apps/web/assets/logo.png` for both the Coldbrew identity and browser favicon.
+- Keep the mark visually centred in its circular background. Use 36–40px in compact navigation lockups and 48px in the sign-in hero, as specified in the [UI style guide](ui-style-guide.md#brand-assets).
+- Decorative line-art scenes live in `apps/web/src/components/cosmic-art.tsx`. They may draw cups, orbital queues, beans, and stars, but they do not communicate an action or replace a Lucide glyph.
+- Always mark decorative illustrations `aria-hidden="true"`, remove them from pointer interaction, and keep essential copy outside the SVG.
+- Reuse the established motifs and six brand colours from the [UI style guide](ui-style-guide.md) instead of inventing a separate mini-style per route.
+- Routine UI actions continue to use semantic UI colours and Lucide icons.
 
 ## Review checklist
 

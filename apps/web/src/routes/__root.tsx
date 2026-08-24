@@ -6,6 +6,7 @@ import {
   createRootRouteWithContext,
 } from "@tanstack/react-router";
 import { createIsomorphicFn } from "@tanstack/react-start";
+import { CosmicArt } from "@web/components/cosmic-art";
 import { Icons } from "@web/components/icons";
 import SignIn from "@web/components/sign-in";
 import { Button } from "@web/components/ui/button";
@@ -20,7 +21,7 @@ import { useUserInfo } from "@web/hooks/api";
 import { parseCookie } from "cookie-es";
 import { Suspense, useEffect, useRef, useState } from "react";
 
-import logo from "../../assets/logo.svg";
+import favicon from "../../assets/logo.png";
 import { Skeleton } from "../components/ui/skeleton";
 import { signOut } from "../lib/auth-client";
 import type { Locale } from "../lib/i18n";
@@ -36,8 +37,9 @@ import PageLoadingSkeleton from "./-components/page-loading-skeleton";
 import appCss from "../../styles.css?url";
 
 const navItem =
-  "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium text-muted-foreground transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground";
-const activeNavItem = "bg-sidebar-accent font-bold text-sidebar-accent-foreground";
+  "group flex min-h-11 items-center gap-3 rounded-xl border border-transparent px-3 text-sm font-medium text-sidebar-foreground/65 transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground";
+const activeNavItem =
+  "border-sidebar-primary/25 bg-sidebar-accent font-bold text-sidebar-primary shadow-sm shadow-black/15 [&_svg]:text-sidebar-primary";
 const localeFlags: Record<Locale, string> = { en: "🇬🇧", ru: "🇷🇺" };
 const themeCookieMaxAge = 60 * 60 * 24 * 365;
 
@@ -82,7 +84,7 @@ export const Route = createRootRouteWithContext<
     ],
     links: [
       { href: appCss, rel: "stylesheet" },
-      { href: logo, rel: "icon", type: "image/svg+xml" },
+      { href: favicon, rel: "icon", type: "image/png" },
     ],
   }),
   component: RootDocument,
@@ -174,17 +176,23 @@ function AuthenticatedApplicationContent() {
   return (
     <main className="flex h-dvh w-full min-w-0 bg-background font-sans text-foreground transition-colors duration-300">
       <Sidebar>
-        <aside className="flex size-full flex-col border-r border-sidebar-border bg-sidebar px-4 pt-8 pb-5 transition-colors duration-300">
-          <div className="flex items-center gap-3">
+        <aside className="relative flex size-full flex-col overflow-hidden border-r border-sidebar-border bg-sidebar px-4 pt-7 pb-5 transition-colors duration-300">
+          <div className="relative z-10 flex items-center gap-3">
             <Link
               to="/"
-              className="flex items-center gap-2.5 px-1 font-heading text-[1.45rem] font-semibold tracking-tight text-sidebar-foreground"
+              className="flex items-center gap-2.5 px-1 font-heading text-[1.45rem] font-semibold tracking-tight text-sidebar-foreground focus-visible:rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sidebar-ring"
             >
-              <img alt="" src={logo} className="h-[24px]" />
-              coldbrew
+              <img alt="" src={favicon} className="size-10 object-contain" />
+              Coldbrew
             </Link>
           </div>
-          <nav className="mt-11 grid gap-1.5" aria-label={t("overview")}>
+          <div className="relative z-10 flex flex-col gap-1 px-1 pt-4">
+            <span className="text-[10px] font-bold tracking-[0.18em] text-sidebar-primary uppercase">
+              stream control
+            </span>
+            <span className="text-[11px] text-sidebar-foreground/45">coffee in, moments out</span>
+          </div>
+          <nav className="relative z-10 grid gap-1.5 pt-8" aria-label={t("overview")}>
             <Link
               activeOptions={{ exact: true }}
               activeProps={{ className: activeNavItem }}
@@ -238,12 +246,16 @@ function AuthenticatedApplicationContent() {
             </Link>
           </nav>
 
-          <div className="mt-auto flex flex-col gap-5">
+          <CosmicArt
+            className="pointer-events-none absolute right-[-42px] bottom-28 w-52 rotate-[-8deg] text-sidebar-foreground/20 opacity-35"
+            variant="orbit"
+          />
+          <div className="relative z-10 mt-auto flex flex-col gap-5">
             <div className="flex items-center justify-between px-3">
               <Link
                 aria-label={t("settings")}
                 activeProps={{ className: activeNavItem }}
-                className="grid size-8 place-items-center rounded-lg text-muted-foreground transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                className="grid size-8 place-items-center rounded-lg text-sidebar-foreground/60 transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                 onClick={() => setOpenMobile(false)}
                 to="/settings"
               >
@@ -254,7 +266,7 @@ function AuthenticatedApplicationContent() {
                   <TooltipTrigger
                     aria-label={t(isDark ? "switchToLightMode" : "switchToDarkMode")}
                     aria-pressed={isDark}
-                    className="grid size-8 cursor-pointer place-items-center rounded-lg border border-sidebar-border bg-background/70 text-muted-foreground transition hover:border-ring/50 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                    className="grid size-8 cursor-pointer place-items-center rounded-lg border border-sidebar-border bg-sidebar-accent/55 text-sidebar-foreground/70 transition hover:border-sidebar-ring/50 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sidebar-ring"
                     onClick={() => toggleDark()}
                     type="button"
                   >
@@ -273,7 +285,7 @@ function AuthenticatedApplicationContent() {
                     aria-expanded={isLanguageMenuOpen}
                     aria-haspopup="menu"
                     aria-label={t("language")}
-                    className="size-8 rounded-lg border border-sidebar-border bg-background/70 p-0 text-base text-muted-foreground transition hover:border-ring/50 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                    className="size-8 rounded-lg border border-sidebar-border bg-sidebar-accent/55 p-0 text-base text-sidebar-foreground/70 transition hover:border-sidebar-ring/50 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sidebar-ring"
                     onClick={() => setIsLanguageMenuOpen((isOpen) => !isOpen)}
                     size="xs"
                     type="button"
@@ -323,14 +335,14 @@ function AuthenticatedApplicationContent() {
                 <strong className="block truncate text-xs text-sidebar-foreground">
                   {user.name}
                 </strong>
-                <small className="mt-0.5 block truncate text-[10px] text-muted-foreground">
+                <small className="mt-0.5 block truncate text-[10px] text-sidebar-foreground/50">
                   {userInfo.slug}
                 </small>
               </div>
               <Tooltip>
                 <TooltipTrigger
                   aria-label={t("signOut")}
-                  className="cursor-pointer text-muted-foreground hover:text-primary"
+                  className="cursor-pointer text-sidebar-foreground/55 hover:text-sidebar-primary"
                   onClick={async () => {
                     await signOut();
                     window.location.assign("/");
@@ -346,17 +358,17 @@ function AuthenticatedApplicationContent() {
         </aside>
       </Sidebar>
       <div className="flex min-h-0 min-w-0 grow flex-col">
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-sidebar-border bg-sidebar px-3 pt-[env(safe-area-inset-top)] lg:hidden">
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-sidebar-border bg-sidebar px-3 pt-[env(safe-area-inset-top)] text-sidebar-foreground lg:hidden">
           <SidebarTrigger
             aria-label={t("openNavigation")}
-            className="text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           />
           <Link
             to="/"
             className="flex items-center gap-2 font-heading text-xl font-semibold tracking-tight text-sidebar-foreground"
           >
-            <img alt="" src={logo} className="h-5" />
-            coldbrew
+            <img alt="" src={favicon} className="size-9 object-contain" />
+            Coldbrew
           </Link>
         </header>
         {isDevelopmentWarningVisible && (
@@ -381,7 +393,7 @@ function AuthenticatedApplicationContent() {
           </div>
         )}
         <div className="min-h-0 min-w-0 grow overflow-y-auto overscroll-contain">
-          <div className="min-h-full w-full px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-5 sm:py-3">
+          <div className="mx-auto min-h-full w-full max-w-[1500px] px-3 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-6 lg:px-8">
             <Suspense
               fallback={
                 <div aria-busy="true" className="flex min-h-full flex-col gap-3">

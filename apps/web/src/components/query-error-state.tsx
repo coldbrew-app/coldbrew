@@ -3,6 +3,7 @@ import { cn } from "@web/lib/utils";
 import type { ComponentProps } from "react";
 
 import { useI18n } from "../lib/i18n";
+import { CosmicArt } from "./cosmic-art";
 import { Icons } from "./icons";
 
 type Props = ComponentProps<"div"> & {
@@ -24,7 +25,11 @@ export default function QueryErrorState({
       role="alert"
       {...props}
     >
-      <div className="flex max-w-sm flex-col items-center gap-3">
+      <div className="relative flex max-w-sm flex-col items-center gap-3 overflow-hidden">
+        <CosmicArt
+          className="absolute -top-6 -right-20 w-32 text-destructive/20 opacity-20"
+          variant="beans"
+        />
         <div className="grid size-10 place-items-center rounded-xl bg-destructive/10 text-destructive">
           <Icons.warn aria-hidden="true" size={18} />
         </div>

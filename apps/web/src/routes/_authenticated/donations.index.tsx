@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { CosmicArt } from "@web/components/cosmic-art";
 import DonationCard from "@web/components/donation-card";
 import { Icons } from "@web/components/icons";
 import { DonationListSkeleton } from "@web/components/loading-skeletons";
@@ -102,7 +103,11 @@ function EmptyDonations({ query }: { query: string }) {
   const { t } = useI18n();
   return (
     <div className="grid min-h-64 place-items-center px-5 text-center">
-      <div>
+      <div className="relative flex flex-col items-center gap-2 overflow-hidden">
+        <CosmicArt
+          className="absolute -top-10 -right-24 w-40 text-primary/20 opacity-25"
+          variant="orbit"
+        />
         <div className="mx-auto grid size-11 place-items-center rounded-xl bg-secondary text-secondary-foreground">
           <Icons.wallet aria-hidden="true" size={20} />
         </div>

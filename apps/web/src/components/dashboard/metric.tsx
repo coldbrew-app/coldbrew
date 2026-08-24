@@ -1,6 +1,6 @@
 import type { IconComponent } from "../icons";
 
-const panel = "rounded-2xl border border-border bg-card shadow-sm shadow-primary/5";
+const panel = "cosmic-panel";
 
 type MetricProps = {
   title: string;
@@ -13,14 +13,15 @@ type MetricProps = {
 
 function Metric({ title, value, note, subnote, icon: MetricIcon, iconClass }: MetricProps) {
   return (
-    <article className={`${panel} min-h-[148px] p-5`}>
+    <article className={`${panel} relative min-h-[148px] overflow-hidden p-5`}>
+      <span className="absolute top-0 left-6 h-1 w-12 rounded-b-full bg-current text-primary" />
       <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
         <span>{title}</span>
-        <span className={`grid size-8 place-items-center rounded-lg ${iconClass}`}>
+        <span className={`grid size-9 place-items-center rounded-xl ${iconClass}`}>
           <MetricIcon aria-hidden="true" />
         </span>
       </div>
-      <strong className="mt-4 block text-[27px] leading-none font-bold tracking-tight text-card-foreground">
+      <strong className="mt-4 block font-heading text-[29px] leading-none font-semibold tracking-tight text-card-foreground">
         {value}
       </strong>
       <p

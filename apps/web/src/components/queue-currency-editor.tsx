@@ -57,7 +57,8 @@ export function QueueCurrencyEditor() {
   };
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-4 shadow-sm shadow-primary/5 sm:p-5">
+    <section className="cosmic-panel relative overflow-hidden p-4 sm:p-5">
+      <span className="absolute top-0 left-6 h-1 w-16 rounded-b-full bg-[#54cfa5]" />
       {!isEditing ? (
         <div className="flex flex-wrap items-center gap-3">
           <QueueCurrencyHeading />

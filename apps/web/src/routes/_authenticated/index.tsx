@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { CosmicArt } from "@web/components/cosmic-art";
 import { Metric } from "@web/components/dashboard/metric";
 import DonationCard from "@web/components/donation-card";
 import { Icons } from "@web/components/icons";
@@ -28,7 +29,7 @@ export const Route = createFileRoute("/_authenticated/")({
   validateSearch: z.object({ success: z.boolean().optional() }),
 });
 
-const panel = "rounded-2xl border border-border bg-card shadow-sm shadow-primary/5";
+const panel = "cosmic-panel overflow-hidden";
 
 function Overview() {
   const userInfo = useUserInfo();
@@ -50,27 +51,40 @@ function Overview() {
   );
 
   return (
-    <section className="flex min-w-0 flex-1 flex-col" id="top">
-      <div className="w-full">
-        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
-          <div>
-            <h1 className="font-heading text-[clamp(30px,3vw,38px)] font-semibold tracking-tight text-foreground">
-              {t("greeting", { name: "Nikita" })}{" "}
-              <Icons.greetingAccent aria-hidden="true" className="inline size-5 text-primary" />
-            </h1>
-            <p className="mt-2.5 text-sm text-muted-foreground">{t("streamUpdate")}</p>
+    <section className="flex min-w-0 flex-1 flex-col gap-4" id="top">
+      <div className="flex w-full flex-col gap-4">
+        <header className="cosmic-hero relative grid min-h-[250px] overflow-hidden rounded-3xl p-6 text-white shadow-xl shadow-primary/15 sm:grid-cols-[1fr_280px] sm:p-8">
+          <div className="relative z-10 flex max-w-xl flex-col items-start justify-center gap-4">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-bold tracking-[0.16em] text-[#ffdd82] uppercase backdrop-blur-sm">
+              <span className="size-1.5 rounded-full bg-[#54cfa5] shadow-[0_0_12px_#54cfa5]" />
+              {t("brewStatus")}
+            </span>
+            <div className="flex flex-col gap-2">
+              <h1 className="font-heading text-[clamp(34px,5vw,56px)] leading-[0.98] font-semibold tracking-[-0.035em]">
+                {t("greeting", { name: "Nikita" })}
+              </h1>
+              <p className="max-w-md text-sm leading-relaxed text-white/70">{t("streamUpdate")}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                className="h-auto border-white/15 bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20"
+                type="button"
+                variant="outline"
+              >
+                {t("last30Days")} <Icons.dateRange aria-hidden="true" size={16} />
+              </Button>
+              <span className="text-xs font-semibold text-white/60">{t("orbitCaption")}</span>
+            </div>
           </div>
-          <Button
-            className="h-auto w-full justify-between bg-card px-3 py-2.5 text-xs font-semibold sm:w-auto"
-            type="button"
-            variant="outline"
-          >
-            {t("last30Days")} <Icons.dateRange aria-hidden="true" size={16} />
-          </Button>
+          <CosmicArt className="pointer-events-none absolute right-[-44px] bottom-[-26px] w-[300px] sm:right-[-8px] sm:bottom-[-18px] sm:w-[330px]" />
+          <div className="cosmic-grid pointer-events-none absolute inset-0 opacity-[0.16]" />
+        </header>
+        <div className="sr-only">
+          <Icons.greetingAccent aria-hidden="true" />
         </div>
         {success !== undefined && (
           <div
-            className={`mt-5 rounded-lg px-3.5 py-3 text-[13px] ${success ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}
+            className={`rounded-xl border px-3.5 py-3 text-[13px] ${success ? "border-emerald-300/50 bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300" : "border-red-300/50 bg-red-50 text-red-700 dark:bg-red-400/10 dark:text-red-300"}`}
           >
             {success ? t("connected") : t("notConnected")}
           </div>
@@ -85,17 +99,14 @@ function Overview() {
           />
         ) : (
           <>
-            <section
-              className="mt-7 grid gap-4 sm:mt-9 md:grid-cols-3"
-              aria-label={t("streamStatistics")}
-            >
+            <section className="grid gap-4 md:grid-cols-3" aria-label={t("streamStatistics")}>
               <Metric
                 title={t("totalReceived")}
                 value={fmtAmount(total, locale)}
                 note="↗ 18.2%"
                 subnote={t("versusPreviousPeriod")}
                 icon={Icons.wallet}
-                iconClass="bg-secondary text-secondary-foreground"
+                iconClass="bg-[#ffbd3e]/20 text-[#a65b00] dark:text-[#ffcf69]"
               />
               <Metric
                 title={t("donations")}
@@ -103,17 +114,17 @@ function Overview() {
                 note="↗ 12.5%"
                 subnote={t("versusPreviousPeriod")}
                 icon={Icons.donations}
-                iconClass="bg-primary/10 text-primary"
+                iconClass="bg-[#ff647c]/15 text-[#d83d63] dark:text-[#ff8da0]"
               />
               <Metric
                 title={t("averageDonation")}
-                value={fmtAmount(Math.round(total / donationsLength), locale)}
+                value={fmtAmount(donationsLength ? Math.round(total / donationsLength) : 0, locale)}
                 note={t("acrossPlatforms")}
                 icon={Icons.platform}
-                iconClass="bg-muted text-muted-foreground"
+                iconClass="bg-[#54cfa5]/18 text-[#188965] dark:text-[#67dfb8]"
               />
             </section>
-            <section className="mt-4 grid gap-4 xl:grid-cols-[1.03fr_.97fr]">
+            <section className="grid gap-4 xl:grid-cols-[1.03fr_.97fr]">
               <article className={panel} id="donations">
                 <div className="flex items-start justify-between p-5">
                   <div>
@@ -172,7 +183,7 @@ function Overview() {
                 </div>
               </article>
             </section>
-            <section className="mt-4 grid gap-4 xl:grid-cols-2">
+            <section className="grid gap-4 xl:grid-cols-2">
               <article
                 className={`${panel} flex min-h-[120px] flex-wrap items-center gap-3 p-5`}
                 id="integrations"
@@ -221,23 +232,26 @@ function Overview() {
                   </Button>
                 )}
               </article>
-              <article className="relative flex min-h-[120px] flex-wrap items-center gap-3 overflow-hidden rounded-2xl bg-linear-to-r from-[#3b2418] via-[#6f4e37] to-[#c98545] p-5 text-white shadow-sm shadow-primary/10">
-                <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-white/15">
+              <article className="relative flex min-h-[120px] flex-wrap items-center gap-3 overflow-hidden rounded-3xl bg-linear-to-r from-[#4056e8] via-[#6756dc] to-[#ff647c] p-5 text-white shadow-lg shadow-primary/15">
+                <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/15">
                   <Icons.copy aria-hidden="true" />
                 </div>
                 <div>
                   <h2 className="font-heading text-base font-semibold">{t("readyForOverlay")}</h2>
-                  <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-[#f5e4d1]">
+                  <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-white/75">
                     {t("overlayDescription")}
                   </p>
                 </div>
                 <Button
-                  className="z-10 ml-auto h-auto bg-[#fffaf2] px-2.5 py-2 text-[11px] font-bold text-[#5d3b26] hover:bg-[#fffaf2]/90"
+                  className="z-10 ml-auto h-auto bg-white px-2.5 py-2 text-[11px] font-bold text-[#293bba] hover:bg-white/90"
                   type="button"
                 >
                   {t("createOverlay")} <Icons.chevronRight aria-hidden="true" size={17} />
                 </Button>
-                <span className="absolute -top-16 -right-16 size-[148px] rounded-full border border-white/15" />
+                <CosmicArt
+                  className="pointer-events-none absolute -right-4 -bottom-9 w-40 text-white/30 opacity-35"
+                  variant="orbit"
+                />
               </article>
             </section>
           </>

@@ -27,11 +27,11 @@ export default function DonationCard({ donation, ...props }: Props) {
   return (
     <div
       className={clsx(
-        "flex min-w-0 overflow-hidden gap-3 px-4 py-4 sm:items-center sm:px-5",
+        "group relative flex min-w-0 overflow-hidden gap-3 px-4 py-4 transition-colors hover:bg-secondary/35 sm:items-center sm:px-5",
         props.className,
       )}
     >
-      <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-secondary text-[10px] font-bold text-secondary-foreground">
+      <div className="relative grid size-9 shrink-0 place-items-center rounded-xl border border-primary/10 bg-secondary text-[10px] font-bold text-secondary-foreground transition-transform group-hover:-rotate-3 group-hover:scale-105">
         {getInitials(author)}
       </div>
       <div className="min-w-0 grow">

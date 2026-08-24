@@ -2,12 +2,12 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
-@import "@fontsource-variable/fraunces";
+@import "@fontsource-variable/bitter";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-heading: "Fraunces Variable", serif;
+  --font-heading: "Bitter Variable", serif;
   --font-sans: "Geist Variable", sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -50,73 +50,79 @@
 }
 
 :root {
-  /* Coldbrew's warm specialty-coffee palette. */
-  --background: #f5f5f3;
-  --foreground: #2d2118;
-  --card: #fffefd;
-  --card-foreground: #2d2118;
-  --popover: #fffefd;
-  --popover-foreground: #2d2118;
-  --primary: #6f4e37;
-  --primary-foreground: #fffdf9;
-  --secondary: #eeeae4;
-  --secondary-foreground: #4a3224;
-  --muted: #efeeeb;
-  --muted-foreground: #746c65;
-  --accent: #e9ded2;
-  --accent-foreground: #5d3b26;
-  --destructive: #b94a3d;
-  --border: #dedbd6;
-  --input: #cec9c2;
-  --ring: #c98545;
-  --chart-1: #c98545;
-  --chart-2: #6f4e37;
-  --chart-3: #a36a3c;
-  --chart-4: #81906f;
-  --chart-5: #c36a4a;
-  --radius: 0.875rem;
-  --sidebar: #faf9f7;
-  --sidebar-foreground: #3a291d;
-  --sidebar-primary: #6f4e37;
-  --sidebar-primary-foreground: #fffdf9;
-  --sidebar-accent: #ebe7e1;
-  --sidebar-accent-foreground: #5d3b26;
-  --sidebar-border: #dedbd6;
-  --sidebar-ring: #c98545;
+  /* A bright coffee galaxy: milky paper around a calm, readable work surface. */
+  --background: #fff8ed;
+  --foreground: #251820;
+  --card: #fffdf8;
+  --card-foreground: #251820;
+  --popover: #fffdf8;
+  --popover-foreground: #251820;
+  --primary: #4056e8;
+  --primary-foreground: #ffffff;
+  --secondary: #eef0ff;
+  --secondary-foreground: #293bba;
+  --muted: #f4eee9;
+  --muted-foreground: #766b72;
+  --accent: #ffe0e5;
+  --accent-foreground: #a82f53;
+  --destructive: #d84557;
+  --border: #e7dcd8;
+  --input: #d8cbc8;
+  --ring: #4056e8;
+  --chart-1: #4056e8;
+  --chart-2: #ff647c;
+  --chart-3: #ffbd3e;
+  --chart-4: #54cfa5;
+  --chart-5: #8b5cf6;
+  --radius: 1rem;
+  --sidebar: #251820;
+  --sidebar-foreground: #fff8ed;
+  --sidebar-primary: #ffbd3e;
+  --sidebar-primary-foreground: #251820;
+  --sidebar-accent: #3d2938;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #4a3442;
+  --sidebar-ring: #ffbd3e;
+  --cosmic-blue: #4056e8;
+  --comet-coral: #ff647c;
+  --solar-mango: #ffbd3e;
+  --mint-signal: #54cfa5;
+  --espresso-void: #251820;
+  --milky-paper: #fff8ed;
 }
 
 .dark {
-  --background: #1b1511;
-  --foreground: #f3e9dc;
-  --card: #241c17;
-  --card-foreground: #f3e9dc;
-  --popover: #2a211b;
-  --popover-foreground: #f3e9dc;
-  --primary: #d8a168;
-  --primary-foreground: #23170f;
-  --secondary: #3a2b22;
-  --secondary-foreground: #f3e9dc;
-  --muted: #30251f;
-  --muted-foreground: #b9a897;
-  --accent: #493427;
-  --accent-foreground: #f2d1aa;
-  --destructive: #ec776a;
-  --border: #44352b;
-  --input: #534135;
-  --ring: #d8a168;
-  --chart-1: #e0a66b;
-  --chart-2: #ba8154;
-  --chart-3: #d6b184;
-  --chart-4: #a6b08f;
-  --chart-5: #dc8367;
-  --sidebar: #201914;
-  --sidebar-foreground: #f3e9dc;
-  --sidebar-primary: #d8a168;
-  --sidebar-primary-foreground: #23170f;
-  --sidebar-accent: #3a2b22;
-  --sidebar-accent-foreground: #f2d1aa;
-  --sidebar-border: #44352b;
-  --sidebar-ring: #d8a168;
+  --background: #171018;
+  --foreground: #fff8ed;
+  --card: #211721;
+  --card-foreground: #fff8ed;
+  --popover: #2a1d29;
+  --popover-foreground: #fff8ed;
+  --primary: #7f8cff;
+  --primary-foreground: #171018;
+  --secondary: #2d2d55;
+  --secondary-foreground: #dfe3ff;
+  --muted: #30232d;
+  --muted-foreground: #bcaeb8;
+  --accent: #512b3d;
+  --accent-foreground: #ffc8d3;
+  --destructive: #ff7a88;
+  --border: #493645;
+  --input: #5b4657;
+  --ring: #8c98ff;
+  --chart-1: #8c98ff;
+  --chart-2: #ff7f92;
+  --chart-3: #ffc75c;
+  --chart-4: #63deb5;
+  --chart-5: #b18aff;
+  --sidebar: #120c14;
+  --sidebar-foreground: #fff8ed;
+  --sidebar-primary: #ffbd3e;
+  --sidebar-primary-foreground: #251820;
+  --sidebar-accent: #33223a;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #3d2b3d;
+  --sidebar-ring: #ffbd3e;
 }
 
 @layer base {
@@ -135,14 +141,69 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    background-image: radial-gradient(
-      circle at 82% 0%,
-      color-mix(in srgb, var(--primary) 7%, transparent),
-      transparent 30rem
-    );
+    background-image:
+      radial-gradient(
+        circle at 85% 4%,
+        color-mix(in srgb, var(--comet-coral) 9%, transparent),
+        transparent 24rem
+      ),
+      radial-gradient(
+        circle at 62% 100%,
+        color-mix(in srgb, var(--cosmic-blue) 8%, transparent),
+        transparent 30rem
+      );
     background-attachment: fixed;
   }
   html {
     @apply font-sans;
+  }
+}
+
+@layer components {
+  .cosmic-panel {
+    @apply rounded-3xl border border-border bg-card shadow-sm;
+    box-shadow: 0 16px 42px color-mix(in srgb, var(--cosmic-blue) 8%, transparent);
+  }
+
+  .cosmic-grid {
+    background-image: radial-gradient(
+      circle,
+      color-mix(in srgb, var(--foreground) 16%, transparent) 1px,
+      transparent 1px
+    );
+    background-size: 18px 18px;
+  }
+
+  .cosmic-hero {
+    background:
+      radial-gradient(
+        circle at 78% 32%,
+        color-mix(in srgb, var(--solar-mango) 28%, transparent),
+        transparent 20%
+      ),
+      linear-gradient(135deg, var(--espresso-void), #38233d 56%, #4056e8);
+  }
+
+  .cosmic-orbit {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: cosmic-orbit 18s linear infinite;
+  }
+}
+
+@keyframes cosmic-orbit {
+  to {
+    rotate: 1turn;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

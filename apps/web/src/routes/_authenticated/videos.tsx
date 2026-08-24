@@ -1,4 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { CosmicArt } from "@web/components/cosmic-art";
+import { CosmicPageHeader } from "@web/components/cosmic-page-header";
 import { Icons } from "@web/components/icons";
 import { VideoListSkeleton } from "@web/components/loading-skeletons";
 import QueryErrorState from "@web/components/query-error-state";
@@ -111,9 +113,14 @@ function VideoQueue() {
   ] as const;
 
   return (
-    <section className="flex min-w-0 flex-1 flex-col">
+    <section className="flex min-w-0 flex-1 flex-col gap-4">
+      <CosmicPageHeader
+        description={t("queueOrbitDescription")}
+        eyebrow={t("queueOrbit")}
+        title={t("videoQueue")}
+      />
       <div className="w-full">
-        <article className="mt-4 overflow-hidden rounded-2xl border border-border bg-card shadow-sm shadow-primary/5">
+        <article className="cosmic-panel overflow-hidden">
           <div className="border-b border-border p-4 sm:p-5">
             <h1 className="font-heading text-lg font-semibold text-card-foreground">
               {t("videoQueue")}
@@ -155,7 +162,11 @@ function VideoQueue() {
                 </div>
               ) : (
                 <div className="grid min-h-64 place-items-center px-5 text-center">
-                  <div className="flex flex-col items-center gap-2">
+                  <div className="relative flex flex-col items-center gap-2 overflow-hidden">
+                    <CosmicArt
+                      className="absolute -top-14 -right-28 w-40 text-primary/20 opacity-25"
+                      variant="orbit"
+                    />
                     <div className="grid size-11 place-items-center rounded-xl bg-secondary text-secondary-foreground">
                       <Icons.wallet aria-hidden="true" size={20} />
                     </div>
@@ -177,7 +188,7 @@ function VideoQueue() {
               )}
             </div>
 
-            <aside className="order-1 border-b border-border bg-muted/45 p-3 lg:order-2 lg:w-72 lg:shrink-0 lg:border-b-0 lg:border-l">
+            <aside className="relative order-1 overflow-hidden border-b border-border bg-secondary/45 p-3 lg:order-2 lg:w-72 lg:shrink-0 lg:border-b-0 lg:border-l">
               <nav className="flex flex-col gap-1" aria-label={t("videoStatusFilters")}>
                 {tabs.map(({ id, label, count, icon: Icon }) => {
                   const isActive = id === activeTab;

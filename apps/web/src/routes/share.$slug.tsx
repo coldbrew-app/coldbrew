@@ -1,5 +1,6 @@
 import { SlugSchema } from "@coldbrew/packages/schemas.js";
 import { createFileRoute } from "@tanstack/react-router";
+import { CosmicArt } from "@web/components/cosmic-art";
 import { Icons } from "@web/components/icons";
 import { VideoListSkeleton } from "@web/components/loading-skeletons";
 import VideoCard from "@web/components/video-card";
@@ -32,13 +33,23 @@ function SharedVideoQueue() {
   const { t } = useI18n();
 
   return (
-    <main className="min-h-dvh bg-background p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-foreground sm:p-8">
-      <section className="mx-auto w-full max-w-4xl overflow-hidden rounded-2xl border border-border bg-card shadow-sm shadow-primary/5">
-        <header className="flex flex-col gap-1 border-b border-border p-5">
-          <h1 className="font-heading text-xl font-semibold text-card-foreground">
+    <main className="relative min-h-dvh overflow-hidden bg-background p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-foreground sm:p-8">
+      <div className="cosmic-grid pointer-events-none absolute inset-0 opacity-35" />
+      <section className="cosmic-panel relative mx-auto w-full max-w-4xl overflow-hidden">
+        <header className="cosmic-hero relative flex min-h-48 flex-col justify-center gap-2 overflow-hidden p-5 text-white sm:p-8">
+          <span className="relative z-10 text-[10px] font-bold tracking-[0.18em] text-[#ffcf69] uppercase">
+            {t("publicQueueEyebrow")}
+          </span>
+          <h1 className="relative z-10 max-w-xl font-heading text-[clamp(28px,5vw,44px)] leading-none font-semibold">
             {t("videoQueueBy", { slug })}
           </h1>
-          <p className="text-xs text-muted-foreground">{t("videosSharedBySupporters")}</p>
+          <p className="relative z-10 max-w-md text-xs leading-relaxed text-white/70">
+            {t("videosSharedBySupporters")}
+          </p>
+          <CosmicArt
+            className="pointer-events-none absolute -right-6 -bottom-12 w-72"
+            variant="orbit"
+          />
         </header>
         {videosQ.isLoading ? (
           <VideoListSkeleton aria-busy="true" aria-label={t("loadingVideoQueue")} />

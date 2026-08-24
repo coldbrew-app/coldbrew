@@ -1,57 +1,73 @@
 # Coldbrew UI Style Guide
 
-Coldbrew is a tool for streamers first. Its visual identity may reference specialty coffee, but the interface must remain neutral, focused, and suitable for a productivity dashboard. Coffee colors are brand accents, not a reason to tint every surface.
+Coldbrew is a streamer tool set in a bright coffee-cosmic world. Its story is “a long brew for bright moments”: donations and videos arrive as signals, wait in an orbital queue, and become quick reactions on stream. The visual identity makes that story memorable while working surfaces remain compact, legible, and predictable.
 
 ## Design direction
 
-- Keep the interface modern, calm, compact, and data-oriented.
-- Use warm brown and caramel accents selectively for branding, primary actions, active states, charts, and promotional blocks.
-- Keep light-theme backgrounds, cards, borders, and muted surfaces close to neutral gray or off-white. Avoid pervasive yellow or cream casts.
-- Preserve service brand colors, status colors, and destructive colors when they communicate meaning.
-- Do not reintroduce the previous violet Omnistream palette.
+- Keep the product structure dense, familiar, and data-oriented. The themed shell must clarify hierarchy rather than compete with stream data.
+- Use the coffee galaxy most strongly in entry scenes, page headers, the dashboard hero, public sharing, and focused calls to action.
+- Treat the cup portal and Milky Way queue as one coherent signature. Avoid unrelated space decoration.
+- Use childlike line drawings with confident, slightly imperfect curves. Decorative illustrations never replace controls, status text, or data.
+- Keep long lists and form interiors clean. A small orbit marker or coloured edge is enough to connect them to the brand world.
 
 ## Color system
 
-- Treat the semantic variables in `apps/web/styles.css` as the source of truth.
-- Prefer Tailwind utilities such as `bg-background`, `bg-card`, `text-foreground`, `text-muted-foreground`, `border-border`, `bg-secondary`, `text-primary`, and `ring-ring`.
-- Do not hardcode neutral colors inside components. Add or adjust a semantic token when a reusable role is missing.
-- Hardcoded colors are acceptable only for deliberate brand artwork, third-party service branding, status colors, or a one-off decorative gradient.
-- Every new component must work in both light and dark themes without selector-based compatibility hacks.
+The six brand colours are:
+
+- Milky Paper `#FFF8ED`: the light-theme atmosphere and light ink on dark brand scenes.
+- Espresso Void `#251820`: the dark coffee-space base and primary light-theme text.
+- Galactic Blue `#4056E8`: primary actions, links, selection, and the main chart route.
+- Comet Coral `#FF647C`: emotional highlights, incoming signals, and selected decorative details.
+- Solar Mango `#FFBD3E`: warm stars, sidebar identity, and high-energy accents.
+- Mint Signal `#54CFA5`: connection, successful movement, and supporting chart data.
+
+Treat the semantic variables in `apps/web/styles.css` as the source of truth. Prefer utilities such as `bg-background`, `bg-card`, `text-foreground`, `text-muted-foreground`, `border-border`, `bg-secondary`, `text-primary`, and `ring-ring`. Named brand colours may be hardcoded only in deliberate illustrations or one-off brand scenes where their identity matters.
+
+Both themes are first-class. Light mode uses Milky Paper around nearly white work surfaces. Dark mode uses a deep plum Espresso Void atmosphere, not a simple inversion. Status and third-party service colours retain their semantic meaning.
 
 ## Typography
 
-- Use Geist (`font-sans`) for navigation, controls, body copy, labels, and numeric data.
-- Use Fraunces (`font-heading`) for the Coldbrew wordmark, page titles, and prominent card headings.
-- Do not use the display font for dense tables, forms, status labels, or small utility text.
-- Keep the product wordmark lowercase as `coldbrew`; use `Coldbrew` in prose and document titles.
+- Use Geist (`font-sans`) for navigation, controls, body copy, lists, forms, captions, and numeric data.
+- Use Bitter (`font-heading`) for the `Coldbrew` wordmark, page titles, hero statements, and prominent values. Bitter provides a consistent Cyrillic and Latin voice; never rely on a generic serif fallback for translated headings.
+- Use tight display leading and tracking only at large sizes. Dense content and small utility text remain neutral and highly readable.
+- Use `Coldbrew` with an initial capital in the product wordmark, prose, and document titles.
 
 ## Layout and surfaces
 
-- Use `flex`, `grid`, `gap`, and padding for layout; prefer them over margins where practical.
-- Reusable components must accept external positioning and sizing through `className` rather than hardcoding width, margin, or growth on their root.
-- Use `rounded-2xl border border-border bg-card` for primary dashboard panels. Add only subtle warm shadows such as `shadow-sm shadow-primary/5`.
-- Use smaller radii for controls and nested elements so cards remain visually dominant.
+- Use `flex`, `grid`, `gap`, and padding for layout; prefer them over margins wherever practical.
+- Reusable components accept external positioning and sizing through `className`.
+- Use the `cosmic-panel` component class for primary dashboard and settings panels. It combines a large radius, semantic border, card surface, and soft blue shadow.
+- Use smaller radii for controls and nested items so page scenes and panels retain hierarchy.
 - Keep content containers `min-w-0` inside flex layouts and test long names, messages, and URLs for horizontal overflow.
-- Maintain the existing compact information density; decorative elements must not compete with stream data or actions.
+- Page headers use a quiet tinted surface and a contextual illustration. The dashboard, sign-in, and public queue may use the stronger `cosmic-hero` space scene.
+
+## Illustration and motion
+
+- Code-native decorative SVGs live in `apps/web/src/components/cosmic-art.tsx` and are the only exception to the Lucide UI-icon rule.
+- Current motifs are the cup portal, orbital queue, and coffee-bean comets. Reuse or extend these motifs instead of adding unrelated stars and planets per page.
+- Decorative SVGs use `aria-hidden="true"`, do not receive pointer events, and never contain essential text.
+- Use one slow orbital animation for ambient motion. Short hover movement is acceptable when it reinforces an incoming signal or queue item.
+- All non-essential animation and transition duration must collapse under `prefers-reduced-motion: reduce`.
 
 ## Components and interaction
 
-- Start with the existing shadcn components and their semantic variants.
-- Primary actions use `primary`; selected and active surfaces use `secondary` or sidebar accent tokens; quiet actions use `ghost` or `outline`.
-- Preserve visible hover, active, disabled, error, and `focus-visible` states.
-- Use status colors consistently: green for success/connected, amber for warnings, and red for errors or destructive actions.
-- Charts should use the `--chart-*` tokens instead of embedded palette colors.
-- Skeletons and empty states must use semantic muted and secondary surfaces.
+- Start with existing shadcn components and semantic variants.
+- Primary actions use `primary`; selected surfaces use `secondary`; quiet actions use `ghost` or `outline`.
+- Preserve visible hover, active, disabled, error, and `focus-visible` states. Bright scenes need explicit contrast-aware control styles.
+- Green communicates connected/success, amber communicates warning, and red communicates error or destructive action. Never rely on colour alone.
+- Charts use the `--chart-*` tokens. Galactic Blue is the primary route; Coral, Mango, Mint, and violet support it.
+- Skeletons remain structurally faithful to the content they replace. Empty and error states may use one faint contextual drawing.
 
 ## Brand assets
 
-- Use `apps/web/assets/logo.svg` for the product mark and favicon.
-- Keep the coffee-bean mark legible at 20-24 px and visually centered within its circular background.
-- Reserve the espresso-to-caramel gradient for high-emphasis brand moments; do not use it for routine controls or large page backgrounds.
+- Use `apps/web/assets/logo.png` for both the product mark and browser favicon.
+- Keep the coffee-bean mark visually centred within its circular background. Use 36–40 px in compact navigation lockups and 48 px in the sign-in hero.
+- The static logo, `CosmicArt` drawings, and Lucide interface icons have different jobs and should not be substituted for one another.
 
 ## Responsive and accessibility checks
 
-- Verify authenticated pages, sign-in, and public share pages at desktop and mobile widths.
-- Test both themes, including navigation, forms, loading states, empty states, and overlays.
-- Ensure there is no horizontal page overflow at 390 px, including with unbroken URLs.
-- Keep text and control contrast accessible and never rely on color alone to communicate status.
+- Verify every authenticated page, sign-in, and `/share/$slug` at desktop and 390×844.
+- Test light and dark themes, navigation, forms, loading, empty, error, success, overlays, and long content.
+- Ensure there is no horizontal page overflow at 390 px, including unbroken URLs.
+- Keep all decorative artwork hidden from assistive technology and ensure clipped art never covers interactive content.
+- Check keyboard focus on every control, especially controls placed over `cosmic-hero` scenes.

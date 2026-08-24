@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { CosmicPageHeader } from "@web/components/cosmic-page-header";
 import { Icons } from "@web/components/icons";
 import { Button } from "@web/components/ui/button";
 import { preloadRouteQuery } from "@web/lib/trpc";
@@ -26,16 +27,15 @@ function RouteComponent() {
   const { t } = useI18n();
 
   return (
-    <section className="flex min-w-0 flex-1 flex-col">
-      <div className="w-full">
-        <h1 className="font-heading text-[clamp(30px,3vw,38px)] font-semibold tracking-tight text-foreground">
-          {t("integrations")}
-        </h1>
-        <p className="mt-2.5 max-w-xl text-sm text-muted-foreground">
-          {t("integrationsDescription")}
-        </p>
-
-        <article className="mt-8 overflow-hidden rounded-2xl border border-border bg-card shadow-sm shadow-primary/5 sm:mt-10">
+    <section className="flex min-w-0 flex-1 flex-col gap-4">
+      <CosmicPageHeader
+        description={t("integrationsDescription")}
+        eyebrow={t("orbitCaption")}
+        title={t("integrations")}
+        variant="beans"
+      />
+      <div className="flex w-full flex-col gap-4">
+        <article className="cosmic-panel overflow-hidden">
           <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-6">
             <div className="grid size-12 shrink-0 place-items-center rounded-xl bg-linear-to-br from-orange-400 to-rose-500 text-sm font-bold text-white shadow-sm">
               DA
@@ -104,7 +104,7 @@ function RouteComponent() {
           </div>
         </article>
 
-        <div className="mt-5 flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 px-2 text-xs text-muted-foreground">
           <Icons.checked aria-hidden="true" size={15} className="text-primary" />
           {t("moreIntegrationsSoon")}
         </div>
