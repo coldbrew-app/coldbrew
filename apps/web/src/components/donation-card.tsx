@@ -4,6 +4,7 @@ import { clsx } from "clsx";
 
 import { useTextWithLinks } from "../hooks/use-text-with-links";
 import { useI18n } from "../lib/i18n";
+import { DonationAlertsSourceBadge } from "./donation-alerts";
 
 type Props = {
   className?: string;
@@ -37,9 +38,7 @@ export default function DonationCard({ donation, ...props }: Props) {
       <div className="min-w-0 grow">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <strong className="text-[13px] text-card-foreground">{author}</strong>
-          <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-semibold text-muted-foreground">
-            DonationAlerts
-          </span>
+          <DonationAlertsSourceBadge className="text-[9px]" />
         </div>
         <p className="mt-1 truncate text-xs text-muted-foreground">
           {messageChunks.map((chunk, index) =>

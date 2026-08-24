@@ -332,11 +332,10 @@ export class Store {
 
   async listVideoPriorities(userId: UserId) {
     const rows = await this.sql`
-      SELECT video_priority_id, label, is_default,
-        min_price_per_minute
+      SELECT video_priority_id, label, is_default, min_price_per_minute
       FROM video_priority
       WHERE user_id = ${userId}
-      ORDER BY video_priority.min_price_per_minute DESC, video_priority_id ASC
+      ORDER BY min_price_per_minute DESC, video_priority_id ASC
     `;
     return z.array(VideoPrioritySchema).parse(rows);
   }
@@ -354,8 +353,7 @@ export class Store {
         min_price_per_minute = CASE WHEN is_default THEN 0 ELSE ${minPricePerMinute} END
       WHERE user_id = ${userId}
         AND video_priority_id = ${videoPriorityId}
-      RETURNING video_priority_id, label, is_default,
-        min_price_per_minute
+      RETURNING video_priority_id, label, is_default, min_price_per_minute
     `;
     return VideoPrioritySchema.nullable().parse(rows[0] ?? null);
   }

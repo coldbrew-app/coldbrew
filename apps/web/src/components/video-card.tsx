@@ -1,19 +1,18 @@
 import { CurrencyCodeSchema, MoneyAmountSchema } from "@coldbrew/packages/schemas.js";
-import {
-  formatVideoTime,
-  getWatchDurationSeconds,
-  parseVideoTime,
-} from "@coldbrew/packages/video-timing.js";
+import { formatVideoTime, getWatchDurationSeconds } from "@coldbrew/packages/video-timing.js";
 import { fmtAmount, fmtDate, formatRelativeDate } from "@web/lib/fmt";
 import type { Video } from "@web/server/exports";
 import { clsx } from "clsx";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { FormProvider, useForm } from "react-hook-form";
 
 import { useTextWithLinks } from "../hooks/use-text-with-links";
 import { useI18n } from "../lib/i18n";
 import { Icons } from "./icons";
 import { Button } from "./ui/button";
+import { Field, FieldDescription, FieldError, FieldLabel } from "./ui/field";
+import { Input } from "./ui/input";
+import { parseVideoTiming, VideoTimingFields, type VideoTimingValues } from "./video-timing-fields";
 
 type Props = {
   video: Video;
@@ -23,10 +22,8 @@ type Props = {
   isUpdating?: boolean;
 };
 
-type VideoFormValues = {
+type VideoFormValues = VideoTimingValues & {
   amount: string;
-  startTime: string;
-  endTime: string;
 };
 
 const getYoutubeEmbedUrl = (url: string, startSeconds: number, endSeconds: number) => {
@@ -83,25 +80,17 @@ export default function VideoCard({
       ? video.donation.currency
       : CurrencyCodeSchema.parse(video.queueCurrency);
   const amountHelpId = `video-amount-help-${video.videoId}`;
-  const timingHelpId = `video-timing-help-${video.videoId}`;
+  const amountErrorId = `video-amount-error-${video.videoId}`;
   const [isEditing, setIsEditing] = useState(false);
-  const { formState, getValues, handleSubmit, register, reset, trigger, watch } =
-    useForm<VideoFormValues>({
-      defaultValues: {
-        amount: video.queueAmount ?? "0.00",
-        startTime: formatVideoTime(video.startSeconds),
-        endTime: formatVideoTime(video.endSeconds),
-      },
-      mode: "onChange",
-    });
-  const editedStartSeconds = parseVideoTime(watch("startTime"));
-  const editedEndSeconds = parseVideoTime(watch("endTime"));
-  const editedWatchDuration =
-    editedStartSeconds !== null &&
-    editedEndSeconds !== null &&
-    editedEndSeconds > editedStartSeconds
-      ? formatVideoTime(getWatchDurationSeconds(editedStartSeconds, editedEndSeconds))
-      : null;
+  const form = useForm<VideoFormValues>({
+    defaultValues: {
+      amount: video.queueAmount ?? "0.00",
+      startTime: formatVideoTime(video.startSeconds),
+      endTime: formatVideoTime(video.endSeconds),
+    },
+    mode: "onChange",
+  });
+  const { formState, handleSubmit, register, reset } = form;
 
   const startEditing = () => {
     reset({
@@ -123,11 +112,10 @@ export default function VideoCard({
 
   const save = async (input: VideoFormValues) => {
     if (!onUpdate) return;
-    const startSeconds = parseVideoTime(input.startTime);
-    const endSeconds = parseVideoTime(input.endTime);
-    if (startSeconds === null || endSeconds === null || endSeconds <= startSeconds) return;
+    const timing = parseVideoTiming(input, { allowOpenEnd: false });
+    if (timing === null || timing.endSeconds === null) return;
 
-    await onUpdate({ amount: input.amount, startSeconds, endSeconds });
+    await onUpdate({ amount: input.amount, ...timing, endSeconds: timing.endSeconds });
     setIsEditing(false);
   };
 
@@ -210,117 +198,53 @@ export default function VideoCard({
             </div>
           </div>
           {isEditing && (
-            <form
-              className="flex flex-col gap-3 rounded-lg border border-border bg-muted/60 p-3"
-              onSubmit={(event) => void handleSubmit(save)(event)}
-            >
-              <div className="grid gap-3 sm:grid-cols-3">
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-medium text-foreground">{t("amount")}</span>
-                  <input
-                    aria-describedby={amountHelpId}
-                    aria-invalid={Boolean(formState.errors.amount)}
-                    autoComplete="off"
-                    className="h-8 w-full rounded-md border border-input bg-card px-2 text-sm text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
+            <FormProvider {...form}>
+              <form
+                className="flex flex-col gap-3 rounded-lg border border-border bg-muted/60 p-3"
+                onSubmit={(event) => void handleSubmit(save)(event)}
+              >
+                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+                  <Field data-invalid={Boolean(formState.errors.amount)}>
+                    <FieldLabel htmlFor={`video-amount-${video.videoId}`}>{t("amount")}</FieldLabel>
+                    <Input
+                      aria-describedby={`${amountHelpId}${formState.errors.amount ? ` ${amountErrorId}` : ""}`}
+                      aria-invalid={Boolean(formState.errors.amount)}
+                      autoComplete="off"
+                      className="bg-card dark:bg-card"
+                      disabled={isUpdating}
+                      id={`video-amount-${video.videoId}`}
+                      min="0"
+                      step="any"
+                      type="number"
+                      {...register("amount", {
+                        required: t("enterPriorityAmount"),
+                        validate: (value) =>
+                          MoneyAmountSchema.safeParse(value).success || t("enterAmountZeroOrMore"),
+                      })}
+                    />
+                    <FieldDescription id={amountHelpId}>{t("queueAmountHelp")}</FieldDescription>
+                    <FieldError errors={[formState.errors.amount]} id={amountErrorId} />
+                  </Field>
+                  <VideoTimingFields disabled={isUpdating} />
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                  <Button
                     disabled={isUpdating}
-                    min="0"
-                    step="any"
-                    type="number"
-                    {...register("amount", {
-                      required: t("enterPriorityAmount"),
-                      validate: (value) =>
-                        MoneyAmountSchema.safeParse(value).success || t("enterAmountZeroOrMore"),
-                    })}
-                  />
-                  <span
-                    className="text-[11px] leading-snug text-muted-foreground"
-                    id={amountHelpId}
+                    onClick={cancelEditing}
+                    size="sm"
+                    type="button"
+                    variant="outline"
                   >
-                    {t("queueAmountHelp")}
-                  </span>
-                  {formState.errors.amount && (
-                    <span className="text-[11px] text-red-600">
-                      {formState.errors.amount.message}
-                    </span>
-                  )}
-                </label>
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-medium text-foreground">{t("videoStart")}</span>
-                  <input
-                    aria-describedby={timingHelpId}
-                    aria-invalid={Boolean(formState.errors.startTime)}
-                    autoComplete="off"
-                    className="h-8 w-full rounded-md border border-input bg-card px-2 text-sm text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
-                    disabled={isUpdating}
-                    inputMode="numeric"
-                    placeholder="0:00"
-                    type="text"
-                    {...register("startTime", {
-                      required: t("enterVideoTime"),
-                      validate: (value) => parseVideoTime(value) !== null || t("invalidVideoTime"),
-                      onChange: () => void trigger("endTime"),
-                    })}
-                  />
-                  {formState.errors.startTime && (
-                    <span className="text-[11px] text-red-600">
-                      {formState.errors.startTime.message}
-                    </span>
-                  )}
-                </label>
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-medium text-foreground">{t("videoEnd")}</span>
-                  <input
-                    aria-describedby={timingHelpId}
-                    aria-invalid={Boolean(formState.errors.endTime)}
-                    autoComplete="off"
-                    className="h-8 w-full rounded-md border border-input bg-card px-2 text-sm text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
-                    disabled={isUpdating}
-                    inputMode="numeric"
-                    placeholder="0:00"
-                    type="text"
-                    {...register("endTime", {
-                      required: t("enterVideoTime"),
-                      validate: (value) => {
-                        const endSeconds = parseVideoTime(value);
-                        if (endSeconds === null) return t("invalidVideoTime");
-                        const startSeconds = parseVideoTime(getValues("startTime"));
-                        return (
-                          startSeconds === null ||
-                          endSeconds > startSeconds ||
-                          t("videoEndAfterStart")
-                        );
-                      },
-                    })}
-                  />
-                  {formState.errors.endTime && (
-                    <span className="text-[11px] text-red-600">
-                      {formState.errors.endTime.message}
-                    </span>
-                  )}
-                </label>
-              </div>
-              <span className="text-[11px] leading-snug text-muted-foreground" id={timingHelpId}>
-                {editedWatchDuration === null
-                  ? t("videoTimingHelp")
-                  : t("watchDuration", { duration: editedWatchDuration })}
-              </span>
-              <div className="flex items-center justify-end gap-2">
-                <Button
-                  disabled={isUpdating}
-                  onClick={cancelEditing}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  <Icons.cancel aria-hidden="true" />
-                  {t("cancelEditing")}
-                </Button>
-                <Button disabled={!formState.isValid || isUpdating} size="sm" type="submit">
-                  <Icons.submit aria-hidden="true" />
-                  {t("save")}
-                </Button>
-              </div>
-            </form>
+                    <Icons.cancel aria-hidden="true" />
+                    {t("cancelEditing")}
+                  </Button>
+                  <Button disabled={!formState.isValid || isUpdating} size="sm" type="submit">
+                    <Icons.submit aria-hidden="true" />
+                    {t("save")}
+                  </Button>
+                </div>
+              </form>
+            </FormProvider>
           )}
           {video.source === "donation" ? (
             <p className="min-w-0 grow text-xs leading-relaxed text-muted-foreground sm:py-1">

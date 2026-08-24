@@ -11,6 +11,8 @@ import { useForm } from "react-hook-form";
 import { useI18n } from "../lib/i18n";
 import { Icons } from "./icons";
 import { Button } from "./ui/button";
+import { Field, FieldError, FieldLabel } from "./ui/field";
+import { Input } from "./ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 type FormValues = {
@@ -77,10 +79,11 @@ export function QueueCurrencyEditor() {
         <form className="flex flex-col gap-3" onSubmit={(event) => void handleSubmit(save)(event)}>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             <QueueCurrencyHeading />
-            <label className="flex items-center gap-2 text-xs font-medium text-foreground">
-              <span>{t("queueCurrency")}</span>
+            <Field className="w-auto" orientation="horizontal">
+              <FieldLabel htmlFor="queue-currency">{t("queueCurrency")}</FieldLabel>
               <select
                 className="h-9 rounded-lg border border-input bg-background px-2 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
+                id="queue-currency"
                 {...register("queueCurrency", {
                   setValueAs: (value) => QueueCurrencySchema.parse(value),
                 })}
@@ -91,15 +94,23 @@ export function QueueCurrencyEditor() {
                   </option>
                 ))}
               </select>
-            </label>
+            </Field>
             {nextCurrency !== userInfo.queueCurrency && (
-              <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span className="sr-only">{t("queueCurrencyRate", { larger, smaller })}</span>
+              <Field
+                className="w-auto"
+                data-invalid={Boolean(formState.errors.rate)}
+                orientation="horizontal"
+              >
+                <FieldLabel className="sr-only" htmlFor="queue-currency-rate">
+                  {t("queueCurrencyRate", { larger, smaller })}
+                </FieldLabel>
                 <span>1 {larger} =</span>
-                <input
+                <Input
+                  aria-describedby={formState.errors.rate ? "queue-currency-rate-error" : undefined}
                   aria-invalid={Boolean(formState.errors.rate)}
                   autoComplete="off"
-                  className="h-9 w-24 rounded-lg border border-input bg-background px-2 text-sm text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
+                  className="h-9 w-24 bg-background"
+                  id="queue-currency-rate"
                   min="0"
                   step="any"
                   type="number"
@@ -111,7 +122,7 @@ export function QueueCurrencyEditor() {
                   })}
                 />
                 <span>{smaller}</span>
-              </label>
+              </Field>
             )}
             <div className="flex gap-2 lg:ml-auto">
               <Button
@@ -135,10 +146,9 @@ export function QueueCurrencyEditor() {
           <p className="text-xs leading-relaxed text-muted-foreground">
             {t("queueCurrencyWarning")}
           </p>
-          {(formState.errors.rate || updateQueueCurrencyM.error) && (
-            <p className="text-xs text-red-600" role="alert">
-              {formState.errors.rate?.message ?? updateQueueCurrencyM.error?.message}
-            </p>
+          <FieldError errors={[formState.errors.rate]} id="queue-currency-rate-error" />
+          {updateQueueCurrencyM.error && (
+            <FieldError>{updateQueueCurrencyM.error.message}</FieldError>
           )}
         </form>
       )}

@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { CosmicPageHeader } from "@web/components/cosmic-page-header";
+import { DonationAlertsSourceBadge } from "@web/components/donation-alerts";
 import { Icons } from "@web/components/icons";
 
 import { createTranslator, useI18n } from "../../lib/i18n";
@@ -33,7 +34,7 @@ function DonationsLayout() {
               </div>
               <div className="flex items-center gap-2">
                 <Icons.filter aria-hidden="true" size={15} className="text-primary" />
-                <span className="text-xs font-semibold text-muted-foreground">DonationAlerts</span>
+                <DonationAlertsSourceBadge />
               </div>
             </div>
           </div>

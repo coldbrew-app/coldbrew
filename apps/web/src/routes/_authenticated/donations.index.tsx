@@ -1,11 +1,12 @@
 import { useDelayedEffect } from "@lebedevna/use-helpers";
 import { createFileRoute } from "@tanstack/react-router";
-import { CosmicArt } from "@web/components/cosmic-art";
 import DonationCard from "@web/components/donation-card";
+import { EmptyState } from "@web/components/empty-state";
 import { Icons } from "@web/components/icons";
 import { DonationListSkeleton } from "@web/components/loading-skeletons";
 import { PagePagination } from "@web/components/page-pagination";
 import QueryErrorState from "@web/components/query-error-state";
+import { Input } from "@web/components/ui/input";
 import { preloadRouteQuery } from "@web/lib/trpc";
 import { useEffect, useState } from "react";
 import { z } from "zod";
@@ -69,8 +70,8 @@ function DonationsIndex() {
             className="absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
           />
           <span className="sr-only">{t("searchDonations")}</span>
-          <input
-            className="h-9 w-full rounded-lg border border-input bg-background/60 pr-3 pl-9 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-3 focus:ring-ring/20"
+          <Input
+            className="h-9 bg-background/60 pr-3 pl-9 text-xs md:text-xs"
             onChange={(event) => setQuery(event.target.value)}
             placeholder={t("searchBySupporter")}
             value={query}
@@ -139,22 +140,11 @@ function DonationsIndex() {
 function EmptyDonations({ query }: { query: string }) {
   const { t } = useI18n();
   return (
-    <div className="grid min-h-64 place-items-center px-5 text-center">
-      <div className="relative flex flex-col items-center gap-2 overflow-hidden">
-        <CosmicArt
-          className="absolute -top-10 -right-24 w-40 text-primary/20 opacity-25"
-          variant="orbit"
-        />
-        <div className="mx-auto grid size-11 place-items-center rounded-xl bg-secondary text-secondary-foreground">
-          <Icons.wallet aria-hidden="true" size={20} />
-        </div>
-        <h3 className="mt-4 text-sm font-semibold text-card-foreground">
-          {t(query ? "noMatchingDonations" : "noDonationsYet")}
-        </h3>
-        <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-muted-foreground">
-          {query ? t("tryAnotherSearch") : t("donationsWillAppear")}
-        </p>
-      </div>
-    </div>
+    <EmptyState
+      description={query ? t("tryAnotherSearch") : t("donationsWillAppear")}
+      headingLevel={3}
+      icon={Icons.wallet}
+      title={t(query ? "noMatchingDonations" : "noDonationsYet")}
+    />
   );
 }

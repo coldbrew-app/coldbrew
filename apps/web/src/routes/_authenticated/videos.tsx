@@ -1,7 +1,7 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { AddVideoForm } from "@web/components/add-video-form";
-import { CosmicArt } from "@web/components/cosmic-art";
 import { CosmicPageHeader } from "@web/components/cosmic-page-header";
+import { EmptyState } from "@web/components/empty-state";
 import { Icons } from "@web/components/icons";
 import { VideoListSkeleton } from "@web/components/loading-skeletons";
 import { PagePagination } from "@web/components/page-pagination";
@@ -189,30 +189,23 @@ function VideoQueue() {
                   />
                 </>
               ) : (
-                <div className="grid min-h-64 place-items-center px-5 text-center">
-                  <div className="relative flex flex-col items-center gap-2 overflow-hidden">
-                    <CosmicArt
-                      className="absolute -top-14 -right-28 w-40 text-primary/20 opacity-25"
-                      variant="orbit"
-                    />
-                    <div className="grid size-11 place-items-center rounded-xl bg-secondary text-secondary-foreground">
-                      <Icons.video aria-hidden="true" size={20} />
-                    </div>
-                    <h3 className="text-sm font-semibold text-card-foreground">
-                      {statusCounts.all
-                        ? activeTab !== "all"
-                          ? t("noFilteredVideos", {
-                              status:
-                                tabs.find((tab) => tab.id === activeTab)?.label.toLowerCase() ?? "",
-                            })
-                          : t("noVideos")
-                        : t("noVideosInQueue")}
-                    </h3>
-                    <p className="max-w-xs text-xs leading-relaxed text-muted-foreground">
-                      {statusCounts.all ? t("filteredVideosWillAppear") : t("videoLinksWillAppear")}
-                    </p>
-                  </div>
-                </div>
+                <EmptyState
+                  description={
+                    statusCounts.all ? t("filteredVideosWillAppear") : t("videoLinksWillAppear")
+                  }
+                  headingLevel={3}
+                  icon={Icons.video}
+                  title={
+                    statusCounts.all
+                      ? activeTab !== "all"
+                        ? t("noFilteredVideos", {
+                            status:
+                              tabs.find((tab) => tab.id === activeTab)?.label.toLowerCase() ?? "",
+                          })
+                        : t("noVideos")
+                      : t("noVideosInQueue")
+                  }
+                />
               )}
             </div>
 

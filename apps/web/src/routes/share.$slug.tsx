@@ -1,6 +1,7 @@
 import { SlugSchema } from "@coldbrew/packages/schemas.js";
 import { createFileRoute } from "@tanstack/react-router";
 import { CosmicArt } from "@web/components/cosmic-art";
+import { EmptyState } from "@web/components/empty-state";
 import { Icons } from "@web/components/icons";
 import { VideoListSkeleton } from "@web/components/loading-skeletons";
 import { PagePagination } from "@web/components/page-pagination";
@@ -92,19 +93,14 @@ function SharedVideoQueue() {
             />
           </>
         ) : (
-          <div className="grid min-h-64 place-items-center px-5 text-center">
-            <div>
-              <div className="mx-auto grid size-11 place-items-center rounded-xl bg-secondary text-secondary-foreground">
-                <Icons.wallet aria-hidden="true" size={20} />
-              </div>
-              <h2 className="mt-4 text-sm font-semibold text-card-foreground">
-                {t(videosQ.data === null ? "queueNotFound" : "noVideosInQueue")}
-              </h2>
-              <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-muted-foreground">
-                {videosQ.data === null ? t("sharedQueueUnavailable") : t("videoLinksWillAppear")}
-              </p>
-            </div>
-          </div>
+          <EmptyState
+            description={
+              videosQ.data === null ? t("sharedQueueUnavailable") : t("videoLinksWillAppear")
+            }
+            headingLevel={2}
+            icon={Icons.wallet}
+            title={t(videosQ.data === null ? "queueNotFound" : "noVideosInQueue")}
+          />
         )}
       </section>
     </main>

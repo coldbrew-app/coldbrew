@@ -1,6 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { CosmicArt } from "@web/components/cosmic-art";
 import { Metric } from "@web/components/dashboard/metric";
+import {
+  DONATION_ALERTS_NAME,
+  DonationAlertsConnectionStatus,
+  DonationAlertsMark,
+} from "@web/components/donation-alerts";
 import DonationCard from "@web/components/donation-card";
 import { Icons } from "@web/components/icons";
 import { DashboardSkeleton } from "@web/components/loading-skeletons";
@@ -189,20 +194,13 @@ function Overview() {
                 className={`${panel} flex min-h-[120px] flex-wrap items-center gap-3 p-5`}
                 id="integrations"
               >
-                <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-linear-to-br from-orange-400 to-rose-500 text-[11px] font-bold text-white">
-                  DA
-                </div>
+                <DonationAlertsMark />
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <h2 className="text-[13px] font-semibold text-card-foreground">
-                      DonationAlerts
+                      {DONATION_ALERTS_NAME}
                     </h2>
-                    <span
-                      className={`flex items-center gap-1 text-[10px] font-bold ${donationAlertsConnected ? "text-emerald-600" : "text-orange-500"}`}
-                    >
-                      <i className="size-1.5 rounded-full bg-current" />
-                      {t(donationAlertsConnected ? "connected" : "setupNeeded")}
-                    </span>
+                    <DonationAlertsConnectionStatus connected={donationAlertsConnected} />
                   </div>
                   <p className="mt-1.5 text-xs text-muted-foreground">
                     {donationAlertsConnected ? t("automaticSync") : t("connectAllDonations")}

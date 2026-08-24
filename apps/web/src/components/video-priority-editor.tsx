@@ -8,6 +8,8 @@ import { useForm } from "react-hook-form";
 import { useI18n } from "../lib/i18n";
 import { Icons } from "./icons";
 import { Button } from "./ui/button";
+import { Field, FieldError, FieldLabel } from "./ui/field";
+import { Input } from "./ui/input";
 
 type VideoPriorityFormValues = {
   label: string;
@@ -100,6 +102,8 @@ export default function VideoPriorityEditor({ priority, isSelected, videoCount }
     );
   }
 
+  const errorId = `video-priority-error-${priority.videoPriorityId}`;
+
   return (
     <form
       className="flex flex-col gap-2 rounded-lg border border-border bg-card px-2 py-1.5"
@@ -116,22 +120,33 @@ export default function VideoPriorityEditor({ priority, isSelected, videoCount }
         >
           <Icons.cancel aria-hidden="true" />
         </Button>
-        <label className="min-w-0 grow">
-          <span className="sr-only">{t("name")}</span>
-          <input
+        <Field className="min-w-0 grow gap-0" data-invalid={Boolean(formState.errors.label)}>
+          <FieldLabel className="sr-only" htmlFor={`priority-label-${priority.videoPriorityId}`}>
+            {t("name")}
+          </FieldLabel>
+          <Input
             autoComplete="off"
+            aria-describedby={formState.errors.label ? errorId : undefined}
             aria-invalid={Boolean(formState.errors.label)}
-            className="h-6 w-full rounded-md border border-input bg-transparent px-2 text-xs text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
+            className="h-6 rounded-md px-2 text-xs md:text-xs"
+            id={`priority-label-${priority.videoPriorityId}`}
             maxLength={64}
             {...register("label", { required: t("enterQueueName") })}
           />
-        </label>
-        <label className="w-20 shrink-0">
-          <span className="sr-only">{t("minimumAmountPerMinute")}</span>
-          <input
+        </Field>
+        <Field
+          className="w-20 shrink-0 gap-0"
+          data-invalid={Boolean(formState.errors.minPricePerMinute)}
+        >
+          <FieldLabel className="sr-only" htmlFor={`priority-amount-${priority.videoPriorityId}`}>
+            {t("minimumAmountPerMinute")}
+          </FieldLabel>
+          <Input
             autoComplete="off"
+            aria-describedby={formState.errors.minPricePerMinute ? errorId : undefined}
             aria-invalid={Boolean(formState.errors.minPricePerMinute)}
-            className="h-6 w-full rounded-md border border-input bg-transparent px-2 text-xs text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
+            className="h-6 rounded-md px-2 text-xs md:text-xs"
+            id={`priority-amount-${priority.videoPriorityId}`}
             min="0"
             step="any"
             type="number"
@@ -141,7 +156,7 @@ export default function VideoPriorityEditor({ priority, isSelected, videoCount }
                 MoneyAmountSchema.safeParse(value).success || t("enterAmountZeroOrMore"),
             })}
           />
-        </label>
+        </Field>
         <Button
           aria-label={t(updateVideoPriorityM.isPending ? "savingQueue" : "saveQueue")}
           disabled={!formState.isValid || !formState.isDirty || updateVideoPriorityM.isPending}
@@ -152,14 +167,14 @@ export default function VideoPriorityEditor({ priority, isSelected, videoCount }
         </Button>
       </div>
       {(formState.errors.label || formState.errors.minPricePerMinute) && (
-        <p className="text-[10px] text-red-600" role="alert">
-          {formState.errors.label?.message ?? formState.errors.minPricePerMinute?.message}
-        </p>
+        <FieldError
+          className="text-[10px]"
+          errors={[formState.errors.label, formState.errors.minPricePerMinute]}
+          id={errorId}
+        />
       )}
       {updateVideoPriorityM.error && (
-        <p className="text-[10px] text-red-600" role="alert">
-          {updateVideoPriorityM.error.message}
-        </p>
+        <FieldError className="text-[10px]">{updateVideoPriorityM.error.message}</FieldError>
       )}
     </form>
   );

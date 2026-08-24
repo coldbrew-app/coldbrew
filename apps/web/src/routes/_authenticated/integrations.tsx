@@ -1,5 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CosmicPageHeader } from "@web/components/cosmic-page-header";
+import {
+  DONATION_ALERTS_NAME,
+  DonationAlertsConnectionStatus,
+  DonationAlertsMark,
+} from "@web/components/donation-alerts";
 import { Icons } from "@web/components/icons";
 import { Button } from "@web/components/ui/button";
 import { preloadRouteQuery } from "@web/lib/trpc";
@@ -37,9 +42,7 @@ function RouteComponent() {
       <div className="flex w-full flex-col gap-4">
         <article className="cosmic-panel overflow-hidden">
           <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-6">
-            <div className="grid size-12 shrink-0 place-items-center rounded-xl bg-linear-to-br from-orange-400 to-rose-500 text-sm font-bold text-white shadow-sm">
-              DA
-            </div>
+            <DonationAlertsMark size="lg" />
             <div className="min-w-0 grow">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="font-heading text-lg font-semibold text-card-foreground">
@@ -49,15 +52,10 @@ function RouteComponent() {
                     className="cursor-pointer hover:underline"
                     target="_blank"
                   >
-                    DonationAlerts
+                    {DONATION_ALERTS_NAME}
                   </a>
                 </h2>
-                <span
-                  className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${connected ? "bg-emerald-50 text-emerald-700" : "bg-orange-50 text-orange-600"}`}
-                >
-                  <i className="size-1.5 rounded-full bg-current" />
-                  {t(connected ? "connected" : "notConnected")}
-                </span>
+                <DonationAlertsConnectionStatus connected={connected} />
               </div>
               <p className="mt-1.5 text-sm text-muted-foreground">
                 {connected ? t("donationsSyncing") : t("importDonations")}

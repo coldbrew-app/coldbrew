@@ -7,6 +7,8 @@ import { useForm } from "react-hook-form";
 
 import { useI18n } from "../lib/i18n";
 import { Icons } from "./icons";
+import { Field, FieldDescription, FieldError, FieldLabel } from "./ui/field";
+import { Input } from "./ui/input";
 
 type Props = {
   className?: string;
@@ -52,20 +54,23 @@ export function SlugEditor({ className }: Props) {
         onSubmit={(event) => void handleSubmit(saveSlug)(event)}
       >
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <label className="min-w-0 grow">
-            <span className="sr-only">{t("publicVideoQueueSlug")}</span>
-            <span className="sr-only" id="slug-help">
+          <Field className="min-w-0 grow" data-invalid={Boolean(formState.errors.slug)}>
+            <FieldLabel className="sr-only" htmlFor="public-video-queue-slug">
+              {t("publicVideoQueueSlug")}
+            </FieldLabel>
+            <FieldDescription className="sr-only" id="slug-help">
               {t("slugHelp")}
-            </span>
-            <div className="flex min-w-0 rounded-lg border border-input bg-background/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/20">
+            </FieldDescription>
+            <div className="flex min-w-0 rounded-lg border border-input bg-background/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/20 has-[input[aria-invalid=true]]:border-destructive">
               <span className="shrink-0 border-r border-input px-2.5 py-1.5 text-sm text-muted-foreground">
                 {origin}/share/
               </span>
-              <input
+              <Input
                 autoComplete="off"
-                aria-describedby="slug-help"
+                aria-describedby={`slug-help${formState.errors.slug ? " slug-error" : ""}`}
                 aria-invalid={Boolean(formState.errors.slug)}
-                className="min-w-0 grow bg-transparent px-2.5 py-1.5 text-sm text-foreground outline-none"
+                className="min-w-0 grow rounded-none border-0 bg-transparent focus-visible:ring-0 dark:bg-transparent"
+                id="public-video-queue-slug"
                 maxLength={48}
                 {...register("slug", {
                   onChange: (event) => {
@@ -76,7 +81,8 @@ export function SlugEditor({ className }: Props) {
                 })}
               />
             </div>
-          </label>
+            <FieldError errors={[formState.errors.slug]} id="slug-error" />
+          </Field>
           <div className="flex shrink-0 gap-2">
             <Button
               disabled={!formState.isValid || !formState.isDirty || setSlugM.isPending}
@@ -91,16 +97,7 @@ export function SlugEditor({ className }: Props) {
             </Button>
           </div>
         </div>
-        {formState.errors.slug && (
-          <p className="text-xs text-red-600" role="alert">
-            {formState.errors.slug.message}
-          </p>
-        )}
-        {setSlugM.error && (
-          <p className="text-xs text-red-600" role="alert">
-            {setSlugM.error.message}
-          </p>
-        )}
+        {setSlugM.error && <FieldError>{setSlugM.error.message}</FieldError>}
       </form>
     </div>
   );
