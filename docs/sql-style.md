@@ -7,8 +7,9 @@ and database stores. Apply it to `db/*.sql` and SQL embedded in TypeScript.
 
 - Write SQL keywords in uppercase (`SELECT`, `FROM`, `NOT NULL`, `PRIMARY KEY`,
   `CREATE TABLE`) and built-in SQL types in lowercase (`text`, `jsonb`).
-- Write tables, columns, constraints, functions, and CTE names in lowercase
-  `snake_case`.
+- Write tables, columns, constraints, user-defined functions, and CTE names in
+  lowercase `snake_case`. Write SQL function calls in lowercase
+  (`coalesce`, `jsonb_build_object`, `now`).
 - Use singular names for tables (`donation`, `video`) and an explicit
   `<entity>_id` name for their primary keys.
 - Quote identifiers only when PostgreSQL requires it or when referring to an

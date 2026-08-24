@@ -154,7 +154,7 @@ BEGIN
   SELECT video_priority.video_priority_id
   INTO NEW.video_priority_id
   FROM video_priority
-  WHERE video_priority.user_id = COALESCE(
+  WHERE video_priority.user_id = coalesce(
       NEW.user_id,
       (SELECT donation.user_id
        FROM donation
@@ -167,7 +167,7 @@ BEGIN
 
   IF NEW.video_priority_id IS NULL THEN
     RAISE EXCEPTION 'no video priority for user %, amount %, start %, end %',
-      COALESCE(
+      coalesce(
         NEW.user_id,
         (SELECT donation.user_id
          FROM donation

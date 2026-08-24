@@ -165,7 +165,7 @@ export class Store {
         SELECT count(*)::int AS total
         FROM video
         LEFT JOIN donation USING (donation_id)
-        WHERE COALESCE(video.user_id, donation.user_id) = ${userId}
+        WHERE coalesce(video.user_id, donation.user_id) = ${userId}
           AND (${input.videoPriorityId}::int IS NULL OR video.video_priority_id = ${input.videoPriorityId})
           AND (
             ${input.videoStatus} = 'all'
@@ -182,13 +182,13 @@ export class Store {
           count(*) FILTER (WHERE video.saved_at IS NOT NULL)::int AS saved
         FROM video
         LEFT JOIN donation USING (donation_id)
-        WHERE COALESCE(video.user_id, donation.user_id) = ${userId}
+        WHERE coalesce(video.user_id, donation.user_id) = ${userId}
       `,
       this.sql`
         SELECT video.video_priority_id, count(*)::int AS count
         FROM video
         LEFT JOIN donation USING (donation_id)
-        WHERE COALESCE(video.user_id, donation.user_id) = ${userId}
+        WHERE coalesce(video.user_id, donation.user_id) = ${userId}
           AND video.video_priority_id IS NOT NULL
           AND (
             ${input.videoStatus} = 'all'
@@ -225,7 +225,7 @@ export class Store {
           WHEN donation.donation_id IS NULL THEN 'manual'
           ELSE 'donation'
         END AS source,
-        COALESCE(donation.occurred_at, video.added_at) AS created_at,
+        coalesce(donation.occurred_at, video.added_at) AS created_at,
         CASE
           WHEN donation.donation_id IS NULL THEN NULL
           ELSE jsonb_build_object(
@@ -244,7 +244,7 @@ export class Store {
       FROM video
       LEFT JOIN donation USING (donation_id)
       JOIN "user"
-        ON "user".user_id = COALESCE(video.user_id, donation.user_id)
+        ON "user".user_id = coalesce(video.user_id, donation.user_id)
       LEFT JOIN video_priority USING (video_priority_id)
       WHERE "user".user_id = ${userId}
         AND (${input.videoPriorityId}::int IS NULL OR video.video_priority_id = ${input.videoPriorityId})
@@ -258,7 +258,7 @@ export class Store {
         CASE
           WHEN ${input.videoStatus} = 'watched' THEN video.watched_at
           WHEN ${input.videoStatus} = 'saved' THEN video.saved_at
-          ELSE COALESCE(donation.occurred_at, video.added_at)
+          ELSE coalesce(donation.occurred_at, video.added_at)
         END DESC,
         video.video_id DESC
       LIMIT ${input.pageSize}
@@ -451,13 +451,13 @@ export class Store {
       await sql`
         UPDATE video_priority
         SET
-          min_price_per_minute = ROUND(min_price_per_minute * ${numeratorText} / ${denominatorText}, 2)
+          min_price_per_minute = round(min_price_per_minute * ${numeratorText} / ${denominatorText}, 2)
         WHERE user_id = ${userId}
       `;
       await sql`
         UPDATE video
         SET
-          queue_amount = ROUND(queue_amount * ${numeratorText} / ${denominatorText}, 2)
+          queue_amount = round(queue_amount * ${numeratorText} / ${denominatorText}, 2)
         WHERE video.queue_amount IS NOT NULL
           AND (
             video.user_id = ${userId} OR
@@ -486,7 +486,7 @@ export class Store {
           SELECT count(*)::int
           FROM video
           LEFT JOIN donation USING (donation_id)
-          WHERE COALESCE(video.user_id, donation.user_id) = "user".user_id
+          WHERE coalesce(video.user_id, donation.user_id) = "user".user_id
         ) AS total
       FROM "user"
       WHERE slug = ${slug}
@@ -517,7 +517,7 @@ export class Store {
           WHEN donation.donation_id IS NULL THEN 'manual'
           ELSE 'donation'
         END AS source,
-        COALESCE(donation.occurred_at, video.added_at) AS created_at,
+        coalesce(donation.occurred_at, video.added_at) AS created_at,
         CASE
           WHEN donation.donation_id IS NULL THEN NULL
           ELSE jsonb_build_object(
@@ -537,9 +537,9 @@ export class Store {
       LEFT JOIN donation USING (donation_id)
       LEFT JOIN video_priority USING (video_priority_id)
       JOIN "user"
-        ON "user".user_id = COALESCE(video.user_id, donation.user_id)
+        ON "user".user_id = coalesce(video.user_id, donation.user_id)
       WHERE "user".slug = ${slug}
-      ORDER BY COALESCE(donation.occurred_at, video.added_at) DESC, video.video_id DESC
+      ORDER BY coalesce(donation.occurred_at, video.added_at) DESC, video.video_id DESC
       LIMIT ${input.pageSize}
       OFFSET ${offset}
     `;
