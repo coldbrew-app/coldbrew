@@ -16,13 +16,16 @@ schemas, SQL, and migrations. English identifiers use the names in the
 | queue amount       | сумма для очереди                | `video.queue_amount` / `queueAmount`         | The donation amount converted into the current user queue currency when the video is created. `NULL` means it cannot be queued. |
 | video queue        | очередь видео                    | `/videos`                                    | The user's ordered collection of videos, organised by video priority. It is not a separate database table.                      |
 | video priority     | очередь (уровень)                | `video_priority` / `VideoPriority`           | A user-defined threshold and label that groups videos in the video queue.                                                       |
-| queue threshold    | порог очереди                    | `min_price_per_minute` / `minPricePerMinute` | The minimum queue amount per whole video minute required for a video priority.                                                  |
+| queue threshold    | порог очереди                    | `min_price_per_minute` / `minPricePerMinute` | The minimum queue amount per minute of watch time required for a video priority.                                                |
 | default priority   | очередь по умолчанию             | `is_default` / `isDefault`                   | The zero-threshold video priority used when no higher threshold applies.                                                        |
 | queue assignment   | назначение в очередь             | `video_priority_id` / `videoPriorityId`      | The video priority selected for a video. It remains unchanged when the user changes queue currency.                             |
 | unparsed donation  | необработанный донат             | `videos_parsed_at IS NULL`                   | A donation whose message has not yet been scanned for supported video links.                                                    |
 | parsed donation    | обработанный донат               | `videos_parsed_at`                           | A donation whose video-link scan has completed, including when it produced no videos.                                           |
 | watched video      | просмотренное видео              | `watched_at` / `watchedAt`                   | A video marked as watched by its owner.                                                                                         |
 | saved video        | сохранённое видео                | `saved_at` / `savedAt`                       | A video marked as saved by its owner.                                                                                           |
+| video start        | начало видео                     | `start_seconds` / `startSeconds`             | The offset in seconds where playback of a video begins.                                                                         |
+| video end          | окончание видео                  | `end_seconds` / `endSeconds`                 | The offset in seconds where playback of a video ends.                                                                           |
+| watch time         | время просмотра                  | `endSeconds - startSeconds`                  | The exact duration of the selected video segment. It is calculated and is not stored separately.                                |
 
 ## Invariants
 

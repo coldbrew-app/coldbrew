@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { extractYoutubeUrls, getYoutubeDurationMinutes } from "./youtube.js";
+import { extractYoutubeUrls, getYoutubeTiming, parseYoutubeTimestamp } from "./youtube.js";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -24,27 +24,51 @@ describe("findYoutubeUrls", () => {
     const result = extractYoutubeUrls("http://youtu.be/dQw4w9WgXcQ");
     expect(result).toEqual(["https://youtu.be/dQw4w9WgXcQ"]);
   });
+});
 
-  it("gets the duration in minutes from YouTube player metadata", async () => {
+describe("YouTube timing", () => {
+  it.each([
+    ["90", 90],
+    ["1m30s", 90],
+    ["2h3m4s", 7384],
+    ["15s", 15],
+  ])("parses %s", (value, expected) => {
+    expect(parseYoutubeTimestamp(value)).toBe(expected);
+  });
+
+  it.each([null, "", "1:30", "abc", "-1", "1m30"])("rejects %s", (value) => {
+    expect(parseYoutubeTimestamp(value)).toBeNull();
+  });
+
+  it("uses the exact video length", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response('{"lengthSeconds":"213"}')));
 
-    const $duration = getYoutubeDurationMinutes("https://youtu.be/dQw4w9WgXcQ");
+    const $timing = getYoutubeTiming("https://youtu.be/dQw4w9WgXcQ");
 
-    await expect($duration).resolves.toMatchObject({ value: 4 });
+    await expect($timing).resolves.toMatchObject({
+      value: { startSeconds: 0, endSeconds: 213 },
+    });
+  });
+
+  it("always starts at zero and uses a valid end parameter", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response('{"lengthSeconds":"213"}')));
+
+    const $timing = getYoutubeTiming("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=1m15s&end=180");
+
+    await expect($timing).resolves.toMatchObject({
+      value: { startSeconds: 0, endSeconds: 180 },
+    });
   });
 
   it.each([
-    ["keeps the minimum duration at one minute", 15, 1],
-    ["rounds the first 15 seconds of a minute down", 75, 1],
-    ["rounds up after the 15-second threshold", 76, 2],
-  ])("%s", async (_description, seconds, expectedMinutes) => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response(`{"lengthSeconds":"${seconds}"}`)),
-    );
+    ["https://youtu.be/dQw4w9WgXcQ?t=300", { startSeconds: 0, endSeconds: 213 }],
+    ["https://youtu.be/dQw4w9WgXcQ?t=30&end=20", { startSeconds: 0, endSeconds: 20 }],
+    ["https://youtu.be/dQw4w9WgXcQ?start=nope&end=300", { startSeconds: 0, endSeconds: 213 }],
+  ])("falls back for invalid bounds in %s", async (url, expected) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response('{"lengthSeconds":"213"}')));
 
-    const $duration = getYoutubeDurationMinutes("https://youtu.be/dQw4w9WgXcQ");
+    const $timing = getYoutubeTiming(url);
 
-    await expect($duration).resolves.toMatchObject({ value: expectedMinutes });
+    await expect($timing).resolves.toMatchObject({ value: expected });
   });
 });

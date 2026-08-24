@@ -3,6 +3,7 @@ CREATE TYPE video_provider AS ENUM ('youtube');
 
 CREATE DOMAIN js_date AS timestamptz(3);
 CREATE DOMAIN positive_int AS integer CHECK (VALUE > 0);
+CREATE DOMAIN nonnegative_int AS integer CHECK (VALUE >= 0);
 CREATE DOMAIN currency_code AS char(3) CHECK (VALUE ~ '^[A-Z]{3}$');
 CREATE DOMAIN money_amount AS numeric(20, 2) CHECK (VALUE >= 0);
 -- auth
@@ -117,11 +118,13 @@ CREATE TABLE video (
   provider_video_id text           NOT NULL,
   url               text           NOT NULL,
   queue_amount      money_amount       NULL,
-  duration_minutes  positive_int   NOT NULL,
+  start_seconds     nonnegative_int NOT NULL,
+  end_seconds       positive_int    NOT NULL,
   watched_at        js_date            NULL,
   saved_at          js_date            NULL,
   video_priority_id int                NULL REFERENCES video_priority (video_priority_id),
-  UNIQUE (donation_id, provider, provider_video_id)
+  UNIQUE (donation_id, provider, provider_video_id),
+  CHECK (end_seconds > start_seconds)
 );
 
 -- functions and triggers
@@ -142,14 +145,15 @@ BEGIN
   JOIN video_priority
     ON video_priority.user_id = donation.user_id
   WHERE donation.donation_id = NEW.donation_id
-    AND video_priority.min_price_per_minute <= NEW.queue_amount / NEW.duration_minutes
+    AND video_priority.min_price_per_minute <=
+      NEW.queue_amount * 60 / (NEW.end_seconds - NEW.start_seconds)
   ORDER BY video_priority.min_price_per_minute DESC, video_priority.video_priority_id ASC
   LIMIT 1;
 
   IF NEW.video_priority_id IS NULL THEN
-    RAISE EXCEPTION 'no video priority for user %, amount %, duration %',
+    RAISE EXCEPTION 'no video priority for user %, amount %, start %, end %',
       (SELECT user_id FROM donation WHERE donation_id = NEW.donation_id),
-      NEW.queue_amount, NEW.duration_minutes;
+      NEW.queue_amount, NEW.start_seconds, NEW.end_seconds;
   END IF;
 
   RETURN NEW;
@@ -157,6 +161,6 @@ END;
 $$;
 
 CREATE TRIGGER set_video_priority_id
-BEFORE INSERT OR UPDATE OF queue_amount, duration_minutes, donation_id ON video
+BEFORE INSERT OR UPDATE OF queue_amount, start_seconds, end_seconds, donation_id ON video
 FOR EACH ROW
 EXECUTE FUNCTION set_video_priority_id();

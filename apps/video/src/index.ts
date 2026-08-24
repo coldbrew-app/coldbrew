@@ -7,7 +7,7 @@ import { ok, safeTry } from "neverthrow";
 
 import { store } from "./sensors/db/index.js";
 import { VideoToSave } from "./sensors/db/store.js";
-import { extractYoutubeUrls, getYoutubeDurationMinutes, youtubeVideoId } from "./youtube.js";
+import { extractYoutubeUrls, getYoutubeTiming, youtubeVideoId } from "./youtube.js";
 
 async function main() {
   while (true) {
@@ -22,18 +22,18 @@ async function main() {
 
       urls_loop: for (const url of urls) {
         const $iteration = await safeTry(async function* () {
-          const durationMinutes = yield* getYoutubeDurationMinutes(url);
+          const timing = yield* getYoutubeTiming(url);
           const providerVideoId = youtubeVideoId(url);
           if (providerVideoId === null) return ok();
           const queueAmount =
             convertWithDefaultRate(donation.money, donation.queueCurrency)?.money.amount ?? null;
-          logger.debug("videos.push", { url, queueAmount, durationMinutes });
+          logger.debug("videos.push", { url, queueAmount, ...timing });
           videos.push({
             provider: "youtube",
             providerVideoId,
             url,
             queueAmount,
-            durationMinutes,
+            ...timing,
           });
           return ok();
         });

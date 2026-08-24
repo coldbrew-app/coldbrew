@@ -14,7 +14,8 @@ export type VideoToSave = {
   providerVideoId: string;
   url: string;
   queueAmount: MoneyAmount | null;
-  durationMinutes: number;
+  startSeconds: number;
+  endSeconds: number;
 };
 
 const JobSchema = DonationSchema.extend({
@@ -66,7 +67,8 @@ export class Store {
             provider_video_id text,
             url text,
             queue_amount money_amount,
-            duration_minutes positive_int
+            start_seconds nonnegative_int,
+            end_seconds positive_int
           )
         )
         INSERT INTO video (
@@ -75,7 +77,8 @@ export class Store {
           provider_video_id,
           url,
           queue_amount,
-          duration_minutes
+          start_seconds,
+          end_seconds
         )
         SELECT
           ${String(donationId)},
@@ -83,7 +86,8 @@ export class Store {
           provider_video_id,
           url,
           queue_amount,
-          duration_minutes
+          start_seconds,
+          end_seconds
         FROM input
         ON CONFLICT (donation_id, provider, provider_video_id) DO NOTHING
       `;

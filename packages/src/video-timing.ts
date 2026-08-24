@@ -1,0 +1,26 @@
+export function getWatchDurationSeconds(startSeconds: number, endSeconds: number) {
+  return endSeconds - startSeconds;
+}
+
+export function formatVideoTime(totalSeconds: number) {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return hours > 0
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+    : `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+export function parseVideoTime(value: string) {
+  const match = value.trim().match(/^(?:(\d+):([0-5]\d):([0-5]\d)|(\d+):([0-5]\d))$/);
+  if (match === null) return null;
+
+  const [, hours = "0", hourMinutes, hourSeconds, minutes = "0", minuteSeconds] = match;
+  const totalSeconds =
+    Number(hours) * 3600 +
+    Number(hourMinutes ?? minutes) * 60 +
+    Number(hourSeconds ?? minuteSeconds);
+
+  return Number.isSafeInteger(totalSeconds) ? totalSeconds : null;
+}

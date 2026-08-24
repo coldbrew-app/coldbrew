@@ -17,14 +17,44 @@ function isYoutubeUrl(url: ReadonlyURL) {
   );
 }
 
-export function getYoutubeDurationMinutes(url: string) {
+export function parseYoutubeTimestamp(value: string | null) {
+  if (value === null) return null;
+  if (/^\d+$/.test(value)) {
+    const seconds = Number(value);
+    return Number.isSafeInteger(seconds) ? seconds : null;
+  }
+
+  const match = value.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/);
+  if (match === null || match[0] === "") return null;
+
+  const [, hours = "0", minutes = "0", seconds = "0"] = match;
+  const totalSeconds = Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds);
+  return Number.isSafeInteger(totalSeconds) ? totalSeconds : null;
+}
+
+export function getYoutubeTiming(url: string) {
   return safeFetch(url).andThen((html) => {
     const duration = html.match(/"lengthSeconds":"(\d+)"/)?.[1];
     if (duration === undefined) {
       return erro({ type: "youtube: duration not found", html });
     }
-    const { max, ceil } = Math;
-    return ok(max(1, ceil((+duration - 15) / 60)));
+
+    const endOfVideoSeconds = Number(duration);
+    if (!Number.isSafeInteger(endOfVideoSeconds) || endOfVideoSeconds <= 0) {
+      return erro({ type: "youtube: invalid duration", duration: endOfVideoSeconds });
+    }
+
+    const parsedUrl = rurl(url);
+    const startSeconds = 0;
+    const requestedEndSeconds = parseYoutubeTimestamp(parsedUrl.searchParams.get("end"));
+    const endSeconds =
+      requestedEndSeconds !== null &&
+      requestedEndSeconds > startSeconds &&
+      requestedEndSeconds <= endOfVideoSeconds
+        ? requestedEndSeconds
+        : endOfVideoSeconds;
+
+    return ok({ startSeconds, endSeconds });
   });
 }
 

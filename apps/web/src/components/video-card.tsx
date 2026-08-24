@@ -1,4 +1,9 @@
 import { CurrencyCodeSchema, MoneyAmountSchema } from "@coldbrew/packages/schemas.js";
+import {
+  formatVideoTime,
+  getWatchDurationSeconds,
+  parseVideoTime,
+} from "@coldbrew/packages/video-timing.js";
 import { fmtAmount, fmtDate, formatRelativeDate } from "@web/lib/fmt";
 import type { Video } from "@web/server/exports";
 import { clsx } from "clsx";
@@ -13,16 +18,17 @@ import { Button } from "./ui/button";
 type Props = {
   video: Video;
   onStatusChange?: (status: { watchedAt?: Date | null; savedAt?: Date | null }) => void;
-  onUpdate?: (input: { amount: string; durationMinutes: number }) => Promise<void>;
+  onUpdate?: (input: { amount: string; startSeconds: number; endSeconds: number }) => Promise<void>;
   isUpdating?: boolean;
 };
 
 type VideoFormValues = {
   amount: string;
-  durationMinutes: number;
+  startTime: string;
+  endTime: string;
 };
 
-const getYoutubeEmbedUrl = (url: string) => {
+const getYoutubeEmbedUrl = (url: string, startSeconds: number, endSeconds: number) => {
   const parsedUrl = new URL(url);
   const host = parsedUrl.hostname.replace(/^www\./, "").toLowerCase();
   const videoId =
@@ -31,7 +37,12 @@ const getYoutubeEmbedUrl = (url: string) => {
       : (parsedUrl.searchParams.get("v") ??
         parsedUrl.pathname.match(/^\/(?:embed|shorts)\/([^/]+)/)?.[1]);
 
-  return videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : null;
+  if (!videoId) return null;
+
+  const embedUrl = new URL(`https://www.youtube-nocookie.com/embed/${videoId}`);
+  embedUrl.searchParams.set("start", String(startSeconds));
+  embedUrl.searchParams.set("end", String(endSeconds));
+  return embedUrl.href;
 };
 
 const normalizeUrl = (url: string) => {
@@ -45,31 +56,59 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
   const { locale, t } = useI18n();
   const author = video.donation.author ?? t("anonymous");
   const messageChunks = useTextWithLinks(video.donation.message ?? "");
-  const embedUrl = getYoutubeEmbedUrl(video.url);
+  const embedUrl = getYoutubeEmbedUrl(video.url, video.startSeconds, video.endSeconds);
+  const timingLabel = `${formatVideoTime(video.startSeconds)}–${formatVideoTime(video.endSeconds)}`;
+  const watchDuration = formatVideoTime(
+    getWatchDurationSeconds(video.startSeconds, video.endSeconds),
+  );
   const isWatched = video.watchedAt !== null;
   const isSaved = video.savedAt !== null;
+  const amountHelpId = `video-amount-help-${video.videoId}`;
+  const timingHelpId = `video-timing-help-${video.videoId}`;
   const [isEditing, setIsEditing] = useState(false);
-  const { formState, handleSubmit, register, reset } = useForm<VideoFormValues>({
-    defaultValues: {
-      amount: video.queueAmount ?? "0.00",
-      durationMinutes: video.durationMinutes,
-    },
-    mode: "onChange",
-  });
+  const { formState, getValues, handleSubmit, register, reset, trigger, watch } =
+    useForm<VideoFormValues>({
+      defaultValues: {
+        amount: video.queueAmount ?? "0.00",
+        startTime: formatVideoTime(video.startSeconds),
+        endTime: formatVideoTime(video.endSeconds),
+      },
+      mode: "onChange",
+    });
+  const editedStartSeconds = parseVideoTime(watch("startTime"));
+  const editedEndSeconds = parseVideoTime(watch("endTime"));
+  const editedWatchDuration =
+    editedStartSeconds !== null &&
+    editedEndSeconds !== null &&
+    editedEndSeconds > editedStartSeconds
+      ? formatVideoTime(getWatchDurationSeconds(editedStartSeconds, editedEndSeconds))
+      : null;
 
   const startEditing = () => {
-    reset({ amount: video.queueAmount ?? "0.00", durationMinutes: video.durationMinutes });
+    reset({
+      amount: video.queueAmount ?? "0.00",
+      startTime: formatVideoTime(video.startSeconds),
+      endTime: formatVideoTime(video.endSeconds),
+    });
     setIsEditing(true);
   };
 
   const cancelEditing = () => {
-    reset({ amount: video.queueAmount ?? "0.00", durationMinutes: video.durationMinutes });
+    reset({
+      amount: video.queueAmount ?? "0.00",
+      startTime: formatVideoTime(video.startSeconds),
+      endTime: formatVideoTime(video.endSeconds),
+    });
     setIsEditing(false);
   };
 
   const save = async (input: VideoFormValues) => {
     if (!onUpdate) return;
-    await onUpdate(input);
+    const startSeconds = parseVideoTime(input.startTime);
+    const endSeconds = parseVideoTime(input.endTime);
+    if (startSeconds === null || endSeconds === null || endSeconds <= startSeconds) return;
+
+    await onUpdate({ amount: input.amount, startSeconds, endSeconds });
     setIsEditing(false);
   };
 
@@ -89,11 +128,9 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
                 src={embedUrl}
                 title={t("youtubeVideoFrom", { author })}
               />
-              {video.durationMinutes !== null && (
-                <span className="absolute right-2 bottom-2 rounded bg-black/75 px-1.5 py-0.5 text-[11px] font-medium text-white">
-                  {t("minutes", { count: video.durationMinutes })}
-                </span>
-              )}
+              <span className="absolute right-2 bottom-2 rounded bg-black/75 px-1.5 py-0.5 text-[11px] font-medium text-white">
+                {timingLabel}
+              </span>
             </div>
           )}
         </div>
@@ -133,9 +170,7 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
                 </strong>
                 {!isEditing && (
                   <span className="text-xs text-muted-foreground">
-                    {video.durationMinutes === null
-                      ? t("unknownDuration")
-                      : t("minutes", { count: video.durationMinutes })}
+                    {t("watchDuration", { duration: watchDuration })}
                   </span>
                 )}
               </div>
@@ -158,11 +193,11 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
               className="flex flex-col gap-3 rounded-lg border border-border bg-muted/60 p-3"
               onSubmit={(event) => void handleSubmit(save)(event)}
             >
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-3">
                 <label className="flex flex-col gap-1.5">
                   <span className="text-xs font-medium text-foreground">{t("amount")}</span>
                   <input
-                    aria-describedby="video-amount-help"
+                    aria-describedby={amountHelpId}
                     aria-invalid={Boolean(formState.errors.amount)}
                     autoComplete="off"
                     className="h-8 w-full rounded-md border border-input bg-card px-2 text-sm text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
@@ -178,7 +213,7 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
                   />
                   <span
                     className="text-[11px] leading-snug text-muted-foreground"
-                    id="video-amount-help"
+                    id={amountHelpId}
                   >
                     {t("donationAmountHelp")}
                   </span>
@@ -189,38 +224,65 @@ export default function VideoCard({ video, onStatusChange, onUpdate, isUpdating 
                   )}
                 </label>
                 <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-medium text-foreground">
-                    {t("durationMinutes")}
-                  </span>
+                  <span className="text-xs font-medium text-foreground">{t("videoStart")}</span>
                   <input
-                    aria-describedby="video-duration-help"
-                    aria-invalid={Boolean(formState.errors.durationMinutes)}
+                    aria-describedby={timingHelpId}
+                    aria-invalid={Boolean(formState.errors.startTime)}
                     autoComplete="off"
                     className="h-8 w-full rounded-md border border-input bg-card px-2 text-sm text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
                     disabled={isUpdating}
-                    min="0"
-                    step="1"
-                    type="number"
-                    {...register("durationMinutes", {
-                      required: t("enterDuration"),
-                      valueAsNumber: true,
-                      validate: (value) =>
-                        (Number.isInteger(value) && value >= 0) || t("enterWholeMinutes"),
+                    inputMode="numeric"
+                    placeholder="0:00"
+                    type="text"
+                    {...register("startTime", {
+                      required: t("enterVideoTime"),
+                      validate: (value) => parseVideoTime(value) !== null || t("invalidVideoTime"),
+                      onChange: () => void trigger("endTime"),
                     })}
                   />
-                  <span
-                    className="text-[11px] leading-snug text-muted-foreground"
-                    id="video-duration-help"
-                  >
-                    {t("durationHelp")}
-                  </span>
-                  {formState.errors.durationMinutes && (
+                  {formState.errors.startTime && (
                     <span className="text-[11px] text-red-600">
-                      {formState.errors.durationMinutes.message}
+                      {formState.errors.startTime.message}
+                    </span>
+                  )}
+                </label>
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-xs font-medium text-foreground">{t("videoEnd")}</span>
+                  <input
+                    aria-describedby={timingHelpId}
+                    aria-invalid={Boolean(formState.errors.endTime)}
+                    autoComplete="off"
+                    className="h-8 w-full rounded-md border border-input bg-card px-2 text-sm text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
+                    disabled={isUpdating}
+                    inputMode="numeric"
+                    placeholder="0:00"
+                    type="text"
+                    {...register("endTime", {
+                      required: t("enterVideoTime"),
+                      validate: (value) => {
+                        const endSeconds = parseVideoTime(value);
+                        if (endSeconds === null) return t("invalidVideoTime");
+                        const startSeconds = parseVideoTime(getValues("startTime"));
+                        return (
+                          startSeconds === null ||
+                          endSeconds > startSeconds ||
+                          t("videoEndAfterStart")
+                        );
+                      },
+                    })}
+                  />
+                  {formState.errors.endTime && (
+                    <span className="text-[11px] text-red-600">
+                      {formState.errors.endTime.message}
                     </span>
                   )}
                 </label>
               </div>
+              <span className="text-[11px] leading-snug text-muted-foreground" id={timingHelpId}>
+                {editedWatchDuration === null
+                  ? t("videoTimingHelp")
+                  : t("watchDuration", { duration: editedWatchDuration })}
+              </span>
               <div className="flex items-center justify-end gap-2">
                 <Button
                   disabled={isUpdating}

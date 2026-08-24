@@ -66,20 +66,26 @@ export const DonationSchema = z.object({
 });
 export type Donation = z.infer<typeof DonationSchema>;
 
-export const VideoSchema = z.object({
-  videoId: VideoIdSchema,
-  videoPriorityId: VideoPriorityIdSchema.nullable(),
-  provider: z.literal("youtube"),
-  providerVideoId: z.string().min(1),
-  url: z.url(),
-  queueAmount: MoneyAmountSchema.nullable(),
-  queueCurrency: QueueCurrencySchema,
-  durationMinutes: z.number().int().positive(),
-  priorityLabel: z.string().nullable(),
-  watchedAt: z.coerce.date().nullable(),
-  savedAt: z.coerce.date().nullable(),
-  donation: DonationSchema,
-});
+export const VideoSchema = z
+  .object({
+    videoId: VideoIdSchema,
+    videoPriorityId: VideoPriorityIdSchema.nullable(),
+    provider: z.literal("youtube"),
+    providerVideoId: z.string().min(1),
+    url: z.url(),
+    queueAmount: MoneyAmountSchema.nullable(),
+    queueCurrency: QueueCurrencySchema,
+    startSeconds: z.number().int().nonnegative(),
+    endSeconds: z.number().int().positive(),
+    priorityLabel: z.string().nullable(),
+    watchedAt: z.coerce.date().nullable(),
+    savedAt: z.coerce.date().nullable(),
+    donation: DonationSchema,
+  })
+  .refine(({ startSeconds, endSeconds }) => endSeconds > startSeconds, {
+    error: "video end must be after video start",
+    path: ["endSeconds"],
+  });
 export type Video = z.infer<typeof VideoSchema>;
 
 export const VideoPrioritySchema = z.object({

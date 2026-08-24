@@ -91,18 +91,25 @@ export const appRouter = router({
 
   updateVideo: authenticatedProcedure
     .input(
-      z.object({
-        videoId: VideoIdSchema,
-        amount: MoneyAmountSchema,
-        durationMinutes: z.number().int().positive(),
-      }),
+      z
+        .object({
+          videoId: VideoIdSchema,
+          amount: MoneyAmountSchema,
+          startSeconds: z.number().int().nonnegative(),
+          endSeconds: z.number().int().positive(),
+        })
+        .refine(({ startSeconds, endSeconds }) => endSeconds > startSeconds, {
+          message: "Video end must be after video start.",
+          path: ["endSeconds"],
+        }),
     )
     .mutation(async ({ ctx, input }) => {
       const wasUpdated = await store.updateVideo(
         ctx.userId,
         input.videoId,
         input.amount,
-        input.durationMinutes,
+        input.startSeconds,
+        input.endSeconds,
       );
 
       if (!wasUpdated) {

@@ -103,7 +103,8 @@ export class Store {
         video.provider,
         video.provider_video_id,
         video.url,
-        video.duration_minutes,
+        video.start_seconds,
+        video.end_seconds,
         video.watched_at,
         video.saved_at,
         video_priority.label AS priority_label,
@@ -183,13 +184,15 @@ export class Store {
     userId: UserId,
     videoId: VideoId,
     queueAmount: string,
-    durationMinutes: number,
+    startSeconds: number,
+    endSeconds: number,
   ) {
     const rows = await this.sql`
       UPDATE video
       SET
         queue_amount = ${queueAmount},
-        duration_minutes = ${durationMinutes}
+        start_seconds = ${startSeconds},
+        end_seconds = ${endSeconds}
       FROM donation
       WHERE video.donation_id = donation.donation_id
         AND donation.user_id = ${userId}
@@ -272,7 +275,8 @@ export class Store {
         video.provider,
         video.provider_video_id,
         video.url,
-        video.duration_minutes,
+        video.start_seconds,
+        video.end_seconds,
         video.watched_at,
         video.saved_at,
         video_priority.label AS priority_label,
