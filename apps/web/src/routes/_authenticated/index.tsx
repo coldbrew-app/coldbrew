@@ -12,7 +12,7 @@ import { createTranslator, useI18n } from "@web/lib/i18n";
 import { preloadRouteQuery } from "@web/lib/trpc";
 import { z } from "zod";
 
-import { useAuthUrlQ, useDonationsQ as useDonations, useUserInfo } from "../../hooks/api";
+import { useAuthUrlQ, useDonationOverviewQ, useUserInfo } from "../../hooks/api";
 
 export const Route = createFileRoute("/_authenticated/")({
   component: Overview,
@@ -22,11 +22,13 @@ export const Route = createFileRoute("/_authenticated/")({
   loader: async ({ context }) => {
     if (!context.viewer) return;
     await Promise.all([
-      preloadRouteQuery(context.queryClient, context.trpc.donations.queryOptions()),
+      preloadRouteQuery(context.queryClient, context.trpc.donationOverview.queryOptions()),
       preloadRouteQuery(context.queryClient, context.trpc.authUrls.queryOptions()),
     ]);
   },
-  validateSearch: z.object({ success: z.boolean().optional() }),
+  validateSearch: z.object({
+    success: z.boolean().optional(),
+  }),
 });
 
 const panel = "cosmic-panel overflow-hidden";
@@ -34,14 +36,13 @@ const panel = "cosmic-panel overflow-hidden";
 function Overview() {
   const userInfo = useUserInfo();
   const authUrlQ = useAuthUrlQ();
-  const donationsQ = useDonations();
+  const donationOverviewQ = useDonationOverviewQ();
   const success = Route.useSearch({ select: (search) => search.success });
   const donationAlertsConnected = userInfo !== null && userInfo.hasDonationAlertsConnection;
   const { locale, t } = useI18n();
 
-  const total =
-    donationsQ.data?.reduce((sum, donation) => sum + Number(donation.money.amount), 0) ?? 0;
-  const donationsLength = donationsQ.data?.length ?? 0;
+  const total = donationOverviewQ.data?.totalAmount ?? 0;
+  const donationsLength = donationOverviewQ.data?.donationCount ?? 0;
   const chartDates = ["2026-06-29", "2026-07-06", "2026-07-13", "2026-07-20", "2026-07-27"].map(
     (date) =>
       new Intl.DateTimeFormat(locale === "ru" ? "ru-RU" : "en-US", {
@@ -89,13 +90,13 @@ function Overview() {
             {success ? t("connected") : t("notConnected")}
           </div>
         )}
-        {donationsQ.isLoading ? (
+        {donationOverviewQ.isLoading ? (
           <DashboardSkeleton aria-busy="true" aria-label={t("loadingDonations")} />
-        ) : donationsQ.isError ? (
+        ) : donationOverviewQ.isError ? (
           <QueryErrorState
             className="mt-7 rounded-2xl border border-border bg-card sm:mt-9"
-            isRetrying={donationsQ.isFetching}
-            onRetry={() => void donationsQ.refetch()}
+            isRetrying={donationOverviewQ.isFetching}
+            onRetry={() => void donationOverviewQ.refetch()}
           />
         ) : (
           <>
@@ -141,9 +142,9 @@ function Overview() {
                   </Link>
                 </div>
                 <div>
-                  {donationsQ.data?.slice(0, 3).map((donation, index) => (
+                  {donationOverviewQ.data?.recentDonations.map((donation) => (
                     <DonationCard
-                      key={`${donation.author}-${index}`}
+                      key={donation.donationId}
                       className="border-t border-border"
                       donation={donation}
                     />

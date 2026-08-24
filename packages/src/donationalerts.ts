@@ -44,7 +44,9 @@ const DonationAlertsDonationSchema = z.object({
 
 const DonationsPageSchema = z.object({
   data: z.array(DonationAlertsDonationSchema),
-  meta: z.object({ last_page: z.number().int().positive() }),
+  meta: z.object({
+    last_page: z.number().int().positive(),
+  }),
 });
 
 const WsEventSchema = z.union([

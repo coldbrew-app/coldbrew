@@ -4,31 +4,32 @@ import { CosmicArt } from "@web/components/cosmic-art";
 import { CosmicPageHeader } from "@web/components/cosmic-page-header";
 import { Icons } from "@web/components/icons";
 import { VideoListSkeleton } from "@web/components/loading-skeletons";
+import { PagePagination } from "@web/components/page-pagination";
 import QueryErrorState from "@web/components/query-error-state";
 import { SlugEditor } from "@web/components/slug-editor";
 import { Button, buttonVariants } from "@web/components/ui/button";
 import VideoCard from "@web/components/video-card";
 import VideoPriorities from "@web/components/video-priorities";
 import { preloadRouteQuery } from "@web/lib/trpc";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 
-import { useUpdateVideoM, useUpdateVideoStatusM, useVideosQ } from "../../hooks/api";
+import { useUpdateVideoM, useUpdateVideoStatusM, useVideoPageQ } from "../../hooks/api";
 import { createTranslator, useI18n } from "../../lib/i18n";
+
+const VideoPageInputSchema = z.object({
+  page: z.number().int().positive(),
+  videoPriorityId: z.number().int().positive().nullable(),
+  videoStatus: z.enum(["all", "notwatched", "watched", "saved"]),
+});
 
 export const Route = createFileRoute("/_authenticated/videos")({
   component: VideoQueue,
   head: ({ match }) => ({
     meta: [{ title: `${createTranslator(match.context.locale)("videoQueue")} · Coldbrew` }],
   }),
-  loader: async ({ context }) => {
-    if (!context.viewer) return;
-    await Promise.all([
-      preloadRouteQuery(context.queryClient, context.trpc.videos.queryOptions()),
-      preloadRouteQuery(context.queryClient, context.trpc.videoPriorities.queryOptions()),
-    ]);
-  },
   validateSearch: z.object({
+    page: z.coerce.number().int().positive().default(1).catch(1),
     videoPriorityId: z
       .union([z.literal("all"), z.coerce.number().int().positive()])
       .default("all")
@@ -38,79 +39,75 @@ export const Route = createFileRoute("/_authenticated/videos")({
       .default("notwatched")
       .catch("notwatched"),
   }),
+  loaderDeps: ({ search }) => ({
+    page: search.page,
+    videoPriorityId: search.videoPriorityId === "all" ? null : search.videoPriorityId,
+    videoStatus: search.videoStatus,
+  }),
+  loader: async ({ context, deps }) => {
+    if (!context.viewer) return;
+    const videoPageInput = VideoPageInputSchema.parse(deps);
+    await Promise.all([
+      preloadRouteQuery(context.queryClient, context.trpc.videoPage.queryOptions(videoPageInput)),
+      preloadRouteQuery(context.queryClient, context.trpc.videoPriorities.queryOptions()),
+    ]);
+  },
 });
 
 function VideoQueue() {
   const [isAddingVideo, setIsAddingVideo] = useState(false);
-  const videosQ = useVideosQ();
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
   const updateVideoStatusM = useUpdateVideoStatusM();
   const updateVideoM = useUpdateVideoM();
   const { t } = useI18n();
-  const selectedVideoPriorityId = Route.useSearch({
-    select: (search) => (search.videoPriorityId === "all" ? null : search.videoPriorityId),
+  const selectedVideoPriorityId = search.videoPriorityId === "all" ? null : search.videoPriorityId;
+  const activeTab = search.videoStatus;
+  const videosQ = useVideoPageQ({
+    page: search.page,
+    videoPriorityId: selectedVideoPriorityId,
+    videoStatus: activeTab,
   });
-  const activeTab = Route.useSearch({ select: (search) => search.videoStatus });
-  const videos = videosQ.data ?? [];
-  const videosForActiveStatus = videos.filter((video) => {
-    if (activeTab === "all") return true;
-    if (activeTab === "notwatched") return video.watchedAt === null;
-    if (activeTab === "watched") return video.watchedAt !== null;
-    return video.savedAt !== null;
-  });
-  const videoCountByPriorityId = videosForActiveStatus.reduce<Record<number, number>>(
-    (counts, video) => {
-      if (video.videoPriorityId !== null) {
-        counts[video.videoPriorityId] = (counts[video.videoPriorityId] ?? 0) + 1;
-      }
-      return counts;
-    },
-    {},
-  );
-  const visibleVideos = videosForActiveStatus
-    .filter(
-      (video) =>
-        selectedVideoPriorityId === null || video.videoPriorityId === selectedVideoPriorityId,
-    )
-    .sort((left, right) => {
-      const leftDate =
-        activeTab === "watched"
-          ? left.watchedAt
-          : activeTab === "saved"
-            ? left.savedAt
-            : left.createdAt;
-      const rightDate =
-        activeTab === "watched"
-          ? right.watchedAt
-          : activeTab === "saved"
-            ? right.savedAt
-            : right.createdAt;
+  const visibleVideos = videosQ.data?.items ?? [];
+  const statusCounts = videosQ.data?.statusCounts ?? {
+    all: 0,
+    notwatched: 0,
+    saved: 0,
+    watched: 0,
+  };
 
-      return rightDate!.getTime() - leftDate!.getTime() || Number(right.videoId - left.videoId);
-    });
+  useEffect(() => {
+    if (videosQ.data && !videosQ.isPlaceholderData && videosQ.data.page !== search.page) {
+      void navigate({
+        replace: true,
+        search: (previous) => ({ ...previous, page: videosQ.data!.page }),
+      });
+    }
+  }, [navigate, search.page, videosQ.data]);
 
   const tabs = [
     {
       id: "all" satisfies typeof activeTab,
       label: t("all"),
-      count: videos.length,
+      count: statusCounts.all,
       icon: Icons.list,
     },
     {
       id: "notwatched" satisfies typeof activeTab,
       label: t("notWatched"),
-      count: videos.filter((video) => video.watchedAt === null).length,
+      count: statusCounts.notwatched,
       icon: Icons.notWatched,
     },
     {
       id: "watched" satisfies typeof activeTab,
       label: t("watched"),
-      count: videos.filter((video) => video.watchedAt !== null).length,
+      count: statusCounts.watched,
       icon: Icons.watched,
     },
     {
       id: "saved" satisfies typeof activeTab,
       label: t("saved"),
-      count: videos.filter((video) => video.savedAt !== null).length,
+      count: statusCounts.saved,
       icon: Icons.bookmark,
     },
   ] as const;
@@ -159,25 +156,38 @@ function VideoQueue() {
                   onRetry={() => void videosQ.refetch()}
                 />
               ) : visibleVideos.length ? (
-                <div className="divide-y divide-border">
-                  {visibleVideos.map((video) => (
-                    <VideoCard
-                      isUpdating={updateVideoStatusM.isPending || updateVideoM.isPending}
-                      key={video.videoId}
-                      onUpdate={(input) =>
-                        updateVideoM.mutateAsync({
-                          videoId: video.videoId,
-                          ...input,
-                        })
-                      }
-                      onStatusChange={(status) =>
-                        updateVideoStatusM.mutate({ videoId: video.videoId, ...status })
-                      }
-                      showSource
-                      video={video}
-                    />
-                  ))}
-                </div>
+                <>
+                  <div className="divide-y divide-border">
+                    {visibleVideos.map((video) => (
+                      <VideoCard
+                        isUpdating={updateVideoStatusM.isPending || updateVideoM.isPending}
+                        key={video.videoId}
+                        onUpdate={(input) =>
+                          updateVideoM.mutateAsync({
+                            videoId: video.videoId,
+                            ...input,
+                          })
+                        }
+                        onStatusChange={(status) =>
+                          updateVideoStatusM.mutate({ videoId: video.videoId, ...status })
+                        }
+                        showSource
+                        video={video}
+                      />
+                    ))}
+                  </div>
+                  <PagePagination
+                    isLoading={videosQ.isFetching}
+                    loadingLabel={t("loadingVideoQueue")}
+                    onPageChange={(page) =>
+                      void navigate({ search: (previous) => ({ ...previous, page }) })
+                    }
+                    page={videosQ.data!.page}
+                    pageSize={videosQ.data!.pageSize}
+                    total={videosQ.data!.total}
+                    totalPages={videosQ.data!.totalPages}
+                  />
+                </>
               ) : (
                 <div className="grid min-h-64 place-items-center px-5 text-center">
                   <div className="relative flex flex-col items-center gap-2 overflow-hidden">
@@ -189,7 +199,7 @@ function VideoQueue() {
                       <Icons.video aria-hidden="true" size={20} />
                     </div>
                     <h3 className="text-sm font-semibold text-card-foreground">
-                      {videos.length
+                      {statusCounts.all
                         ? activeTab !== "all"
                           ? t("noFilteredVideos", {
                               status:
@@ -199,7 +209,7 @@ function VideoQueue() {
                         : t("noVideosInQueue")}
                     </h3>
                     <p className="max-w-xs text-xs leading-relaxed text-muted-foreground">
-                      {videos.length ? t("filteredVideosWillAppear") : t("videoLinksWillAppear")}
+                      {statusCounts.all ? t("filteredVideosWillAppear") : t("videoLinksWillAppear")}
                     </p>
                   </div>
                 </div>
@@ -219,6 +229,7 @@ function VideoQueue() {
                       })}
                       key={id}
                       search={(previous) => ({
+                        page: 1,
                         videoPriorityId: previous.videoPriorityId ?? "all",
                         videoStatus: id,
                       })}
@@ -233,7 +244,7 @@ function VideoQueue() {
               </nav>
               <VideoPriorities
                 selectedVideoPriorityId={selectedVideoPriorityId}
-                videoCountByPriorityId={videoCountByPriorityId}
+                videoCountByPriorityId={videosQ.data?.priorityCounts ?? {}}
               />
             </aside>
           </div>

@@ -9,6 +9,7 @@ export const Icons = {
   cancel: icons.X,
   checked: icons.Check,
   chevronDown: icons.ChevronDown,
+  chevronLeft: icons.ChevronLeft,
   chevronRight: icons.ChevronRight,
   copied: icons.Check,
   copy: icons.Copy,

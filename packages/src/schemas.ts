@@ -53,7 +53,10 @@ export const MoneyAmountSchema = z
   .brand("money amount");
 export type MoneyAmount = z.infer<typeof MoneyAmountSchema>;
 
-export const MoneySchema = z.object({ amount: MoneyAmountSchema, currency: CurrencyCodeSchema });
+export const MoneySchema = z.object({
+  amount: MoneyAmountSchema,
+  currency: CurrencyCodeSchema,
+});
 export type Money = z.infer<typeof MoneySchema>;
 
 export const DonationSchema = z.object({

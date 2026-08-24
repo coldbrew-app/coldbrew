@@ -3,11 +3,17 @@ import { createFileRoute } from "@tanstack/react-router";
 import { CosmicArt } from "@web/components/cosmic-art";
 import { Icons } from "@web/components/icons";
 import { VideoListSkeleton } from "@web/components/loading-skeletons";
+import { PagePagination } from "@web/components/page-pagination";
 import VideoCard from "@web/components/video-card";
+import { useEffect } from "react";
 import { z } from "zod";
 
-import { useSharedVideosQ } from "../hooks/api";
+import { useSharedVideoPageQ } from "../hooks/api";
 import { createTranslator, useI18n } from "../lib/i18n";
+
+const SharedVideoPageDepsSchema = z.object({
+  page: z.number().int().positive(),
+});
 
 export const Route = createFileRoute("/share/$slug")({
   component: SharedVideoQueue,
@@ -21,16 +27,31 @@ export const Route = createFileRoute("/share/$slug")({
   params: z.object({
     slug: SlugSchema,
   }),
-  loader: ({ context, params }) =>
+  validateSearch: z.object({
+    page: z.coerce.number().int().positive().default(1).catch(1),
+  }),
+  loaderDeps: ({ search }) => ({ page: search.page }),
+  loader: ({ context, deps, params }) =>
     context.queryClient.ensureQueryData(
-      context.trpc.sharedVideos.queryOptions({ slug: params.slug }),
+      context.trpc.sharedVideoPage.queryOptions({
+        page: SharedVideoPageDepsSchema.parse(deps).page,
+        slug: params.slug,
+      }),
     ),
 });
 
 function SharedVideoQueue() {
   const { slug } = Route.useParams();
-  const videosQ = useSharedVideosQ(slug);
+  const { page } = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const videosQ = useSharedVideoPageQ(slug, page);
   const { t } = useI18n();
+
+  useEffect(() => {
+    if (videosQ.data && !videosQ.isPlaceholderData && videosQ.data.page !== page) {
+      void navigate({ replace: true, search: { page: videosQ.data.page } });
+    }
+  }, [navigate, page, videosQ.data]);
 
   return (
     <main className="relative min-h-dvh overflow-hidden bg-background p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-foreground sm:p-8">
@@ -53,12 +74,23 @@ function SharedVideoQueue() {
         </header>
         {videosQ.isLoading ? (
           <VideoListSkeleton aria-busy="true" aria-label={t("loadingVideoQueue")} />
-        ) : videosQ.data?.length ? (
-          <div className="divide-y divide-border">
-            {videosQ.data.map((video) => (
-              <VideoCard key={video.videoId} video={video} />
-            ))}
-          </div>
+        ) : videosQ.data?.items.length ? (
+          <>
+            <div className="divide-y divide-border">
+              {videosQ.data.items.map((video) => (
+                <VideoCard key={video.videoId} video={video} />
+              ))}
+            </div>
+            <PagePagination
+              isLoading={videosQ.isFetching}
+              loadingLabel={t("loadingVideoQueue")}
+              onPageChange={(nextPage) => void navigate({ search: { page: nextPage } })}
+              page={videosQ.data.page}
+              pageSize={videosQ.data.pageSize}
+              total={videosQ.data.total}
+              totalPages={videosQ.data.totalPages}
+            />
+          </>
         ) : (
           <div className="grid min-h-64 place-items-center px-5 text-center">
             <div>

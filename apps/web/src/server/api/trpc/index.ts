@@ -14,6 +14,11 @@ import { donationAlerts } from "../../sensors/donationalerts.js";
 import { authenticatedProcedure, procedure, router } from "./_config.js";
 import { integrationRouter } from "./integration.js";
 
+const PAGE_SIZE = 25;
+const PageSchema = z.number().int().positive();
+const DonationPeriodSchema = z.enum(["all", "week", "month"]);
+const VideoStatusSchema = z.enum(["all", "notwatched", "watched", "saved"]);
+
 export const appRouter = router({
   integration: integrationRouter,
 
@@ -37,13 +42,40 @@ export const appRouter = router({
       return await store.setQueueCurrency(ctx.userId, input.queueCurrency, input.rate);
     }),
 
-  donations: authenticatedProcedure.query(async ({ ctx }) => {
-    return await store.listDonations(ctx.userId);
+  donationPage: authenticatedProcedure
+    .input(
+      z.object({
+        page: PageSchema,
+        period: DonationPeriodSchema,
+        query: z.string().trim().max(200),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const periodDays = input.period === "week" ? 7 : input.period === "month" ? 30 : null;
+      const occurredAfter =
+        periodDays === null ? null : new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000);
+      return await store.listDonationsPage(ctx.userId, {
+        ...input,
+        occurredAfter,
+        pageSize: PAGE_SIZE,
+      });
+    }),
+
+  donationOverview: authenticatedProcedure.query(async ({ ctx }) => {
+    return await store.getDonationOverview(ctx.userId);
   }),
 
-  videos: authenticatedProcedure.query(async ({ ctx }) => {
-    return await store.listVideos(ctx.userId);
-  }),
+  videoPage: authenticatedProcedure
+    .input(
+      z.object({
+        page: PageSchema,
+        videoPriorityId: z.number().int().positive().nullable(),
+        videoStatus: VideoStatusSchema,
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      return await store.listVideosPage(ctx.userId, { ...input, pageSize: PAGE_SIZE });
+    }),
 
   addVideo: authenticatedProcedure
     .input(
@@ -161,14 +193,18 @@ export const appRouter = router({
       }
     }),
 
-  sharedVideos: procedure
+  sharedVideoPage: procedure
     .input(
       z.object({
+        page: PageSchema,
         slug: SlugSchema,
       }),
     )
     .query(async ({ input }) => {
-      return await store.listSharedVideos(input.slug);
+      return await store.listSharedVideosPage(input.slug, {
+        page: input.page,
+        pageSize: PAGE_SIZE,
+      });
     }),
 
   updateSlug: authenticatedProcedure

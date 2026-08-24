@@ -48,4 +48,5 @@ Add helper scripts to `justfile`, not `package.json`
 
 - variables of types `Result` and `ResultAsync` from "neverthrow" should start with `$` (for example: `const $donations = ResultAsync.fromThrowable(...)(...)`)
 - avoid mutating objects
+- Always format `z.object({...})` calls across multiple lines, even when the object has only one field.
 - Follow the [SQL style guide](docs/sql-style.md) for schema and database queries.

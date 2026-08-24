@@ -85,18 +85,134 @@ export class Store {
     });
   }
 
-  async listDonations(userId: UserId) {
+  async listDonationsPage(
+    userId: UserId,
+    input: { page: number; pageSize: number; query: string; occurredAfter: Date | null },
+  ) {
+    const searchPattern = `%${input.query}%`;
+    const countRows = await this.sql`
+      SELECT count(*)::int AS total
+      FROM donation
+      WHERE user_id = ${userId}
+        AND (${input.occurredAfter}::timestamptz IS NULL OR occurred_at >= ${input.occurredAfter})
+        AND (
+          ${input.query} = ''
+          OR coalesce(author, '') ILIKE ${searchPattern}
+          OR coalesce(message, '') ILIKE ${searchPattern}
+        )
+    `;
+    const total = z
+      .object({
+        total: z.number().int().nonnegative(),
+      })
+      .parse(countRows[0]).total;
+    const totalPages = Math.ceil(total / input.pageSize);
+    const page = Math.min(input.page, Math.max(totalPages, 1));
+    const offset = (page - 1) * input.pageSize;
     const rows = await this.sql`
       SELECT *,
         jsonb_build_object('amount', amount::text, 'currency', currency) AS money
       FROM donation
       WHERE user_id = ${userId}
+        AND (${input.occurredAfter}::timestamptz IS NULL OR occurred_at >= ${input.occurredAfter})
+        AND (
+          ${input.query} = ''
+          OR coalesce(author, '') ILIKE ${searchPattern}
+          OR coalesce(message, '') ILIKE ${searchPattern}
+        )
       ORDER BY occurred_at DESC, donation_id DESC
+      LIMIT ${input.pageSize}
+      OFFSET ${offset}
     `;
-    return z.array(DonationSchema).parse(rows);
+    return {
+      items: z.array(DonationSchema).parse(rows),
+      page,
+      pageSize: input.pageSize,
+      total,
+      totalPages,
+    };
   }
 
-  async listVideos(userId: UserId) {
+  async getDonationOverview(userId: UserId) {
+    const [summaryRows, recentRows] = await Promise.all([
+      this.sql`
+        SELECT
+          count(*)::int AS donation_count,
+          coalesce(sum(amount), 0)::text AS total_amount
+        FROM donation
+        WHERE user_id = ${userId}
+      `,
+      this.sql`
+        SELECT *,
+          jsonb_build_object('amount', amount::text, 'currency', currency) AS money
+        FROM donation
+        WHERE user_id = ${userId}
+        ORDER BY occurred_at DESC, donation_id DESC
+        LIMIT 3
+      `,
+    ]);
+    const summary = z
+      .object({ donationCount: z.number().int().nonnegative(), totalAmount: z.coerce.number() })
+      .parse(summaryRows[0]);
+    return { ...summary, recentDonations: z.array(DonationSchema).parse(recentRows) };
+  }
+
+  async listVideosPage(
+    userId: UserId,
+    input: {
+      page: number;
+      pageSize: number;
+      videoPriorityId: number | null;
+      videoStatus: "all" | "notwatched" | "watched" | "saved";
+    },
+  ) {
+    const [countRows, statusCountRows, priorityCountRows] = await Promise.all([
+      this.sql`
+        SELECT count(*)::int AS total
+        FROM video
+        LEFT JOIN donation USING (donation_id)
+        WHERE COALESCE(video.user_id, donation.user_id) = ${userId}
+          AND (${input.videoPriorityId}::int IS NULL OR video.video_priority_id = ${input.videoPriorityId})
+          AND (
+            ${input.videoStatus} = 'all'
+            OR (${input.videoStatus} = 'notwatched' AND video.watched_at IS NULL)
+            OR (${input.videoStatus} = 'watched' AND video.watched_at IS NOT NULL)
+            OR (${input.videoStatus} = 'saved' AND video.saved_at IS NOT NULL)
+          )
+      `,
+      this.sql`
+        SELECT
+          count(*)::int AS all,
+          count(*) FILTER (WHERE video.watched_at IS NULL)::int AS notwatched,
+          count(*) FILTER (WHERE video.watched_at IS NOT NULL)::int AS watched,
+          count(*) FILTER (WHERE video.saved_at IS NOT NULL)::int AS saved
+        FROM video
+        LEFT JOIN donation USING (donation_id)
+        WHERE COALESCE(video.user_id, donation.user_id) = ${userId}
+      `,
+      this.sql`
+        SELECT video.video_priority_id, count(*)::int AS count
+        FROM video
+        LEFT JOIN donation USING (donation_id)
+        WHERE COALESCE(video.user_id, donation.user_id) = ${userId}
+          AND video.video_priority_id IS NOT NULL
+          AND (
+            ${input.videoStatus} = 'all'
+            OR (${input.videoStatus} = 'notwatched' AND video.watched_at IS NULL)
+            OR (${input.videoStatus} = 'watched' AND video.watched_at IS NOT NULL)
+            OR (${input.videoStatus} = 'saved' AND video.saved_at IS NOT NULL)
+          )
+        GROUP BY video.video_priority_id
+      `,
+    ]);
+    const total = z
+      .object({
+        total: z.number().int().nonnegative(),
+      })
+      .parse(countRows[0]).total;
+    const totalPages = Math.ceil(total / input.pageSize);
+    const page = Math.min(input.page, Math.max(totalPages, 1));
+    const offset = (page - 1) * input.pageSize;
     const rows = await this.sql`
       SELECT
         video.video_id,
@@ -136,9 +252,51 @@ export class Store {
         ON "user".user_id = COALESCE(video.user_id, donation.user_id)
       LEFT JOIN video_priority USING (video_priority_id)
       WHERE "user".user_id = ${userId}
-      ORDER BY COALESCE(donation.occurred_at, video.added_at) DESC, video.video_id DESC
+        AND (${input.videoPriorityId}::int IS NULL OR video.video_priority_id = ${input.videoPriorityId})
+        AND (
+          ${input.videoStatus} = 'all'
+          OR (${input.videoStatus} = 'notwatched' AND video.watched_at IS NULL)
+          OR (${input.videoStatus} = 'watched' AND video.watched_at IS NOT NULL)
+          OR (${input.videoStatus} = 'saved' AND video.saved_at IS NOT NULL)
+        )
+      ORDER BY
+        CASE
+          WHEN ${input.videoStatus} = 'watched' THEN video.watched_at
+          WHEN ${input.videoStatus} = 'saved' THEN video.saved_at
+          ELSE COALESCE(donation.occurred_at, video.added_at)
+        END DESC,
+        video.video_id DESC
+      LIMIT ${input.pageSize}
+      OFFSET ${offset}
     `;
-    return z.array(VideoSchema).parse(rows);
+    const statusCounts = z
+      .object({
+        all: z.number().int().nonnegative(),
+        notwatched: z.number().int().nonnegative(),
+        watched: z.number().int().nonnegative(),
+        saved: z.number().int().nonnegative(),
+      })
+      .parse(statusCountRows[0]);
+    const priorityCounts = Object.fromEntries(
+      z
+        .array(
+          z.object({
+            videoPriorityId: z.number().int().positive(),
+            count: z.number().int().nonnegative(),
+          }),
+        )
+        .parse(priorityCountRows)
+        .map(({ videoPriorityId, count }) => [videoPriorityId, count]),
+    );
+    return {
+      items: z.array(VideoSchema).parse(rows),
+      page,
+      pageSize: input.pageSize,
+      priorityCounts,
+      statusCounts,
+      total,
+      totalPages,
+    };
   }
 
   async addManualVideo(
@@ -325,13 +483,27 @@ export class Store {
     });
   }
 
-  async listSharedVideos(slug: string) {
-    const users = await this.sql`
-      SELECT 1
+  async listSharedVideosPage(slug: string, input: { page: number; pageSize: number }) {
+    const summaryRows = await this.sql`
+      SELECT
+        "user".user_id,
+        (
+          SELECT count(*)::int
+          FROM video
+          LEFT JOIN donation USING (donation_id)
+          WHERE COALESCE(video.user_id, donation.user_id) = "user".user_id
+        ) AS total
       FROM "user"
       WHERE slug = ${slug}
     `;
-    if (users.length === 0) return null;
+    const summary = z
+      .object({ userId: UserIdSchema, total: z.number().int().nonnegative() })
+      .nullable()
+      .parse(summaryRows[0] ?? null);
+    if (summary === null) return null;
+    const totalPages = Math.ceil(summary.total / input.pageSize);
+    const page = Math.min(input.page, Math.max(totalPages, 1));
+    const offset = (page - 1) * input.pageSize;
     const rows = await this.sql`
       SELECT
         video.video_id,
@@ -372,8 +544,16 @@ export class Store {
         ON "user".user_id = COALESCE(video.user_id, donation.user_id)
       WHERE "user".slug = ${slug}
       ORDER BY COALESCE(donation.occurred_at, video.added_at) DESC, video.video_id DESC
+      LIMIT ${input.pageSize}
+      OFFSET ${offset}
     `;
-    return z.array(VideoSchema).parse(rows);
+    return {
+      items: z.array(VideoSchema).parse(rows),
+      page,
+      pageSize: input.pageSize,
+      total: summary.total,
+      totalPages,
+    };
   }
 
   private async getUserId(authUserId: AuthUserId) {
@@ -402,7 +582,11 @@ export class Store {
           SET auth_user_id = EXCLUDED.auth_user_id
           RETURNING user_id
         `;
-        const userId = z.object({ userId: UserIdSchema }).parse(rows[0]).userId;
+        const userId = z
+          .object({
+            userId: UserIdSchema,
+          })
+          .parse(rows[0]).userId;
         await sql`
           INSERT INTO video_priority (
             user_id, label, min_price_per_minute, is_default

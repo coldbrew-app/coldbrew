@@ -73,6 +73,7 @@ export default function VideoPriorityEditor({ priority, isSelected, videoCount }
           aria-label={t("selectQueueFilter", { label: priority.label })}
           className="absolute inset-0 rounded-lg"
           search={(previous) => ({
+            page: 1,
             videoPriorityId: priority.videoPriorityId,
             videoStatus: previous.videoStatus ?? "all",
           })}

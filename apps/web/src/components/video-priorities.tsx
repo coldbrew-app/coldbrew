@@ -38,6 +38,7 @@ export default function VideoPriorities({
             : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
         )}
         search={(previous) => ({
+          page: 1,
           videoPriorityId: "all",
           videoStatus: previous.videoStatus ?? "all",
         })}

@@ -95,6 +95,7 @@ CREATE TABLE donation (
 );
 
 CREATE INDEX donation_videos_unparsed_idx ON donation (occurred_at) WHERE videos_parsed_at IS NULL;
+CREATE INDEX donation_user_occurred_idx ON donation (user_id, occurred_at DESC, donation_id DESC);
 
 CREATE TABLE video_priority (
   video_priority_id    serial        PRIMARY KEY,
@@ -132,6 +133,11 @@ CREATE TABLE video (
   ),
   CHECK (end_seconds > start_seconds)
 );
+
+CREATE INDEX video_watched_idx ON video (watched_at DESC, video_id DESC)
+  WHERE watched_at IS NOT NULL;
+CREATE INDEX video_saved_idx ON video (saved_at DESC, video_id DESC)
+  WHERE saved_at IS NOT NULL;
 
 -- functions and triggers
 

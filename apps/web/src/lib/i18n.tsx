@@ -107,6 +107,14 @@ const en = {
   noDonationsYet: "No donations yet",
   tryAnotherSearch: "Try a different search or clear it.",
   donationsWillAppear: "New donations will appear here.",
+  pagination: "Pagination",
+  previousPage: "Previous page",
+  nextPage: "Next page",
+  goToPage: ({ page }: { page: number }) => `Go to page ${page}`,
+  pageOf: ({ page, totalPages }: { page: number; totalPages: number }) =>
+    `Page ${page} of ${totalPages}`,
+  showingResults: ({ first, last, total }: { first: number; last: number; total: number }) =>
+    `Showing ${first}–${last} of ${total}`,
   all: "All",
   notWatched: "Not watched",
   watched: "Watched",
@@ -289,6 +297,14 @@ const ru = defineTranslations({
   noDonationsYet: "Донатов пока нет",
   tryAnotherSearch: "Попробуйте другой запрос или очистите поиск.",
   donationsWillAppear: "Новые донаты появятся здесь.",
+  pagination: "Пагинация",
+  previousPage: "Предыдущая страница",
+  nextPage: "Следующая страница",
+  goToPage: ({ page }: { page: number }) => `Перейти на страницу ${page}`,
+  pageOf: ({ page, totalPages }: { page: number; totalPages: number }) =>
+    `Страница ${page} из ${totalPages}`,
+  showingResults: ({ first, last, total }: { first: number; last: number; total: number }) =>
+    `Показаны ${first}–${last} из ${total}`,
   all: "Все",
   notWatched: "Не просмотрено",
   watched: "Просмотрено",
