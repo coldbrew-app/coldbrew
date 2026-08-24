@@ -341,7 +341,7 @@ export class Store {
         min_price_per_minute::text AS min_price_per_minute
       FROM video_priority
       WHERE user_id = ${userId}
-      ORDER BY min_price_per_minute::float DESC, video_priority_id ASC
+      ORDER BY video_priority.min_price_per_minute DESC, video_priority_id ASC
     `;
     return z.array(VideoPrioritySchema).parse(rows);
   }
