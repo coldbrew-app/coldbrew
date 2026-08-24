@@ -66,6 +66,38 @@ describe("YouTube timing", () => {
     });
   });
 
+  it("falls back to the stream duration when video details are omitted", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response('{"approxDurationMs":"7260183"}')),
+    );
+
+    const $timing = getYoutubeTiming("https://www.youtube.com/watch?v=_JXL6Fn99l8&t=13s");
+
+    await expect($timing).resolves.toMatchObject({
+      value: { startSeconds: 0, endSeconds: 7260 },
+    });
+  });
+
+  it("falls back to player metadata when the page omits all duration fields", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('{"INNERTUBE_CLIENT_VERSION":"2.20260824.01.00"}'))
+      .mockResolvedValueOnce(new Response('{"videoDetails":{"lengthSeconds":"7260"}}'));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const $timing = getYoutubeTiming("https://www.youtube.com/watch?v=_JXL6Fn99l8&t=13s");
+
+    await expect($timing).resolves.toMatchObject({
+      value: { startSeconds: 0, endSeconds: 7260 },
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "https://www.youtube.com/youtubei/v1/player?prettyPrint=false",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
   it("always starts at zero and uses a valid end parameter", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response('{"lengthSeconds":"213"}')));
 
