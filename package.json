@@ -11,6 +11,7 @@
     "oxlint": "^1.79.0"
   },
   "devDependencies": {
+    "@tanstack/intent": "^0.3.7",
     "@types/node": "^24.13.3",
     "concurrently": "^10.0.4",
     "oxfmt": "^0.60.0",

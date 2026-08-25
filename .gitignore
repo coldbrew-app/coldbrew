@@ -5,7 +5,6 @@ dist
 .vercel
 .env
 .tanstack
-.agents
 .DS_Store
 *.tsbuildinfo
 *.local
