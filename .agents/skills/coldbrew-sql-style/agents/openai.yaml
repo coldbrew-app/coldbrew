@@ -1,0 +1,3 @@
+interface:
+  display_name: "Coldbrew SQL Style"
+  short_description: "Apply Coldbrew PostgreSQL conventions"
