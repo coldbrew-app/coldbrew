@@ -17,7 +17,7 @@ import { integrationRouter } from "./integration.js";
 const PAGE_SIZE = 25;
 const PageSchema = z.number().int().positive();
 const DonationPeriodSchema = z.enum(["all", "week", "month"]);
-const VideoStatusSchema = z.enum(["all", "notwatched", "watched", "saved"]);
+const VideoStatusSchema = z.enum(["all", "notwatched", "watched", "bookmarked"]);
 
 export const appRouter = router({
   integration: integrationRouter,
@@ -153,9 +153,9 @@ export const appRouter = router({
         .object({
           videoId: VideoIdSchema,
           watchedAt: z.date().nullable().optional(),
-          savedAt: z.date().nullable().optional(),
+          bookmarkedAt: z.date().nullable().optional(),
         })
-        .refine((input) => input.watchedAt !== undefined || input.savedAt !== undefined),
+        .refine((input) => input.watchedAt !== undefined || input.bookmarkedAt !== undefined),
     )
     .mutation(async ({ ctx, input }) => {
       const wasUpdated = await store.updateVideoStatus(ctx.userId, input.videoId, input);

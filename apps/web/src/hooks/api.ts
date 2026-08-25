@@ -73,7 +73,7 @@ export function useDonationOverviewQ() {
 export type VideoPageInput = {
   page: number;
   videoPriorityId: number | null;
-  videoStatus: "all" | "notwatched" | "watched" | "saved";
+  videoStatus: "all" | "notwatched" | "watched" | "bookmarked";
 };
 
 export function useVideoPageQ(input: VideoPageInput) {

@@ -124,7 +124,7 @@ CREATE TABLE video (
   start_seconds     nonnegative_int NOT NULL,
   end_seconds       positive_int    NOT NULL,
   watched_at        js_date            NULL,
-  saved_at          js_date            NULL,
+  bookmarked_at     js_date            NULL,
   video_priority_id int                NULL REFERENCES video_priority (video_priority_id),
   UNIQUE (donation_id, provider, provider_video_id),
   CHECK (
@@ -136,8 +136,8 @@ CREATE TABLE video (
 
 CREATE INDEX video_watched_idx ON video (watched_at DESC, video_id DESC)
   WHERE watched_at IS NOT NULL;
-CREATE INDEX video_saved_idx ON video (saved_at DESC, video_id DESC)
-  WHERE saved_at IS NOT NULL;
+CREATE INDEX video_bookmarked_idx ON video (bookmarked_at DESC, video_id DESC)
+  WHERE bookmarked_at IS NOT NULL;
 
 -- functions and triggers
 

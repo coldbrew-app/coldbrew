@@ -20,7 +20,7 @@ import { createTranslator, useI18n } from "../../lib/i18n";
 const VideoPageInputSchema = z.object({
   page: z.number().int().positive(),
   videoPriorityId: z.number().int().positive().nullable(),
-  videoStatus: z.enum(["all", "notwatched", "watched", "saved"]),
+  videoStatus: z.enum(["all", "notwatched", "watched", "bookmarked"]),
 });
 
 export const Route = createFileRoute("/_authenticated/videos")({
@@ -35,7 +35,7 @@ export const Route = createFileRoute("/_authenticated/videos")({
       .default("all")
       .catch("all"),
     videoStatus: z
-      .enum(["all", "notwatched", "watched", "saved"])
+      .enum(["all", "notwatched", "watched", "bookmarked"])
       .default("notwatched")
       .catch("notwatched"),
   }),
@@ -72,7 +72,7 @@ function VideoQueue() {
   const statusCounts = videosQ.data?.statusCounts ?? {
     all: 0,
     notwatched: 0,
-    saved: 0,
+    bookmarked: 0,
     watched: 0,
   };
 
@@ -105,9 +105,9 @@ function VideoQueue() {
       icon: Icons.watched,
     },
     {
-      id: "saved" satisfies typeof activeTab,
-      label: t("saved"),
-      count: statusCounts.saved,
+      id: "bookmarked" satisfies typeof activeTab,
+      label: t("bookmarked"),
+      count: statusCounts.bookmarked,
       icon: Icons.bookmark,
     },
   ] as const;

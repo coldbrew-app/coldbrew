@@ -157,7 +157,7 @@ export class Store {
       page: number;
       pageSize: number;
       videoPriorityId: number | null;
-      videoStatus: "all" | "notwatched" | "watched" | "saved";
+      videoStatus: "all" | "notwatched" | "watched" | "bookmarked";
     },
   ) {
     const [countRows, statusCountRows, priorityCountRows] = await Promise.all([
@@ -171,7 +171,7 @@ export class Store {
             ${input.videoStatus} = 'all'
             OR (${input.videoStatus} = 'notwatched' AND video.watched_at IS NULL)
             OR (${input.videoStatus} = 'watched' AND video.watched_at IS NOT NULL)
-            OR (${input.videoStatus} = 'saved' AND video.saved_at IS NOT NULL)
+            OR (${input.videoStatus} = 'bookmarked' AND video.bookmarked_at IS NOT NULL)
           )
       `,
       this.sql`
@@ -179,7 +179,7 @@ export class Store {
           count(*)::int AS all,
           count(*) FILTER (WHERE video.watched_at IS NULL)::int AS notwatched,
           count(*) FILTER (WHERE video.watched_at IS NOT NULL)::int AS watched,
-          count(*) FILTER (WHERE video.saved_at IS NOT NULL)::int AS saved
+          count(*) FILTER (WHERE video.bookmarked_at IS NOT NULL)::int AS bookmarked
         FROM video
         LEFT JOIN donation USING (donation_id)
         WHERE coalesce(video.user_id, donation.user_id) = ${userId}
@@ -194,7 +194,7 @@ export class Store {
             ${input.videoStatus} = 'all'
             OR (${input.videoStatus} = 'notwatched' AND video.watched_at IS NULL)
             OR (${input.videoStatus} = 'watched' AND video.watched_at IS NOT NULL)
-            OR (${input.videoStatus} = 'saved' AND video.saved_at IS NOT NULL)
+            OR (${input.videoStatus} = 'bookmarked' AND video.bookmarked_at IS NOT NULL)
           )
         GROUP BY video.video_priority_id
       `,
@@ -217,7 +217,7 @@ export class Store {
         video.start_seconds,
         video.end_seconds,
         video.watched_at,
-        video.saved_at,
+        video.bookmarked_at,
         video_priority.label AS priority_label,
         video.queue_amount,
         "user".queue_currency,
@@ -252,12 +252,12 @@ export class Store {
           ${input.videoStatus} = 'all'
           OR (${input.videoStatus} = 'notwatched' AND video.watched_at IS NULL)
           OR (${input.videoStatus} = 'watched' AND video.watched_at IS NOT NULL)
-          OR (${input.videoStatus} = 'saved' AND video.saved_at IS NOT NULL)
+          OR (${input.videoStatus} = 'bookmarked' AND video.bookmarked_at IS NOT NULL)
         )
       ORDER BY
         CASE
           WHEN ${input.videoStatus} = 'watched' THEN video.watched_at
-          WHEN ${input.videoStatus} = 'saved' THEN video.saved_at
+          WHEN ${input.videoStatus} = 'bookmarked' THEN video.bookmarked_at
           ELSE coalesce(donation.occurred_at, video.added_at)
         END DESC,
         video.video_id DESC
@@ -269,7 +269,7 @@ export class Store {
         all: z.number().int().nonnegative(),
         notwatched: z.number().int().nonnegative(),
         watched: z.number().int().nonnegative(),
-        saved: z.number().int().nonnegative(),
+        bookmarked: z.number().int().nonnegative(),
       })
       .parse(statusCountRows[0]);
     const priorityCounts = Object.fromEntries(
@@ -361,13 +361,13 @@ export class Store {
   async updateVideoStatus(
     userId: UserId,
     videoId: VideoId,
-    status: { watchedAt?: Date | null; savedAt?: Date | null },
+    status: { watchedAt?: Date | null; bookmarkedAt?: Date | null },
   ) {
     const rows = await this.sql`
       UPDATE video
       SET
         watched_at = CASE WHEN ${status.watchedAt !== undefined} THEN ${status.watchedAt ?? null} ELSE watched_at END,
-        saved_at = CASE WHEN ${status.savedAt !== undefined} THEN ${status.savedAt ?? null} ELSE saved_at END
+        bookmarked_at = CASE WHEN ${status.bookmarkedAt !== undefined} THEN ${status.bookmarkedAt ?? null} ELSE bookmarked_at END
       WHERE video.video_id = ${String(videoId)}
         AND (
           video.user_id = ${userId} OR
@@ -507,7 +507,7 @@ export class Store {
         video.start_seconds,
         video.end_seconds,
         video.watched_at,
-        video.saved_at,
+        video.bookmarked_at,
         video_priority.label AS priority_label,
         video.queue_amount,
         "user".queue_currency,

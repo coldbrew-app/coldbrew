@@ -82,7 +82,7 @@ const VideoBaseSchema = z.object({
   endSeconds: z.number().int().positive(),
   priorityLabel: z.string().nullable(),
   watchedAt: z.coerce.date().nullable(),
-  savedAt: z.coerce.date().nullable(),
+  bookmarkedAt: z.coerce.date().nullable(),
   createdAt: z.coerce.date(),
 });
 

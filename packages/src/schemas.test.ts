@@ -28,7 +28,7 @@ const baseVideo = {
   endSeconds: 213,
   priorityLabel: "queue 0",
   watchedAt: null,
-  savedAt: null,
+  bookmarkedAt: null,
   createdAt: "2026-08-24T12:00:00.000Z",
 };
 

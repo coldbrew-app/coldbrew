@@ -17,7 +17,7 @@ import { parseVideoTiming, VideoTimingFields, type VideoTimingValues } from "./v
 type Props = {
   video: Video;
   showSource?: boolean;
-  onStatusChange?: (status: { watchedAt?: Date | null; savedAt?: Date | null }) => void;
+  onStatusChange?: (status: { watchedAt?: Date | null; bookmarkedAt?: Date | null }) => void;
   onUpdate?: (input: { amount: string; startSeconds: number; endSeconds: number }) => Promise<void>;
   isUpdating?: boolean;
 };
@@ -69,7 +69,7 @@ export default function VideoCard({
     getWatchDurationSeconds(video.startSeconds, video.endSeconds),
   );
   const isWatched = video.watchedAt !== null;
-  const isSaved = video.savedAt !== null;
+  const isBookmarked = video.bookmarkedAt !== null;
   const SourceIcon = video.source === "donation" ? Icons.videoFromDonation : Icons.manualVideo;
   const displayedAmount =
     video.queueAmount === null && video.source === "donation"
@@ -302,19 +302,22 @@ export default function VideoCard({
                   {t("watched")}
                 </Button>
                 <Button
-                  aria-label={t(isSaved ? "removeVideoSaved" : "saveVideo")}
+                  aria-label={t(isBookmarked ? "removeVideoBookmark" : "bookmarkVideo")}
                   disabled={isUpdating}
-                  onClick={() => onStatusChange({ savedAt: isSaved ? null : new Date() })}
+                  onClick={() => onStatusChange({ bookmarkedAt: isBookmarked ? null : new Date() })}
                   size="sm"
-                  variant={isSaved ? "secondary" : "outline"}
+                  variant={isBookmarked ? "secondary" : "outline"}
                 >
-                  <Icons.bookmark aria-hidden="true" fill={isSaved ? "currentColor" : "none"} />
-                  {t("saved")}
+                  <Icons.bookmark
+                    aria-hidden="true"
+                    fill={isBookmarked ? "currentColor" : "none"}
+                  />
+                  {t("bookmarked")}
                 </Button>
               </div>
             )}
 
-            {(video.watchedAt || video.savedAt) && (
+            {(video.watchedAt || video.bookmarkedAt) && (
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
                 {video.watchedAt && (
                   <time
@@ -324,12 +327,12 @@ export default function VideoCard({
                     {t("watchedOn", { date: fmtDate(video.watchedAt, locale) })}
                   </time>
                 )}
-                {video.savedAt && (
+                {video.bookmarkedAt && (
                   <time
-                    dateTime={video.savedAt.toISOString()}
-                    title={fmtDate(video.savedAt, locale)}
+                    dateTime={video.bookmarkedAt.toISOString()}
+                    title={fmtDate(video.bookmarkedAt, locale)}
                   >
-                    {t("savedOn", { date: fmtDate(video.savedAt, locale) })}
+                    {t("bookmarkedOn", { date: fmtDate(video.bookmarkedAt, locale) })}
                   </time>
                 )}
               </div>
