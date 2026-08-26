@@ -44,13 +44,6 @@ const DonationAlertsDonationSchema = z.object({
   amount_in_user_currency: MoneyAmountSchema.optional(),
 });
 
-const DonationsPageSchema = z.object({
-  data: z.array(DonationAlertsDonationSchema),
-  meta: z.object({
-    last_page: z.number().int().positive(),
-  }),
-});
-
 const WsEventSchema = z.union([
   z.object({
     id: z.literal(1),
@@ -231,9 +224,16 @@ export class DonationAlertsFacade {
   private getDonationsPage(accessToken: AccessToken, page: number) {
     const getDonationsAlerts = ResultAsync.fromThrowable(alerts.getDonationsAlerts, toRequestError);
 
-    return getDonationsAlerts(accessToken, page).andThen((data) =>
-      validate(DonationsPageSchema, data),
-    );
+    return getDonationsAlerts(accessToken, page).andThen((data) => {
+      const schema = z.object({
+        data: z.array(DonationAlertsDonationSchema),
+        meta: z.object({
+          last_page: z.number().int().positive(),
+        }),
+      });
+
+      return validate(schema, data);
+    });
   }
 
   private toDonation(donation: z.infer<typeof DonationAlertsDonationSchema>): RawDonation {

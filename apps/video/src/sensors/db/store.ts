@@ -18,10 +18,6 @@ export type VideoToSave = {
   endSeconds: number;
 };
 
-const JobSchema = DonationSchema.extend({
-  queueCurrency: QueueCurrencySchema,
-});
-
 export class Store {
   static fromDbUrl(dbUrl: string) {
     return new Store(createSql(dbUrl));
@@ -49,7 +45,11 @@ export class Store {
       ORDER BY occurred_at ASC
       LIMIT ${limit}
     `;
-    return z.array(JobSchema).parse(rows);
+    const schema = DonationSchema.extend({
+      queueCurrency: QueueCurrencySchema,
+    });
+
+    return z.array(schema).parse(rows);
   }
 
   async setDonationParsed({ donationId }: Donation, videos: readonly VideoToSave[]) {

@@ -1,3 +1,4 @@
+import { rurl } from "@lebedevna/readonly-url";
 import type { DefaultError, FetchQueryOptions, QueryKey } from "@tanstack/react-query";
 import { QueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
@@ -18,7 +19,7 @@ const authenticatedFetch = createIsomorphicFn()
     const cookie = getRequestHeader("cookie");
     if (cookie) headers.set("cookie", cookie);
 
-    return fetch(new URL(url.toString(), getRequestUrl()).href, { ...options, headers });
+    return fetch(rurl(url.toString(), getRequestUrl()).href, { ...options, headers });
   });
 
 export function createApi() {

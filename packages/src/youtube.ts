@@ -1,4 +1,5 @@
 import { erro, safeFetch } from "@lebedevna/neverthrow-utils";
+import { rurl, type ReadonlyURL } from "@lebedevna/readonly-url";
 import { LinkifyIt } from "linkify-it";
 import { ok, safeTry } from "neverthrow";
 
@@ -6,13 +7,13 @@ const linkify = new LinkifyIt({ fuzzyLink: true });
 
 function parseUrl(url: string) {
   try {
-    return new URL(url.startsWith("www.") ? `https://${url}` : url);
+    return rurl(url.startsWith("www.") ? `https://${url}` : url);
   } catch {
     return null;
   }
 }
 
-function isYoutubeUrl(url: URL) {
+function isYoutubeUrl(url: ReadonlyURL) {
   const host = url.hostname.toLowerCase();
   if (url.protocol !== "http:" && url.protocol !== "https:") return false;
   return (
@@ -70,7 +71,7 @@ function youtubeDurationSeconds(responseBody: string) {
 }
 
 function timingFromDuration(
-  parsedUrl: URL,
+  parsedUrl: ReadonlyURL,
   endOfVideoSeconds: number,
   requestedTiming?: RequestedYoutubeTiming,
 ) {
@@ -156,7 +157,7 @@ export function getYoutubeTiming(url: string, requestedTiming?: RequestedYoutube
 export function extractYoutubeUrls(message: string | null) {
   const youtubeUrls = (linkify.match(message ?? "") ?? [])
     .map((match) => parseUrl(match.url))
-    .filter((url): url is URL => url !== null && isYoutubeUrl(url))
+    .filter((url): url is ReadonlyURL => url !== null && isYoutubeUrl(url))
     .map((url) => (url.protocol === "http:" ? `https:${url.href.slice(5)}` : url.href));
 
   return Array.from(new Set(youtubeUrls));

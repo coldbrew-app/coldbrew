@@ -1,7 +1,8 @@
 import { credentials, loadPackageDefinition, Metadata, type ServiceError } from "@grpc/grpc-js";
 import { fromJSON } from "@grpc/proto-loader";
+import { parseJson, safeFetch, validate } from "@lebedevna/neverthrow-utils";
+import { rurl } from "@lebedevna/readonly-url";
 import type { ChatMessage, ChatSourceState } from "@web/lib/chat.js";
-import { ResultAsync } from "neverthrow";
 import { z } from "zod";
 
 import { env } from "../env.js";
@@ -11,17 +12,6 @@ type Emit = {
   state: (state: ChatSourceState, detail?: string) => void;
 };
 
-const VideoResponseSchema = z.object({
-  items: z.array(
-    z.object({
-      liveStreamingDetails: z
-        .object({
-          activeLiveChatId: z.string().optional(),
-        })
-        .optional(),
-    }),
-  ),
-});
 const StreamResponseSchema = z.object({
   nextPageToken: z.string().optional(),
   offlineAt: z.union([z.string(), z.number(), z.bigint()]).optional(),
@@ -148,26 +138,30 @@ export async function runYoutubeCollector(
   pageToken?: string,
 ) {
   const apiKey = env.YOUTUBE_API_KEY;
-  if (!apiKey) {
-    emit.state("error", "YOUTUBE_API_KEY is not configured");
-    return pageToken;
-  }
-  const url = new URL("https://www.googleapis.com/youtube/v3/videos");
-  url.search = new URLSearchParams({
+  const url = rurl("https://www.googleapis.com/youtube/v3/videos").withSearchParams({
     id: videoId,
     key: apiKey,
     part: "liveStreamingDetails",
-  }).toString();
-  const $response = await ResultAsync.fromPromise(fetch(url, { signal }), (error) => error);
-  if ($response.isErr() || !$response.value.ok) {
+  });
+  const schema = z.object({
+    items: z.array(
+      z.object({
+        liveStreamingDetails: z
+          .object({
+            activeLiveChatId: z.string().optional(),
+          })
+          .optional(),
+      }),
+    ),
+  });
+  const $response = await safeFetch(url.href, { signal })
+    .andThen(parseJson)
+    .andThen((value) => validate(schema, value));
+  if ($response.isErr()) {
     emit.state("error", "Could not read the YouTube live stream");
     return pageToken;
   }
-  const $body = await ResultAsync.fromPromise($response.value.json(), (error) => error);
-  const parsed = $body.isOk() ? VideoResponseSchema.safeParse($body.value) : null;
-  const liveChatId = parsed?.success
-    ? parsed.data.items[0]?.liveStreamingDetails?.activeLiveChatId
-    : null;
+  const liveChatId = $response.value.items[0]?.liveStreamingDetails?.activeLiveChatId;
   if (!liveChatId) {
     emit.state("offline");
     return undefined;
@@ -190,10 +184,10 @@ export async function runYoutubeCollector(
   emit.state("live");
   let nextPageToken = pageToken;
   stream.on("data", (value) => {
-    const parsedResponse = StreamResponseSchema.safeParse(value);
-    if (!parsedResponse.success) return;
-    nextPageToken = parsedResponse.data.nextPageToken || nextPageToken;
-    for (const item of parsedResponse.data.items) {
+    const $response = validate(StreamResponseSchema, value);
+    if ($response.isErr()) return;
+    nextPageToken = $response.value.nextPageToken || nextPageToken;
+    for (const item of $response.value.items) {
       emit.message({
         id: item.id,
         provider: "youtube",
@@ -203,7 +197,7 @@ export async function runYoutubeCollector(
         occurredAt: new Date(item.snippet.publishedAt),
       });
     }
-    if (parsedResponse.data.offlineAt && BigInt(parsedResponse.data.offlineAt) > 0n) {
+    if ($response.value.offlineAt && BigInt($response.value.offlineAt) > 0n) {
       emit.state("offline");
     }
   });

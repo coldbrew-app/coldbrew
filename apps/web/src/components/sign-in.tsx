@@ -1,3 +1,4 @@
+import { rurl } from "@lebedevna/readonly-url";
 import { signIn } from "@web/lib/auth-client";
 import { useState } from "react";
 
@@ -44,7 +45,7 @@ export default function SignIn() {
             disabled={isSigningIn}
             onClick={async () => {
               setIsSigningIn(true);
-              const callbackURL = new URL("/integrations", window.location.origin).href;
+              const callbackURL = rurl("/integrations", window.location.origin).href;
               await signIn.social({ provider: "google", callbackURL });
             }}
             size="lg"

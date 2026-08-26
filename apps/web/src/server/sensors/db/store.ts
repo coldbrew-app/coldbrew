@@ -100,11 +100,10 @@ export class Store {
           OR coalesce(message, '') ILIKE ${searchPattern}
         )
     `;
-    const total = z
-      .object({
-        total: z.number().int().nonnegative(),
-      })
-      .parse(countRows[0]).total;
+    const countSchema = z.object({
+      total: z.number().int().nonnegative(),
+    });
+    const total = countSchema.parse(countRows[0]).total;
     const totalPages = Math.ceil(total / input.pageSize);
     const page = Math.min(input.page, Math.max(totalPages, 1));
     const offset = (page - 1) * input.pageSize;
@@ -148,9 +147,11 @@ export class Store {
         LIMIT 3
       `,
     ]);
-    const summary = z
-      .object({ donationCount: z.number().int().nonnegative(), totalAmount: z.coerce.number() })
-      .parse(summaryRows[0]);
+    const schema = z.object({
+      donationCount: z.number().int().nonnegative(),
+      totalAmount: z.coerce.number(),
+    });
+    const summary = schema.parse(summaryRows[0]);
     return { ...summary, recentDonations: z.array(DonationSchema).parse(recentRows) };
   }
 
@@ -216,11 +217,10 @@ export class Store {
       `,
     ]);
     const [countRows, statusCountRows, priorityCountRows, priorityDurationRows] = statisticRows;
-    const total = z
-      .object({
-        total: z.number().int().nonnegative(),
-      })
-      .parse(countRows[0]).total;
+    const countSchema = z.object({
+      total: z.number().int().nonnegative(),
+    });
+    const total = countSchema.parse(countRows[0]).total;
     const totalPages = Math.ceil(total / input.pageSize);
     const page = Math.min(input.page, Math.max(totalPages, 1));
     const offset = (page - 1) * input.pageSize;
@@ -281,33 +281,30 @@ export class Store {
       LIMIT ${input.pageSize}
       OFFSET ${offset}
     `;
-    const statusCounts = z
-      .object({
-        all: z.number().int().nonnegative(),
-        notwatched: z.number().int().nonnegative(),
-        watched: z.number().int().nonnegative(),
-        bookmarked: z.number().int().nonnegative(),
-      })
-      .parse(statusCountRows[0]);
+    const statusCountsSchema = z.object({
+      all: z.number().int().nonnegative(),
+      notwatched: z.number().int().nonnegative(),
+      watched: z.number().int().nonnegative(),
+      bookmarked: z.number().int().nonnegative(),
+    });
+    const statusCounts = statusCountsSchema.parse(statusCountRows[0]);
+    const priorityCountSchema = z.object({
+      videoPriorityId: z.number().int().positive(),
+      count: z.number().int().nonnegative(),
+    });
     const priorityCounts = Object.fromEntries(
       z
-        .array(
-          z.object({
-            videoPriorityId: z.number().int().positive(),
-            count: z.number().int().nonnegative(),
-          }),
-        )
+        .array(priorityCountSchema)
         .parse(priorityCountRows)
         .map(({ videoPriorityId, count }) => [videoPriorityId, count]),
     );
+    const priorityDurationSchema = z.object({
+      videoPriorityId: z.number().int().positive(),
+      remainingSeconds: z.coerce.number().int().nonnegative(),
+    });
     const remainingSecondsByPriorityId = Object.fromEntries(
       z
-        .array(
-          z.object({
-            videoPriorityId: z.number().int().positive(),
-            remainingSeconds: z.coerce.number().int().nonnegative(),
-          }),
-        )
+        .array(priorityDurationSchema)
         .parse(priorityDurationRows)
         .map(({ videoPriorityId, remainingSeconds }) => [videoPriorityId, remainingSeconds]),
     );
@@ -356,7 +353,11 @@ export class Store {
       )
       RETURNING video_id
     `;
-    return VideoIdSchema.parse(rows[0]?.videoId);
+    const schema = z.object({
+      videoId: VideoIdSchema,
+    });
+
+    return schema.parse(rows[0]).videoId;
   }
 
   async listVideoPriorities(userId: UserId) {
@@ -384,7 +385,7 @@ export class Store {
         AND video_priority_id = ${videoPriorityId}
       RETURNING video_priority_id, label, is_default, min_price_per_minute
     `;
-    return VideoPrioritySchema.nullable().parse(rows[0] ?? null);
+    return VideoPrioritySchema.optional().parse(rows[0]) ?? null;
   }
 
   async updateVideoStatus(
@@ -464,7 +465,10 @@ export class Store {
         WHERE user_id = ${userId}
         FOR UPDATE
       `;
-      const previousCurrency = QueueCurrencySchema.parse(userRows[0]?.queueCurrency);
+      const schema = z.object({
+        queueCurrency: QueueCurrencySchema,
+      });
+      const previousCurrency = schema.parse(userRows[0]).queueCurrency;
       if (previousCurrency === queueCurrency) return previousCurrency;
 
       const { numerator, denominator } = conversionFactorForCurrencyChange(
@@ -529,17 +533,15 @@ export class Store {
       FROM "user"
       WHERE slug = ${slug}
     `;
-    const summary = z
-      .object({
-        userId: UserIdSchema,
-        publicQueueEnabled: z.boolean(),
-        publicQueueShowAmounts: z.boolean(),
-        publicQueueShowWatched: z.boolean(),
-        total: z.number().int().nonnegative(),
-      })
-      .nullable()
-      .parse(summaryRows[0] ?? null);
-    if (summary === null || !summary.publicQueueEnabled) return null;
+    const summarySchema = z.object({
+      userId: UserIdSchema,
+      publicQueueEnabled: z.boolean(),
+      publicQueueShowAmounts: z.boolean(),
+      publicQueueShowWatched: z.boolean(),
+      total: z.number().int().nonnegative(),
+    });
+    const summary = summarySchema.optional().parse(summaryRows[0]);
+    if (summary === undefined || !summary.publicQueueEnabled) return null;
     const status: "queue" | "watched" =
       input.status === "watched" && summary.publicQueueShowWatched ? "watched" : "queue";
     const totalPages = Math.ceil(summary.total / input.pageSize);
@@ -610,16 +612,13 @@ export class Store {
           video_priority.video_priority_id ASC
       `,
     ]);
-    const priorities = z
-      .array(
-        z.object({
-          videoPriorityId: z.number().int().positive(),
-          label: z.string().trim().min(1).max(64),
-          videoCount: z.number().int().nonnegative(),
-          remainingSeconds: z.coerce.number().int().nonnegative(),
-        }),
-      )
-      .parse(status === "queue" ? priorityRows : []);
+    const prioritySchema = z.object({
+      videoPriorityId: z.number().int().positive(),
+      label: z.string().trim().min(1).max(64),
+      videoCount: z.number().int().nonnegative(),
+      remainingSeconds: z.coerce.number().int().nonnegative(),
+    });
+    const priorities = z.array(prioritySchema).parse(status === "queue" ? priorityRows : []);
     return {
       items: z.array(SharedVideoSchema).parse(rows),
       page,
@@ -638,12 +637,11 @@ export class Store {
       FROM "user"
       WHERE auth_user_id = ${authUserId}
     `;
-    return (
-      z
-        .object({ userId: UserIdSchema })
-        .nullable()
-        .parse(rows[0] ?? null)?.userId ?? null
-    );
+    const schema = z.object({
+      userId: UserIdSchema,
+    });
+
+    return schema.optional().parse(rows[0])?.userId ?? null;
   }
 
   async getOrCreateUserId(authUserId: AuthUserId, preferredSlug: string): Promise<UserId> {
@@ -658,11 +656,10 @@ export class Store {
           SET auth_user_id = EXCLUDED.auth_user_id
           RETURNING user_id
         `;
-        const userId = z
-          .object({
-            userId: UserIdSchema,
-          })
-          .parse(rows[0]).userId;
+        const schema = z.object({
+          userId: UserIdSchema,
+        });
+        const userId = schema.parse(rows[0]).userId;
         await sql`
           INSERT INTO video_priority (
             user_id, label, min_price_per_minute, is_default
@@ -710,7 +707,7 @@ export class Store {
       LEFT JOIN donationalerts_connection USING (user_id)
       WHERE "user".user_id = ${userId}
     `;
-    return UserInfoSchema.nullable().parse(rows[0] ?? null);
+    return UserInfoSchema.optional().parse(rows[0]) ?? null;
   }
 
   async setPublicQueueSettings(userId: UserId, settings: PublicQueueSettings) {
@@ -727,8 +724,11 @@ export class Store {
         'showWatchedVideos', public_queue_show_watched
       ) AS public_queue_settings
     `;
-    return z.object({ publicQueueSettings: PublicQueueSettingsSchema }).parse(rows[0])
-      .publicQueueSettings;
+    const schema = z.object({
+      publicQueueSettings: PublicQueueSettingsSchema,
+    });
+
+    return schema.parse(rows[0]).publicQueueSettings;
   }
 
   async saveDonationAlertsConnection(

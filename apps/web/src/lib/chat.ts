@@ -1,3 +1,4 @@
+import { rurl, type ReadonlyURL } from "@lebedevna/readonly-url";
 import { z } from "zod";
 
 export const ChatProviderSchema = z.enum(["youtube", "twitch"]);
@@ -53,9 +54,9 @@ const twitchReservedPaths = new Set([
 ]);
 
 export function parseChatSource(value: string): ChatSource | null {
-  let url: URL;
+  let url: ReadonlyURL;
   try {
-    url = new URL(value.trim());
+    url = rurl(value.trim());
   } catch {
     return null;
   }

@@ -20,6 +20,8 @@
   },
   "intent": {
     "skills": [
+      "@lebedevna/neverthrow-utils",
+      "@lebedevna/readonly-url",
       "@tanstack/react-start",
       "@tanstack/router-plugin",
       "@tanstack/router-core",

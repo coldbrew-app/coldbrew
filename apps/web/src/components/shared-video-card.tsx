@@ -1,4 +1,5 @@
 import { formatVideoTime, getWatchDurationSeconds } from "@coldbrew/packages/video-timing.js";
+import { rurl } from "@lebedevna/readonly-url";
 import { fmtAmount, fmtDate, formatRelativeDate } from "@web/lib/fmt";
 import type { SharedVideo } from "@web/server/exports";
 
@@ -11,7 +12,7 @@ type Props = {
 };
 
 const getYoutubeEmbedUrl = (url: string, startSeconds: number, endSeconds: number) => {
-  const parsedUrl = new URL(url);
+  const parsedUrl = rurl(url);
   const host = parsedUrl.hostname.replace(/^www\./, "").toLowerCase();
   const videoId =
     host === "youtu.be"
@@ -21,10 +22,10 @@ const getYoutubeEmbedUrl = (url: string, startSeconds: number, endSeconds: numbe
 
   if (!videoId) return null;
 
-  const embedUrl = new URL(`https://www.youtube-nocookie.com/embed/${videoId}`);
-  embedUrl.searchParams.set("start", String(startSeconds));
-  embedUrl.searchParams.set("end", String(endSeconds));
-  return embedUrl.href;
+  return rurl(`https://www.youtube-nocookie.com/embed/${videoId}`).withSearchParams({
+    start: startSeconds,
+    end: endSeconds,
+  }).href;
 };
 
 export function SharedVideoCard({ showPriorityLabel = true, video }: Props) {

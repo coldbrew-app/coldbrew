@@ -1,3 +1,4 @@
+import { rurl } from "@lebedevna/readonly-url";
 import type { ChatSource } from "@web/lib/chat.js";
 import { ChatSourceSchema } from "@web/lib/chat.js";
 import { z } from "zod";
@@ -33,8 +34,12 @@ export async function getChatConfig(userId: number) {
     FROM chat_overlay
     WHERE user_id = ${userId}
   `;
+  const schema = z.object({
+    hasOverlayToken: z.boolean(),
+  });
+
   return {
-    hasOverlayToken: z.boolean().parse(tokenRows[0]?.hasOverlayToken ?? false),
+    hasOverlayToken: schema.parse(tokenRows[0]).hasOverlayToken,
     sources: SourceRowsSchema.parse(rows).map(({ position: _position, ...source }) => source),
   };
 }
@@ -79,7 +84,7 @@ export async function rotateOverlayToken(userId: number) {
   `;
   return {
     token,
-    overlayUrl: new URL(`/chat/overlay/${token}`, env.APP_DOMAIN).href,
+    overlayUrl: rurl(`/chat/overlay/${token}`, env.APP_DOMAIN).href,
   };
 }
 
@@ -90,13 +95,11 @@ export async function getSourcesByOverlayToken(token: string) {
     FROM chat_overlay
     WHERE token_hash = ${tokenHash}
   `;
-  const userId = z
-    .number()
-    .int()
-    .positive()
-    .nullable()
-    .parse(overlayRows[0]?.userId ?? null);
-  if (userId === null) return null;
+  const schema = z.object({
+    userId: z.number().int().positive(),
+  });
+  const userId = schema.optional().parse(overlayRows[0])?.userId;
+  if (userId === undefined) return null;
   const rows = await sql`
     SELECT source.provider, source.source_identifier, source.source_url, source.position
     FROM chat_overlay
