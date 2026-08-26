@@ -8,5 +8,8 @@ export default defineConfig({
   envDir: "../..",
   plugins: [tanstackStart(), nitro({ preset: "bun" }), react(), tailwindcss()],
   resolve: { tsconfigPaths: true },
-  server: { port: 3000 },
+  server: {
+    port: Number(process.env.APP_PORT ?? 3000),
+    strictPort: true,
+  },
 });

@@ -1,4 +1,21 @@
-[post-start]
-copy-env =      "cp {{ primary_worktree_path }}/.env      {{ worktree_path }}/.env"
-copy-env-keys = "cp {{ primary_worktree_path }}/.env.keys {{ worktree_path }}/.env.keys"
+[[pre-start]]
+copy-ignored = "wt step copy-ignored --require-include"
+
+[[pre-start]]
+environment = "just env-init"
+
+[[pre-start]]
 install-deps = "bun install"
+database = "just dev-db-up"
+
+[[pre-start]]
+schema = "just schema-apply"
+
+[post-start]
+server = "wt step tether -- just dev"
+
+[pre-remove]
+database = "just dev-db-destroy"
+
+[list]
+url = "http://localhost:{{ (repo ~ '-app-' ~ branch) | hash_port }}"

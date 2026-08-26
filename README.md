@@ -21,12 +21,28 @@ Install [Bun](https://bun.com/docs/installation), then run:
 
 ```sh
 just install
+just env-init
+just dev-db-up
+just schema-apply
 just dev
 ```
 
-Configure `.env.dev` with a reachable PostgreSQL instance before starting the
-app. The client runs at `http://localhost:3000`, including the web UI,
-authentication, tRPC API, and OAuth callbacks.
+`.env.dev` is the encrypted, long-lived source for development secrets.
+`just env-init` decrypts it into the gitignored `.env` runtime configuration
+and assigns the current worktree its own application port, PostgreSQL port,
+database name, and Docker Compose project. It requires the development key in
+`.env.keys`. Worktrunk copies that key from the primary worktree when it creates
+a new worktree.
+
+The application URL is stored in `APP_DOMAIN` in the generated `.env`. It
+serves the web UI, authentication, tRPC API, and OAuth callbacks. Each
+worktree created through Worktrunk initializes its environment and database,
+applies its schema, and starts its development processes automatically.
+
+The development PostgreSQL volume is retained by `just dev-db-down`. Remove
+it explicitly with `just dev-db-destroy` when its data is no longer needed.
+Worktrunk runs the destructive command automatically before removing a
+worktree.
 
 ## Run the complete stack with Docker Compose
 

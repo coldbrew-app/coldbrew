@@ -5,14 +5,36 @@ default:
 install:
   bun install
 
+# Build the runtime environment for the current worktree from long-lived dev settings.
+env-init source-env=".env.dev":
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  app_port="$(wt step eval '{{{{ (repo ~ "-app-" ~ branch) | hash_port }}')"
+  db_port="$(wt step eval '{{{{ (repo ~ "-db-" ~ branch) | hash_port }}')"
+  db_name="coldbrew_$(wt step eval '{{{{ branch | sanitize_db }}')"
+  compose_project="$(wt step eval '{{{{ (repo ~ "_" ~ branch) | sanitize_db }}')"
+
+  dotenvx decrypt -f "{{source-env}}" -fk .env.keys --stdout > .env
+  dotenvx set -f .env --plain APP_PORT "$app_port"
+  dotenvx set -f .env --plain APP_DOMAIN "http://localhost:$app_port"
+  dotenvx set -f .env --plain PGHOST 127.0.0.1
+  dotenvx set -f .env --plain PGPORT "$db_port"
+  dotenvx set -f .env --plain PGDATABASE "$db_name"
+  dotenvx set -f .env --plain COMPOSE_PROJECT_NAME "$compose_project"
+
+  dotenvx run -f .env --overload -- bash -c 'dotenvx set -f .env --plain DATABASE_URL "postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"'
+
+  chmod 600 .env
+
 dev-donationalerts:
-  dotenvx run -f .env.dev -- bun --watch apps/donationalerts/src/index.ts
+  dotenvx run -f .env --overload -- bun --watch apps/donationalerts/src/index.ts
 
 dev-video:
-  dotenvx run -f .env.dev -- bun --watch apps/video/src/index.ts
+  dotenvx run -f .env --overload -- bun --watch apps/video/src/index.ts
 
 dev-web:
-  dotenvx run -f .env.dev -- sh -c 'cd apps/web && bun run dev'
+  dotenvx run -f .env --overload -- sh -c 'cd apps/web && bun run dev'
 
 dev:
   bunx concurrently -n 'web,donationalerts,video' 'just dev-web' 'just dev-donationalerts' 'just dev-video'
@@ -54,6 +76,15 @@ compose-db-up:
 compose-down:
   docker compose down
 
+dev-db-up:
+  dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml up -d --wait
+
+dev-db-down:
+  dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml down
+
+dev-db-destroy:
+  dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml down --volumes
+
 backup-now:
   docker compose run --rm --no-deps wal-g wal-g backup-push
 
@@ -64,26 +95,26 @@ backup-verify:
   docker compose run --rm --no-deps wal-g wal-g wal-verify integrity
 
 test-web: install
-  dotenvx run -f .env.dev -- bunx vitest --run apps/web
+  dotenvx run -f .env --overload -- bunx vitest --run apps/web
 
 test-donationalerts: install
-  dotenvx run -f .env.dev -- bunx vitest --run apps/donationalerts
+  dotenvx run -f .env --overload -- bunx vitest --run apps/donationalerts
 
 test-video: install
-  dotenvx run -f .env.dev -- bunx vitest --run apps/video
+  dotenvx run -f .env --overload -- bunx vitest --run apps/video
 
 test-packages: install
-  dotenvx run -f .env.dev -- bunx vitest --run packages
+  dotenvx run -f .env --overload -- bunx vitest --run packages
 
 test: test-web test-donationalerts test-video test-packages
 
 check: lint fmt-check test
 
 schema-apply:
-  pgschema apply --auto-approve --file db/schema.sql
+  dotenvx run -f .env --overload -- pgschema apply --auto-approve --file db/schema.sql
 
 schema-reset:
-  pgschema apply --auto-approve --file db/empty.sql
+  dotenvx run -f .env --overload -- pgschema apply --auto-approve --file db/empty.sql
   just schema-apply
 
 
