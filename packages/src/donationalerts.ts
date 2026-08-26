@@ -137,6 +137,55 @@ const toRequestError = (error: unknown) => {
       });
 };
 
+async function* toEvents<T>(
+  client: DonationAlertsWebServer,
+  toData: (message: unknown) => T | undefined,
+  signal: AbortSignal,
+) {
+  const emitter = new Emittery<{
+    "data": T;
+    "error": DonationAlertsRequestError | DonationAlertsUnauthorizedError;
+    "end": undefined;
+  }>();
+
+  let ended = false;
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+
+    closed = true;
+    client.close();
+  };
+  const endWithError = (error: unknown) => {
+    if (ended || signal.aborted) return;
+
+    ended = true;
+    close();
+    void emitter.emit("error", toRequestError(error));
+    void emitter.emit("end");
+  };
+  const onMessage = (message: unknown) => {
+    const data = toData(message);
+    if (data !== undefined) void emitter.emit("data", data);
+  };
+  const onAbort = () => close();
+
+  client.on("open", () => client.authorization().catch(endWithError));
+  client.on("error", endWithError);
+  client.on("message", onMessage);
+  signal.addEventListener("abort", onAbort, { once: true });
+
+  try {
+    for await (const event of emitter.events(["data", "error", "end"], { signal })) {
+      if (event.name === "end") return;
+      yield event;
+    }
+  } finally {
+    signal.removeEventListener("abort", onAbort);
+    close();
+  }
+}
+
 export class DonationAlertsFacade {
   constructor(
     private readonly config: {
@@ -237,41 +286,32 @@ export class DonationAlertsFacade {
       autoReconnect: true,
     }) as any;
 
-    signal.addEventListener("abort", () => client.close(), { once: true });
-
-    const emitter = new Emittery<{
-      "donation": RawDonation;
-      "error": DonationAlertsRequestError | DonationAlertsUnauthorizedError;
-      "end": undefined;
-    }>();
-
-    let ended = false;
-    const endWithError = (error: unknown) => {
-      if (ended || signal.aborted) return;
-
-      ended = true;
-      client.close();
-      void emitter.emit("error", toRequestError(error));
-      void emitter.emit("end");
-    };
-
-    const onMessage = (message: unknown) => {
+    const toWsEvent = (message: unknown) =>
       validate(WsEventSchema, message).match(
-        (event) => {
-          event.type === "donation" &&
-            emitter.emit("donation", this.toDonation(event.result.data.data));
+        (event) => event,
+        (error) => {
+          logger.error(error);
+          return undefined;
         },
-        (error) => logger.error(error),
       );
-    };
 
-    client.on("open", () => client.authorization().catch(endWithError));
-    client.on("error", endWithError);
-    client.on("message", onMessage);
+    for await (const event of toEvents(client, toWsEvent, signal)) {
+      switch (event.name) {
+        case "error":
+          yield event;
+          break;
 
-    for await (const event of emitter.events(["donation", "error", "end"], { signal })) {
-      if (event.name === "end") return;
-      yield event;
+        case "data": {
+          const msg = event.data;
+          if (msg.type == "donation") {
+            yield {
+              name: "donation" as const,
+              data: this.toDonation(msg.result.data.data),
+            };
+          }
+          break;
+        }
+      }
     }
   }
 }
