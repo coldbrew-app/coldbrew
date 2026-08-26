@@ -4,6 +4,7 @@ Bun TypeScript monorepo with a TanStack Start/tRPC/Postgres web app and dedicate
 
 See [currency and video-queue rules](docs/currencies.md) for the fixed exchange
 rates and queue-currency transition semantics.
+See [multichat](docs/multichat.md) for YouTube/Twitch collection, OBS tokens, and service credentials.
 
 Project tasks are managed with [just](https://just.systems/). Run `just` to list them.
 

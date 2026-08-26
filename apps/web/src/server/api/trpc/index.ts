@@ -14,6 +14,7 @@ import { z } from "zod";
 import { store } from "../../sensors/db/index.js";
 import { donationAlerts } from "../../sensors/donationalerts.js";
 import { authenticatedProcedure, procedure, router } from "./_config.js";
+import { chatRouter } from "./chat.js";
 import { integrationRouter } from "./integration.js";
 
 const PAGE_SIZE = 25;
@@ -42,6 +43,7 @@ const SharedVideoPageSchema = z
   .nullable();
 
 export const appRouter = router({
+  chat: chatRouter,
   integration: integrationRouter,
 
   authUrls: authenticatedProcedure.query(() => {

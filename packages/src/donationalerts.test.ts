@@ -31,7 +31,7 @@ const { DonationAlertsFacade } = await import("./donationalerts.js");
 
 const accessToken = AccessTokenSchema.parse("access-token");
 const createFacade = () =>
-  new DonationAlertsFacade({ clientId: "client-id", clientSecret: "secret", timeZone: "UTC" });
+  new DonationAlertsFacade({ clientId: "client-id", clientSecret: "secret" });
 
 afterEach(() => {
   state.clients.length = 0;

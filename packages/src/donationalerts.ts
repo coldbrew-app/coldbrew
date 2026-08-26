@@ -26,6 +26,8 @@ dayjs.extend(timezone);
 
 export type RawDonation = Omit<Donation, "donationId" | "userId">;
 
+const DONATION_ALERTS_TIME_ZONE = "Europe/Moscow";
+
 const scopes = [
   alerts.OAuthScope.UserShow,
   alerts.OAuthScope.DonationSubscribe,
@@ -191,7 +193,6 @@ export class DonationAlertsFacade {
     private readonly config: {
       readonly clientId: string;
       readonly clientSecret: string;
-      readonly timeZone: string;
     },
   ) {}
 
@@ -236,7 +237,11 @@ export class DonationAlertsFacade {
   }
 
   private toDonation(donation: z.infer<typeof DonationAlertsDonationSchema>): RawDonation {
-    const occurredAt = dayjs.tz(donation.created_at, "YYYY-MM-DD HH:mm:ss", this.config.timeZone);
+    const occurredAt = dayjs.tz(
+      donation.created_at,
+      "YYYY-MM-DD HH:mm:ss",
+      DONATION_ALERTS_TIME_ZONE,
+    );
     if (!occurredAt.isValid()) {
       throw new Error(`Invalid DonationAlerts donation date: ${donation.created_at}`);
     }

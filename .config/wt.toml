@@ -11,9 +11,6 @@ database = "just dev-db-up"
 [[pre-start]]
 schema = "just schema-apply"
 
-[post-start]
-server = "wt step tether -- just dev"
-
 [pre-remove]
 database = "just dev-db-destroy"
 

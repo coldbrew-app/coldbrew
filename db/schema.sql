@@ -1,5 +1,6 @@
 CREATE TYPE donation_source AS ENUM ('donationalerts');
 CREATE TYPE video_provider AS ENUM ('youtube');
+CREATE TYPE chat_provider AS ENUM ('youtube', 'twitch');
 
 CREATE DOMAIN js_date AS timestamptz(3);
 CREATE DOMAIN positive_int AS integer CHECK (VALUE > 0);
@@ -81,6 +82,27 @@ CREATE TABLE donationalerts_connection (
   connected_at       js_date NOT NULL DEFAULT now(),
   updated_at         js_date NOT NULL DEFAULT now()
 );
+
+CREATE TABLE chat_overlay (
+  user_id    int      PRIMARY KEY REFERENCES "user" (user_id) ON DELETE CASCADE,
+  token_hash char(64)     NULL UNIQUE CHECK (token_hash ~ '^[0-9a-f]{64}$'),
+  updated_at js_date  NOT NULL DEFAULT now()
+);
+
+CREATE TABLE chat_overlay_source (
+  chat_overlay_source_id serial        PRIMARY KEY,
+  user_id                int           NOT NULL REFERENCES chat_overlay (user_id)
+                                      ON DELETE CASCADE,
+  provider               chat_provider NOT NULL,
+  source_identifier      text          NOT NULL CHECK (char_length(source_identifier) BETWEEN 1 AND 100),
+  source_url             text          NOT NULL,
+  position               nonnegative_int NOT NULL CHECK (position < 8),
+  UNIQUE (user_id, provider, source_identifier),
+  UNIQUE (user_id, position)
+);
+
+CREATE INDEX chat_overlay_source_user_position_idx
+  ON chat_overlay_source (user_id, position);
 
 CREATE TABLE donation (
   donation_id             bigint          PRIMARY KEY GENERATED ALWAYS AS IDENTITY,

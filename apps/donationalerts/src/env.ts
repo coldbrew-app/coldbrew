@@ -5,5 +5,4 @@ export const env = getEnv({
   DATABASE_URL: z.url(),
   DONATION_ALERTS_CLIENT_ID: z.string().refine((str) => str.length > 0 && !isNaN(+str)),
   DONATION_ALERTS_CLIENT_SECRET: z.string().nonempty(),
-  DONATION_ALERTS_TIME_ZONE: z.string().nonempty().default("Europe/Moscow"),
 });

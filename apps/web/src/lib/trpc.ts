@@ -2,7 +2,7 @@ import type { DefaultError, FetchQueryOptions, QueryKey } from "@tanstack/react-
 import { QueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { createIsomorphicFn } from "@tanstack/react-start";
-import { createTRPCClient, httpBatchLink } from "@trpc/client";
+import { createTRPCClient, httpBatchLink, httpSubscriptionLink, splitLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import superjson from "superjson";
 
@@ -32,10 +32,17 @@ export function createApi() {
 
   const trpcClient = createTRPCClient<AppRouter>({
     links: [
-      httpBatchLink({
-        fetch: authenticatedFetch,
-        url: "/api/trpc",
-        transformer: superjson,
+      splitLink({
+        condition: (operation) => operation.type === "subscription",
+        true: httpSubscriptionLink({
+          url: "/api/trpc",
+          transformer: superjson,
+        }),
+        false: httpBatchLink({
+          fetch: authenticatedFetch,
+          url: "/api/trpc",
+          transformer: superjson,
+        }),
       }),
     ],
   });
@@ -45,14 +52,14 @@ export function createApi() {
     queryClient,
   });
 
-  return { queryClient, trpc };
+  return { queryClient, trpc, trpcClient };
 }
 
 export type Api = ReturnType<typeof createApi>;
 
 export function useApi() {
-  const { queryClient, trpc } = useRouter().options.context;
-  return { queryClient, trpc };
+  const { queryClient, trpc, trpcClient } = useRouter().options.context;
+  return { queryClient, trpc, trpcClient };
 }
 
 export async function preloadRouteQuery<

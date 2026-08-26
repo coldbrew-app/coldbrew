@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedAlertsRouteImport } from './routes/_authenticated/alerts'
+import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
 import { Route as AuthenticatedDonationsRouteImport } from './routes/_authenticated/donations'
 import { Route as AuthenticatedIntegrationsRouteImport } from './routes/_authenticated/integrations'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
@@ -21,6 +22,7 @@ import { Route as ShareSlugRouteImport } from './routes/share.$slug'
 import { Route as AuthenticatedDonationsIndexRouteImport } from './routes/_authenticated/donations.index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api/trpc/$'
+import { Route as ChatOverlayTokenRouteImport } from './routes/chat.overlay.$token'
 import { Route as ApiIntegrationDonationalertsCallbackRouteImport } from './routes/api/integration/donationalerts/callback'
 
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
@@ -35,6 +37,11 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
 const AuthenticatedAlertsRoute = AuthenticatedAlertsRouteImport.update({
   id: '/alerts',
   path: '/alerts',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedChatRoute = AuthenticatedChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedDonationsRoute = AuthenticatedDonationsRouteImport.update({
@@ -84,6 +91,11 @@ const ApiTrpcSplatRoute = ApiTrpcSplatRouteImport.update({
   path: '/api/trpc/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChatOverlayTokenRoute = ChatOverlayTokenRouteImport.update({
+  id: '/chat/overlay/$token',
+  path: '/chat/overlay/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiIntegrationDonationalertsCallbackRoute =
   ApiIntegrationDonationalertsCallbackRouteImport.update({
     id: '/api/integration/donationalerts/callback',
@@ -94,6 +106,7 @@ const ApiIntegrationDonationalertsCallbackRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/alerts': typeof AuthenticatedAlertsRoute
+  '/chat': typeof AuthenticatedChatRoute
   '/donations': typeof AuthenticatedDonationsRouteWithChildren
   '/integrations': typeof AuthenticatedIntegrationsRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -102,11 +115,13 @@ export interface FileRoutesByFullPath {
   '/share/$slug': typeof ShareSlugRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/chat/overlay/$token': typeof ChatOverlayTokenRoute
   '/donations/': typeof AuthenticatedDonationsIndexRoute
   '/api/integration/donationalerts/callback': typeof ApiIntegrationDonationalertsCallbackRoute
 }
 export interface FileRoutesByTo {
   '/alerts': typeof AuthenticatedAlertsRoute
+  '/chat': typeof AuthenticatedChatRoute
   '/integrations': typeof AuthenticatedIntegrationsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/videos': typeof AuthenticatedVideosRoute
@@ -115,6 +130,7 @@ export interface FileRoutesByTo {
   '/': typeof AuthenticatedIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/chat/overlay/$token': typeof ChatOverlayTokenRoute
   '/donations': typeof AuthenticatedDonationsIndexRoute
   '/api/integration/donationalerts/callback': typeof ApiIntegrationDonationalertsCallbackRoute
 }
@@ -122,6 +138,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/_authenticated/alerts': typeof AuthenticatedAlertsRoute
+  '/_authenticated/chat': typeof AuthenticatedChatRoute
   '/_authenticated/donations': typeof AuthenticatedDonationsRouteWithChildren
   '/_authenticated/integrations': typeof AuthenticatedIntegrationsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
@@ -131,6 +148,7 @@ export interface FileRoutesById {
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/chat/overlay/$token': typeof ChatOverlayTokenRoute
   '/_authenticated/donations/': typeof AuthenticatedDonationsIndexRoute
   '/api/integration/donationalerts/callback': typeof ApiIntegrationDonationalertsCallbackRoute
 }
@@ -139,6 +157,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/alerts'
+    | '/chat'
     | '/donations'
     | '/integrations'
     | '/settings'
@@ -147,11 +166,13 @@ export interface FileRouteTypes {
     | '/share/$slug'
     | '/api/auth/$'
     | '/api/trpc/$'
+    | '/chat/overlay/$token'
     | '/donations/'
     | '/api/integration/donationalerts/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/alerts'
+    | '/chat'
     | '/integrations'
     | '/settings'
     | '/videos'
@@ -160,12 +181,14 @@ export interface FileRouteTypes {
     | '/'
     | '/api/auth/$'
     | '/api/trpc/$'
+    | '/chat/overlay/$token'
     | '/donations'
     | '/api/integration/donationalerts/callback'
   id:
     | '__root__'
     | '/_authenticated'
     | '/_authenticated/alerts'
+    | '/_authenticated/chat'
     | '/_authenticated/donations'
     | '/_authenticated/integrations'
     | '/_authenticated/settings'
@@ -175,6 +198,7 @@ export interface FileRouteTypes {
     | '/_authenticated/'
     | '/api/auth/$'
     | '/api/trpc/$'
+    | '/chat/overlay/$token'
     | '/_authenticated/donations/'
     | '/api/integration/donationalerts/callback'
   fileRoutesById: FileRoutesById
@@ -185,6 +209,7 @@ export interface RootRouteChildren {
   ShareSlugRoute: typeof ShareSlugRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
+  ChatOverlayTokenRoute: typeof ChatOverlayTokenRoute
   ApiIntegrationDonationalertsCallbackRoute: typeof ApiIntegrationDonationalertsCallbackRoute
 }
 
@@ -209,6 +234,13 @@ declare module '@tanstack/react-router' {
       path: '/alerts'
       fullPath: '/alerts'
       preLoaderRoute: typeof AuthenticatedAlertsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/chat': {
+      id: '/_authenticated/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof AuthenticatedChatRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/donations': {
@@ -274,6 +306,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTrpcSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/chat/overlay/$token': {
+      id: '/chat/overlay/$token'
+      path: '/chat/overlay/$token'
+      fullPath: '/chat/overlay/$token'
+      preLoaderRoute: typeof ChatOverlayTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/integration/donationalerts/callback': {
       id: '/api/integration/donationalerts/callback'
       path: '/api/integration/donationalerts/callback'
@@ -300,6 +339,7 @@ const AuthenticatedDonationsRouteWithChildren =
 
 interface AuthenticatedRouteChildren {
   AuthenticatedAlertsRoute: typeof AuthenticatedAlertsRoute
+  AuthenticatedChatRoute: typeof AuthenticatedChatRoute
   AuthenticatedDonationsRoute: typeof AuthenticatedDonationsRouteWithChildren
   AuthenticatedIntegrationsRoute: typeof AuthenticatedIntegrationsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
@@ -309,6 +349,7 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAlertsRoute: AuthenticatedAlertsRoute,
+  AuthenticatedChatRoute: AuthenticatedChatRoute,
   AuthenticatedDonationsRoute: AuthenticatedDonationsRouteWithChildren,
   AuthenticatedIntegrationsRoute: AuthenticatedIntegrationsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
@@ -326,6 +367,7 @@ const rootRouteChildren: RootRouteChildren = {
   ShareSlugRoute: ShareSlugRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,
+  ChatOverlayTokenRoute: ChatOverlayTokenRoute,
   ApiIntegrationDonationalertsCallbackRoute:
     ApiIntegrationDonationalertsCallbackRoute,
 }

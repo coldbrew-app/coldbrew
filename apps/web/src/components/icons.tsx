@@ -5,6 +5,8 @@ export type IconComponent = icons.LucideIcon;
 export const Icons = {
   addVideo: icons.ListPlus,
   alerts: icons.Bell,
+  chat: icons.MessagesSquare,
+  addSource: icons.Plus,
   bookmark: icons.Bookmark,
   cancel: icons.X,
   checked: icons.Check,
@@ -30,6 +32,9 @@ export const Icons = {
   notWatched: icons.Circle,
   platform: icons.Share2,
   retry: icons.RotateCcw,
+  removeSource: icons.Trash2,
+  rotateToken: icons.RefreshCw,
+  unread: icons.ArrowDown,
   search: icons.Search,
   secure: icons.ShieldCheck,
   settings: icons.Settings,

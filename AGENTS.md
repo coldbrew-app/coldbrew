@@ -79,6 +79,11 @@ schemas, SQL, and migrations. English identifiers use the names in the
 
 Add helper scripts to `justfile`, not `package.json`
 
+## Development environment
+
+- Agents work in a development environment and may run `just schema-apply` without asking for confirmation whenever `db/schema.sql` changes or the current development database needs to be brought up to date.
+- This permission applies only to the non-destructive schema apply command. Database reset, destruction, or removal of volumes still requires explicit user authorization.
+
 ## Check yourself
 
 - `just typecheck` - for typechecking
@@ -100,4 +105,3 @@ Add helper scripts to `justfile`, not `package.json`
 
 - variables of types `Result` and `ResultAsync` from "neverthrow" should start with `$` (for example: `const $donations = ResultAsync.fromThrowable(...)(...)`)
 - avoid mutating objects
-- Always format `z.object({...})` calls across multiple lines, even when the object has only one field.
