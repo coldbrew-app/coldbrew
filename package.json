@@ -17,5 +17,31 @@
     "oxfmt": "^0.60.0",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"
+  },
+  "intent": {
+    "skills": [
+      "@tanstack/react-start",
+      "@tanstack/router-plugin",
+      "@tanstack/router-core",
+      "@tanstack/start-client-core",
+      "@tanstack/start-server-core",
+      "@trpc/client",
+      "@trpc/server",
+      "@trpc/tanstack-react-query"
+    ],
+    "exclude": [
+      "@tanstack/react-start#react-start/server-components",
+      "@tanstack/react-start#lifecycle/migrate-from-nextjs",
+      "@tanstack/start-client-core#start-core/deployment",
+      "@trpc/server#adapter-aws-lambda",
+      "@trpc/server#adapter-express",
+      "@trpc/server#adapter-fastify",
+      "@trpc/server#adapter-standalone",
+      "@trpc/server#non-json-content-types",
+      "@trpc/server#server-side-calls",
+      "@trpc/server#service-oriented-architecture",
+      "@trpc/server#subscriptions",
+      "@trpc/tanstack-react-query#react-query-classic-migration"
+    ]
   }
 }
