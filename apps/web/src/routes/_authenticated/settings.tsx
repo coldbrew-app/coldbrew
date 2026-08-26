@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CosmicPageHeader } from "@web/components/cosmic-page-header";
+import { PublicQueueSettingsEditor } from "@web/components/public-queue-settings-editor";
 import { QueueCurrencyEditor } from "@web/components/queue-currency-editor";
 
 import { createTranslator, useI18n } from "../../lib/i18n";
@@ -22,6 +23,7 @@ function Settings() {
         title={t("settings")}
         variant="beans"
       />
+      <PublicQueueSettingsEditor />
       <QueueCurrencyEditor />
     </main>
   );

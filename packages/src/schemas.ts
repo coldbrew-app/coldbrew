@@ -111,11 +111,46 @@ export const VideoPrioritySchema = z.object({
 });
 export type VideoPriority = z.infer<typeof VideoPrioritySchema>;
 
+export const PublicQueueSettingsSchema = z.object({
+  enabled: z.boolean(),
+  showAmounts: z.boolean(),
+  showWatchedVideos: z.boolean(),
+});
+export type PublicQueueSettings = z.infer<typeof PublicQueueSettingsSchema>;
+
+export const SharedVideoSchema = z
+  .object({
+    videoId: VideoIdSchema,
+    videoPriorityId: VideoPriorityIdSchema.nullable(),
+    provider: z.literal("youtube"),
+    url: z.url(),
+    startSeconds: z.number().int().nonnegative(),
+    endSeconds: z.number().int().positive(),
+    priorityLabel: z.string().nullable(),
+    watchedAt: z.coerce.date().nullable(),
+    createdAt: z.coerce.date(),
+    displayAmount: MoneyAmountSchema.nullable(),
+    displayCurrency: CurrencyCodeSchema.nullable(),
+  })
+  .refine(({ startSeconds, endSeconds }) => endSeconds > startSeconds, {
+    error: "video end must be after video start",
+    path: ["endSeconds"],
+  })
+  .refine(
+    ({ displayAmount, displayCurrency }) => (displayAmount === null) === (displayCurrency === null),
+    {
+      error: "display amount and currency must be present together",
+      path: ["displayAmount"],
+    },
+  );
+export type SharedVideo = z.infer<typeof SharedVideoSchema>;
+
 export const UserInfoSchema = z.object({
   userId: UserIdSchema,
   slug: SlugSchema,
   queueCurrency: QueueCurrencySchema,
   hasDonationAlertsConnection: z.boolean(),
+  publicQueueSettings: PublicQueueSettingsSchema,
 });
 export type UserInfo = z.infer<typeof UserInfoSchema>;
 

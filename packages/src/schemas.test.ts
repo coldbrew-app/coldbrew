@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { MoneyAmountSchema, VideoSchema } from "./schemas.js";
+import {
+  MoneyAmountSchema,
+  PublicQueueSettingsSchema,
+  SharedVideoSchema,
+  VideoSchema,
+} from "./schemas.js";
 
 describe("MoneyAmountSchema", () => {
   it.each([
@@ -63,6 +68,59 @@ describe("VideoSchema", () => {
 
   it("rejects a source and donation mismatch", () => {
     const result = VideoSchema.safeParse({ ...baseVideo, source: "manual", donation });
+
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("PublicQueueSettingsSchema", () => {
+  it("parses the complete public queue visibility settings", () => {
+    expect(
+      PublicQueueSettingsSchema.parse({
+        enabled: true,
+        showAmounts: false,
+        showWatchedVideos: true,
+      }),
+    ).toEqual({ enabled: true, showAmounts: false, showWatchedVideos: true });
+  });
+});
+
+describe("SharedVideoSchema", () => {
+  it("keeps only fields intended for the public queue", () => {
+    const video = SharedVideoSchema.parse({
+      videoId: "1",
+      videoPriorityId: 1,
+      provider: "youtube",
+      url: "https://youtu.be/dQw4w9WgXcQ",
+      startSeconds: 0,
+      endSeconds: 213,
+      priorityLabel: "queue 0",
+      watchedAt: null,
+      createdAt: "2026-08-24T12:00:00.000Z",
+      displayAmount: null,
+      displayCurrency: null,
+      bookmarkedAt: "2026-08-24T12:00:00.000Z",
+      donation,
+    });
+
+    expect(video).not.toHaveProperty("bookmarkedAt");
+    expect(video).not.toHaveProperty("donation");
+  });
+
+  it("requires display amount and currency together", () => {
+    const result = SharedVideoSchema.safeParse({
+      videoId: "1",
+      videoPriorityId: null,
+      provider: "youtube",
+      url: "https://youtu.be/dQw4w9WgXcQ",
+      startSeconds: 0,
+      endSeconds: 213,
+      priorityLabel: null,
+      watchedAt: null,
+      createdAt: "2026-08-24T12:00:00.000Z",
+      displayAmount: "10.00",
+      displayCurrency: null,
+    });
 
     expect(result.success).toBe(false);
   });

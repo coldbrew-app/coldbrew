@@ -39,6 +39,18 @@ export function useUpdateQueueCurrencyM() {
   );
 }
 
+export function useUpdatePublicQueueSettingsM() {
+  const { queryClient, trpc } = useApi();
+  return useMutation(
+    trpc.updatePublicQueueSettings.mutationOptions({
+      onSuccess() {
+        queryClient.invalidateQueries({ queryKey: trpc.userInfo.queryKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.sharedVideoPage.queryKey() });
+      },
+    }),
+  );
+}
+
 export function useDisconnectM() {
   const { queryClient, trpc } = useApi();
 
@@ -134,10 +146,10 @@ export function useUpdateVideoM() {
   );
 }
 
-export function useSharedVideoPageQ(slug: Slug, page: number) {
+export function useSharedVideoPageQ(slug: Slug, page: number, status: "queue" | "watched") {
   const { trpc } = useApi();
   return useQuery({
-    ...trpc.sharedVideoPage.queryOptions({ page, slug }),
+    ...trpc.sharedVideoPage.queryOptions({ page, slug, status }),
     placeholderData: keepPreviousData,
   });
 }

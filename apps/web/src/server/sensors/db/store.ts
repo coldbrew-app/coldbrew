@@ -10,9 +10,12 @@ import {
   DonationAlertsUserSchema,
   DonationSchema,
   MoneyAmount,
+  PublicQueueSettings,
+  PublicQueueSettingsSchema,
   QueueCurrencySchema,
   QueueCurrency,
   RefreshToken,
+  SharedVideoSchema,
   UserId,
   UserIdSchema,
   UserInfoSchema,
@@ -502,24 +505,43 @@ export class Store {
     });
   }
 
-  async listSharedVideosPage(slug: string, input: { page: number; pageSize: number }) {
+  async listSharedVideosPage(
+    slug: string,
+    input: { page: number; pageSize: number; status: "queue" | "watched" },
+  ) {
     const summaryRows = await this.sql`
       SELECT
         "user".user_id,
+        "user".public_queue_enabled,
+        "user".public_queue_show_amounts,
+        "user".public_queue_show_watched,
         (
           SELECT count(*)::int
           FROM video
           LEFT JOIN donation USING (donation_id)
           WHERE coalesce(video.user_id, donation.user_id) = "user".user_id
+            AND CASE
+              WHEN ${input.status} = 'watched' AND "user".public_queue_show_watched
+                THEN video.watched_at IS NOT NULL
+              ELSE video.watched_at IS NULL
+            END
         ) AS total
       FROM "user"
       WHERE slug = ${slug}
     `;
     const summary = z
-      .object({ userId: UserIdSchema, total: z.number().int().nonnegative() })
+      .object({
+        userId: UserIdSchema,
+        publicQueueEnabled: z.boolean(),
+        publicQueueShowAmounts: z.boolean(),
+        publicQueueShowWatched: z.boolean(),
+        total: z.number().int().nonnegative(),
+      })
       .nullable()
       .parse(summaryRows[0] ?? null);
-    if (summary === null) return null;
+    if (summary === null || !summary.publicQueueEnabled) return null;
+    const status: "queue" | "watched" =
+      input.status === "watched" && summary.publicQueueShowWatched ? "watched" : "queue";
     const totalPages = Math.ceil(summary.total / input.pageSize);
     const page = Math.min(input.page, Math.max(totalPages, 1));
     const offset = (page - 1) * input.pageSize;
@@ -529,44 +551,39 @@ export class Store {
           video.video_id,
           video.video_priority_id,
           video.provider,
-          video.provider_video_id,
           video.url,
           video.start_seconds,
           video.end_seconds,
           video.watched_at,
-          video.bookmarked_at,
           video_priority.label AS priority_label,
-          video.queue_amount,
-          "user".queue_currency,
           CASE
-            WHEN donation.donation_id IS NULL THEN 'manual'
-            ELSE 'donation'
-          END AS source,
-          coalesce(donation.occurred_at, video.added_at) AS created_at,
+            WHEN "user".public_queue_show_amounts
+              THEN coalesce(video.queue_amount, donation.amount, 0::money_amount)
+            ELSE NULL
+          END AS display_amount,
           CASE
-            WHEN donation.donation_id IS NULL THEN NULL
-            ELSE jsonb_build_object(
-              'donationId',            donation.donation_id::text,
-              'source',                donation.source,
-              'sourceDonationId',      donation.source_donation_id,
-              'userId',                donation.user_id,
-              'author',                donation.author,
-              'message',               donation.message,
-              'amount',                donation.amount,
-              'currency',              donation.currency,
-              'sourceCreatedAt',       donation.source_created_at,
-              'occurredAt',            donation.occurred_at
-            )
-          END AS donation
+            WHEN NOT "user".public_queue_show_amounts THEN NULL
+            WHEN video.queue_amount IS NULL AND donation.donation_id IS NOT NULL
+              THEN donation.currency
+            ELSE "user".queue_currency
+          END AS display_currency,
+          coalesce(donation.occurred_at, video.added_at) AS created_at
         FROM video
         LEFT JOIN donation USING (donation_id)
         LEFT JOIN video_priority USING (video_priority_id)
         JOIN "user"
           ON "user".user_id = coalesce(video.user_id, donation.user_id)
         WHERE "user".slug = ${slug}
+          AND CASE
+            WHEN ${status} = 'watched' THEN video.watched_at IS NOT NULL
+            ELSE video.watched_at IS NULL
+          END
         ORDER BY
-          video_priority.min_price_per_minute DESC NULLS LAST,
-          coalesce(donation.occurred_at, video.added_at) DESC,
+          CASE WHEN ${status} = 'queue' THEN video_priority.min_price_per_minute END DESC NULLS LAST,
+          CASE
+            WHEN ${status} = 'watched' THEN video.watched_at
+            ELSE coalesce(donation.occurred_at, video.added_at)
+          END DESC,
           video.video_id DESC
         LIMIT ${input.pageSize}
         OFFSET ${offset}
@@ -575,7 +592,7 @@ export class Store {
         SELECT
           video_priority.video_priority_id,
           video_priority.label,
-          count(video.video_id)::int AS video_count,
+          count(video.video_id) FILTER (WHERE video.watched_at IS NULL)::int AS video_count,
           coalesce(
             sum(video.end_seconds - video.start_seconds)
               FILTER (WHERE video.watched_at IS NULL),
@@ -602,12 +619,14 @@ export class Store {
           remainingSeconds: z.coerce.number().int().nonnegative(),
         }),
       )
-      .parse(priorityRows);
+      .parse(status === "queue" ? priorityRows : []);
     return {
-      items: z.array(VideoSchema).parse(rows),
+      items: z.array(SharedVideoSchema).parse(rows),
       page,
       pageSize: input.pageSize,
       priorities,
+      showWatchedVideos: summary.publicQueueShowWatched,
+      status,
       total: summary.total,
       totalPages,
     };
@@ -681,12 +700,35 @@ export class Store {
         "user".user_id,
         "user".slug,
         "user".queue_currency,
-        donationalerts_connection.user_id IS NOT NULL AS has_donation_alerts_connection
+        donationalerts_connection.user_id IS NOT NULL AS has_donation_alerts_connection,
+        jsonb_build_object(
+          'enabled',           "user".public_queue_enabled,
+          'showAmounts',       "user".public_queue_show_amounts,
+          'showWatchedVideos', "user".public_queue_show_watched
+        ) AS public_queue_settings
       FROM "user"
       LEFT JOIN donationalerts_connection USING (user_id)
       WHERE "user".user_id = ${userId}
     `;
     return UserInfoSchema.nullable().parse(rows[0] ?? null);
+  }
+
+  async setPublicQueueSettings(userId: UserId, settings: PublicQueueSettings) {
+    const rows = await this.sql`
+      UPDATE "user"
+      SET
+        public_queue_enabled = ${settings.enabled},
+        public_queue_show_amounts = ${settings.showAmounts},
+        public_queue_show_watched = ${settings.showWatchedVideos}
+      WHERE user_id = ${userId}
+      RETURNING jsonb_build_object(
+        'enabled',           public_queue_enabled,
+        'showAmounts',       public_queue_show_amounts,
+        'showWatchedVideos', public_queue_show_watched
+      ) AS public_queue_settings
+    `;
+    return z.object({ publicQueueSettings: PublicQueueSettingsSchema }).parse(rows[0])
+      .publicQueueSettings;
   }
 
   async saveDonationAlertsConnection(

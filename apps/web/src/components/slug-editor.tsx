@@ -1,6 +1,7 @@
 import { SlugSchema } from "@coldbrew/packages/schemas.js";
-import { Button } from "@web/components/ui/button";
-import { useSetSlugM, useSlug } from "@web/hooks/api";
+import { Link } from "@tanstack/react-router";
+import { Button, buttonVariants } from "@web/components/ui/button";
+import { useSetSlugM, useUserInfo } from "@web/hooks/api";
 import { cn } from "@web/lib/utils";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -22,7 +23,9 @@ export function SlugEditor({ className }: Props) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const [origin, setOrigin] = useState("");
-  const slug = useSlug();
+  const userInfo = useUserInfo();
+  if (userInfo === null) throw new Error("Authenticated user info is required.");
+  const { slug } = userInfo;
 
   useEffect(() => setOrigin(window.location.origin), []);
 
@@ -95,8 +98,23 @@ export function SlugEditor({ className }: Props) {
               {copied ? <Icons.copied aria-hidden="true" /> : <Icons.copy aria-hidden="true" />}
               {t(copied ? "copied" : "copy")}
             </Button>
+            <Link className={buttonVariants({ size: "sm", variant: "ghost" })} to="/settings">
+              <Icons.settings aria-hidden="true" />
+              {t("settings")}
+            </Link>
           </div>
         </div>
+        <span className="inline-flex w-fit items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+          <span
+            aria-hidden="true"
+            className={
+              userInfo.publicQueueSettings.enabled
+                ? "size-1.5 rounded-full bg-green-500"
+                : "size-1.5 rounded-full bg-amber-500"
+            }
+          />
+          {t(userInfo.publicQueueSettings.enabled ? "publicQueueEnabled" : "publicQueueDisabled")}
+        </span>
         {setSlugM.error && <FieldError>{setSlugM.error.message}</FieldError>}
       </form>
     </div>

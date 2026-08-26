@@ -1,6 +1,8 @@
 import {
   MoneyAmountSchema,
+  PublicQueueSettingsSchema,
   QueueCurrencySchema,
+  SharedVideoSchema,
   SlugSchema,
   VideoIdSchema,
 } from "@coldbrew/packages/schemas.js";
@@ -18,6 +20,26 @@ const PAGE_SIZE = 25;
 const PageSchema = z.number().int().positive();
 const DonationPeriodSchema = z.enum(["all", "week", "month"]);
 const VideoStatusSchema = z.enum(["all", "notwatched", "watched", "bookmarked"]);
+const SharedVideoStatusSchema = z.enum(["queue", "watched"]);
+const SharedVideoPageSchema = z
+  .object({
+    items: z.array(SharedVideoSchema),
+    page: PageSchema,
+    pageSize: PageSchema,
+    priorities: z.array(
+      z.object({
+        videoPriorityId: z.number().int().positive(),
+        label: z.string().trim().min(1).max(64),
+        videoCount: z.number().int().nonnegative(),
+        remainingSeconds: z.number().int().nonnegative(),
+      }),
+    ),
+    showWatchedVideos: z.boolean(),
+    status: SharedVideoStatusSchema,
+    total: z.number().int().nonnegative(),
+    totalPages: z.number().int().nonnegative(),
+  })
+  .nullable();
 
 export const appRouter = router({
   integration: integrationRouter,
@@ -40,6 +62,13 @@ export const appRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       return await store.setQueueCurrency(ctx.userId, input.queueCurrency, input.rate);
+    }),
+
+  updatePublicQueueSettings: authenticatedProcedure
+    .input(PublicQueueSettingsSchema)
+    .output(PublicQueueSettingsSchema)
+    .mutation(async ({ ctx, input }) => {
+      return await store.setPublicQueueSettings(ctx.userId, input);
     }),
 
   donationPage: authenticatedProcedure
@@ -198,12 +227,15 @@ export const appRouter = router({
       z.object({
         page: PageSchema,
         slug: SlugSchema,
+        status: SharedVideoStatusSchema,
       }),
     )
+    .output(SharedVideoPageSchema)
     .query(async ({ input }) => {
       return await store.listSharedVideosPage(input.slug, {
         page: input.page,
         pageSize: PAGE_SIZE,
+        status: input.status,
       });
     }),
 

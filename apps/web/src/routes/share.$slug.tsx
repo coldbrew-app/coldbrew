@@ -1,14 +1,15 @@
 import { SlugSchema } from "@coldbrew/packages/schemas.js";
 import { getRoundedWatchDurationMinutes } from "@coldbrew/packages/video-timing.js";
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { CosmicArt } from "@web/components/cosmic-art";
 import { EmptyState } from "@web/components/empty-state";
 import { Icons } from "@web/components/icons";
 import { VideoListSkeleton } from "@web/components/loading-skeletons";
 import { PagePagination } from "@web/components/page-pagination";
-import VideoCard from "@web/components/video-card";
+import { SharedVideoCard } from "@web/components/shared-video-card";
+import { buttonVariants } from "@web/components/ui/button";
 import { groupVideosByPriority } from "@web/lib/group-videos-by-priority";
-import type { Video } from "@web/server/exports";
+import type { SharedVideo } from "@web/server/exports";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -17,6 +18,7 @@ import { createTranslator, useI18n } from "../lib/i18n";
 
 const SharedVideoPageDepsSchema = z.object({
   page: z.number().int().positive(),
+  status: z.enum(["queue", "watched"]),
 });
 
 type SharedPriority = {
@@ -47,7 +49,7 @@ function SharedVideoGroups({
   isLastPage,
   priorities,
 }: {
-  items: Video[];
+  items: SharedVideo[];
   isLastPage: boolean;
   priorities: Array<SharedPriority & { videoCount: number }>;
 }) {
@@ -66,7 +68,7 @@ function SharedVideoGroups({
           return (
             <div className="divide-y divide-border" key={group.videoPriorityId}>
               {group.videos.map((video) => (
-                <VideoCard key={video.videoId} video={video} />
+                <SharedVideoCard key={video.videoId} video={video} />
               ))}
             </div>
           );
@@ -77,7 +79,7 @@ function SharedVideoGroups({
             <SharedPriorityHeader priority={priority} />
             <div className="divide-y divide-border">
               {group.videos.map((video) => (
-                <VideoCard key={video.videoId} showPriorityLabel={false} video={video} />
+                <SharedVideoCard key={video.videoId} showPriorityLabel={false} video={video} />
               ))}
             </div>
           </section>
@@ -86,7 +88,7 @@ function SharedVideoGroups({
       {unassignedVideos.length > 0 && (
         <div className="divide-y divide-border border-t border-border">
           {unassignedVideos.map((video) => (
-            <VideoCard key={video.videoId} video={video} />
+            <SharedVideoCard key={video.videoId} video={video} />
           ))}
         </div>
       )}
@@ -113,12 +115,13 @@ export const Route = createFileRoute("/share/$slug")({
   }),
   validateSearch: z.object({
     page: z.coerce.number().int().positive().default(1).catch(1),
+    status: z.enum(["queue", "watched"]).default("queue").catch("queue"),
   }),
-  loaderDeps: ({ search }) => ({ page: search.page }),
+  loaderDeps: ({ search }) => ({ page: search.page, status: search.status }),
   loader: ({ context, deps, params }) =>
     context.queryClient.ensureQueryData(
       context.trpc.sharedVideoPage.queryOptions({
-        page: SharedVideoPageDepsSchema.parse(deps).page,
+        ...SharedVideoPageDepsSchema.parse(deps),
         slug: params.slug,
       }),
     ),
@@ -126,16 +129,23 @@ export const Route = createFileRoute("/share/$slug")({
 
 function SharedVideoQueue() {
   const { slug } = Route.useParams();
-  const { page } = Route.useSearch();
+  const { page, status } = Route.useSearch();
   const navigate = Route.useNavigate();
-  const videosQ = useSharedVideoPageQ(slug, page);
+  const videosQ = useSharedVideoPageQ(slug, page, status);
   const { t } = useI18n();
 
   useEffect(() => {
-    if (videosQ.data && !videosQ.isPlaceholderData && videosQ.data.page !== page) {
-      void navigate({ replace: true, search: { page: videosQ.data.page } });
+    if (
+      videosQ.data &&
+      !videosQ.isPlaceholderData &&
+      (videosQ.data.page !== page || videosQ.data.status !== status)
+    ) {
+      void navigate({
+        replace: true,
+        search: { page: videosQ.data.page, status: videosQ.data.status },
+      });
     }
-  }, [navigate, page, videosQ.data]);
+  }, [navigate, page, status, videosQ.data]);
 
   return (
     <main className="relative min-h-dvh overflow-hidden bg-background p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-foreground sm:p-8">
@@ -160,18 +170,63 @@ function SharedVideoQueue() {
           <VideoListSkeleton aria-busy="true" aria-label={t("loadingVideoQueue")} />
         ) : videosQ.data ? (
           <>
-            <SharedVideoGroups
-              isLastPage={
-                videosQ.data.totalPages === 0 || videosQ.data.page === videosQ.data.totalPages
-              }
-              items={videosQ.data.items}
-              priorities={videosQ.data.priorities}
-            />
+            <nav
+              aria-label={t("publicQueueTabs")}
+              className="flex gap-1 border-b border-border bg-secondary/35 p-2"
+            >
+              <Link
+                aria-current={videosQ.data.status === "queue" ? "page" : undefined}
+                className={buttonVariants({
+                  className: "grow sm:grow-0",
+                  size: "sm",
+                  variant: videosQ.data.status === "queue" ? "secondary" : "ghost",
+                })}
+                params={{ slug }}
+                search={{ page: 1, status: "queue" }}
+                to="/share/$slug"
+              >
+                <Icons.list aria-hidden="true" size={15} />
+                {t("currentQueue")}
+              </Link>
+              {videosQ.data.showWatchedVideos && (
+                <Link
+                  aria-current={videosQ.data.status === "watched" ? "page" : undefined}
+                  className={buttonVariants({
+                    className: "grow sm:grow-0",
+                    size: "sm",
+                    variant: videosQ.data.status === "watched" ? "secondary" : "ghost",
+                  })}
+                  params={{ slug }}
+                  search={{ page: 1, status: "watched" }}
+                  to="/share/$slug"
+                >
+                  <Icons.watched aria-hidden="true" size={15} />
+                  {t("watched")}
+                </Link>
+              )}
+            </nav>
+            {videosQ.data.status === "queue" ? (
+              <SharedVideoGroups
+                isLastPage={
+                  videosQ.data.totalPages === 0 || videosQ.data.page === videosQ.data.totalPages
+                }
+                items={videosQ.data.items}
+                priorities={videosQ.data.priorities}
+              />
+            ) : (
+              <div className="divide-y divide-border">
+                {videosQ.data.items.map((video) => (
+                  <SharedVideoCard key={video.videoId} video={video} />
+                ))}
+              </div>
+            )}
             {videosQ.data.items.length ? (
               <PagePagination
                 isLoading={videosQ.isFetching}
                 loadingLabel={t("loadingVideoQueue")}
-                onPageChange={(nextPage) => void navigate({ search: { page: nextPage } })}
+                onPageChange={(nextPage) =>
+                  void navigate({ search: { page: nextPage, status: videosQ.data!.status } })
+                }
                 page={videosQ.data.page}
                 pageSize={videosQ.data.pageSize}
                 total={videosQ.data.total}
@@ -179,10 +234,14 @@ function SharedVideoQueue() {
               />
             ) : (
               <EmptyState
-                description={t("videoLinksWillAppear")}
+                description={t(
+                  videosQ.data.status === "queue"
+                    ? "videoLinksWillAppear"
+                    : "watchedVideosWillAppear",
+                )}
                 headingLevel={2}
-                icon={Icons.wallet}
-                title={t("noVideosInQueue")}
+                icon={videosQ.data.status === "queue" ? Icons.wallet : Icons.watched}
+                title={t(videosQ.data.status === "queue" ? "noVideosInQueue" : "noWatchedVideos")}
               />
             )}
           </>
