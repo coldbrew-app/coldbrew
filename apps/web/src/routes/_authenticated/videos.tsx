@@ -236,6 +236,7 @@ function VideoQueue() {
                 })}
               </nav>
               <VideoPriorities
+                remainingSecondsByPriorityId={videosQ.data?.remainingSecondsByPriorityId ?? {}}
                 selectedVideoPriorityId={selectedVideoPriorityId}
                 videoCountByPriorityId={videosQ.data?.priorityCounts ?? {}}
               />

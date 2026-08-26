@@ -1,8 +1,32 @@
 import { describe, expect, it } from "vitest";
 
-import { formatVideoTime, getWatchDurationSeconds, parseVideoTime } from "./video-timing.js";
+import {
+  formatVideoTime,
+  getRoundedWatchDurationMinutes,
+  getWatchDurationSeconds,
+  parseVideoTime,
+} from "./video-timing.js";
 
 describe("video timing", () => {
+  it("rounds a total duration to the nearest minute", () => {
+    expect(getRoundedWatchDurationMinutes(0)).toBe(0);
+    expect(getRoundedWatchDurationMinutes(29)).toBe(0);
+    expect(getRoundedWatchDurationMinutes(30)).toBe(1);
+    expect(getRoundedWatchDurationMinutes(89)).toBe(1);
+    expect(getRoundedWatchDurationMinutes(90)).toBe(2);
+  });
+
+  it("rounds after video durations are summed", () => {
+    const durations = [20, 20];
+
+    expect(
+      getRoundedWatchDurationMinutes(durations.reduce((total, value) => total + value, 0)),
+    ).toBe(1);
+    expect(
+      durations.reduce((total, value) => total + getRoundedWatchDurationMinutes(value), 0),
+    ).toBe(0);
+  });
+
   it.each([
     [0, "0:00"],
     [65, "1:05"],

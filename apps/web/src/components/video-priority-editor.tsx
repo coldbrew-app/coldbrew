@@ -1,4 +1,5 @@
 import { MoneyAmountSchema, VideoPriority } from "@coldbrew/packages/schemas.js";
+import { getRoundedWatchDurationMinutes } from "@coldbrew/packages/video-timing.js";
 import { Link } from "@tanstack/react-router";
 import { useUpdateVideoPriorityM, useUserInfo } from "@web/hooks/api";
 import { cn } from "@web/lib/utils";
@@ -19,10 +20,16 @@ type VideoPriorityFormValues = {
 type Props = {
   priority: VideoPriority;
   isSelected: boolean;
+  remainingSeconds: number;
   videoCount: number;
 };
 
-export default function VideoPriorityEditor({ priority, isSelected, videoCount }: Props) {
+export default function VideoPriorityEditor({
+  priority,
+  isSelected,
+  remainingSeconds,
+  videoCount,
+}: Props) {
   const { t } = useI18n();
   const userInfo = useUserInfo();
   if (userInfo === null) throw new Error("Authenticated user info is required.");
@@ -91,12 +98,21 @@ export default function VideoPriorityEditor({ priority, isSelected, videoCount }
         >
           <Icons.edit aria-hidden="true" />
         </Button>
-        <div className="pointer-events-none flex min-w-0 grow items-center gap-2 px-1.5 py-1 text-left text-xs">
-          <span className="min-w-0 grow truncate">{priority.label}</span>
-          <span className="w-20 shrink-0 text-right">
-            {priority.minPricePerMinute} {userInfo.queueCurrency}/{t("perMinute")}
-          </span>
-          <span className="shrink-0 text-[10px] font-bold">{videoCount}</span>
+        <div className="pointer-events-none flex min-w-0 grow flex-col gap-0.5 px-1.5 py-1 text-left">
+          <div className="flex min-w-0 items-center gap-2 text-xs">
+            <span className="min-w-0 grow truncate">{priority.label}</span>
+            <span className="shrink-0 text-[10px] font-bold">{videoCount}</span>
+          </div>
+          <div className="flex min-w-0 items-center justify-between gap-2 text-[10px] text-muted-foreground">
+            <span className="truncate">
+              {priority.minPricePerMinute} {userInfo.queueCurrency}/{t("perMinute")}
+            </span>
+            <span className="shrink-0 font-semibold text-primary">
+              {t("minutesRemaining", {
+                count: getRoundedWatchDurationMinutes(remainingSeconds),
+              })}
+            </span>
+          </div>
         </div>
       </div>
     );

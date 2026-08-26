@@ -2,6 +2,10 @@ export function getWatchDurationSeconds(startSeconds: number, endSeconds: number
   return endSeconds - startSeconds;
 }
 
+export function getRoundedWatchDurationMinutes(totalSeconds: number) {
+  return Math.round(totalSeconds / 60);
+}
+
 export function formatVideoTime(totalSeconds: number) {
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);

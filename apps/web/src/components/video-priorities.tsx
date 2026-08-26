@@ -9,11 +9,13 @@ import VideoPriorityEditor from "./video-priority-editor";
 
 type Props = {
   selectedVideoPriorityId: number | null;
+  remainingSecondsByPriorityId: Record<number, number>;
   videoCountByPriorityId: Record<number, number>;
 };
 
 export default function VideoPriorities({
   selectedVideoPriorityId,
+  remainingSecondsByPriorityId,
   videoCountByPriorityId,
 }: Props) {
   const { t } = useI18n();
@@ -62,6 +64,7 @@ export default function VideoPriorities({
             isSelected={priority.videoPriorityId === selectedVideoPriorityId}
             key={priority.videoPriorityId}
             priority={priority}
+            remainingSeconds={remainingSecondsByPriorityId[priority.videoPriorityId] ?? 0}
             videoCount={videoCountByPriorityId[priority.videoPriorityId] ?? 0}
           />
         ))

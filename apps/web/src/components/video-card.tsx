@@ -16,6 +16,7 @@ import { parseVideoTiming, VideoTimingFields, type VideoTimingValues } from "./v
 
 type Props = {
   video: Video;
+  showPriorityLabel?: boolean;
   showSource?: boolean;
   onStatusChange?: (status: { watchedAt?: Date | null; bookmarkedAt?: Date | null }) => void;
   onUpdate?: (input: { amount: string; startSeconds: number; endSeconds: number }) => Promise<void>;
@@ -52,6 +53,7 @@ const normalizeUrl = (url: string) => {
 
 export default function VideoCard({
   video,
+  showPriorityLabel = true,
   showSource = false,
   onStatusChange,
   onUpdate,
@@ -157,7 +159,7 @@ export default function VideoCard({
                     {t(video.source === "donation" ? "fromDonation" : "addedManually")}
                   </span>
                 )}
-                {video.priorityLabel && (
+                {showPriorityLabel && video.priorityLabel && (
                   <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-secondary-foreground">
                     {video.priorityLabel}
                   </span>

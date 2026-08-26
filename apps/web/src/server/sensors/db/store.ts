@@ -160,7 +160,7 @@ export class Store {
       videoStatus: "all" | "notwatched" | "watched" | "bookmarked";
     },
   ) {
-    const [countRows, statusCountRows, priorityCountRows] = await Promise.all([
+    const statisticRows = await Promise.all([
       this.sql`
         SELECT count(*)::int AS total
         FROM video
@@ -198,7 +198,21 @@ export class Store {
           )
         GROUP BY video.video_priority_id
       `,
+      this.sql`
+        SELECT
+          video_priority.video_priority_id,
+          coalesce(
+            sum(video.end_seconds - video.start_seconds)
+              FILTER (WHERE video.watched_at IS NULL),
+            0
+          )::bigint AS remaining_seconds
+        FROM video_priority
+        LEFT JOIN video USING (video_priority_id)
+        WHERE video_priority.user_id = ${userId}
+        GROUP BY video_priority.video_priority_id
+      `,
     ]);
+    const [countRows, statusCountRows, priorityCountRows, priorityDurationRows] = statisticRows;
     const total = z
       .object({
         total: z.number().int().nonnegative(),
@@ -283,11 +297,23 @@ export class Store {
         .parse(priorityCountRows)
         .map(({ videoPriorityId, count }) => [videoPriorityId, count]),
     );
+    const remainingSecondsByPriorityId = Object.fromEntries(
+      z
+        .array(
+          z.object({
+            videoPriorityId: z.number().int().positive(),
+            remainingSeconds: z.coerce.number().int().nonnegative(),
+          }),
+        )
+        .parse(priorityDurationRows)
+        .map(({ videoPriorityId, remainingSeconds }) => [videoPriorityId, remainingSeconds]),
+    );
     return {
       items: z.array(VideoSchema).parse(rows),
       page,
       pageSize: input.pageSize,
       priorityCounts,
+      remainingSecondsByPriorityId,
       statusCounts,
       total,
       totalPages,
@@ -497,54 +523,91 @@ export class Store {
     const totalPages = Math.ceil(summary.total / input.pageSize);
     const page = Math.min(input.page, Math.max(totalPages, 1));
     const offset = (page - 1) * input.pageSize;
-    const rows = await this.sql`
-      SELECT
-        video.video_id,
-        video.video_priority_id,
-        video.provider,
-        video.provider_video_id,
-        video.url,
-        video.start_seconds,
-        video.end_seconds,
-        video.watched_at,
-        video.bookmarked_at,
-        video_priority.label AS priority_label,
-        video.queue_amount,
-        "user".queue_currency,
-        CASE
-          WHEN donation.donation_id IS NULL THEN 'manual'
-          ELSE 'donation'
-        END AS source,
-        coalesce(donation.occurred_at, video.added_at) AS created_at,
-        CASE
-          WHEN donation.donation_id IS NULL THEN NULL
-          ELSE jsonb_build_object(
-            'donationId',            donation.donation_id::text,
-            'source',                donation.source,
-            'sourceDonationId',      donation.source_donation_id,
-            'userId',                donation.user_id,
-            'author',                donation.author,
-            'message',               donation.message,
-            'amount',                donation.amount,
-            'currency',              donation.currency,
-            'sourceCreatedAt',       donation.source_created_at,
-            'occurredAt',            donation.occurred_at
-          )
-        END AS donation
-      FROM video
-      LEFT JOIN donation USING (donation_id)
-      LEFT JOIN video_priority USING (video_priority_id)
-      JOIN "user"
-        ON "user".user_id = coalesce(video.user_id, donation.user_id)
-      WHERE "user".slug = ${slug}
-      ORDER BY coalesce(donation.occurred_at, video.added_at) DESC, video.video_id DESC
-      LIMIT ${input.pageSize}
-      OFFSET ${offset}
-    `;
+    const [rows, priorityRows] = await Promise.all([
+      this.sql`
+        SELECT
+          video.video_id,
+          video.video_priority_id,
+          video.provider,
+          video.provider_video_id,
+          video.url,
+          video.start_seconds,
+          video.end_seconds,
+          video.watched_at,
+          video.bookmarked_at,
+          video_priority.label AS priority_label,
+          video.queue_amount,
+          "user".queue_currency,
+          CASE
+            WHEN donation.donation_id IS NULL THEN 'manual'
+            ELSE 'donation'
+          END AS source,
+          coalesce(donation.occurred_at, video.added_at) AS created_at,
+          CASE
+            WHEN donation.donation_id IS NULL THEN NULL
+            ELSE jsonb_build_object(
+              'donationId',            donation.donation_id::text,
+              'source',                donation.source,
+              'sourceDonationId',      donation.source_donation_id,
+              'userId',                donation.user_id,
+              'author',                donation.author,
+              'message',               donation.message,
+              'amount',                donation.amount,
+              'currency',              donation.currency,
+              'sourceCreatedAt',       donation.source_created_at,
+              'occurredAt',            donation.occurred_at
+            )
+          END AS donation
+        FROM video
+        LEFT JOIN donation USING (donation_id)
+        LEFT JOIN video_priority USING (video_priority_id)
+        JOIN "user"
+          ON "user".user_id = coalesce(video.user_id, donation.user_id)
+        WHERE "user".slug = ${slug}
+        ORDER BY
+          video_priority.min_price_per_minute DESC NULLS LAST,
+          coalesce(donation.occurred_at, video.added_at) DESC,
+          video.video_id DESC
+        LIMIT ${input.pageSize}
+        OFFSET ${offset}
+      `,
+      this.sql`
+        SELECT
+          video_priority.video_priority_id,
+          video_priority.label,
+          count(video.video_id)::int AS video_count,
+          coalesce(
+            sum(video.end_seconds - video.start_seconds)
+              FILTER (WHERE video.watched_at IS NULL),
+            0
+          )::bigint AS remaining_seconds
+        FROM video_priority
+        LEFT JOIN video USING (video_priority_id)
+        WHERE video_priority.user_id = ${summary.userId}
+        GROUP BY
+          video_priority.video_priority_id,
+          video_priority.label,
+          video_priority.min_price_per_minute
+        ORDER BY
+          video_priority.min_price_per_minute DESC,
+          video_priority.video_priority_id ASC
+      `,
+    ]);
+    const priorities = z
+      .array(
+        z.object({
+          videoPriorityId: z.number().int().positive(),
+          label: z.string().trim().min(1).max(64),
+          videoCount: z.number().int().nonnegative(),
+          remainingSeconds: z.coerce.number().int().nonnegative(),
+        }),
+      )
+      .parse(priorityRows);
     return {
       items: z.array(VideoSchema).parse(rows),
       page,
       pageSize: input.pageSize,
+      priorities,
       total: summary.total,
       totalPages,
     };
