@@ -97,7 +97,7 @@ function timingFromDuration(
       });
     }
 
-    return ok({ startSeconds, endSeconds });
+    return ok({ startSeconds, endSeconds, durationSeconds: endOfVideoSeconds });
   }
 
   const startSeconds = 0;
@@ -109,7 +109,7 @@ function timingFromDuration(
       ? requestedEndSeconds
       : endOfVideoSeconds;
 
-  return ok({ startSeconds, endSeconds });
+  return ok({ startSeconds, endSeconds, durationSeconds: endOfVideoSeconds });
 }
 
 export function getYoutubeTiming(url: string, requestedTiming?: RequestedYoutubeTiming) {

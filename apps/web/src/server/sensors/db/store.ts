@@ -101,7 +101,7 @@ export class Store {
         )
     `;
     const countSchema = z.object({
-      total: z.number().int().nonnegative(),
+      total: z.int().nonnegative(),
     });
     const total = countSchema.parse(countRows[0]).total;
     const totalPages = Math.ceil(total / input.pageSize);
@@ -148,7 +148,7 @@ export class Store {
       `,
     ]);
     const schema = z.object({
-      donationCount: z.number().int().nonnegative(),
+      donationCount: z.int().nonnegative(),
       totalAmount: z.coerce.number(),
     });
     const summary = schema.parse(summaryRows[0]);
@@ -218,7 +218,7 @@ export class Store {
     ]);
     const [countRows, statusCountRows, priorityCountRows, priorityDurationRows] = statisticRows;
     const countSchema = z.object({
-      total: z.number().int().nonnegative(),
+      total: z.int().nonnegative(),
     });
     const total = countSchema.parse(countRows[0]).total;
     const totalPages = Math.ceil(total / input.pageSize);
@@ -282,15 +282,15 @@ export class Store {
       OFFSET ${offset}
     `;
     const statusCountsSchema = z.object({
-      all: z.number().int().nonnegative(),
-      notwatched: z.number().int().nonnegative(),
-      watched: z.number().int().nonnegative(),
-      bookmarked: z.number().int().nonnegative(),
+      all: z.int().nonnegative(),
+      notwatched: z.int().nonnegative(),
+      watched: z.int().nonnegative(),
+      bookmarked: z.int().nonnegative(),
     });
     const statusCounts = statusCountsSchema.parse(statusCountRows[0]);
     const priorityCountSchema = z.object({
-      videoPriorityId: z.number().int().positive(),
-      count: z.number().int().nonnegative(),
+      videoPriorityId: z.int().positive(),
+      count: z.int().nonnegative(),
     });
     const priorityCounts = Object.fromEntries(
       z
@@ -299,7 +299,7 @@ export class Store {
         .map(({ videoPriorityId, count }) => [videoPriorityId, count]),
     );
     const priorityDurationSchema = z.object({
-      videoPriorityId: z.number().int().positive(),
+      videoPriorityId: z.int().positive(),
       remainingSeconds: z.coerce.number().int().nonnegative(),
     });
     const remainingSecondsByPriorityId = Object.fromEntries(
@@ -328,6 +328,7 @@ export class Store {
       queueAmount: MoneyAmount;
       startSeconds: number;
       endSeconds: number;
+      durationSeconds: number;
     },
   ) {
     const rows = await this.sql`
@@ -339,7 +340,8 @@ export class Store {
         url,
         queue_amount,
         start_seconds,
-        end_seconds
+        end_seconds,
+        duration_seconds
       )
       VALUES (
         ${userId},
@@ -349,7 +351,8 @@ export class Store {
         ${input.url},
         ${input.queueAmount},
         ${input.startSeconds},
-        ${input.endSeconds}
+        ${input.endSeconds},
+        ${input.durationSeconds}
       )
       RETURNING video_id
     `;
@@ -538,7 +541,7 @@ export class Store {
       publicQueueEnabled: z.boolean(),
       publicQueueShowAmounts: z.boolean(),
       publicQueueShowWatched: z.boolean(),
-      total: z.number().int().nonnegative(),
+      total: z.int().nonnegative(),
     });
     const summary = summarySchema.optional().parse(summaryRows[0]);
     if (summary === undefined || !summary.publicQueueEnabled) return null;
@@ -556,6 +559,7 @@ export class Store {
           video.url,
           video.start_seconds,
           video.end_seconds,
+          video.duration_seconds,
           video.watched_at,
           video_priority.label AS priority_label,
           CASE
@@ -613,9 +617,9 @@ export class Store {
       `,
     ]);
     const prioritySchema = z.object({
-      videoPriorityId: z.number().int().positive(),
+      videoPriorityId: z.int().positive(),
       label: z.string().trim().min(1).max(64),
-      videoCount: z.number().int().nonnegative(),
+      videoCount: z.int().nonnegative(),
       remainingSeconds: z.coerce.number().int().nonnegative(),
     });
     const priorities = z.array(prioritySchema).parse(status === "queue" ? priorityRows : []);

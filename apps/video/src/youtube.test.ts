@@ -62,7 +62,7 @@ describe("YouTube timing", () => {
     const $timing = getYoutubeTiming("https://youtu.be/dQw4w9WgXcQ");
 
     await expect($timing).resolves.toMatchObject({
-      value: { startSeconds: 0, endSeconds: 213 },
+      value: { startSeconds: 0, endSeconds: 213, durationSeconds: 213 },
     });
   });
 
@@ -75,7 +75,7 @@ describe("YouTube timing", () => {
     const $timing = getYoutubeTiming("https://www.youtube.com/watch?v=_JXL6Fn99l8&t=13s");
 
     await expect($timing).resolves.toMatchObject({
-      value: { startSeconds: 0, endSeconds: 7260 },
+      value: { startSeconds: 0, endSeconds: 7260, durationSeconds: 7260 },
     });
   });
 
@@ -89,7 +89,7 @@ describe("YouTube timing", () => {
     const $timing = getYoutubeTiming("https://www.youtube.com/watch?v=_JXL6Fn99l8&t=13s");
 
     await expect($timing).resolves.toMatchObject({
-      value: { startSeconds: 0, endSeconds: 7260 },
+      value: { startSeconds: 0, endSeconds: 7260, durationSeconds: 7260 },
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock).toHaveBeenLastCalledWith(
@@ -104,7 +104,7 @@ describe("YouTube timing", () => {
     const $timing = getYoutubeTiming("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=1m15s&end=180");
 
     await expect($timing).resolves.toMatchObject({
-      value: { startSeconds: 0, endSeconds: 180 },
+      value: { startSeconds: 0, endSeconds: 180, durationSeconds: 213 },
     });
   });
 
@@ -117,7 +117,7 @@ describe("YouTube timing", () => {
     });
 
     await expect($timing).resolves.toMatchObject({
-      value: { startSeconds: 30, endSeconds: 90 },
+      value: { startSeconds: 30, endSeconds: 90, durationSeconds: 213 },
     });
   });
 
@@ -130,7 +130,7 @@ describe("YouTube timing", () => {
     });
 
     await expect($timing).resolves.toMatchObject({
-      value: { startSeconds: 30, endSeconds: 213 },
+      value: { startSeconds: 30, endSeconds: 213, durationSeconds: 213 },
     });
   });
 

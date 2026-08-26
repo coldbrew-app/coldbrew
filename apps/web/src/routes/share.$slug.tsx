@@ -17,7 +17,7 @@ import { useSharedVideoPageQ } from "../hooks/api";
 import { createTranslator, useI18n } from "../lib/i18n";
 
 const SharedVideoPageDepsSchema = z.object({
-  page: z.number().int().positive(),
+  page: z.int().positive(),
   status: z.enum(["queue", "watched"]),
 });
 

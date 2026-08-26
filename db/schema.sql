@@ -148,6 +148,7 @@ CREATE TABLE video (
   queue_amount      money_amount       NULL,
   start_seconds     nonnegative_int NOT NULL,
   end_seconds       positive_int    NOT NULL,
+  duration_seconds  positive_int    NOT NULL,
   watched_at        js_date            NULL,
   bookmarked_at     js_date            NULL,
   video_priority_id int                NULL REFERENCES video_priority (video_priority_id),

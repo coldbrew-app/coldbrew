@@ -18,8 +18,8 @@ import { useUpdateVideoM, useUpdateVideoStatusM, useVideoPageQ } from "../../hoo
 import { createTranslator, useI18n } from "../../lib/i18n";
 
 const VideoPageInputSchema = z.object({
-  page: z.number().int().positive(),
-  videoPriorityId: z.number().int().positive().nullable(),
+  page: z.int().positive(),
+  videoPriorityId: z.int().positive().nullable(),
   videoStatus: z.enum(["all", "notwatched", "watched", "bookmarked"]),
 });
 

@@ -11,6 +11,10 @@ Apply this skill whenever creating, editing, or reviewing Zod schemas.
 
 - Always format `z.object({...})` calls across multiple lines, even when the object has only one field.
 
+## Integer schemas
+
+- Use `z.int()` instead of `z.number().int()`.
+
 ## Schema names
 
 - Name every reusable or module-level Zod schema in `PascalCase`, starting with an uppercase letter.

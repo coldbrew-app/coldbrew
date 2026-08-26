@@ -1,6 +1,7 @@
 import { formatVideoTime, getWatchDurationSeconds } from "@coldbrew/packages/video-timing.js";
 import { rurl } from "@lebedevna/readonly-url";
 import { fmtAmount, fmtDate, formatRelativeDate } from "@web/lib/fmt";
+import { getSharedVideoTimingParts } from "@web/lib/shared-video-timing";
 import type { SharedVideo } from "@web/server/exports";
 
 import { useI18n } from "../lib/i18n";
@@ -31,7 +32,15 @@ const getYoutubeEmbedUrl = (url: string, startSeconds: number, endSeconds: numbe
 export function SharedVideoCard({ showPriorityLabel = true, video }: Props) {
   const { locale, t } = useI18n();
   const embedUrl = getYoutubeEmbedUrl(video.url, video.startSeconds, video.endSeconds);
-  const timingLabel = `${formatVideoTime(video.startSeconds)}–${formatVideoTime(video.endSeconds)}`;
+  const { startTime, endTime } = getSharedVideoTimingParts(video);
+  const timingLabel =
+    startTime !== null
+      ? endTime !== null
+        ? t("videoTimeRange", { startTime, endTime })
+        : t("videoFromTime", { startTime })
+      : endTime !== null
+        ? t("videoUntilTime", { endTime })
+        : null;
   const watchDuration = formatVideoTime(
     getWatchDurationSeconds(video.startSeconds, video.endSeconds),
   );
@@ -51,9 +60,11 @@ export function SharedVideoCard({ showPriorityLabel = true, video }: Props) {
               src={embedUrl}
               title={t("youtubeVideo")}
             />
-            <span className="absolute right-2 bottom-2 rounded bg-black/75 px-1.5 py-0.5 text-[11px] font-medium text-white">
-              {timingLabel}
-            </span>
+            {timingLabel !== null && (
+              <span className="absolute right-2 bottom-2 rounded bg-black/75 px-1.5 py-0.5 text-[11px] font-medium text-white">
+                {timingLabel}
+              </span>
+            )}
           </div>
         )}
 

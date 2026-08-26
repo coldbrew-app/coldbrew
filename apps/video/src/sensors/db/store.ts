@@ -16,6 +16,7 @@ export type VideoToSave = {
   queueAmount: MoneyAmount | null;
   startSeconds: number;
   endSeconds: number;
+  durationSeconds: number;
 };
 
 export class Store {
@@ -69,7 +70,8 @@ export class Store {
             url text,
             queue_amount money_amount,
             start_seconds nonnegative_int,
-            end_seconds positive_int
+            end_seconds positive_int,
+            duration_seconds positive_int
           )
         )
         INSERT INTO video (
@@ -79,7 +81,8 @@ export class Store {
           url,
           queue_amount,
           start_seconds,
-          end_seconds
+          end_seconds,
+          duration_seconds
         )
         SELECT
           ${String(donationId)},
@@ -88,7 +91,8 @@ export class Store {
           url,
           queue_amount,
           start_seconds,
-          end_seconds
+          end_seconds,
+          duration_seconds
         FROM input
         ON CONFLICT (donation_id, provider, provider_video_id) DO NOTHING
       `;

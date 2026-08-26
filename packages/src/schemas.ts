@@ -1,12 +1,12 @@
 import { z } from "zod";
 
-export const UserIdSchema = z.number().int().positive().brand("user id");
+export const UserIdSchema = z.int().positive().brand("user id");
 export type UserId = z.infer<typeof UserIdSchema>;
 
 export const VideoIdSchema = z.coerce.bigint().positive().brand("video id");
 export type VideoId = z.infer<typeof VideoIdSchema>;
 
-export const VideoPriorityIdSchema = z.number().int().positive().brand("video priority id");
+export const VideoPriorityIdSchema = z.int().positive().brand("video priority id");
 export type VideoPriorityId = z.infer<typeof VideoPriorityIdSchema>;
 
 export const DonationIdSchema = z.coerce.bigint().positive().brand("donation id");
@@ -78,8 +78,8 @@ const VideoBaseSchema = z.object({
   url: z.url(),
   queueAmount: MoneyAmountSchema.nullable(),
   queueCurrency: QueueCurrencySchema,
-  startSeconds: z.number().int().nonnegative(),
-  endSeconds: z.number().int().positive(),
+  startSeconds: z.int().nonnegative(),
+  endSeconds: z.int().positive(),
   priorityLabel: z.string().nullable(),
   watchedAt: z.coerce.date().nullable(),
   bookmarkedAt: z.coerce.date().nullable(),
@@ -124,8 +124,9 @@ export const SharedVideoSchema = z
     videoPriorityId: VideoPriorityIdSchema.nullable(),
     provider: z.literal("youtube"),
     url: z.url(),
-    startSeconds: z.number().int().nonnegative(),
-    endSeconds: z.number().int().positive(),
+    startSeconds: z.int().nonnegative(),
+    endSeconds: z.int().positive(),
+    durationSeconds: z.int().positive(),
     priorityLabel: z.string().nullable(),
     watchedAt: z.coerce.date().nullable(),
     createdAt: z.coerce.date(),
@@ -159,7 +160,7 @@ export const DonationAlertsUserSchema = z.object({
   sourceUserId: z.string().min(1),
   accessToken: AccessTokenSchema,
   refreshToken: RefreshTokenSchema,
-  tokenVersion: z.number().int().positive(),
+  tokenVersion: z.int().positive(),
   historyCheckpoint: z.string().nullable(),
 });
 export type DonationAlertsUser = z.infer<typeof DonationAlertsUserSchema>;

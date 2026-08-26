@@ -18,7 +18,7 @@ import { chatRouter } from "./chat.js";
 import { integrationRouter } from "./integration.js";
 
 const PAGE_SIZE = 25;
-const PageSchema = z.number().int().positive();
+const PageSchema = z.int().positive();
 const DonationPeriodSchema = z.enum(["all", "week", "month"]);
 const VideoStatusSchema = z.enum(["all", "notwatched", "watched", "bookmarked"]);
 const SharedVideoStatusSchema = z.enum(["queue", "watched"]);
@@ -29,16 +29,16 @@ const SharedVideoPageSchema = z
     pageSize: PageSchema,
     priorities: z.array(
       z.object({
-        videoPriorityId: z.number().int().positive(),
+        videoPriorityId: z.int().positive(),
         label: z.string().trim().min(1).max(64),
-        videoCount: z.number().int().nonnegative(),
-        remainingSeconds: z.number().int().nonnegative(),
+        videoCount: z.int().nonnegative(),
+        remainingSeconds: z.int().nonnegative(),
       }),
     ),
     showWatchedVideos: z.boolean(),
     status: SharedVideoStatusSchema,
-    total: z.number().int().nonnegative(),
-    totalPages: z.number().int().nonnegative(),
+    total: z.int().nonnegative(),
+    totalPages: z.int().nonnegative(),
   })
   .nullable();
 
@@ -100,7 +100,7 @@ export const appRouter = router({
     .input(
       z.object({
         page: PageSchema,
-        videoPriorityId: z.number().int().positive().nullable(),
+        videoPriorityId: z.int().positive().nullable(),
         videoStatus: VideoStatusSchema,
       }),
     )
@@ -114,8 +114,8 @@ export const appRouter = router({
         .object({
           url: z.url().refine((url) => youtubeVideoId(url) !== null),
           amount: MoneyAmountSchema,
-          startSeconds: z.number().int().nonnegative(),
-          endSeconds: z.number().int().positive().nullable(),
+          startSeconds: z.int().nonnegative(),
+          endSeconds: z.int().positive().nullable(),
         })
         .refine(
           ({ startSeconds, endSeconds }) => endSeconds === null || endSeconds > startSeconds,
@@ -158,7 +158,7 @@ export const appRouter = router({
   updateVideoPriority: authenticatedProcedure
     .input(
       z.object({
-        videoPriorityId: z.number().int().positive(),
+        videoPriorityId: z.int().positive(),
         label: z.string().trim().min(1).max(64),
         minPricePerMinute: MoneyAmountSchema,
       }),
@@ -202,8 +202,8 @@ export const appRouter = router({
         .object({
           videoId: VideoIdSchema,
           amount: MoneyAmountSchema,
-          startSeconds: z.number().int().nonnegative(),
-          endSeconds: z.number().int().positive(),
+          startSeconds: z.int().nonnegative(),
+          endSeconds: z.int().positive(),
         })
         .refine(({ startSeconds, endSeconds }) => endSeconds > startSeconds, {
           message: "Video end must be after video start.",

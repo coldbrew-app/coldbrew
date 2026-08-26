@@ -183,6 +183,10 @@ const en = {
   videoStart: "Start",
   videoEnd: "End",
   videoEndPlaceholder: "Until the end",
+  videoFromTime: ({ startTime }: { startTime: string }) => `From ${startTime}`,
+  videoUntilTime: ({ endTime }: { endTime: string }) => `Until ${endTime}`,
+  videoTimeRange: ({ startTime, endTime }: { startTime: string; endTime: string }) =>
+    `From ${startTime} until ${endTime}`,
   watchDuration: ({ duration }: { duration: string }) => `Watch time: ${duration}`,
   enterPriorityAmount: "Enter a priority amount.",
   queueAmountHelp: "The amount and watch time determine the video’s queue position.",
@@ -390,6 +394,10 @@ const ru = defineTranslations({
   videoStart: "Начало",
   videoEnd: "Окончание",
   videoEndPlaceholder: "До конца",
+  videoFromTime: ({ startTime }: { startTime: string }) => `С ${startTime}`,
+  videoUntilTime: ({ endTime }: { endTime: string }) => `До ${endTime}`,
+  videoTimeRange: ({ startTime, endTime }: { startTime: string; endTime: string }) =>
+    `С ${startTime} до ${endTime}`,
   watchDuration: ({ duration }: { duration: string }) => `Время просмотра: ${duration}`,
   enterPriorityAmount: "Введите сумму для приоритета.",
   queueAmountHelp: "Сумма и время просмотра определяют место видео в очереди.",

@@ -228,7 +228,7 @@ export class DonationAlertsFacade {
       const schema = z.object({
         data: z.array(DonationAlertsDonationSchema),
         meta: z.object({
-          last_page: z.number().int().positive(),
+          last_page: z.int().positive(),
         }),
       });
 

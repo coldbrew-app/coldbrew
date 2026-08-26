@@ -9,7 +9,7 @@ import { createOverlayToken, hashOverlayToken } from "./token.js";
 
 const SourceRowsSchema = z.array(
   ChatSourceSchema.extend({
-    position: z.number().int().nonnegative(),
+    position: z.int().nonnegative(),
   }),
 );
 
@@ -96,7 +96,7 @@ export async function getSourcesByOverlayToken(token: string) {
     WHERE token_hash = ${tokenHash}
   `;
   const schema = z.object({
-    userId: z.number().int().positive(),
+    userId: z.int().positive(),
   });
   const userId = schema.optional().parse(overlayRows[0])?.userId;
   if (userId === undefined) return null;
