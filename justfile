@@ -170,6 +170,34 @@ test: test-web test-donationalerts test-video test-packages
 check: lint fmt-check test
 
 schema-apply:
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  dotenvx run -f .env --overload -- psql -X -v ON_ERROR_STOP=1 <<'SQL'
+  DO $migration$
+  DECLARE
+    has_prefixed_slugs boolean;
+  BEGIN
+    IF to_regclass('public."user"') IS NOT NULL THEN
+      EXECUTE 'SELECT EXISTS (SELECT 1 FROM "user" WHERE slug LIKE ''@%'')'
+        INTO has_prefixed_slugs;
+
+      IF has_prefixed_slugs THEN
+        ALTER TABLE "user" DROP CONSTRAINT IF EXISTS user_slug_check;
+        UPDATE "user"
+        SET slug = substring(slug FROM 2)
+        WHERE slug LIKE '@%';
+        ALTER TABLE "user"
+          ALTER COLUMN slug TYPE varchar(47),
+          ALTER COLUMN slug SET DEFAULT gen_random_uuid()::text;
+        ALTER TABLE "user"
+          ADD CONSTRAINT user_slug_check CHECK (slug ~ '^[a-zA-Z0-9\-]{3,47}$');
+      END IF;
+    END IF;
+  END
+  $migration$;
+  SQL
+
   dotenvx run -f .env --overload -- pgschema apply --auto-approve --file db/schema.sql
 
 schema-reset:

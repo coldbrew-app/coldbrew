@@ -64,8 +64,8 @@ CREATE INDEX "auth_verification_identifier_idx" ON auth_verification ("identifie
 CREATE TABLE "user" (
   user_id                   serial        PRIMARY KEY,
   auth_user_id              text          UNIQUE NOT NULL REFERENCES auth_user (id),
-  slug                      varchar(48)   UNIQUE NOT NULL DEFAULT ('@' || gen_random_uuid()::text)
-                                          CHECK (slug ~ '^@[a-zA-Z0-9\-]{3,47}$'),
+  slug                      varchar(47)   UNIQUE NOT NULL DEFAULT gen_random_uuid()::text
+                                          CHECK (slug ~ '^[a-zA-Z0-9\-]{3,47}$'),
   queue_currency            currency_code NOT NULL DEFAULT 'RUB',
   public_queue_enabled      boolean       NOT NULL DEFAULT true,
   public_queue_show_amounts boolean       NOT NULL DEFAULT true,

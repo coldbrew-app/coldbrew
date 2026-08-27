@@ -13,6 +13,7 @@ Project tasks are managed with [just](https://just.systems/). Run `just` to list
 - [Bun](https://bun.com/docs/installation) — runs the project and its package scripts.
 - [just](https://just.systems/) — task runner.
 - [dotenvx](https://dotenvx.com/) — loads and encrypts environment files.
+- [PostgreSQL client](https://www.postgresql.org/download/) — provides `psql` for data migrations.
 - [pgschema](https://github.com/pgschema/pgschema) — applies and resets the database schema.
 - [cloc](https://github.com/AlDanial/cloc) — counts repository lines of code.
 

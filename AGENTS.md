@@ -8,8 +8,8 @@ This app is created for streamers. It connects to many donation platforms (such 
 
 Before editing files for a substantial task:
 
-- Run `bunx @tanstack/intent@latest list` from the workspace root to see available local skills.
-- If a listed skill matches the task, run `bunx @tanstack/intent@latest load <package>#<skill>` before changing files.
+- Run `bun intent list` from the workspace root to see available local skills.
+- If a listed skill matches the task, run `bun intent load <package>#<skill>` before changing files.
 - Use the loaded `SKILL.md` guidance while making the change.
 - Monorepos: when working across packages, run the skill check from the workspace root and prefer the local skill for the package being changed.
 - Multiple matches: prefer the most specific local skill for the package or concern you are changing; load additional skills only when the task spans multiple packages or concerns.

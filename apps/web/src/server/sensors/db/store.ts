@@ -16,6 +16,8 @@ import {
   QueueCurrency,
   RefreshToken,
   SharedVideoSchema,
+  Slug,
+  SlugSchema,
   UserId,
   UserIdSchema,
   UserInfoSchema,
@@ -455,7 +457,7 @@ export class Store {
     return rows.length > 0;
   }
 
-  async setSlug(userId: UserId, slug: string) {
+  async setSlug(userId: UserId, slug: Slug) {
     const rows = await this.sql`
       UPDATE "user"
       SET slug = ${slug}
@@ -524,7 +526,7 @@ export class Store {
   }
 
   async listSharedVideosPage(
-    slug: string,
+    slug: Slug,
     input: { page: number; pageSize: number; status: "queue" | "watched" },
   ) {
     const summaryRows = await this.sql`
@@ -659,7 +661,7 @@ export class Store {
     return schema.optional().parse(rows[0])?.userId ?? null;
   }
 
-  async getOrCreateUserId(authUserId: AuthUserId, preferredSlug: string): Promise<UserId> {
+  async getOrCreateUserId(authUserId: AuthUserId, preferredSlug: Slug): Promise<UserId> {
     const existing = await this.getUserId(authUserId);
     if (existing) return existing;
     let slug = preferredSlug;
@@ -692,7 +694,7 @@ export class Store {
         });
       } catch (error) {
         if (!isUserSlugConflict(error)) throw error;
-        slug = `@${randomUUID()}`;
+        slug = SlugSchema.parse(randomUUID());
       }
     }
   }

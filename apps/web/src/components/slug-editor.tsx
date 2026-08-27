@@ -73,11 +73,10 @@ export function SlugEditor({ className }: Props) {
                 aria-invalid={Boolean(formState.errors.slug)}
                 className="min-w-0 grow rounded-none border-0 bg-transparent focus-visible:ring-0 dark:bg-transparent"
                 id="public-video-queue-slug"
-                maxLength={48}
+                maxLength={47}
                 {...register("slug", {
                   onChange: (event) => {
-                    const value = event.target.value.toLowerCase();
-                    event.target.value = value.startsWith("@") ? value : `@${value}`;
+                    event.target.value = event.target.value.toLowerCase();
                   },
                   validate: (value) => SlugSchema.safeParse(value).success || t("slugInvalid"),
                 })}

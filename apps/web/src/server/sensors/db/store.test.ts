@@ -1,4 +1,4 @@
-import { AuthUserIdSchema } from "@coldbrew/packages/schemas.js";
+import { AuthUserIdSchema, SlugSchema } from "@coldbrew/packages/schemas.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { Store } from "./store.js";
@@ -11,7 +11,7 @@ describe("Store.getOrCreateUserId", () => {
     const store = new Store(Object.assign(query, { begin }) as never);
 
     await expect(
-      store.getOrCreateUserId(AuthUserIdSchema.parse("auth-user-id"), "@streamer"),
+      store.getOrCreateUserId(AuthUserIdSchema.parse("auth-user-id"), SlugSchema.parse("streamer")),
     ).rejects.toBe(databaseError);
     expect(begin).toHaveBeenCalledOnce();
   });
