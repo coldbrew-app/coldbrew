@@ -38,7 +38,11 @@ a new worktree.
 The application URL is stored in `APP_DOMAIN` in the generated `.env`. It
 serves the web UI, authentication, tRPC API, and OAuth callbacks. Each
 worktree created through Worktrunk initializes its environment and database,
-applies its schema, and starts its development processes automatically.
+copies a consistent snapshot of the development database from the worktree of
+its base branch, applies its schema, and starts its development processes
+automatically. The base worktree and its development database must already be
+running; database-copy failures abort the Worktrunk setup instead of falling
+back to an empty database.
 
 The development PostgreSQL volume is retained by `just dev-db-down`. Remove
 it explicitly with `just dev-db-destroy` when its data is no longer needed.

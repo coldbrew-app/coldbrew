@@ -9,6 +9,9 @@ install-deps = "bun install"
 database = "just dev-db-up"
 
 [[pre-start]]
+database-copy = "just dev-db-copy {{ base_worktree_path }}"
+
+[[pre-start]]
 schema = "just schema-apply"
 
 [pre-remove]

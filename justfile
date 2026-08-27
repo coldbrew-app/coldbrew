@@ -79,6 +79,55 @@ compose-down:
 dev-db-up:
   dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml up -d --wait
 
+dev-db-copy $source_worktree:
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  target_worktree="$(pwd -P)"
+
+  if [[ ! -d "$source_worktree" ]]; then
+    echo "Source worktree does not exist: $source_worktree" >&2
+    exit 1
+  fi
+
+  source_worktree="$(cd "$source_worktree" && pwd -P)"
+
+  if [[ "$source_worktree" == "$target_worktree" ]]; then
+    echo "Refusing to copy the development database onto itself" >&2
+    exit 1
+  fi
+
+  if [[ ! -f "$source_worktree/.env" ]]; then
+    echo "Source worktree has no .env file: $source_worktree" >&2
+    exit 1
+  fi
+
+  if [[ ! -f "$source_worktree/compose.dev.yaml" ]]; then
+    echo "Source worktree has no compose.dev.yaml file: $source_worktree" >&2
+    exit 1
+  fi
+
+  if ! (
+    cd "$source_worktree"
+    dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml exec -T postgres true
+  ); then
+    echo "Source development database is not running: $source_worktree" >&2
+    exit 1
+  fi
+
+  dump_path="$(mktemp "${TMPDIR:-/tmp}/coldbrew-dev-db.XXXXXX.dump")"
+  trap 'rm -f "$dump_path"' EXIT
+
+  (
+    cd "$source_worktree"
+    dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml exec -T postgres \
+      sh -c 'pg_dump --format=custom --no-owner --no-privileges --username="$POSTGRES_USER" --dbname="$POSTGRES_DB"'
+  ) > "$dump_path"
+
+  dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml exec -T postgres \
+    sh -c 'pg_restore --clean --if-exists --no-owner --no-privileges --single-transaction --exit-on-error --username="$POSTGRES_USER" --dbname="$POSTGRES_DB"' \
+    < "$dump_path"
+
 dev-db-down:
   dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml down
 
