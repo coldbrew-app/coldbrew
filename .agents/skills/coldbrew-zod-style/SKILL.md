@@ -79,6 +79,7 @@ const getDonation = protectedProcedure
 
 ## Environment schemas
 
-- Every environment variable passed to `getEnv()` must be required.
-- Do not use `.optional()`, `.nullish()`, `.default()`, `.catch()`, or another schema that accepts a missing value in a `getEnv()` shape. Defaults belong in the environment configuration, not in the application schema.
-- Do not add runtime guards for environment values returned by `getEnv()`. Missing or invalid configuration must fail during environment parsing at startup.
+- Define server environment variables in the `server` shape passed to `createEnv()` from `@t3-oss/env-core`.
+- Every environment variable must be required unless the application intentionally supports the feature being unconfigured.
+- Do not use `.optional()`, `.nullish()`, `.default()`, `.catch()`, or another schema that accepts a missing value merely to compensate for missing deployment configuration. Defaults belong in the environment configuration, not in the application schema.
+- Do not add runtime guards for required environment values returned by `createEnv()`. Missing or invalid configuration must fail during environment parsing at startup.

@@ -1,6 +1,9 @@
-import { getEnv } from "@coldbrew/packages/getenv.js";
+import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
 
-export const env = getEnv({
-  DATABASE_URL: z.url(),
+export const env = createEnv({
+  server: {
+    DATABASE_URL: z.url(),
+  },
+  runtimeEnv: process.env,
 });
