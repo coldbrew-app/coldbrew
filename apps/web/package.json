@@ -30,6 +30,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cookie-es": "^3.1.1",
+    "delay": "^7.0.0",
     "kysely": "^0.29.4",
     "kysely-postgres-js": "^3.0.0",
     "linkify-it": "^6.1.0",

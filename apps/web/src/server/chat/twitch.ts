@@ -1,6 +1,7 @@
 import { parseJson, safeFetch, validate } from "@lebedevna/neverthrow-utils";
 import { rurl } from "@lebedevna/readonly-url";
 import type { ChatMessage, ChatSourceState } from "@web/lib/chat.js";
+import delay from "delay";
 import { safeTry } from "neverthrow";
 import { z } from "zod";
 
@@ -14,22 +15,33 @@ type Emit = {
 class TwitchChatGateway {
   private socket: WebSocket | null = null;
   private sessionId: string | null = null;
-  private accessToken = env.TWITCH_CHAT_ACCESS_TOKEN;
-  private refreshToken = env.TWITCH_CHAT_REFRESH_TOKEN;
-  private botUserId = env.TWITCH_CHAT_USER_ID;
+  // private accessToken = env.TWITCH_CHAT_ACCESS_TOKEN;
+  // private refreshToken = env.TWITCH_CHAT_REFRESH_TOKEN;
+  // private botUserId = env.TWITCH_CHAT_USER_ID;
   private readonly channels = new Map<string, { emit: Emit; broadcasterId?: string }>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private validationTimer: ReturnType<typeof setInterval> | null = null;
   private lastValidatedAt = 0;
+
+  constructor(
+    private config: {
+      accessToken: string;
+      refreshToken: string;
+      botUserId: string;
+      readonly twitchChatClientId: string;
+      readonly twitchChatClientSecret: string;
+    },
+  ) {}
 
   async subscribe(channel: string, emit: Emit, signal: AbortSignal) {
     this.channels.set(channel, { emit });
     emit.state("connecting");
     await this.ensureConnected();
     if (this.sessionId) await this.createSubscription(channel);
-    await new Promise<void>((resolve) =>
-      signal.addEventListener("abort", () => resolve(), { once: true }),
-    );
+
+    // TODO: does infinity work?
+    await delay(Infinity, { signal });
+
     this.channels.delete(channel);
     if (this.channels.size === 0) this.disconnect();
   }
@@ -151,7 +163,7 @@ class TwitchChatGateway {
       body: JSON.stringify({
         type: "channel.chat.message",
         version: "1",
-        condition: { broadcaster_user_id: target.broadcasterId, user_id: this.botUserId },
+        condition: { broadcaster_user_id: target.broadcasterId, user_id: this.config.botUserId },
         transport: { method: "websocket", session_id: this.sessionId },
       }),
     });
@@ -166,8 +178,8 @@ class TwitchChatGateway {
 
   private headers() {
     return {
-      Authorization: `Bearer ${this.accessToken}`,
-      "Client-Id": env.TWITCH_CHAT_CLIENT_ID,
+      Authorization: `Bearer ${this.config.accessToken}`,
+      "Client-Id": this.config.twitchChatClientId,
     };
   }
 
@@ -180,7 +192,7 @@ class TwitchChatGateway {
     });
     const request = () =>
       safeFetch("https://id.twitch.tv/oauth2/validate", {
-        headers: { Authorization: `OAuth ${this.accessToken}` },
+        headers: { Authorization: `OAuth ${this.config.accessToken}` },
       })
         .andThen(parseJson)
         .andThen((value) => validate(schema, value));
@@ -200,7 +212,7 @@ class TwitchChatGateway {
     });
     if ($response.isErr()) return false;
     if ($response.value.client_id !== env.TWITCH_CHAT_CLIENT_ID) return false;
-    this.botUserId = $response.value.user_id;
+    this.config.botUserId = $response.value.user_id;
     this.lastValidatedAt = Date.now();
     return true;
   }
@@ -208,9 +220,9 @@ class TwitchChatGateway {
   private refreshAccessToken() {
     const body = new URLSearchParams({
       grant_type: "refresh_token",
-      refresh_token: this.refreshToken,
-      client_id: env.TWITCH_CHAT_CLIENT_ID,
-      client_secret: env.TWITCH_CHAT_CLIENT_SECRET,
+      refresh_token: this.config.refreshToken,
+      client_id: this.config.twitchChatClientId,
+      client_secret: this.config.twitchChatClientSecret,
     });
     const schema = z.object({
       access_token: z.string(),
@@ -223,8 +235,8 @@ class TwitchChatGateway {
       .andThen(parseJson)
       .andThen((value) => validate(schema, value))
       .map((response) => {
-        this.accessToken = response.access_token;
-        this.refreshToken = response.refresh_token ?? this.refreshToken;
+        this.config.accessToken = response.access_token;
+        this.config.refreshToken = response.refresh_token ?? this.config.refreshToken;
       });
   }
 
@@ -249,4 +261,10 @@ class TwitchChatGateway {
   }
 }
 
-export const twitchChatGateway = new TwitchChatGateway();
+export const twitchChatGateway = new TwitchChatGateway({
+  accessToken: env.TWITCH_CHAT_ACCESS_TOKEN!,
+  refreshToken: env.TWITCH_CHAT_REFRESH_TOKEN!,
+  botUserId: env.TWITCH_CHAT_USER_ID!,
+  twitchChatClientId: env.TWITCH_CHAT_CLIENT_ID!,
+  twitchChatClientSecret: env.TWITCH_CHAT_CLIENT_SECRET!,
+});

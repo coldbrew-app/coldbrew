@@ -1,4 +1,5 @@
 import type { ChatMessage, ChatSource, ChatSourceState, ChatStreamEvent } from "@web/lib/chat.js";
+import delay from "delay";
 
 import { AsyncQueue } from "./async-queue.js";
 import { twitchChatGateway } from "./twitch.js";
@@ -67,29 +68,25 @@ class Collector {
     let retryMs = 5_000;
     let youtubePageToken: string | undefined;
     while (!signal.aborted) {
-      if (this.source.provider === "youtube") {
-        youtubePageToken = await runYoutubeCollector(
-          this.source.sourceIdentifier,
-          emit,
-          signal,
-          youtubePageToken,
-        );
-      } else {
-        await twitchChatGateway.subscribe(this.source.sourceIdentifier, emit, signal);
+      switch (this.source.provider) {
+        case "youtube":
+          youtubePageToken = await runYoutubeCollector(
+            this.source.sourceIdentifier,
+            emit,
+            signal,
+            youtubePageToken,
+          );
+          break;
+        case "twitch":
+          await twitchChatGateway.subscribe(this.source.sourceIdentifier, emit, signal);
+          break;
       }
+
       if (signal.aborted) return;
-      await new Promise<void>((resolve) => {
-        const timer = setTimeout(resolve, retryMs);
-        signal.addEventListener(
-          "abort",
-          () => {
-            clearTimeout(timer);
-            resolve();
-          },
-          { once: true },
-        );
-      });
+
+      await delay(retryMs, { signal });
       retryMs = Math.min(retryMs * 2, 60_000);
+
       if (!signal.aborted) this.setState("connecting");
     }
   }
