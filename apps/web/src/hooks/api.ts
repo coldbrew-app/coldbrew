@@ -3,13 +3,20 @@ import { keepPreviousData, useMutation, useQuery, useSuspenseQuery } from "@tans
 
 import { useApi } from "../lib/trpc";
 
-export function useUserInfo() {
+export function useUserInfoSafe() {
   const { trpc } = useApi();
   return useSuspenseQuery(trpc.userInfo.queryOptions()).data;
 }
 
+export function useUserInfo() {
+  const userInfo = useUserInfoSafe();
+
+  if (userInfo === null) throw new Error("Authenticated user info is required.");
+  return userInfo;
+}
+
 export function useSlug() {
-  const userInfo = useUserInfo();
+  const userInfo = useUserInfoSafe();
 
   if (!userInfo?.slug) throw new Error("not slug");
   return userInfo.slug;

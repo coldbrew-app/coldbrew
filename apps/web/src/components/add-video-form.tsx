@@ -1,6 +1,6 @@
 import { MoneyAmountSchema } from "@coldbrew/packages/schemas.js";
 import { youtubeVideoId } from "@coldbrew/packages/youtube.js";
-import { useAddVideoM, useUserInfo } from "@web/hooks/api";
+import { useAddVideoM, useUserInfoSafe } from "@web/hooks/api";
 import { useI18n } from "@web/lib/i18n";
 import { FormProvider, useForm } from "react-hook-form";
 
@@ -21,7 +21,7 @@ type AddVideoFormValues = VideoTimingValues & {
 
 export function AddVideoForm({ onCancel }: Props) {
   const { t } = useI18n();
-  const userInfo = useUserInfo();
+  const userInfo = useUserInfoSafe();
   const addVideoM = useAddVideoM();
   const urlErrorId = "manual-video-url-error";
   const amountHelpId = "manual-video-amount-help";

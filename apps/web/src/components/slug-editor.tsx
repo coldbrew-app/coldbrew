@@ -24,7 +24,6 @@ export function SlugEditor({ className }: Props) {
   const [copied, setCopied] = useState(false);
   const [origin, setOrigin] = useState("");
   const userInfo = useUserInfo();
-  if (userInfo === null) throw new Error("Authenticated user info is required.");
   const { slug } = userInfo;
 
   useEffect(() => setOrigin(window.location.origin), []);

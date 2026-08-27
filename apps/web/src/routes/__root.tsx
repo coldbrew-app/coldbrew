@@ -17,7 +17,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@web/components/ui/tooltip";
-import { useUserInfo } from "@web/hooks/api";
+import { useUserInfoSafe } from "@web/hooks/api";
 import { parseCookie } from "cookie-es";
 import { Suspense, useEffect, useRef, useState } from "react";
 
@@ -148,7 +148,7 @@ function AuthenticatedApplicationContent() {
   const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
   const [isDevelopmentWarningVisible, setIsDevelopmentWarningVisible] = useState(true);
   const languageMenuRef = useRef<HTMLDivElement>(null);
-  const userInfo = useUserInfo();
+  const userInfo = useUserInfoSafe();
 
   useEffect(() => {
     if (isDark) {

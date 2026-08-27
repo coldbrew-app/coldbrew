@@ -1,0 +1,4 @@
+interface:
+  display_name: "Coldbrew React Style"
+  short_description: "Apply Coldbrew React hook conventions"
+  default_prompt: "Apply Coldbrew React conventions while editing or reviewing this code."

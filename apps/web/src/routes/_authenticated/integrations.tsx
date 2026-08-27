@@ -9,7 +9,7 @@ import { Icons } from "@web/components/icons";
 import { Button } from "@web/components/ui/button";
 import { preloadRouteQuery } from "@web/lib/trpc";
 
-import { useAuthUrlQ, useDisconnectM, useUserInfo } from "../../hooks/api";
+import { useAuthUrlQ, useDisconnectM, useUserInfoSafe } from "../../hooks/api";
 import { createTranslator, useI18n } from "../../lib/i18n";
 
 export const Route = createFileRoute("/_authenticated/integrations")({
@@ -24,7 +24,7 @@ export const Route = createFileRoute("/_authenticated/integrations")({
 });
 
 function RouteComponent() {
-  const userInfo = useUserInfo();
+  const userInfo = useUserInfoSafe();
   const connected = userInfo !== null && userInfo.hasDonationAlertsConnection;
   const authUrlQ = useAuthUrlQ(!connected);
 

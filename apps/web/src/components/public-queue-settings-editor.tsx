@@ -48,7 +48,6 @@ function SettingRow({
 
 export function PublicQueueSettingsEditor() {
   const userInfo = useUserInfo();
-  if (userInfo === null) throw new Error("Authenticated user info is required.");
   const { t } = useI18n();
   const updateSettingsM = useUpdatePublicQueueSettingsM();
   const { control, formState, handleSubmit, reset, watch } = useForm<PublicQueueSettings>({

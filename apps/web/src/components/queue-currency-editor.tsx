@@ -28,7 +28,6 @@ function largerCurrency(left: QueueCurrency, right: QueueCurrency) {
 export function QueueCurrencyEditor() {
   const { t } = useI18n();
   const userInfo = useUserInfo();
-  if (userInfo === null) throw new Error("Authenticated user info is required.");
   const updateQueueCurrencyM = useUpdateQueueCurrencyM();
   const [isEditing, setIsEditing] = useState(false);
   const { formState, handleSubmit, register, reset, setValue, watch } = useForm<FormValues>({

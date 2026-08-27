@@ -32,7 +32,6 @@ export default function VideoPriorityEditor({
 }: Props) {
   const { t } = useI18n();
   const userInfo = useUserInfo();
-  if (userInfo === null) throw new Error("Authenticated user info is required.");
   const [isEditing, setIsEditing] = useState(false);
   const updateVideoPriorityM = useUpdateVideoPriorityM();
   const { formState, handleSubmit, register, reset } = useForm<VideoPriorityFormValues>({

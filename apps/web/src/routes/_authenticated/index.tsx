@@ -17,7 +17,7 @@ import { createTranslator, useI18n } from "@web/lib/i18n";
 import { preloadRouteQuery } from "@web/lib/trpc";
 import { z } from "zod";
 
-import { useAuthUrlQ, useDonationOverviewQ, useUserInfo } from "../../hooks/api";
+import { useAuthUrlQ, useDonationOverviewQ, useUserInfoSafe } from "../../hooks/api";
 
 export const Route = createFileRoute("/_authenticated/")({
   component: Overview,
@@ -39,7 +39,7 @@ export const Route = createFileRoute("/_authenticated/")({
 const panel = "cosmic-panel overflow-hidden";
 
 function Overview() {
-  const userInfo = useUserInfo();
+  const userInfo = useUserInfoSafe();
   const authUrlQ = useAuthUrlQ();
   const donationOverviewQ = useDonationOverviewQ();
   const success = Route.useSearch({ select: (search) => search.success });
