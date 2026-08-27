@@ -26,6 +26,7 @@ Before editing files for a substantial task:
 ## Documentation
 
 - Documentation files referenced by this guide may and should be edited whenever needed, and kept up to date with the codebase and project conventions.
+- Read [the multichat architecture](docs/multichat.md) before changing chat providers, collectors, streams, overlays, or related external-service integrations.
 - Use the glossary below for all donation and queue terminology in code, SQL, UI, and documentation.
 - Follow the [SSR and hydration guide](docs/ssr-and-hydration.md) when working on server-rendered UI, route context, browser-persisted state, or hydration warnings.
 
@@ -104,4 +105,13 @@ Add helper scripts to `justfile`, not `package.json`
 ## Code style
 
 - variables of types `Result` and `ResultAsync` from "neverthrow" should start with `$` (for example: `const $donations = ResultAsync.fromThrowable(...)(...)`)
+- represent expected external failures in subscriptions, streams, workers, and other long-running processes with `Result` or `ResultAsync`; do not throw or rethrow them
+- let SQL failures, internal schema or invariant violations, and framework fail-fast errors propagate normally instead of converting them to expected `Result` values
+- convert exceptions from third-party and generated code to `Result` at the nearest application seam without editing generated files
+- keep protocol-level work with foreign services in `@coldbrew/packages`; application adapters map its normalized data and errors into Coldbrew domain types
+- prefer deep modules that own transport, retries, cancellation, and runtime resources behind a small high-level interface
+- expose long-running sources as `AsyncIterable<Result<T, E>>` instead of public callback interfaces; keep callbacks inside adapters at third-party boundaries
+- normalize untrusted input once at its seam into a canonical domain value; downstream code compares, stores, and keys that canonical value rather than the raw input
+- treat a module's public interface as its test surface; do not export helpers, reducers, or dependency injection solely for tests
+- prefer functions with explicit inputs and immutable snapshots over classes with changing fields; localize unavoidable runtime mutation inside the module that owns the resource
 - avoid mutating objects

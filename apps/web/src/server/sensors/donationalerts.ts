@@ -1,8 +1,8 @@
-import { DonationAlertsFacade } from "@coldbrew/packages/donationalerts.js";
+import type { DonationAlertsConfig } from "@coldbrew/packages/donationalerts.js";
 
 import { env } from "../env.js";
 
-export const donationAlerts = new DonationAlertsFacade({
+export const donationAlertsConfig: DonationAlertsConfig = {
   clientId: env.DONATION_ALERTS_CLIENT_ID,
   clientSecret: env.DONATION_ALERTS_CLIENT_SECRET,
-});
+};

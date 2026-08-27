@@ -7,10 +7,11 @@ import { Button } from "@web/components/ui/button";
 import { Input } from "@web/components/ui/input";
 import { Label } from "@web/components/ui/label";
 import { useChatStream } from "@web/hooks/use-chat-stream";
-import { parseChatSource } from "@web/lib/chat";
+import { chatSourceKey, MAX_CHAT_SOURCES } from "@web/lib/chat";
+import { initialChatEditorState, reduceChatEditorState } from "@web/lib/chat-state";
 import { useI18n } from "@web/lib/i18n";
 import { preloadRouteQuery, useApi } from "@web/lib/trpc";
-import { useEffect, useState } from "react";
+import { useEffect, useReducer, type ChangeEvent, type KeyboardEvent } from "react";
 
 export const Route = createFileRoute("/_authenticated/chat")({
   component: ChatPage,
@@ -23,16 +24,17 @@ export const Route = createFileRoute("/_authenticated/chat")({
 
 const copy = {
   en: {
-    eyebrow: "YouTube + Twitch, one current",
-    description: "Combine public live chats without asking streamers to connect platform accounts.",
+    eyebrow: "YouTube chats, one current",
+    description: "Combine public YouTube live chats without connecting a platform account.",
     sources: "Chat sources",
-    sourceHelp: "Add up to 8 YouTube live or Twitch channel links.",
-    placeholder: "https://youtube.com/watch?v=… or https://twitch.tv/…",
+    sourceHelp: "Add up to 8 YouTube live links.",
+    placeholder: "https://youtube.com/watch?v=…",
     add: "Add source",
     save: "Save sources",
     saving: "Saving…",
-    invalid: "This link is not a supported YouTube live or Twitch channel URL.",
+    invalid: "This link is not a supported YouTube live URL.",
     duplicate: "This source is already in the list.",
+    limit: "You can add at most 8 chat sources.",
     feed: "Unified feed",
     empty: "Messages will appear when a configured chat goes live.",
     overlay: "OBS browser source",
@@ -46,16 +48,17 @@ const copy = {
     remove: "Remove source",
   },
   ru: {
-    eyebrow: "YouTube + Twitch, один поток",
-    description: "Объединяйте публичные чаты без подключения аккаунтов стримера на платформах.",
+    eyebrow: "Чаты YouTube, один поток",
+    description: "Объединяйте публичные чаты YouTube без подключения аккаунта платформы.",
     sources: "Источники чата",
-    sourceHelp: "Добавьте до 8 ссылок на трансляции YouTube или каналы Twitch.",
-    placeholder: "https://youtube.com/watch?v=… или https://twitch.tv/…",
+    sourceHelp: "Добавьте до 8 ссылок на трансляции YouTube.",
+    placeholder: "https://youtube.com/watch?v=…",
     add: "Добавить источник",
     save: "Сохранить источники",
     saving: "Сохраняем…",
-    invalid: "Нужна ссылка на трансляцию YouTube или канал Twitch.",
+    invalid: "Нужна ссылка на трансляцию YouTube.",
     duplicate: "Этот источник уже добавлен.",
+    limit: "Можно добавить не больше 8 источников чата.",
     feed: "Объединённый чат",
     empty: "Сообщения появятся, когда один из настроенных чатов будет в эфире.",
     overlay: "Источник браузера OBS",
@@ -77,11 +80,7 @@ function ChatPage() {
   const { queryClient, trpc } = useApi();
   const configQuery = useQuery(trpc.chat.config.queryOptions());
   const config = configQuery.data;
-  const [urls, setUrls] = useState<string[]>([]);
-  const [input, setInput] = useState("");
-  const [inputError, setInputError] = useState<string | null>(null);
-  const [overlayUrl, setOverlayUrl] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [editor, dispatch] = useReducer(reduceChatEditorState, initialChatEditorState);
   const stream = useChatStream(
     "editor",
     undefined,
@@ -97,40 +96,30 @@ function ChatPage() {
   const rotate = useMutation(
     trpc.chat.rotateOverlayToken.mutationOptions({
       onSuccess: (result) => {
-        setOverlayUrl(result.overlayUrl);
-        setCopied(false);
+        dispatch({ type: "overlay rotated", overlayUrl: result.overlayUrl });
         queryClient.invalidateQueries({ queryKey: trpc.chat.config.queryKey() });
       },
     }),
   );
 
   useEffect(() => {
-    if (config) setUrls(config.sources.map((source) => source.sourceUrl));
+    if (config) {
+      dispatch({ type: "config loaded", sources: config.sources });
+    }
   }, [config]);
 
-  const addSource = () => {
-    if (urls.length >= 8) return;
-    const value = input.trim();
-    const source = parseChatSource(value);
-    if (!source) {
-      setInputError(text.invalid);
-      return;
-    }
-    if (
-      urls.some((url) => {
-        const current = parseChatSource(url);
-        return (
-          current?.provider === source.provider &&
-          current.sourceIdentifier === source.sourceIdentifier
-        );
-      })
-    ) {
-      setInputError(text.duplicate);
-      return;
-    }
-    setUrls((current) => [...current, source.sourceUrl]);
-    setInput("");
-    setInputError(null);
+  const addSource = () => dispatch({ type: "source added" });
+  const onInputChange = (event: ChangeEvent<HTMLInputElement>) =>
+    dispatch({ type: "input changed", input: event.target.value });
+  const onInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    addSource();
+  };
+  const copyOverlayUrl = async () => {
+    if (!editor.overlayUrl) return;
+    await navigator.clipboard.writeText(editor.overlayUrl);
+    dispatch({ type: "overlay copied" });
   };
 
   if (!config) {
@@ -141,7 +130,10 @@ function ChatPage() {
           eyebrow={text.eyebrow}
           title={locale === "ru" ? "Мультичат" : "Multichat"}
         />
-        <div className="cosmic-panel flex min-h-64 flex-col items-center justify-center gap-3 p-6 text-center">
+        <div
+          aria-busy={!configQuery.isError}
+          className="cosmic-panel flex min-h-64 flex-col items-center justify-center gap-3 p-6 text-center"
+        >
           {configQuery.isError ? (
             <>
               <p className="text-sm text-destructive">{configQuery.error.message}</p>
@@ -151,7 +143,10 @@ function ChatPage() {
               </Button>
             </>
           ) : (
-            <Icons.loader aria-label="Loading chat" className="animate-spin text-primary" />
+            <>
+              <Icons.loader aria-hidden="true" className="animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Loading chat</p>
+            </>
           )}
         </div>
       </section>
@@ -176,20 +171,15 @@ function ChatPage() {
               <Label htmlFor="chat-source">URL</Label>
               <div className="flex gap-2">
                 <Input
-                  aria-invalid={Boolean(inputError)}
+                  aria-invalid={Boolean(editor.inputError)}
                   id="chat-source"
-                  onChange={(event) => setInput(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      addSource();
-                    }
-                  }}
+                  onChange={onInputChange}
+                  onKeyDown={onInputKeyDown}
                   placeholder={text.placeholder}
-                  value={input}
+                  value={editor.input}
                 />
                 <Button
-                  disabled={urls.length >= 8}
+                  disabled={editor.sources.length >= MAX_CHAT_SOURCES}
                   onClick={addSource}
                   size="sm"
                   type="button"
@@ -199,28 +189,31 @@ function ChatPage() {
                   <span className="sr-only sm:not-sr-only">{text.add}</span>
                 </Button>
               </div>
-              {inputError && <p className="text-xs text-destructive">{inputError}</p>}
+              {editor.inputError && (
+                <p className="text-xs text-destructive">
+                  {editor.inputError === "unsupported"
+                    ? text.invalid
+                    : editor.inputError === "duplicate"
+                      ? text.duplicate
+                      : text.limit}
+                </p>
+              )}
             </div>
             <div className="flex flex-col gap-2">
-              {urls.map((url, index) => {
-                const source = config.sources.find((item) => item.sourceUrl === url);
-                const state = source
-                  ? stream.statuses[`${source.provider}:${source.sourceIdentifier}`]
-                  : undefined;
+              {editor.sources.map((source, index) => {
+                const state = stream.statuses[chatSourceKey(source)];
                 return (
                   <div
                     className="flex min-w-0 items-center gap-2 rounded-xl border border-border bg-muted/35 p-2"
-                    key={`${url}-${index}`}
+                    key={chatSourceKey(source)}
                   >
                     <span
                       className={`size-2 shrink-0 rounded-full ${state === "live" ? "bg-emerald-500" : state === "error" ? "bg-destructive" : "bg-muted-foreground/40"}`}
                     />
-                    <span className="min-w-0 grow truncate text-sm">{url}</span>
+                    <span className="min-w-0 grow truncate text-sm">{source.sourceUrl}</span>
                     <Button
                       aria-label={text.remove}
-                      onClick={() =>
-                        setUrls((current) => current.filter((_, itemIndex) => itemIndex !== index))
-                      }
+                      onClick={() => dispatch({ type: "source removed", index })}
                       size="icon-sm"
                       type="button"
                       variant="ghost"
@@ -231,7 +224,13 @@ function ChatPage() {
                 );
               })}
             </div>
-            <Button disabled={save.isPending} onClick={() => save.mutate({ urls })} type="button">
+            <Button
+              disabled={save.isPending}
+              onClick={() =>
+                save.mutate({ sourceUrls: editor.sources.map((source) => source.sourceUrl) })
+              }
+              type="button"
+            >
               {save.isPending && <Icons.loader aria-hidden="true" className="animate-spin" />}
               {save.isPending ? text.saving : text.save}
             </Button>
@@ -252,22 +251,19 @@ function ChatPage() {
                 <Icons.rotateToken aria-hidden="true" />
                 {config.hasOverlayToken ? text.rotate : text.createUrl}
               </Button>
-              {overlayUrl && (
-                <Button
-                  onClick={() =>
-                    void navigator.clipboard.writeText(overlayUrl).then(() => setCopied(true))
-                  }
-                  type="button"
-                >
+              {editor.overlayUrl && (
+                <Button onClick={() => void copyOverlayUrl()} type="button">
                   <Icons.copy aria-hidden="true" />
-                  {copied ? text.copied : text.copy}
+                  {editor.copied ? text.copied : text.copy}
                 </Button>
               )}
             </div>
-            {overlayUrl && (
-              <p className="break-all rounded-lg bg-muted p-3 font-mono text-xs">{overlayUrl}</p>
+            {editor.overlayUrl && (
+              <p className="break-all rounded-lg bg-muted p-3 font-mono text-xs">
+                {editor.overlayUrl}
+              </p>
             )}
-            {overlayUrl && (
+            {editor.overlayUrl && (
               <p className="text-xs text-amber-700 dark:text-amber-300">{text.tokenWarning}</p>
             )}
           </article>
@@ -276,14 +272,18 @@ function ChatPage() {
           <header className="flex items-center gap-3 border-b border-border p-4">
             <div className="flex min-w-0 grow flex-col">
               <h2 className="font-heading text-xl font-semibold">{text.feed}</h2>
-              <span className="text-xs text-muted-foreground">{urls.length}/8</span>
+              <span className="text-xs text-muted-foreground">
+                {editor.sources.length}/{MAX_CHAT_SOURCES}
+              </span>
             </div>
             <div className="flex gap-1" aria-hidden="true">
               <span className="h-6 w-1 rounded-full bg-[#ff4057]" />
-              <span className="h-6 w-1 rounded-full bg-[#9146ff]" />
             </div>
           </header>
-          <ChatFeed emptyLabel={text.empty} messages={stream.messages} />
+          <ChatFeed
+            emptyLabel={stream.connectionError?.detail ?? text.empty}
+            messages={stream.messages}
+          />
         </article>
       </div>
     </section>

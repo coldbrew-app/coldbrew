@@ -67,6 +67,16 @@ lint:
 build-web: install
   cd apps/web && bunx vite build
 
+generate-youtube-chat-proto: install
+  cd packages && ./node_modules/.bin/grpc_tools_node_protoc \
+    --plugin=protoc-gen-ts_proto=./node_modules/.bin/protoc-gen-ts_proto \
+    --ts_proto_out=src/youtube-live-chat/generated \
+    --ts_proto_opt=outputServices=nice-grpc,outputServices=generic-definitions,outputJsonMethods=false,useExactTypes=false,esModuleInterop=true,importSuffix=.js,forceLong=string \
+    --proto_path=src/youtube-live-chat/proto \
+    --proto_path=node_modules/grpc-tools/bin \
+    src/youtube-live-chat/proto/stream_list.proto
+  cd packages && bunx oxfmt src/youtube-live-chat/generated
+
 compose-up:
   docker compose up --build -d
 

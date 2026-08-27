@@ -1,3 +1,4 @@
+import { getAuthorizationUrl } from "@coldbrew/packages/donationalerts.js";
 import {
   MoneyAmountSchema,
   PublicQueueSettingsSchema,
@@ -12,7 +13,7 @@ import { getRedirectUri } from "@web/server/lib/getRedirectUrl.js";
 import { z } from "zod";
 
 import { store } from "../../sensors/db/index.js";
-import { donationAlerts } from "../../sensors/donationalerts.js";
+import { donationAlertsConfig } from "../../sensors/donationalerts.js";
 import { authenticatedProcedure, procedure, router } from "./_config.js";
 import { chatRouter } from "./chat.js";
 import { integrationRouter } from "./integration.js";
@@ -47,7 +48,9 @@ export const appRouter = router({
   integration: integrationRouter,
 
   authUrls: authenticatedProcedure.query(() => {
-    return { donationAlerts: donationAlerts.getAuthorizationUrl(getRedirectUri()) };
+    return {
+      donationAlerts: getAuthorizationUrl(donationAlertsConfig.clientId, getRedirectUri()),
+    };
   }),
 
   userInfo: procedure.query(async ({ ctx }) => {

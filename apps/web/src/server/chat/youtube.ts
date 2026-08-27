@@ -1,214 +1,76 @@
-import { credentials, loadPackageDefinition, Metadata, type ServiceError } from "@grpc/grpc-js";
-import { fromJSON } from "@grpc/proto-loader";
-import { parseJson, safeFetch, validate } from "@lebedevna/neverthrow-utils";
-import { rurl } from "@lebedevna/readonly-url";
-import type { ChatMessage, ChatSourceState } from "@web/lib/chat.js";
-import { z } from "zod";
+import { createAbortableStream } from "@coldbrew/packages/create-abortable-stream.js";
+import {
+  createYoutubeLiveChatClient,
+  type YoutubeLiveChatClient,
+  type YoutubeLiveChatError,
+  type YoutubeLiveChatItem,
+} from "@coldbrew/packages/youtube-live-chat.js";
+import { erro } from "@lebedevna/neverthrow-utils";
+import { ok } from "neverthrow";
 
 import { env } from "../env.js";
+import type { ChatProviderAdapter } from "./provider.js";
 
-type Emit = {
-  message: (message: ChatMessage) => void;
-  state: (state: ChatSourceState, detail?: string) => void;
-};
+function providerError(sourceIdentifier: string, error: YoutubeLiveChatError) {
+  const detail =
+    error.operation === "lookup"
+      ? "Could not read the YouTube live stream"
+      : "YouTube connection failed";
+  return erro({
+    type: "chat provider error",
+    provider: "youtube",
+    sourceIdentifier,
+    detail,
+  });
+}
 
-const StreamResponseSchema = z.object({
-  nextPageToken: z.string().optional(),
-  offlineAt: z.union([z.string(), z.number(), z.bigint()]).optional(),
-  items: z
-    .array(
-      z.object({
-        id: z.string(),
-        snippet: z.object({
-          type: z.union([z.literal("TEXT_MESSAGE_EVENT"), z.literal(1)]),
-          publishedAt: z.string(),
-          displayMessage: z.string().optional(),
-          textMessageDetails: z
-            .object({
-              messageText: z.string(),
-            })
-            .optional(),
-        }),
-        authorDetails: z.object({
-          displayName: z.string(),
-        }),
-      }),
-    )
-    .default([]),
-});
-
-type DynamicClient = {
-  streamList: (
-    request: Record<string, unknown>,
-    metadata: Metadata,
-  ) => {
-    cancel: () => void;
-    on: (event: string, listener: (value: unknown) => void) => void;
+export function youtubeMessageFromItem(item: YoutubeLiveChatItem, sourceIdentifier: string) {
+  if (
+    item.kind !== "text" ||
+    !item.id ||
+    !item.author ||
+    item.text === undefined ||
+    !item.occurredAt
+  ) {
+    return null;
+  }
+  return {
+    id: item.id,
+    provider: "youtube" as const,
+    sourceIdentifier,
+    author: item.author,
+    text: item.text,
+    occurredAt: item.occurredAt,
   };
-  close: () => void;
-};
-
-const protoDefinition: Parameters<typeof fromJSON>[0] = {
-  nested: {
-    youtube: {
-      nested: {
-        api: {
-          nested: {
-            v3: {
-              nested: {
-                LiveChatMessageListRequest: {
-                  fields: {
-                    liveChatId: { id: 1, type: "string" },
-                    part: { id: 2, rule: "repeated", type: "string" },
-                    pageToken: { id: 4, type: "string" },
-                    maxResults: { id: 98, type: "uint32" },
-                  },
-                },
-                LiveChatMessageListResponse: {
-                  fields: {
-                    nextPageToken: { id: 100602, type: "string" },
-                    offlineAt: { id: 2, type: "int64" },
-                    items: { id: 1007, rule: "repeated", type: "LiveChatMessage" },
-                  },
-                },
-                LiveChatMessage: {
-                  fields: {
-                    id: { id: 101, type: "string" },
-                    snippet: { id: 2, type: "LiveChatMessageSnippet" },
-                    authorDetails: { id: 3, type: "LiveChatMessageAuthorDetails" },
-                  },
-                },
-                LiveChatMessageAuthorDetails: {
-                  fields: {
-                    channelId: { id: 10101, type: "string" },
-                    displayName: { id: 103, type: "string" },
-                  },
-                },
-                LiveChatMessageSnippet: {
-                  fields: {
-                    type: { id: 1, type: "Type" },
-                    publishedAt: { id: 4, type: "string" },
-                    displayMessage: { id: 16, type: "string" },
-                    textMessageDetails: { id: 19, type: "LiveChatTextMessageDetails" },
-                  },
-                  nested: {
-                    Type: {
-                      values: { INVALID: 0, TEXT_MESSAGE_EVENT: 1 },
-                    },
-                  },
-                },
-                LiveChatTextMessageDetails: {
-                  fields: { messageText: { id: 1, type: "string" } },
-                },
-                V3DataLiveChatMessageService: {
-                  methods: {
-                    StreamList: {
-                      comment: "Streams live chat messages.",
-                      requestType: "LiveChatMessageListRequest",
-                      responseStream: true,
-                      responseType: "LiveChatMessageListResponse",
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-  },
-};
-
-function createClient() {
-  const definition = loadPackageDefinition(
-    fromJSON(protoDefinition, { defaults: true, enums: String, keepCase: false, longs: String }),
-  ) as Record<string, unknown>;
-  const namespace = (definition.youtube as Record<string, unknown>).api as Record<string, unknown>;
-  const service = (namespace.v3 as Record<string, unknown>).V3DataLiveChatMessageService as new (
-    address: string,
-    creds: ReturnType<typeof credentials.createSsl>,
-  ) => DynamicClient;
-  return new service("youtube.googleapis.com:443", credentials.createSsl());
 }
 
-export async function runYoutubeCollector(
-  videoId: string,
-  emit: Emit,
-  signal: AbortSignal,
-  pageToken?: string,
-) {
-  const apiKey = env.YOUTUBE_API_KEY;
-  const url = rurl("https://www.googleapis.com/youtube/v3/videos").withSearchParams({
-    id: videoId,
-    key: apiKey,
-    part: "liveStreamingDetails",
-  });
-  const schema = z.object({
-    items: z.array(
-      z.object({
-        liveStreamingDetails: z
-          .object({
-            activeLiveChatId: z.string().optional(),
-          })
-          .optional(),
-      }),
-    ),
-  });
-  const $response = await safeFetch(url.href, { signal })
-    .andThen(parseJson)
-    .andThen((value) => validate(schema, value));
-  if ($response.isErr()) {
-    emit.state("error", "Could not read the YouTube live stream");
-    return pageToken;
-  }
-  const liveChatId = $response.value.items[0]?.liveStreamingDetails?.activeLiveChatId;
-  if (!liveChatId) {
-    emit.state("offline");
-    return undefined;
-  }
-
-  const client = createClient();
-  const metadata = new Metadata();
-  metadata.set("x-goog-api-key", apiKey);
-  const stream = client.streamList(
-    {
-      liveChatId,
-      maxResults: 200,
-      pageToken,
-      part: ["snippet", "authorDetails"],
+export function createYoutubeChatProvider(client: YoutubeLiveChatClient): ChatProviderAdapter {
+  return {
+    provider: "youtube",
+    stream(sourceIdentifier, parentSignal) {
+      return createAbortableStream(async function* (signal) {
+        for await (const $event of client.stream(sourceIdentifier, signal)) {
+          if ($event.isErr()) {
+            yield providerError(sourceIdentifier, $event.error);
+            continue;
+          }
+          if ($event.value.type === "state") {
+            yield ok({
+              type: "state",
+              provider: "youtube",
+              sourceIdentifier,
+              state: $event.value.state,
+            });
+            continue;
+          }
+          const message = youtubeMessageFromItem($event.value.item, sourceIdentifier);
+          if (message) yield ok({ type: "message", message });
+        }
+      }, parentSignal);
     },
-    metadata,
-  );
-  const abort = () => stream.cancel();
-  signal.addEventListener("abort", abort, { once: true });
-  emit.state("live");
-  let nextPageToken = pageToken;
-  stream.on("data", (value) => {
-    const $response = validate(StreamResponseSchema, value);
-    if ($response.isErr()) return;
-    nextPageToken = $response.value.nextPageToken || nextPageToken;
-    for (const item of $response.value.items) {
-      emit.message({
-        id: item.id,
-        provider: "youtube",
-        sourceIdentifier: videoId,
-        author: item.authorDetails.displayName,
-        text: item.snippet.textMessageDetails?.messageText ?? item.snippet.displayMessage ?? "",
-        occurredAt: new Date(item.snippet.publishedAt),
-      });
-    }
-    if ($response.value.offlineAt && BigInt($response.value.offlineAt) > 0n) {
-      emit.state("offline");
-    }
-  });
-  stream.on("error", (error) => {
-    if (!signal.aborted) emit.state("error", (error as ServiceError).message);
-  });
-  await new Promise<void>((resolve) => {
-    signal.addEventListener("abort", () => resolve(), { once: true });
-    stream.on("end", () => resolve());
-  });
-  signal.removeEventListener("abort", abort);
-  client.close();
-  return nextPageToken;
+  };
 }
+
+export const youtubeChatProvider = createYoutubeChatProvider(
+  createYoutubeLiveChatClient({ apiKey: env.YOUTUBE_API_KEY }),
+);

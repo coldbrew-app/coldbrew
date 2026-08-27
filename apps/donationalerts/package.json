@@ -7,7 +7,8 @@
   },
   "dependencies": {
     "@coldbrew/packages": "workspace:*",
-    "@lebedevna/neverthrow-utils": "^0.2.2",
+    "@lebedevna/delay": "^0.1.0",
+    "@lebedevna/neverthrow-utils": "^0.3.0",
     "@t3-oss/env-core": "^0.13.11",
     "cron": "^4.4.0",
     "emittery": "^2.0.0",

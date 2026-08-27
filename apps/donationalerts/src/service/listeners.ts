@@ -1,11 +1,11 @@
-import { delay } from "@coldbrew/packages/delay.js";
+import { subscribeToDonations } from "@coldbrew/packages/donationalerts.js";
 import { logger } from "@coldbrew/packages/logger.js";
 import { DonationAlertsUser, UserId } from "@coldbrew/packages/schemas.js";
+import { delay } from "@lebedevna/delay";
 import { ok, safeTry } from "neverthrow";
 import { defer } from "using-defer";
 
 import { store } from "../sensors/db/index.js";
-import { donationAlerts } from "../sensors/donationalerts.js";
 import { refreshAccessToken } from "./refresh-access-token.js";
 
 async function deployListener(user: DonationAlertsUser, signal: AbortSignal) {
@@ -16,7 +16,7 @@ async function deployListener(user: DonationAlertsUser, signal: AbortSignal) {
     outer_loop: while (true) {
       if (signal.aborted) return ok();
 
-      for await (const event of donationAlerts.subscribeToDonations(accessToken, signal)) {
+      for await (const event of subscribeToDonations(accessToken, signal)) {
         if (signal.aborted) return ok();
 
         if (event.name == "donation") {

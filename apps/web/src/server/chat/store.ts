@@ -27,6 +27,7 @@ export async function getChatConfig(userId: number) {
     SELECT provider, source_identifier, source_url, position
     FROM chat_overlay_source
     WHERE user_id = ${userId}
+      AND provider = 'youtube'
     ORDER BY position
   `;
   const tokenRows = await sql`
@@ -105,6 +106,7 @@ export async function getSourcesByOverlayToken(token: string) {
     FROM chat_overlay
     JOIN chat_overlay_source AS source USING (user_id)
     WHERE chat_overlay.user_id = ${userId}
+      AND source.provider = 'youtube'
     ORDER BY source.position
   `;
   return {

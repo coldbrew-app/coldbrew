@@ -71,13 +71,14 @@ function RouteComponent() {
                 {t(disconnectM.isPending ? "disconnecting" : "disconnect")}
               </Button>
             ) : authUrlQ.data ? (
-              <a
-                className="inline-flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80 sm:w-auto"
-                href={authUrlQ.data.donationAlerts}
+              <Button
+                render={<a href={authUrlQ.data.donationAlerts} />}
+                className="w-full shrink-0 sm:w-auto"
+                size="lg"
               >
                 {t("connectDonationAlerts")}
                 <Icons.chevronRight aria-hidden="true" size={16} />
-              </a>
+              </Button>
             ) : (
               <Button
                 className="w-full sm:w-auto"

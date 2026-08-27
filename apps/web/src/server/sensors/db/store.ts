@@ -27,6 +27,17 @@ import {
 import { Sql } from "postgres";
 import { z } from "zod";
 
+function isUserSlugConflict(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "23505" &&
+    "constraint_name" in error &&
+    error.constraint_name === "user_slug_key"
+  );
+}
+
 export class Store {
   static fromDbUrl(dbUrl: string) {
     return new Store(createSql(dbUrl));
@@ -651,33 +662,39 @@ export class Store {
   async getOrCreateUserId(authUserId: AuthUserId, preferredSlug: string): Promise<UserId> {
     const existing = await this.getUserId(authUserId);
     if (existing) return existing;
-    return await this.sql
-      .begin(async (sql) => {
-        const rows = await sql`
-          INSERT INTO "user" (auth_user_id, slug)
-          VALUES (${authUserId}, ${preferredSlug})
-          ON CONFLICT (auth_user_id) DO UPDATE
-          SET auth_user_id = EXCLUDED.auth_user_id
-          RETURNING user_id
-        `;
-        const schema = z.object({
-          userId: UserIdSchema,
+    let slug = preferredSlug;
+    while (true) {
+      try {
+        return await this.sql.begin(async (sql) => {
+          const rows = await sql`
+            INSERT INTO "user" (auth_user_id, slug)
+            VALUES (${authUserId}, ${slug})
+            ON CONFLICT (auth_user_id) DO UPDATE
+            SET auth_user_id = EXCLUDED.auth_user_id
+            RETURNING user_id
+          `;
+          const schema = z.object({
+            userId: UserIdSchema,
+          });
+          const userId = schema.parse(rows[0]).userId;
+          await sql`
+            INSERT INTO video_priority (
+              user_id, label, min_price_per_minute, is_default
+            )
+            VALUES
+              (${userId}, 'queue 0', 0, true),
+              (${userId}, 'queue 1', 50, false),
+              (${userId}, 'queue 2', 100, false),
+              (${userId}, 'queue 3', 200, false)
+            ON CONFLICT DO NOTHING
+          `;
+          return userId;
         });
-        const userId = schema.parse(rows[0]).userId;
-        await sql`
-          INSERT INTO video_priority (
-            user_id, label, min_price_per_minute, is_default
-          )
-          VALUES
-            (${userId}, 'queue 0', 0, true),
-            (${userId}, 'queue 1', 50, false),
-            (${userId}, 'queue 2', 100, false),
-            (${userId}, 'queue 3', 200, false)
-          ON CONFLICT DO NOTHING
-        `;
-        return userId;
-      })
-      .catch(async () => await this.getOrCreateUserId(authUserId, `@${randomUUID()}`));
+      } catch (error) {
+        if (!isUserSlugConflict(error)) throw error;
+        slug = `@${randomUUID()}`;
+      }
+    }
   }
 
   async getUsersAuthenticatedInDonationAlerts() {

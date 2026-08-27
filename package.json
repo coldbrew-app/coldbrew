@@ -20,6 +20,7 @@
   },
   "intent": {
     "skills": [
+      "@lebedevna/delay",
       "@lebedevna/neverthrow-utils",
       "@lebedevna/readonly-url",
       "@tanstack/react-start",

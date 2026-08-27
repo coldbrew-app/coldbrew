@@ -23,7 +23,7 @@ function ChatOverlay() {
   return (
     <main className="flex h-dvh min-w-0 bg-transparent font-sans text-white">
       <ChatFeed
-        emptyLabel={connectionError ? "Overlay unavailable" : "Waiting for chat…"}
+        emptyLabel={connectionError?.detail ?? "Waiting for chat…"}
         messages={messages}
         overlay
       />

@@ -1,27 +1,27 @@
+import { getDonations } from "@coldbrew/packages/donationalerts.js";
 import { logger } from "@coldbrew/packages/logger.js";
 import { DonationAlertsUser, UserId } from "@coldbrew/packages/schemas.js";
 import { CronJob } from "cron";
 import { safeTry } from "neverthrow";
 
 import { store } from "./sensors/db/index.js";
-import { donationAlerts } from "./sensors/donationalerts.js";
 import { refreshListeners } from "./service/listeners.js";
 import { refreshAccessToken } from "./service/refresh-access-token.js";
 
 async function syncUserDonations(user: DonationAlertsUser) {
   return safeTry(async function* () {
     let accessToken = user.accessToken;
-    let $donations = await donationAlerts.getDonations(accessToken);
+    let $donations = await getDonations(accessToken);
 
     if ($donations.isErr() && $donations.error.type == "donationalerts: unauthorized") {
       const tokens = yield* refreshAccessToken(user);
-      $donations = await donationAlerts.getDonations(tokens.accessToken);
+      $donations = await getDonations(tokens.accessToken);
     }
 
     return $donations;
   }).match(
     (value) => store.insertDonations(user.userId, value),
-    (err) => logger.error(err),
+    (error) => logger.error(error),
   );
 }
 
