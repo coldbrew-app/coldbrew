@@ -1,5 +1,5 @@
 import { MoneyAmountSchema, VideoPriority } from "@coldbrew/packages/schemas.js";
-import { getRoundedWatchDurationMinutes } from "@coldbrew/packages/video-timing.js";
+import { getRoundedWatchDurationParts } from "@coldbrew/packages/video-timing.js";
 import { Link } from "@tanstack/react-router";
 import { useUpdateVideoPriorityM, useUserInfo } from "@web/hooks/api";
 import { cn } from "@web/lib/utils";
@@ -107,9 +107,7 @@ export default function VideoPriorityEditor({
               {priority.minPricePerMinute} {userInfo.queueCurrency}/{t("perMinute")}
             </span>
             <span className="shrink-0 font-semibold text-primary">
-              {t("minutesRemaining", {
-                count: getRoundedWatchDurationMinutes(remainingSeconds),
-              })}
+              {t("durationRemaining", getRoundedWatchDurationParts(remainingSeconds))}
             </span>
           </div>
         </div>

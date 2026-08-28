@@ -20,6 +20,8 @@ type VideoTimeParts = {
   seconds: number;
 };
 
+type HourMinuteParts = Pick<VideoTimeParts, "hours" | "minutes">;
+
 const en = {
   overview: "Overview",
   donations: "Donations",
@@ -182,7 +184,8 @@ const en = {
   addedManually: "Added manually",
   openOnYoutube: "Open on YouTube",
   minutes: ({ count }: { count: number }) => `${count} min`,
-  minutesRemaining: ({ count }: { count: number }) => `${count} min left`,
+  durationRemaining: ({ hours, minutes }: HourMinuteParts) =>
+    `${hours > 0 ? `${hours} hr ` : ""}${minutes} min`,
   perMinute: "min",
   editVideoDetails: "Edit video details",
   amount: "Amount",
@@ -396,7 +399,8 @@ const ru = defineTranslations({
   addedManually: "Добавлено вручную",
   openOnYoutube: "Открыть на YouTube",
   minutes: ({ count }: { count: number }) => `${count} мин`,
-  minutesRemaining: ({ count }: { count: number }) => `${count} мин осталось`,
+  durationRemaining: ({ hours, minutes }: HourMinuteParts) =>
+    `${hours > 0 ? `${hours} ч ` : ""}${minutes} мин`,
   perMinute: "мин",
   editVideoDetails: "Редактировать видео",
   amount: "Сумма",

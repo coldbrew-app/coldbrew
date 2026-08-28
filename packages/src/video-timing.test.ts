@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatVideoTime,
   getRoundedWatchDurationMinutes,
+  getRoundedWatchDurationParts,
   getVideoTimeParts,
   getWatchDurationSeconds,
   parseVideoTime,
@@ -26,6 +27,15 @@ describe("video timing", () => {
     expect(
       durations.reduce((total, value) => total + getRoundedWatchDurationMinutes(value), 0),
     ).toBe(0);
+  });
+
+  it.each([
+    [0, { hours: 0, minutes: 0 }],
+    [89, { hours: 0, minutes: 1 }],
+    [3570, { hours: 1, minutes: 0 }],
+    [4520, { hours: 1, minutes: 15 }],
+  ])("rounds and splits %i seconds into hours and minutes", (seconds, expected) => {
+    expect(getRoundedWatchDurationParts(seconds)).toEqual(expected);
   });
 
   it.each([

@@ -1,5 +1,5 @@
 import { SlugSchema } from "@coldbrew/packages/schemas.js";
-import { getRoundedWatchDurationMinutes } from "@coldbrew/packages/video-timing.js";
+import { getRoundedWatchDurationParts } from "@coldbrew/packages/video-timing.js";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { CosmicArt } from "@web/components/cosmic-art";
 import { EmptyState } from "@web/components/empty-state";
@@ -36,9 +36,7 @@ function SharedPriorityHeader({ priority }: { priority: SharedPriority }) {
         {priority.label}
       </h2>
       <span className="shrink-0 text-[11px] font-semibold text-primary">
-        {t("minutesRemaining", {
-          count: getRoundedWatchDurationMinutes(priority.remainingSeconds),
-        })}
+        {t("durationRemaining", getRoundedWatchDurationParts(priority.remainingSeconds))}
       </span>
     </header>
   );

@@ -6,6 +6,15 @@ export function getRoundedWatchDurationMinutes(totalSeconds: number) {
   return Math.round(totalSeconds / 60);
 }
 
+export function getRoundedWatchDurationParts(totalSeconds: number) {
+  const totalMinutes = getRoundedWatchDurationMinutes(totalSeconds);
+
+  return {
+    hours: Math.floor(totalMinutes / 60),
+    minutes: totalMinutes % 60,
+  };
+}
+
 export function getVideoTimeParts(totalSeconds: number) {
   return {
     hours: Math.floor(totalSeconds / 3600),
