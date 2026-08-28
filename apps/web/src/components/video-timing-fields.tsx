@@ -1,5 +1,5 @@
 import {
-  formatVideoTime,
+  getVideoTimeParts,
   getWatchDurationSeconds,
   parseVideoTime,
 } from "@coldbrew/packages/video-timing.js";
@@ -50,13 +50,15 @@ export function VideoTimingFields({ allowOpenEnd = false, className, disabled = 
   const startId = `${id}-start`;
   const endId = `${id}-end`;
   const helpId = `${id}-help`;
+  const startParsedId = `${id}-start-parsed`;
+  const endParsedId = `${id}-end-parsed`;
   const startErrorId = `${id}-start-error`;
   const endErrorId = `${id}-end-error`;
   const startSeconds = parseVideoTime(watch("startTime"));
   const endSeconds = parseVideoTime(watch("endTime"));
   const watchDuration =
     startSeconds !== null && endSeconds !== null && endSeconds > startSeconds
-      ? formatVideoTime(getWatchDurationSeconds(startSeconds, endSeconds))
+      ? getVideoTimeParts(getWatchDurationSeconds(startSeconds, endSeconds))
       : null;
 
   return (
@@ -64,7 +66,7 @@ export function VideoTimingFields({ allowOpenEnd = false, className, disabled = 
       <Field data-invalid={Boolean(formState.errors.startTime)}>
         <FieldLabel htmlFor={startId}>{t("videoStart")}</FieldLabel>
         <Input
-          aria-describedby={`${helpId}${formState.errors.startTime ? ` ${startErrorId}` : ""}`}
+          aria-describedby={`${startParsedId} ${helpId}${formState.errors.startTime ? ` ${startErrorId}` : ""}`}
           aria-invalid={Boolean(formState.errors.startTime)}
           autoComplete="off"
           disabled={disabled}
@@ -79,11 +81,14 @@ export function VideoTimingFields({ allowOpenEnd = false, className, disabled = 
           })}
         />
         <FieldError errors={[formState.errors.startTime]} id={startErrorId} />
+        <FieldDescription aria-live="polite" id={startParsedId}>
+          {startSeconds !== null && t("parsedVideoTime", getVideoTimeParts(startSeconds))}
+        </FieldDescription>
       </Field>
       <Field data-invalid={Boolean(formState.errors.endTime)}>
         <FieldLabel htmlFor={endId}>{t("videoEnd")}</FieldLabel>
         <Input
-          aria-describedby={`${helpId}${formState.errors.endTime ? ` ${endErrorId}` : ""}`}
+          aria-describedby={`${endParsedId} ${helpId}${formState.errors.endTime ? ` ${endErrorId}` : ""}`}
           aria-invalid={Boolean(formState.errors.endTime)}
           autoComplete="off"
           disabled={disabled}
@@ -103,11 +108,14 @@ export function VideoTimingFields({ allowOpenEnd = false, className, disabled = 
           })}
         />
         <FieldError errors={[formState.errors.endTime]} id={endErrorId} />
+        <FieldDescription aria-live="polite" id={endParsedId}>
+          {endSeconds !== null && t("parsedVideoTime", getVideoTimeParts(endSeconds))}
+        </FieldDescription>
       </Field>
       <FieldDescription className="col-span-2 flex flex-col gap-0.5" id={helpId}>
         {allowOpenEnd && <span>{t("manualVideoTimingHelp")}</span>}
         {watchDuration !== null ? (
-          <span>{t("watchDuration", { duration: watchDuration })}</span>
+          <span>{t("watchDuration", watchDuration)}</span>
         ) : (
           !allowOpenEnd && <span>{t("videoTimingHelp")}</span>
         )}

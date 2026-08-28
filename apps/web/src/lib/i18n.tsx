@@ -14,6 +14,12 @@ import { localeCookieName, locales, type Locale, resolveLocale } from "./locale"
 export { locales, resolveLocale };
 export type { Locale };
 
+type VideoTimeParts = {
+  hours: number;
+  minutes: number;
+  seconds: number;
+};
+
 const en = {
   overview: "Overview",
   donations: "Donations",
@@ -187,7 +193,10 @@ const en = {
   videoUntilTime: ({ endTime }: { endTime: string }) => `Until ${endTime}`,
   videoTimeRange: ({ startTime, endTime }: { startTime: string; endTime: string }) =>
     `From ${startTime} until ${endTime}`,
-  watchDuration: ({ duration }: { duration: string }) => `Watch time: ${duration}`,
+  parsedVideoTime: ({ hours, minutes, seconds }: VideoTimeParts) =>
+    `${hours > 0 ? `${hours} hr ` : ""}${minutes} min ${seconds} sec`,
+  watchDuration: ({ hours, minutes, seconds }: VideoTimeParts) =>
+    `Watch time: ${hours > 0 ? `${hours} hr ` : ""}${minutes} min ${seconds} sec`,
   enterPriorityAmount: "Enter a priority amount.",
   queueAmountHelp: "The amount and watch time determine the video’s queue position.",
   enterVideoTime: "Enter a timestamp.",
@@ -398,7 +407,10 @@ const ru = defineTranslations({
   videoUntilTime: ({ endTime }: { endTime: string }) => `До ${endTime}`,
   videoTimeRange: ({ startTime, endTime }: { startTime: string; endTime: string }) =>
     `С ${startTime} до ${endTime}`,
-  watchDuration: ({ duration }: { duration: string }) => `Время просмотра: ${duration}`,
+  parsedVideoTime: ({ hours, minutes, seconds }: VideoTimeParts) =>
+    `${hours > 0 ? `${hours} ч ` : ""}${minutes} мин ${seconds} с`,
+  watchDuration: ({ hours, minutes, seconds }: VideoTimeParts) =>
+    `Время просмотра: ${hours > 0 ? `${hours} ч ` : ""}${minutes} мин ${seconds} с`,
   enterPriorityAmount: "Введите сумму для приоритета.",
   queueAmountHelp: "Сумма и время просмотра определяют место видео в очереди.",
   enterVideoTime: "Введите таймкод.",

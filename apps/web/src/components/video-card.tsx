@@ -1,5 +1,9 @@
 import { CurrencyCodeSchema, MoneyAmountSchema } from "@coldbrew/packages/schemas.js";
-import { formatVideoTime, getWatchDurationSeconds } from "@coldbrew/packages/video-timing.js";
+import {
+  formatVideoTime,
+  getVideoTimeParts,
+  getWatchDurationSeconds,
+} from "@coldbrew/packages/video-timing.js";
 import { rurl } from "@lebedevna/readonly-url";
 import { fmtAmount, fmtDate, formatRelativeDate } from "@web/lib/fmt";
 import type { Video } from "@web/server/exports";
@@ -68,7 +72,7 @@ export default function VideoCard({
   );
   const embedUrl = getYoutubeEmbedUrl(video.url, video.startSeconds, video.endSeconds);
   const timingLabel = `${formatVideoTime(video.startSeconds)}–${formatVideoTime(video.endSeconds)}`;
-  const watchDuration = formatVideoTime(
+  const watchDuration = getVideoTimeParts(
     getWatchDurationSeconds(video.startSeconds, video.endSeconds),
   );
   const isWatched = video.watchedAt !== null;
@@ -182,7 +186,7 @@ export default function VideoCard({
                 </strong>
                 {!isEditing && (
                   <span className="text-xs text-muted-foreground">
-                    {t("watchDuration", { duration: watchDuration })}
+                    {t("watchDuration", watchDuration)}
                   </span>
                 )}
               </div>

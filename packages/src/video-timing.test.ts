@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatVideoTime,
   getRoundedWatchDurationMinutes,
+  getVideoTimeParts,
   getWatchDurationSeconds,
   parseVideoTime,
 } from "./video-timing.js";
@@ -35,6 +36,13 @@ describe("video timing", () => {
     [3723, "1:02:03"],
   ])("formats %i seconds as %s", (seconds, expected) => {
     expect(formatVideoTime(seconds)).toBe(expected);
+  });
+
+  it.each([
+    [920, { hours: 0, minutes: 15, seconds: 20 }],
+    [4520, { hours: 1, minutes: 15, seconds: 20 }],
+  ])("splits %i seconds into time units", (seconds, expected) => {
+    expect(getVideoTimeParts(seconds)).toEqual(expected);
   });
 
   it.each([

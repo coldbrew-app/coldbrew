@@ -6,11 +6,16 @@ export function getRoundedWatchDurationMinutes(totalSeconds: number) {
   return Math.round(totalSeconds / 60);
 }
 
-export function formatVideoTime(totalSeconds: number) {
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
+export function getVideoTimeParts(totalSeconds: number) {
+  return {
+    hours: Math.floor(totalSeconds / 3600),
+    minutes: Math.floor((totalSeconds % 3600) / 60),
+    seconds: totalSeconds % 60,
+  };
+}
 
+export function formatVideoTime(totalSeconds: number) {
+  const { hours, minutes, seconds } = getVideoTimeParts(totalSeconds);
   return hours > 0
     ? `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
     : `${minutes}:${String(seconds).padStart(2, "0")}`;
