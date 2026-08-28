@@ -2,6 +2,7 @@ import { MoneyAmountSchema, VideoPriority } from "@coldbrew/packages/schemas.js"
 import { getRoundedWatchDurationParts } from "@coldbrew/packages/video-timing.js";
 import { Link } from "@tanstack/react-router";
 import { useUpdateVideoPriorityM, useUserInfo } from "@web/hooks/api";
+import { formatMoneyInputValue } from "@web/lib/fmt";
 import { cn } from "@web/lib/utils";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -37,7 +38,7 @@ export default function VideoPriorityEditor({
   const { formState, handleSubmit, register, reset } = useForm<VideoPriorityFormValues>({
     defaultValues: {
       label: priority.label,
-      minPricePerMinute: priority.minPricePerMinute,
+      minPricePerMinute: formatMoneyInputValue(priority.minPricePerMinute),
     },
     mode: "onChange",
   });
@@ -47,14 +48,17 @@ export default function VideoPriorityEditor({
       videoPriorityId: priority.videoPriorityId,
       ...values,
     });
-    reset({ label: updatedPriority.label, minPricePerMinute: updatedPriority.minPricePerMinute });
+    reset({
+      label: updatedPriority.label,
+      minPricePerMinute: formatMoneyInputValue(updatedPriority.minPricePerMinute),
+    });
     setIsEditing(false);
   };
 
   const startEditing = () => {
     reset({
       label: priority.label,
-      minPricePerMinute: priority.minPricePerMinute,
+      minPricePerMinute: formatMoneyInputValue(priority.minPricePerMinute),
     });
     setIsEditing(true);
   };
@@ -62,7 +66,7 @@ export default function VideoPriorityEditor({
   const cancelEditing = () => {
     reset({
       label: priority.label,
-      minPricePerMinute: priority.minPricePerMinute,
+      minPricePerMinute: formatMoneyInputValue(priority.minPricePerMinute),
     });
     setIsEditing(false);
   };

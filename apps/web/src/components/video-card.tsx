@@ -5,7 +5,7 @@ import {
   getWatchDurationSeconds,
 } from "@coldbrew/packages/video-timing.js";
 import { rurl } from "@lebedevna/readonly-url";
-import { fmtAmount, fmtDate, formatRelativeDate } from "@web/lib/fmt";
+import { fmtAmount, fmtDate, formatMoneyInputValue, formatRelativeDate } from "@web/lib/fmt";
 import type { Video } from "@web/server/exports";
 import { clsx } from "clsx";
 import { useState } from "react";
@@ -91,7 +91,7 @@ export default function VideoCard({
   const [isEditing, setIsEditing] = useState(false);
   const form = useForm<VideoFormValues>({
     defaultValues: {
-      amount: video.queueAmount ?? "0.00",
+      amount: formatMoneyInputValue(video.queueAmount ?? MoneyAmountSchema.parse("0.00")),
       startTime: formatVideoTime(video.startSeconds),
       endTime: formatVideoTime(video.endSeconds),
     },
@@ -101,7 +101,7 @@ export default function VideoCard({
 
   const startEditing = () => {
     reset({
-      amount: video.queueAmount ?? "0.00",
+      amount: formatMoneyInputValue(video.queueAmount ?? MoneyAmountSchema.parse("0.00")),
       startTime: formatVideoTime(video.startSeconds),
       endTime: formatVideoTime(video.endSeconds),
     });
@@ -110,7 +110,7 @@ export default function VideoCard({
 
   const cancelEditing = () => {
     reset({
-      amount: video.queueAmount ?? "0.00",
+      amount: formatMoneyInputValue(video.queueAmount ?? MoneyAmountSchema.parse("0.00")),
       startTime: formatVideoTime(video.startSeconds),
       endTime: formatVideoTime(video.endSeconds),
     });

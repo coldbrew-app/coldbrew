@@ -1,6 +1,7 @@
 import { MoneyAmountSchema } from "@coldbrew/packages/schemas.js";
 import { youtubeVideoId } from "@coldbrew/packages/youtube.js";
 import { useAddVideoM, useUserInfoSafe } from "@web/hooks/api";
+import { formatMoneyInputValue } from "@web/lib/fmt";
 import { useI18n } from "@web/lib/i18n";
 import { FormProvider, useForm } from "react-hook-form";
 
@@ -27,7 +28,12 @@ export function AddVideoForm({ onCancel }: Props) {
   const amountHelpId = "manual-video-amount-help";
   const amountErrorId = "manual-video-amount-error";
   const form = useForm<AddVideoFormValues>({
-    defaultValues: { url: "", amount: "0.00", startTime: "0:00", endTime: "" },
+    defaultValues: {
+      url: "",
+      amount: formatMoneyInputValue(MoneyAmountSchema.parse("0.00")),
+      startTime: "0:00",
+      endTime: "",
+    },
     mode: "onChange",
   });
   const { formState, handleSubmit, register, reset } = form;

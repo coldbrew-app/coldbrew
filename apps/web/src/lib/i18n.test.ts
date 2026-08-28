@@ -1,7 +1,7 @@
 import { CurrencyCodeSchema, MoneyAmountSchema } from "@coldbrew/packages/schemas.js";
 import { describe, expect, it } from "vitest";
 
-import { fmtAmount, fmtDate, fmtRubles } from "./fmt";
+import { fmtAmount, fmtDate, fmtRubles, formatMoneyInputValue } from "./fmt";
 import { resolveLocale } from "./i18n";
 
 describe("resolveLocale", () => {
@@ -37,10 +37,22 @@ describe("localized formatters", () => {
     expect(fmtRubles(amount, "ru")).toBe(ru);
   });
 
-  it("uses amount-dependent precision for currency-aware money", () => {
+  it("omits zero cents and preserves non-zero cents for currency-aware money", () => {
     const usd = CurrencyCodeSchema.parse("USD");
 
+    expect(fmtAmount(MoneyAmountSchema.parse("1.00"), usd, "en")).toBe("$1");
     expect(fmtAmount(MoneyAmountSchema.parse("9.50"), usd, "en")).toBe("$9.50");
-    expect(fmtAmount(MoneyAmountSchema.parse("10.60"), usd, "en")).toBe("$11");
+    expect(fmtAmount(MoneyAmountSchema.parse("10.60"), usd, "en")).toBe("$10.60");
+  });
+});
+
+describe("formatMoneyInputValue", () => {
+  it.each([
+    ["0.00", "0"],
+    ["100.00", "100"],
+    ["100.50", "100.50"],
+    ["100.01", "100.01"],
+  ])("formats %s as %s", (amount, expected) => {
+    expect(formatMoneyInputValue(MoneyAmountSchema.parse(amount))).toBe(expected);
   });
 });

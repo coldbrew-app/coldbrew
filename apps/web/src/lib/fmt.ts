@@ -4,6 +4,10 @@ import type { Locale } from "./i18n";
 
 const localeTag: Record<Locale, string> = { en: "en-US", ru: "ru-RU" };
 
+export function formatMoneyInputValue(amount: MoneyAmount) {
+  return amount.replace(/\.00$/, "");
+}
+
 export function fmtDate(date: Date, locale: Locale) {
   return new Intl.DateTimeFormat(localeTag[locale], {
     day: "numeric",
@@ -15,7 +19,7 @@ export function fmtDate(date: Date, locale: Locale) {
 
 export function fmtAmount(amount: MoneyAmount, currency: CurrencyCode, locale: Locale) {
   const numericAmount = Number(amount);
-  const fractionDigits = numericAmount < 10 ? 2 : 0;
+  const fractionDigits = amount.endsWith(".00") ? 0 : 2;
 
   return new Intl.NumberFormat(localeTag[locale], {
     currency,

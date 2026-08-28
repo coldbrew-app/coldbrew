@@ -5,6 +5,7 @@ import {
   QueueCurrencySchema,
 } from "@coldbrew/packages/schemas.js";
 import { useUpdateQueueCurrencyM, useUserInfo } from "@web/hooks/api";
+import { formatMoneyInputValue } from "@web/lib/fmt";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
@@ -31,7 +32,10 @@ export function QueueCurrencyEditor() {
   const updateQueueCurrencyM = useUpdateQueueCurrencyM();
   const [isEditing, setIsEditing] = useState(false);
   const { formState, handleSubmit, register, reset, setValue, watch } = useForm<FormValues>({
-    defaultValues: { queueCurrency: userInfo.queueCurrency, rate: "1.00" },
+    defaultValues: {
+      queueCurrency: userInfo.queueCurrency,
+      rate: formatMoneyInputValue(MoneyAmountSchema.parse("1.00")),
+    },
     mode: "onChange",
   });
   const nextCurrency = watch("queueCurrency");
@@ -39,15 +43,19 @@ export function QueueCurrencyEditor() {
   const smaller = larger === userInfo.queueCurrency ? nextCurrency : userInfo.queueCurrency;
 
   useEffect(() => {
-    setValue("rate", defaultCurrencyChangeRate(userInfo.queueCurrency, nextCurrency), {
-      shouldValidate: true,
-    });
+    setValue(
+      "rate",
+      formatMoneyInputValue(defaultCurrencyChangeRate(userInfo.queueCurrency, nextCurrency)),
+      { shouldValidate: true },
+    );
   }, [nextCurrency, setValue, userInfo.queueCurrency]);
 
   const startEditing = () => {
     reset({
       queueCurrency: userInfo.queueCurrency,
-      rate: defaultCurrencyChangeRate(userInfo.queueCurrency, userInfo.queueCurrency),
+      rate: formatMoneyInputValue(
+        defaultCurrencyChangeRate(userInfo.queueCurrency, userInfo.queueCurrency),
+      ),
     });
     setIsEditing(true);
   };
