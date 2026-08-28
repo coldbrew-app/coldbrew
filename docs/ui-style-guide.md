@@ -66,7 +66,7 @@ Both themes are first-class. Light mode uses Milky Paper around nearly white wor
 
 ## Responsive and accessibility checks
 
-- Verify every authenticated page, sign-in, and `/share/$slug` at desktop and 390×844.
+- Verify every authenticated page, sign-in, and `/videos/$slug` at desktop and 390×844.
 - Test light and dark themes, navigation, forms, loading, empty, error, success, overlays, and long content.
 - Ensure there is no horizontal page overflow at 390 px, including unbroken URLs.
 - Keep all decorative artwork hidden from assistive technology and ensure clipped art never covers interactive content.

@@ -18,7 +18,7 @@ import { Route as AuthenticatedIntegrationsRouteImport } from './routes/_authent
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedVideosRouteImport } from './routes/_authenticated/videos'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
-import { Route as ShareSlugRouteImport } from './routes/share.$slug'
+import { Route as VideosSlugRouteImport } from './routes/videos.$slug'
 import { Route as AuthenticatedDonationsIndexRouteImport } from './routes/_authenticated/donations.index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api/trpc/$'
@@ -70,9 +70,9 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
   path: '/api/health',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ShareSlugRoute = ShareSlugRouteImport.update({
-  id: '/share/$slug',
-  path: '/share/$slug',
+const VideosSlugRoute = VideosSlugRouteImport.update({
+  id: '/videos/$slug',
+  path: '/videos/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedDonationsIndexRoute =
@@ -112,7 +112,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRoute
   '/videos': typeof AuthenticatedVideosRoute
   '/api/health': typeof ApiHealthRoute
-  '/share/$slug': typeof ShareSlugRoute
+  '/videos/$slug': typeof VideosSlugRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/chat/overlay/$token': typeof ChatOverlayTokenRoute
@@ -126,7 +126,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/videos': typeof AuthenticatedVideosRoute
   '/api/health': typeof ApiHealthRoute
-  '/share/$slug': typeof ShareSlugRoute
+  '/videos/$slug': typeof VideosSlugRoute
   '/': typeof AuthenticatedIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
@@ -144,7 +144,7 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/videos': typeof AuthenticatedVideosRoute
   '/api/health': typeof ApiHealthRoute
-  '/share/$slug': typeof ShareSlugRoute
+  '/videos/$slug': typeof VideosSlugRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
@@ -163,7 +163,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/videos'
     | '/api/health'
-    | '/share/$slug'
+    | '/videos/$slug'
     | '/api/auth/$'
     | '/api/trpc/$'
     | '/chat/overlay/$token'
@@ -177,7 +177,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/videos'
     | '/api/health'
-    | '/share/$slug'
+    | '/videos/$slug'
     | '/'
     | '/api/auth/$'
     | '/api/trpc/$'
@@ -194,7 +194,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/videos'
     | '/api/health'
-    | '/share/$slug'
+    | '/videos/$slug'
     | '/_authenticated/'
     | '/api/auth/$'
     | '/api/trpc/$'
@@ -206,7 +206,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   ApiHealthRoute: typeof ApiHealthRoute
-  ShareSlugRoute: typeof ShareSlugRoute
+  VideosSlugRoute: typeof VideosSlugRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
   ChatOverlayTokenRoute: typeof ChatOverlayTokenRoute
@@ -278,11 +278,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/share/$slug': {
-      id: '/share/$slug'
-      path: '/share/$slug'
-      fullPath: '/share/$slug'
-      preLoaderRoute: typeof ShareSlugRouteImport
+    '/videos/$slug': {
+      id: '/videos/$slug'
+      path: '/videos/$slug'
+      fullPath: '/videos/$slug'
+      preLoaderRoute: typeof VideosSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/donations/': {
@@ -364,7 +364,7 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   ApiHealthRoute: ApiHealthRoute,
-  ShareSlugRoute: ShareSlugRoute,
+  VideosSlugRoute: VideosSlugRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,
   ChatOverlayTokenRoute: ChatOverlayTokenRoute,

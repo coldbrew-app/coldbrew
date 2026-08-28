@@ -101,7 +101,7 @@ function SharedVideoGroups({
   );
 }
 
-export const Route = createFileRoute("/share/$slug")({
+export const Route = createFileRoute("/videos/$slug")({
   component: SharedVideoQueue,
   head: ({ match, params }) => ({
     meta: [
@@ -183,7 +183,7 @@ function SharedVideoQueue() {
                 })}
                 params={{ slug }}
                 search={{ page: 1, status: "queue" }}
-                to="/share/$slug"
+                to="/videos/$slug"
               >
                 <Icons.list aria-hidden="true" size={15} />
                 {t("currentQueue")}
@@ -198,7 +198,7 @@ function SharedVideoQueue() {
                   })}
                   params={{ slug }}
                   search={{ page: 1, status: "watched" }}
-                  to="/share/$slug"
+                  to="/videos/$slug"
                 >
                   <Icons.watched aria-hidden="true" size={15} />
                   {t("watched")}
