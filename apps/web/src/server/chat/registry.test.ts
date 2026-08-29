@@ -1,13 +1,40 @@
+import type { ResultStream } from "@coldbrew/packages/result-stream.js";
 import { delay } from "@lebedevna/delay";
 import { erro } from "@lebedevna/neverthrow-utils";
-import type { ChatMessage, ChatSource } from "@web/lib/chat.js";
+import type { ChatMessage, ChatSource, ChatStreamEvent } from "@web/lib/chat.js";
 import { ok } from "neverthrow";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { ChatProviderAdapter } from "./provider.js";
-import { createChatCollectorRegistry, type RegistryEvent } from "./registry.js";
+import type { ChatEventSource, ChatProviderError, ChatSourceFactory } from "./provider.js";
+import { ChatCollectorRegistry, type RegistryEvent } from "./registry.js";
 
 const TEST_WAIT_MS = 60_000;
+
+afterEach(() => vi.useRealTimers());
+
+type TestStream = (
+  sourceIdentifier: string,
+  signal?: AbortSignal,
+) => ResultStream<ChatStreamEvent, ChatProviderError>;
+
+class TestChatSource implements ChatEventSource {
+  constructor(private readonly sourceStream: (signal?: AbortSignal) => ReturnType<TestStream>) {}
+
+  stream(parentSignal?: AbortSignal) {
+    return this.sourceStream(parentSignal);
+  }
+}
+
+class TestChatSourceFactory implements ChatSourceFactory {
+  readonly provider = "youtube";
+
+  constructor(private readonly sourceStream: TestStream) {}
+
+  create(sourceIdentifier: string) {
+    const sourceStream = this.sourceStream;
+    return new TestChatSource((signal) => sourceStream(sourceIdentifier, signal));
+  }
+}
 
 const source: ChatSource = {
   provider: "youtube",
@@ -48,25 +75,22 @@ function message(id: string): ChatMessage {
 describe("chat collector registry", () => {
   it("shares one collector and replays its buffered messages", async () => {
     let starts = 0;
-    const provider: ChatProviderAdapter = {
-      provider: "youtube",
-      async *stream(sourceIdentifier, signal) {
-        starts += 1;
-        yield ok({
-          type: "message",
-          message: {
-            id: "message-1",
-            provider: "youtube",
-            sourceIdentifier,
-            author: "Viewer",
-            text: "Hello",
-            occurredAt: new Date("2026-08-27T12:00:00Z"),
-          },
-        });
-        await delay(TEST_WAIT_MS, { signal });
-      },
-    };
-    const registry = createChatCollectorRegistry([provider]);
+    const factory = new TestChatSourceFactory(async function* (sourceIdentifier, signal) {
+      starts += 1;
+      yield ok({
+        type: "message",
+        message: {
+          id: "message-1",
+          provider: "youtube",
+          sourceIdentifier,
+          author: "Viewer",
+          text: "Hello",
+          occurredAt: new Date("2026-08-27T12:00:00Z"),
+        },
+      });
+      await delay(TEST_WAIT_MS, { signal });
+    });
+    const registry = new ChatCollectorRegistry([factory]);
     const firstController = new AbortController();
     const first = registry
       .stream("session-1", [source], firstController.signal)
@@ -84,13 +108,10 @@ describe("chat collector registry", () => {
   });
 
   it("limits concurrent streams for the same session", async () => {
-    const provider: ChatProviderAdapter = {
-      provider: "youtube",
-      async *stream(_sourceIdentifier, signal) {
-        await delay(TEST_WAIT_MS, { signal });
-      },
-    };
-    const registry = createChatCollectorRegistry([provider]);
+    const factory = new TestChatSourceFactory(async function* (_sourceIdentifier, signal) {
+      await delay(TEST_WAIT_MS, { signal });
+    });
+    const registry = new ChatCollectorRegistry([factory]);
     const controllers = Array.from({ length: 4 }, () => new AbortController());
     const streams = controllers.map((controller) =>
       registry.stream("same-session", [], controller.signal)[Symbol.asyncIterator](),
@@ -110,19 +131,16 @@ describe("chat collector registry", () => {
   });
 
   it("turns provider errors into source state without rejecting the session", async () => {
-    const provider: ChatProviderAdapter = {
-      provider: "youtube",
-      async *stream(sourceIdentifier, signal) {
-        yield erro({
-          type: "chat provider error",
-          provider: "youtube",
-          sourceIdentifier,
-          detail: "YouTube connection failed",
-        });
-        await delay(TEST_WAIT_MS, { signal });
-      },
-    };
-    const registry = createChatCollectorRegistry([provider]);
+    const factory = new TestChatSourceFactory(async function* (sourceIdentifier, signal) {
+      yield erro({
+        type: "chat provider error",
+        provider: "youtube",
+        sourceIdentifier,
+        detail: "YouTube connection failed",
+      });
+      await delay(TEST_WAIT_MS, { signal });
+    });
+    const registry = new ChatCollectorRegistry([factory]);
     const controller = new AbortController();
     const iterator = registry
       .stream("session", [source], controller.signal)
@@ -138,21 +156,75 @@ describe("chat collector registry", () => {
     await iterator.return?.();
   });
 
+  it("restarts a completed provider while subscribers are active", async () => {
+    vi.useFakeTimers();
+    let starts = 0;
+    const factory = new TestChatSourceFactory(async function* (sourceIdentifier) {
+      starts += 1;
+      yield ok({
+        type: "message",
+        message: { ...message(`run-${starts}`), sourceIdentifier },
+      });
+    });
+    const controller = new AbortController();
+    const iterator = new ChatCollectorRegistry([factory])
+      .stream("session", [source], controller.signal)
+      [Symbol.asyncIterator]();
+
+    await expect(nextMessage(iterator)).resolves.toMatchObject({ id: "run-1" });
+    await expect(nextErrorState(iterator)).resolves.toMatchObject({
+      detail: "Chat provider stream ended",
+    });
+    const next = nextMessage(iterator);
+    await vi.advanceTimersByTimeAsync(4_999);
+    expect(starts).toBe(1);
+    await vi.advanceTimersByTimeAsync(1);
+    await expect(next).resolves.toMatchObject({ id: "run-2" });
+
+    controller.abort();
+    await iterator.return?.();
+  });
+
+  it("restarts a provider whose iterator rejects", async () => {
+    vi.useFakeTimers();
+    let starts = 0;
+    const factory = new TestChatSourceFactory(async function* (sourceIdentifier, signal) {
+      starts += 1;
+      if (starts === 1) throw new Error("provider iterator failed");
+      yield ok({
+        type: "message",
+        message: { ...message(`run-${starts}`), sourceIdentifier },
+      });
+      await delay(TEST_WAIT_MS, { signal });
+    });
+    const controller = new AbortController();
+    const iterator = new ChatCollectorRegistry([factory])
+      .stream("session", [source], controller.signal)
+      [Symbol.asyncIterator]();
+
+    await expect(nextErrorState(iterator)).resolves.toMatchObject({
+      detail: "Chat provider stream failed",
+    });
+    const next = nextMessage(iterator);
+    await vi.advanceTimersByTimeAsync(5_000);
+    await expect(next).resolves.toMatchObject({ id: "run-2" });
+
+    controller.abort();
+    await iterator.return?.();
+  });
+
   it("starts a new provider run when a subscriber arrives as grace aborts", async () => {
     let starts = 0;
-    const provider: ChatProviderAdapter = {
-      provider: "youtube",
-      async *stream(sourceIdentifier, signal) {
-        starts += 1;
-        yield ok({
-          type: "message",
-          message: { ...message(`run-${starts}`), sourceIdentifier },
-        });
-        await delay(TEST_WAIT_MS, { signal });
-        if (signal?.aborted) await delay(50);
-      },
-    };
-    const registry = createChatCollectorRegistry([provider], { gracePeriodMs: 0 });
+    const factory = new TestChatSourceFactory(async function* (sourceIdentifier, signal) {
+      starts += 1;
+      yield ok({
+        type: "message",
+        message: { ...message(`run-${starts}`), sourceIdentifier },
+      });
+      await delay(TEST_WAIT_MS, { signal });
+      if (signal?.aborted) await delay(50);
+    });
+    const registry = new ChatCollectorRegistry([factory], { gracePeriodMs: 0 });
     const firstController = new AbortController();
     const first = registry
       .stream("session-1", [source], firstController.signal)

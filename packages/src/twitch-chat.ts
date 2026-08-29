@@ -52,10 +52,6 @@ export type TwitchChatError = Readonly<{
   cause: unknown;
 }>;
 
-export type TwitchChatClient = Readonly<{
-  stream(channel: string, signal?: AbortSignal): ResultStream<TwitchChatEvent, TwitchChatError>;
-}>;
-
 type TwitchChannelState = Readonly<{
   owners: ReadonlySet<symbol>;
   broadcasterId?: string;
@@ -558,14 +554,17 @@ function createTwitchRuntime(credentials: TwitchCredentials): TwitchRuntime {
   };
 }
 
-function createClient(
-  credentials: TwitchCredentials,
-  dependencies: TwitchDependencies,
-): TwitchChatClient {
-  const runtime = createTwitchRuntime(credentials);
-  return {
-    stream(channel, parentSignal) {
-      return createAbortableStream(async function* (signal) {
+export class TwitchChatClient {
+  readonly stream: (
+    channel: string,
+    parentSignal?: AbortSignal,
+  ) => ResultStream<TwitchChatEvent, TwitchChatError>;
+
+  constructor(credentials: TwitchCredentials) {
+    const dependencies = defaultDependencies;
+    const runtime = createTwitchRuntime(credentials);
+    this.stream = (channel, parentSignal) =>
+      createAbortableStream(async function* (signal) {
         const owner = Symbol(channel);
         const iterator = runtime.events.events("event", { signal });
         updateTwitchState(runtime, { type: "register", channel, owner });
@@ -620,10 +619,5 @@ function createClient(
           if (runtime.state.channels.size === 0) await stopTwitchConnection(runtime);
         }
       }, parentSignal);
-    },
-  };
-}
-
-export function createTwitchChatClient(credentials: TwitchCredentials): TwitchChatClient {
-  return createClient(credentials, defaultDependencies);
+  }
 }

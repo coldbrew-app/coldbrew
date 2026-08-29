@@ -17,7 +17,7 @@ class TestWebSocket extends EventTarget {
   }
 }
 
-const { getAuthorizationUrl, getDonations, issueConnection, refreshTokens, subscribeToDonations } =
+const { DonationAlertsSource, getAuthorizationUrl, getDonations, issueConnection, refreshTokens } =
   await import("./donationalerts.js");
 
 const accessToken = AccessTokenSchema.parse("access-token");
@@ -193,7 +193,21 @@ describe("getDonations", () => {
   });
 });
 
-describe("subscribeToDonations", () => {
+describe("DonationAlertsSource", () => {
+  it("creates independent runtime resources for each stream", async () => {
+    stubRealtimeFetch();
+    const source = new DonationAlertsSource(accessToken);
+    const first = source.stream()[Symbol.asyncIterator]();
+    const second = source.stream()[Symbol.asyncIterator]();
+    const pending = [first.next(), second.next()];
+
+    await vi.waitFor(() => expect(state.sockets).toHaveLength(2));
+
+    await Promise.all([first.return?.(), second.return?.(), ...pending]);
+    expect(state.sockets[0]?.close).toHaveBeenCalledOnce();
+    expect(state.sockets[1]?.close).toHaveBeenCalledOnce();
+  });
+
   it("does not open a connection for an already aborted signal", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -201,7 +215,9 @@ describe("subscribeToDonations", () => {
     const controller = new AbortController();
     controller.abort();
 
-    const iterator = subscribeToDonations(accessToken, controller.signal)[Symbol.asyncIterator]();
+    const iterator = new DonationAlertsSource(accessToken)
+      .stream(controller.signal)
+      [Symbol.asyncIterator]();
 
     await expect(iterator.next()).resolves.toEqual({ done: true, value: undefined });
     expect(fetchMock).not.toHaveBeenCalled();
@@ -211,7 +227,9 @@ describe("subscribeToDonations", () => {
   it("ends the iterator and closes the connection when aborted", async () => {
     stubRealtimeFetch();
     const controller = new AbortController();
-    const iterator = subscribeToDonations(accessToken, controller.signal)[Symbol.asyncIterator]();
+    const iterator = new DonationAlertsSource(accessToken)
+      .stream(controller.signal)
+      [Symbol.asyncIterator]();
     const nextEvent = iterator.next();
     const socket = await waitForSocket();
 
@@ -223,7 +241,7 @@ describe("subscribeToDonations", () => {
 
   it("authorizes, subscribes, and maps donation messages", async () => {
     const fetchMock = stubRealtimeFetch();
-    const iterator = subscribeToDonations(accessToken)[Symbol.asyncIterator]();
+    const iterator = new DonationAlertsSource(accessToken).stream()[Symbol.asyncIterator]();
     const nextEvent = iterator.next();
     const socket = await waitForSocket();
 
@@ -286,58 +304,71 @@ describe("subscribeToDonations", () => {
 
     await expect(nextEvent).resolves.toMatchObject({
       done: false,
-      value: {
-        name: "donation",
-        data: {
+      value: expect.objectContaining({
+        value: expect.objectContaining({
           sourceDonationId: "1",
           occurredAt: new Date("2026-08-22T12:00:00.000Z"),
-        },
-      },
+        }),
+      }),
     });
     await iterator.return?.();
     expect(socket.close).toHaveBeenCalledOnce();
   });
 
-  it("yields a terminal error for a socket failure", async () => {
+  it("backs off and reconnects after a socket failure", async () => {
     stubRealtimeFetch();
-    const iterator = subscribeToDonations(accessToken)[Symbol.asyncIterator]();
+    const controller = new AbortController();
+    const iterator = new DonationAlertsSource(accessToken)
+      .stream(controller.signal)
+      [Symbol.asyncIterator]();
     const nextEvent = iterator.next();
-    const socket = await waitForSocket();
+    const firstSocket = await waitForSocket();
 
-    socket.dispatchEvent(new Event("error"));
+    vi.useFakeTimers();
+    firstSocket.dispatchEvent(new Event("error"));
+    await vi.advanceTimersByTimeAsync(4_999);
+    expect(state.sockets).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(1);
 
-    await expect(nextEvent).resolves.toMatchObject({
-      done: false,
-      value: { name: "error", data: { type: "donationalerts: request error" } },
-    });
-    await expect(iterator.next()).resolves.toEqual({ done: true, value: undefined });
-    expect(socket.close).toHaveBeenCalledOnce();
+    expect(state.sockets).toHaveLength(2);
+    controller.abort();
+    await expect(nextEvent).resolves.toEqual({ done: true, value: undefined });
+    expect(firstSocket.close).toHaveBeenCalledOnce();
+    expect(state.sockets[1]?.close).toHaveBeenCalledOnce();
   });
 
-  it("yields a terminal error for an invalid WebSocket message", async () => {
+  it("uses exponential backoff for repeated invalid WebSocket messages", async () => {
     stubRealtimeFetch();
-    const iterator = subscribeToDonations(accessToken)[Symbol.asyncIterator]();
+    const controller = new AbortController();
+    const iterator = new DonationAlertsSource(accessToken)
+      .stream(controller.signal)
+      [Symbol.asyncIterator]();
     const nextEvent = iterator.next();
-    const socket = await waitForSocket();
+    const firstSocket = await waitForSocket();
 
-    socket.dispatchEvent(
+    vi.useFakeTimers();
+    firstSocket.dispatchEvent(
       new MessageEvent("message", {
         data: JSON.stringify({ type: "donation", result: {} }),
       }),
     );
+    await vi.advanceTimersByTimeAsync(5_000);
+    const secondSocket = state.sockets[1]!;
+    secondSocket.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify({ type: "donation", result: {} }),
+      }),
+    );
+    await vi.advanceTimersByTimeAsync(9_999);
+    expect(state.sockets).toHaveLength(2);
+    await vi.advanceTimersByTimeAsync(1);
 
-    await expect(nextEvent).resolves.toMatchObject({
-      done: false,
-      value: {
-        name: "error",
-        data: {
-          type: "donationalerts: request error",
-          message: "Invalid DonationAlerts WebSocket message",
-        },
-      },
-    });
-    await expect(iterator.next()).resolves.toEqual({ done: true, value: undefined });
-    expect(socket.close).toHaveBeenCalledOnce();
+    expect(state.sockets).toHaveLength(3);
+    controller.abort();
+    await expect(nextEvent).resolves.toEqual({ done: true, value: undefined });
+    expect(firstSocket.close).toHaveBeenCalledOnce();
+    expect(secondSocket.close).toHaveBeenCalledOnce();
+    expect(state.sockets[2]?.close).toHaveBeenCalledOnce();
   });
 
   it("classifies a profile HTTP 401 as unauthorized", async () => {
@@ -346,30 +377,40 @@ describe("subscribeToDonations", () => {
       vi.fn(async () => new Response("Unauthorized", { status: 401 })),
     );
     vi.stubGlobal("WebSocket", TestWebSocket);
-    const iterator = subscribeToDonations(accessToken)[Symbol.asyncIterator]();
+    const iterator = new DonationAlertsSource(accessToken).stream()[Symbol.asyncIterator]();
 
     await expect(iterator.next()).resolves.toMatchObject({
       done: false,
-      value: { name: "error", data: { type: "donationalerts: unauthorized" } },
+      value: expect.objectContaining({
+        error: expect.objectContaining({ type: "donationalerts: unauthorized" }),
+      }),
     });
     await expect(iterator.next()).resolves.toEqual({ done: true, value: undefined });
     expect(state.sockets).toHaveLength(0);
   });
 
-  it("rejects an invalid profile response", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response(JSON.stringify({ data: { id: 42 } }))),
-    );
+  it("retries an invalid profile response", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: 42 } })))
+      .mockResolvedValueOnce(new Response(JSON.stringify(socketProfile)));
+    vi.stubGlobal("fetch", fetchMock);
     vi.stubGlobal("WebSocket", TestWebSocket);
-    const iterator = subscribeToDonations(accessToken)[Symbol.asyncIterator]();
+    const controller = new AbortController();
+    const iterator = new DonationAlertsSource(accessToken)
+      .stream(controller.signal)
+      [Symbol.asyncIterator]();
+    const nextEvent = iterator.next();
 
-    await expect(iterator.next()).resolves.toMatchObject({
-      done: false,
-      value: { name: "error", data: { type: "donationalerts: request error" } },
-    });
-    await expect(iterator.next()).resolves.toEqual({ done: true, value: undefined });
-    expect(state.sockets).toHaveLength(0);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    vi.useFakeTimers();
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(state.sockets).toHaveLength(1);
+    controller.abort();
+    await expect(nextEvent).resolves.toEqual({ done: true, value: undefined });
+    expect(state.sockets[0]?.close).toHaveBeenCalledOnce();
   });
 
   it("classifies a channel-token HTTP 401 as unauthorized", async () => {
@@ -381,7 +422,7 @@ describe("subscribeToDonations", () => {
         .mockResolvedValueOnce(new Response("Unauthorized", { status: 401 })),
     );
     vi.stubGlobal("WebSocket", TestWebSocket);
-    const iterator = subscribeToDonations(accessToken)[Symbol.asyncIterator]();
+    const iterator = new DonationAlertsSource(accessToken).stream()[Symbol.asyncIterator]();
     const nextEvent = iterator.next();
     const socket = await waitForSocket();
 
@@ -396,7 +437,9 @@ describe("subscribeToDonations", () => {
 
     await expect(nextEvent).resolves.toMatchObject({
       done: false,
-      value: { name: "error", data: { type: "donationalerts: unauthorized" } },
+      value: expect.objectContaining({
+        error: expect.objectContaining({ type: "donationalerts: unauthorized" }),
+      }),
     });
     await expect(iterator.next()).resolves.toEqual({ done: true, value: undefined });
     expect(socket.close).toHaveBeenCalledOnce();
@@ -405,7 +448,9 @@ describe("subscribeToDonations", () => {
   it("reconnects after a clean close", async () => {
     stubRealtimeFetch();
     const controller = new AbortController();
-    const iterator = subscribeToDonations(accessToken, controller.signal)[Symbol.asyncIterator]();
+    const iterator = new DonationAlertsSource(accessToken)
+      .stream(controller.signal)
+      [Symbol.asyncIterator]();
     const nextEvent = iterator.next();
     const firstSocket = await waitForSocket();
 
@@ -429,7 +474,9 @@ describe("subscribeToDonations", () => {
   it("cancels a pending reconnect", async () => {
     stubRealtimeFetch();
     const controller = new AbortController();
-    const iterator = subscribeToDonations(accessToken, controller.signal)[Symbol.asyncIterator]();
+    const iterator = new DonationAlertsSource(accessToken)
+      .stream(controller.signal)
+      [Symbol.asyncIterator]();
     const nextEvent = iterator.next();
     const socket = await waitForSocket();
 

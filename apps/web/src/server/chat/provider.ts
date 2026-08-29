@@ -1,4 +1,4 @@
-import type { ResultStream } from "@coldbrew/packages/result-stream.js";
+import type { EventSource, EventSourceFactory } from "@coldbrew/packages/result-stream.js";
 import type { ChatProvider, ChatStreamEvent } from "@web/lib/chat.js";
 
 export type ChatProviderError = Readonly<{
@@ -8,10 +8,8 @@ export type ChatProviderError = Readonly<{
   detail: string;
 }>;
 
-export type ChatProviderAdapter = {
+export type ChatEventSource = EventSource<ChatStreamEvent, ChatProviderError>;
+
+export type ChatSourceFactory = EventSourceFactory<string, ChatStreamEvent, ChatProviderError> & {
   readonly provider: ChatProvider;
-  stream(
-    sourceIdentifier: string,
-    signal?: AbortSignal,
-  ): ResultStream<ChatStreamEvent, ChatProviderError>;
 };

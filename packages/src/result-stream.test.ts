@@ -61,4 +61,49 @@ describe("result streams", () => {
     await delay(0);
     expect(siblingSignal?.aborted).toBe(true);
   });
+
+  it("propagates iterator exceptions and cancels siblings", async () => {
+    const failure = new Error("iterator failed");
+    const failingCleanup = vi.fn(async () => ({ done: true as const, value: undefined }));
+    const throwing: ResultStream<string, never> = {
+      [Symbol.asyncIterator]() {
+        return {
+          next: async () => await Promise.reject(failure),
+          return: failingCleanup,
+        };
+      },
+    };
+    let siblingSignal: AbortSignal | undefined;
+    const siblingCleanup = vi.fn();
+    const sibling = createResultEventStream<string, never>((_sink, signal) => {
+      siblingSignal = signal;
+      return siblingCleanup;
+    });
+    const iterator = mergeResultStreams([throwing, sibling])[Symbol.asyncIterator]();
+
+    await expect(iterator.next()).rejects.toBe(failure);
+    await delay(0);
+    expect(siblingSignal?.aborted).toBe(true);
+    expect(failingCleanup).toHaveBeenCalledOnce();
+    expect(siblingCleanup).toHaveBeenCalledOnce();
+  });
+
+  it("closes constructed iterators when another iterator cannot be constructed", async () => {
+    const failure = new Error("iterator construction failed");
+    const cleanup = vi.fn(async () => ({ done: true as const, value: undefined }));
+    const constructed: ResultStream<string, never> = {
+      [Symbol.asyncIterator]() {
+        return { next: async () => await new Promise<never>(() => undefined), return: cleanup };
+      },
+    };
+    const throwing: ResultStream<string, never> = {
+      [Symbol.asyncIterator]() {
+        throw failure;
+      },
+    };
+    const iterator = mergeResultStreams([constructed, throwing])[Symbol.asyncIterator]();
+
+    await expect(iterator.next()).rejects.toBe(failure);
+    expect(cleanup).toHaveBeenCalledOnce();
+  });
 });

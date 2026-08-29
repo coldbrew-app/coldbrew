@@ -6,7 +6,7 @@ import { erro } from "@lebedevna/neverthrow-utils";
 import { ok, type Result } from "neverthrow";
 import { describe, expect, it } from "vitest";
 
-import { createYoutubeChatProvider, youtubeMessageFromItem } from "./youtube.js";
+import { YoutubeChatSource, YoutubeChatSourceFactory, youtubeMessageFromItem } from "./youtube.js";
 
 const textItem = {
   kind: "text" as const,
@@ -46,7 +46,8 @@ describe("YouTube chat provider", () => {
       },
     };
     const collected = [];
-    for await (const event of createYoutubeChatProvider(client).stream("video-id")) {
+    const source = new YoutubeChatSourceFactory(client).create("video-id");
+    for await (const event of source.stream()) {
       collected.push(event);
     }
 
@@ -78,7 +79,7 @@ describe("YouTube chat provider", () => {
       },
     };
     const failures = [];
-    for await (const failure of createYoutubeChatProvider(client).stream("video-id")) {
+    for await (const failure of new YoutubeChatSource(client, "video-id").stream()) {
       failures.push(failure);
     }
     const [failed] = failures;

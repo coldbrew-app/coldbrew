@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createYoutubeLiveChatClient } from "./youtube-live-chat.js";
+import { YoutubeLiveChatClient } from "./youtube-live-chat.js";
 
 describe("YouTube live chat client", () => {
   it("normalizes a video without an active chat as offline", async () => {
@@ -8,7 +8,7 @@ describe("YouTube live chat client", () => {
       "fetch",
       vi.fn(async () => new Response(JSON.stringify({ items: [{}] }), { status: 200 })),
     );
-    const iterator = createYoutubeLiveChatClient({ apiKey: "api-key" })
+    const iterator = new YoutubeLiveChatClient({ apiKey: "api-key" })
       .stream("video-id")
       [Symbol.asyncIterator]();
 
@@ -30,7 +30,7 @@ describe("YouTube live chat client", () => {
       "fetch",
       vi.fn(async () => new Response("unavailable", { status: 503 })),
     );
-    const iterator = createYoutubeLiveChatClient({ apiKey: "api-key" })
+    const iterator = new YoutubeLiveChatClient({ apiKey: "api-key" })
       .stream("video-id")
       [Symbol.asyncIterator]();
 

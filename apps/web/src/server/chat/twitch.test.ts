@@ -3,7 +3,7 @@ import { erro } from "@lebedevna/neverthrow-utils";
 import { ok } from "neverthrow";
 import { describe, expect, it } from "vitest";
 
-import { createTwitchChatProvider } from "./twitch.js";
+import { TwitchChatSource } from "./twitch.js";
 
 describe("Twitch chat provider", () => {
   it("maps package events without exposing transport concepts", async () => {
@@ -21,7 +21,7 @@ describe("Twitch chat provider", () => {
       },
     };
     const events = [];
-    for await (const event of createTwitchChatProvider(client).stream("channel-a")) {
+    for await (const event of new TwitchChatSource(client, "channel-a").stream()) {
       events.push(event._unsafeUnwrap());
     }
 
@@ -54,7 +54,7 @@ describe("Twitch chat provider", () => {
       },
     };
     const failures = [];
-    for await (const failure of createTwitchChatProvider(client).stream("channel-a")) {
+    for await (const failure of new TwitchChatSource(client, "channel-a").stream()) {
       failures.push(failure);
     }
 

@@ -9,7 +9,7 @@ const api = vi.hoisted(() => ({
 
 vi.mock("./twitch-chat-api.js", () => ({ twitchChatApi: api }));
 
-const { createTwitchChatClient } = await import("./twitch-chat.js");
+const { TwitchChatClient } = await import("./twitch-chat.js");
 
 const credentials = {
   accessToken: "access-token",
@@ -45,7 +45,7 @@ afterEach(() => {
 describe("Twitch live chat client", () => {
   it("shares a socket and routes normalized messages by channel", async () => {
     vi.stubGlobal("WebSocket", FakeWebSocket);
-    const client = createTwitchChatClient(credentials);
+    const client = new TwitchChatClient(credentials);
     const first = client.stream("channel-a")[Symbol.asyncIterator]();
     const second = client.stream("channel-b")[Symbol.asyncIterator]();
 
@@ -87,9 +87,7 @@ describe("Twitch live chat client", () => {
 
   it("uses Twitch reconnect URLs without opening parallel sockets", async () => {
     vi.stubGlobal("WebSocket", FakeWebSocket);
-    const iterator = createTwitchChatClient(credentials)
-      .stream("channel-a")
-      [Symbol.asyncIterator]();
+    const iterator = new TwitchChatClient(credentials).stream("channel-a")[Symbol.asyncIterator]();
     await iterator.next();
     const firstSocket = FakeWebSocket.instances[0]!;
     firstSocket.message({
@@ -104,9 +102,7 @@ describe("Twitch live chat client", () => {
 
   it("reports a revoked EventSub subscription to its channel", async () => {
     vi.stubGlobal("WebSocket", FakeWebSocket);
-    const iterator = createTwitchChatClient(credentials)
-      .stream("channel-a")
-      [Symbol.asyncIterator]();
+    const iterator = new TwitchChatClient(credentials).stream("channel-a")[Symbol.asyncIterator]();
     await iterator.next();
     const socket = FakeWebSocket.instances[0]!;
     socket.message({

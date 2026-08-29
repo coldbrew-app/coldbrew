@@ -82,16 +82,23 @@ export class Store {
     return z.array(DonationAlertsUserSchema).parse(rows);
   }
 
-  async setTokens(userId: UserId, refreshToken: RefreshToken, accessToken: AccessToken) {
-    await sql`
+  async setTokens(
+    userId: UserId,
+    tokenVersion: number,
+    refreshToken: RefreshToken,
+    accessToken: AccessToken,
+  ) {
+    const rows = await sql`
       UPDATE donationalerts_connection
       SET
         refresh_token = ${refreshToken},
         access_token = ${accessToken},
         token_version = token_version + 1,
         updated_at = now()
-      WHERE user_id = ${userId}
+      WHERE user_id = ${userId} AND token_version = ${tokenVersion}
+      RETURNING token_version
     `;
+    return z.array(z.object({ tokenVersion: z.int().positive() })).parse(rows).length === 1;
   }
 
   async disconnectDonationAlerts(userId: UserId) {

@@ -5,9 +5,9 @@ import { erro } from "@lebedevna/neverthrow-utils";
 import type { ChatProvider, ChatSource, ChatStreamEvent } from "@web/lib/chat.js";
 import { ok, type Result } from "neverthrow";
 
-import { createChatCollectorPool, type ChatCollectorError } from "./collector-pool.js";
-import type { ChatProviderAdapter } from "./provider.js";
-import { youtubeChatProvider } from "./youtube.js";
+import { ChatCollectorPool, type ChatCollectorError } from "./collector-pool.js";
+import type { ChatSourceFactory } from "./provider.js";
+import { youtubeChatSourceFactory } from "./youtube.js";
 
 const GRACE_PERIOD_MS = 90_000;
 const MAX_SESSIONS = 3;
@@ -20,8 +20,8 @@ export type ChatRegistryError = Readonly<{ type: "session limit" }> | ChatCollec
 
 export type RegistryEvent = Result<ChatStreamEvent, ChatRegistryError>;
 
-const activeProviders: ReadonlyMap<ChatProvider, ChatProviderAdapter> = new Map([
-  [youtubeChatProvider.provider, youtubeChatProvider],
+const activeSourceFactories: ReadonlyMap<ChatProvider, ChatSourceFactory> = new Map([
+  [youtubeChatSourceFactory.provider, youtubeChatSourceFactory],
 ]);
 
 function startSession(runtime: RegistryRuntime, sessionKey: string) {
@@ -39,11 +39,11 @@ function finishSession(runtime: RegistryRuntime, sessionKey: string) {
 
 async function* streamRegistry(
   runtime: RegistryRuntime,
-  providers: ReadonlyMap<ChatProvider, ChatProviderAdapter>,
+  sourceFactories: ReadonlyMap<ChatProvider, ChatSourceFactory>,
   sessionKey: string,
   sources: readonly ChatSource[],
   signal: AbortSignal,
-  collectorPool: ReturnType<typeof createChatCollectorPool>,
+  collectorPool: ChatCollectorPool,
 ): ResultStream<ChatStreamEvent, ChatRegistryError> {
   const $started = startSession(runtime, sessionKey);
   if ($started.isErr()) {
@@ -53,8 +53,8 @@ async function* streamRegistry(
   const controller = new AbortController();
   const streamSignal = AbortSignal.any([signal, controller.signal]);
   const streams = sources.flatMap((source) => {
-    const provider = providers.get(source.provider);
-    return provider ? [collectorPool.stream(source, provider, streamSignal)] : [];
+    const factory = sourceFactories.get(source.provider);
+    return factory ? [collectorPool.stream(source, factory, streamSignal)] : [];
   });
   try {
     if (streams.length === 0) {
@@ -71,30 +71,38 @@ async function* streamRegistry(
   }
 }
 
-export function createChatCollectorRegistry(
-  providers: readonly ChatProviderAdapter[],
-  options: Readonly<{ gracePeriodMs?: number }> = {},
-) {
-  const runtime: RegistryRuntime = {
-    sessionCounts: new Map(),
-  };
-  const collectorPool = createChatCollectorPool(options.gracePeriodMs ?? GRACE_PERIOD_MS);
-  const providerMap: ReadonlyMap<ChatProvider, ChatProviderAdapter> = new Map(
-    providers.map((provider) => [provider.provider, provider]),
-  );
-  return {
-    stream(
-      sessionKey: string,
-      sources: readonly ChatSource[],
-      parentSignal?: AbortSignal,
-    ): ResultStream<ChatStreamEvent, ChatRegistryError> {
-      return createAbortableStream(
-        (signal) =>
-          streamRegistry(runtime, providerMap, sessionKey, sources, signal, collectorPool),
-        parentSignal,
-      );
-    },
-  };
+export class ChatCollectorRegistry {
+  private readonly runtime: RegistryRuntime;
+  private readonly collectorPool: ChatCollectorPool;
+  private readonly sourceFactories: ReadonlyMap<ChatProvider, ChatSourceFactory>;
+
+  constructor(
+    sourceFactories: readonly ChatSourceFactory[],
+    options: Readonly<{ gracePeriodMs?: number }> = {},
+  ) {
+    this.runtime = { sessionCounts: new Map() };
+    this.collectorPool = new ChatCollectorPool(options.gracePeriodMs ?? GRACE_PERIOD_MS);
+    this.sourceFactories = new Map(sourceFactories.map((factory) => [factory.provider, factory]));
+  }
+
+  stream(
+    sessionKey: string,
+    sources: readonly ChatSource[],
+    parentSignal?: AbortSignal,
+  ): ResultStream<ChatStreamEvent, ChatRegistryError> {
+    return createAbortableStream(
+      (signal) =>
+        streamRegistry(
+          this.runtime,
+          this.sourceFactories,
+          sessionKey,
+          sources,
+          signal,
+          this.collectorPool,
+        ),
+      parentSignal,
+    );
+  }
 }
 
-export const chatCollectorRegistry = createChatCollectorRegistry([...activeProviders.values()]);
+export const chatCollectorRegistry = new ChatCollectorRegistry([...activeSourceFactories.values()]);

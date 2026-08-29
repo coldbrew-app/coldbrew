@@ -8,7 +8,9 @@ import { ok, Result, safeTry } from "neverthrow";
 import { z } from "zod";
 
 import { createAbortableStream } from "./create-abortable-stream.js";
-import { createResultEventStream, type ResultStream } from "./result-stream.js";
+import { logger } from "./logger.js";
+import { propagateError } from "./neverthrow/propagate-error.js";
+import { createResultEventStream, type EventSource, type ResultStream } from "./result-stream.js";
 import {
   AccessToken,
   AccessTokenSchema,
@@ -30,7 +32,8 @@ export type DonationAlertsConfig = Readonly<{
 }>;
 
 const DONATION_ALERTS_WEBSOCKET_URL = "wss://centrifugo.donationalerts.com/connection/websocket";
-const DONATION_ALERTS_RECONNECT_DELAY_MS = 5_000;
+const DONATION_ALERTS_RETRY_START_MS = 5_000;
+const DONATION_ALERTS_RETRY_MAX_MS = 60_000;
 
 const scopes = ["oauth-user-show", "oauth-donation-subscribe", "oauth-donation-index"];
 
@@ -130,19 +133,19 @@ const DonationAlertsChannelSubscriptionSchema = z.object({
   ),
 });
 
-type DonationAlertsRequestError = {
+export type DonationAlertsRequestError = {
   type: "donationalerts: request error";
   message: string;
   cause: unknown;
 };
 
-type DonationAlertsUnauthorizedError = {
+export type DonationAlertsUnauthorizedError = {
   type: "donationalerts: unauthorized";
   message: string;
   cause: unknown;
 };
 
-type DonationAlertsError = DonationAlertsRequestError | DonationAlertsUnauthorizedError;
+export type DonationAlertsError = DonationAlertsRequestError | DonationAlertsUnauthorizedError;
 
 const toSocketRequestError = (message: string, cause: unknown) =>
   erro.fmt<DonationAlertsRequestError>({
@@ -443,32 +446,51 @@ export function getDonations(accessToken: AccessToken) {
   });
 }
 
-export function subscribeToDonations(accessToken: AccessToken, parentSignal?: AbortSignal) {
-  return createAbortableStream(async function* (signal) {
-    if (signal.aborted) return;
+export class DonationAlertsSource implements EventSource<RawDonation, DonationAlertsError> {
+  constructor(private readonly accessToken: AccessToken) {}
 
-    const $profile = await getSocketProfile(accessToken, signal);
-    if ($profile.isErr()) {
-      if (!signal.aborted) yield { name: "error" as const, data: $profile.error };
-      return;
-    }
+  stream(parentSignal?: AbortSignal): ResultStream<RawDonation, DonationAlertsError> {
+    const accessToken = this.accessToken;
+    return createAbortableStream(async function* (signal) {
+      if (signal.aborted) return;
 
-    while (!signal.aborted) {
-      const { userId, socketConnectionToken } = $profile.value;
-      for await (const $donation of openDonationSocket(
-        accessToken,
-        userId,
-        socketConnectionToken,
-        signal,
-      )) {
-        if ($donation.isErr()) {
-          yield { name: "error" as const, data: $donation.error };
-          return;
+      let retryMs = DONATION_ALERTS_RETRY_START_MS;
+      while (!signal.aborted) {
+        const $profile = await getSocketProfile(accessToken, signal);
+        if ($profile.isErr()) {
+          if (signal.aborted) return;
+          if ($profile.error.type === "donationalerts: unauthorized") {
+            yield propagateError($profile);
+            return;
+          }
+          logger.warn($profile.error);
+        } else {
+          const { userId, socketConnectionToken } = $profile.value;
+          for await (const $donation of openDonationSocket(
+            accessToken,
+            userId,
+            socketConnectionToken,
+            signal,
+          )) {
+            if ($donation.isErr()) {
+              if ($donation.error.type === "donationalerts: unauthorized") {
+                yield $donation;
+                return;
+              }
+              logger.warn($donation.error);
+              break;
+            }
+
+            retryMs = DONATION_ALERTS_RETRY_START_MS;
+            yield $donation;
+          }
         }
-        yield { name: "donation" as const, data: $donation.value };
-      }
 
-      if (!signal.aborted) await delay(DONATION_ALERTS_RECONNECT_DELAY_MS, { signal });
-    }
-  }, parentSignal);
+        if (!signal.aborted) {
+          await delay(retryMs, { signal });
+          retryMs = Math.min(retryMs * 2, DONATION_ALERTS_RETRY_MAX_MS);
+        }
+      }
+    }, parentSignal);
+  }
 }

@@ -5,11 +5,13 @@ import { erro } from "@lebedevna/neverthrow-utils";
 import type { ChatMessage, ChatSource, ChatSourceState, ChatStreamEvent } from "@web/lib/chat.js";
 import { chatMessageKey, chatSourceKey } from "@web/lib/chat.js";
 import Emittery from "emittery";
-import { ok, ResultAsync, type Result } from "neverthrow";
+import { ok, Result, ResultAsync } from "neverthrow";
 
-import type { ChatProviderAdapter } from "./provider.js";
+import type { ChatEventSource, ChatSourceFactory } from "./provider.js";
 
 const BUFFER_SIZE = 200;
+const COLLECTOR_RETRY_START_MS = 5_000;
+const COLLECTOR_RETRY_MAX_MS = 60_000;
 
 type CollectorSnapshot = Readonly<{
   state: ChatSourceState;
@@ -19,7 +21,7 @@ type CollectorSnapshot = Readonly<{
 
 type CollectorRuntime = Readonly<{
   source: ChatSource;
-  provider: ChatProviderAdapter;
+  eventSource: ChatEventSource;
   controller: AbortController | null;
   graceController?: AbortController;
   events: Emittery<{ event: ChatStreamEvent }>;
@@ -96,59 +98,91 @@ async function collect(runtime: CollectorPoolRuntime, key: string) {
   if (!collector?.controller) return ok(undefined);
   const controller = collector.controller;
   const signal = controller.signal;
-  const iterator = collector.provider
-    .stream(collector.source.sourceIdentifier, signal)
-    [Symbol.asyncIterator]();
+  let retryMs = COLLECTOR_RETRY_START_MS;
 
   while (!signal.aborted) {
-    const $next = await ResultAsync.fromPromise(
-      iterator.next(),
+    const $iterator = Result.fromThrowable(
+      () => collector.eventSource.stream(signal)[Symbol.asyncIterator](),
       (cause): ChatCollectorError => streamUnavailable("Chat provider stream failed", cause),
-    );
-    if ($next.isErr()) {
-      await publish(runtime, key, {
-        type: "state",
-        provider: collector.source.provider,
-        sourceIdentifier: collector.source.sourceIdentifier,
-        state: "error",
-        detail: "Chat provider stream failed",
-      });
-      break;
+    )();
+    let attemptDetail: string | undefined;
+
+    if ($iterator.isErr()) {
+      attemptDetail = $iterator.error.detail;
+    } else {
+      const iterator = $iterator.value;
+      while (!signal.aborted) {
+        const $next = await ResultAsync.fromPromise(
+          iterator.next(),
+          (cause): ChatCollectorError => streamUnavailable("Chat provider stream failed", cause),
+        );
+        if ($next.isErr()) {
+          attemptDetail = $next.error.detail;
+          break;
+        }
+        if ($next.value.done) {
+          attemptDetail = "Chat provider stream ended";
+          break;
+        }
+        const event = $next.value.value.match(
+          (value) => value,
+          (error): ChatStreamEvent => ({
+            type: "state",
+            provider: error.provider,
+            sourceIdentifier: error.sourceIdentifier,
+            state: "error",
+            detail: error.detail,
+          }),
+        );
+        if (event.type === "message") retryMs = COLLECTOR_RETRY_START_MS;
+        const $published = await publish(runtime, key, event);
+        if ($published.isErr()) {
+          attemptDetail = $published.error.detail;
+          break;
+        }
+      }
+
+      const $returned = iterator.return
+        ? await ResultAsync.fromPromise(
+            iterator.return(),
+            (cause): ChatCollectorError =>
+              streamUnavailable("Could not close the chat provider stream", cause),
+          )
+        : ok(undefined);
+      if ($returned.isErr()) attemptDetail = $returned.error.detail;
     }
-    if ($next.value.done) break;
-    const event = $next.value.value.match(
-      (value) => value,
-      (error): ChatStreamEvent => ({
-        type: "state",
-        provider: error.provider,
-        sourceIdentifier: error.sourceIdentifier,
-        state: "error",
-        detail: error.detail,
-      }),
-    );
-    const $published = await publish(runtime, key, event);
-    if ($published.isErr()) break;
+
+    if (signal.aborted) break;
+    await publish(runtime, key, {
+      type: "state",
+      provider: collector.source.provider,
+      sourceIdentifier: collector.source.sourceIdentifier,
+      state: "error",
+      detail: attemptDetail ?? "Chat provider stream ended",
+    });
+    await delay(retryMs, { signal });
+    if (signal.aborted) break;
+    retryMs = Math.min(retryMs * 2, COLLECTOR_RETRY_MAX_MS);
+    await publish(runtime, key, {
+      type: "state",
+      provider: collector.source.provider,
+      sourceIdentifier: collector.source.sourceIdentifier,
+      state: "connecting",
+    });
   }
 
-  const $returned = iterator.return
-    ? await ResultAsync.fromPromise(
-        iterator.return(),
-        (cause): ChatCollectorError =>
-          streamUnavailable("Could not close the chat provider stream", cause),
-      )
-    : ok(undefined);
   const current = runtime.collectors.get(key);
   if (current?.controller === controller) {
     if (current.subscribers === 0) runtime.collectors.delete(key);
     else replaceCollector(runtime, key, { ...current, controller: null });
   }
-  return $returned.map(() => undefined);
+  return ok(undefined);
 }
 
-function createCollector(source: ChatSource, provider: ChatProviderAdapter): CollectorRuntime {
+function createCollector(source: ChatSource, factory: ChatSourceFactory): CollectorRuntime {
   return {
     source,
-    provider,
+    eventSource: factory.create(source.sourceIdentifier),
     controller: new AbortController(),
     events: new Emittery(),
     subscribers: 1,
@@ -156,11 +190,11 @@ function createCollector(source: ChatSource, provider: ChatProviderAdapter): Col
   };
 }
 
-function acquire(runtime: CollectorPoolRuntime, source: ChatSource, provider: ChatProviderAdapter) {
+function acquire(runtime: CollectorPoolRuntime, source: ChatSource, factory: ChatSourceFactory) {
   const key = chatSourceKey(source);
   const existing = runtime.collectors.get(key);
   if (!existing) {
-    replaceCollector(runtime, key, createCollector(source, provider));
+    replaceCollector(runtime, key, createCollector(source, factory));
     void collect(runtime, key);
     return key;
   }
@@ -209,11 +243,11 @@ function release(runtime: CollectorPoolRuntime, key: string) {
 async function* streamCollector(
   runtime: CollectorPoolRuntime,
   source: ChatSource,
-  provider: ChatProviderAdapter,
+  factory: ChatSourceFactory,
   signal: AbortSignal,
 ): ResultStream<ChatStreamEvent, ChatCollectorError> {
   if (signal.aborted) return;
-  const key = acquire(runtime, source, provider);
+  const key = acquire(runtime, source, factory);
   const collector = runtime.collectors.get(key);
   if (!collector) {
     yield erro({ type: "stream unavailable", detail: "Chat collector is unavailable" });
@@ -248,11 +282,14 @@ async function* streamCollector(
   }
 }
 
-export function createChatCollectorPool(gracePeriodMs: number) {
-  const runtime: CollectorPoolRuntime = { collectors: new Map(), gracePeriodMs };
-  return {
-    stream(source: ChatSource, provider: ChatProviderAdapter, signal: AbortSignal) {
-      return streamCollector(runtime, source, provider, signal);
-    },
-  };
+export class ChatCollectorPool {
+  private readonly runtime: CollectorPoolRuntime;
+
+  constructor(gracePeriodMs: number) {
+    this.runtime = { collectors: new Map(), gracePeriodMs };
+  }
+
+  stream(source: ChatSource, factory: ChatSourceFactory, signal: AbortSignal) {
+    return streamCollector(this.runtime, source, factory, signal);
+  }
 }

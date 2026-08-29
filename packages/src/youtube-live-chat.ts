@@ -42,13 +42,6 @@ export type YoutubeLiveChatError = Readonly<{
   cause: unknown;
 }>;
 
-export type YoutubeLiveChatClient = Readonly<{
-  stream(
-    videoId: string,
-    signal?: AbortSignal,
-  ): ResultStream<YoutubeLiveChatEvent, YoutubeLiveChatError>;
-}>;
-
 type LiveChatLookup =
   | Readonly<{ type: "live"; liveChatId: string }>
   | Readonly<{ type: "offline" }>;
@@ -190,10 +183,16 @@ function nextState(
   };
 }
 
-function createClient(dependencies: YoutubeDependencies): YoutubeLiveChatClient {
-  return {
-    stream(videoId, parentSignal) {
-      return createAbortableStream(async function* (signal) {
+export class YoutubeLiveChatClient {
+  readonly stream: (
+    videoId: string,
+    parentSignal?: AbortSignal,
+  ) => ResultStream<YoutubeLiveChatEvent, YoutubeLiveChatError>;
+
+  constructor(options: Readonly<{ apiKey: string }>) {
+    const dependencies = defaultDependencies(options.apiKey);
+    this.stream = (videoId, parentSignal) =>
+      createAbortableStream(async function* (signal) {
         let state: YoutubeStreamState = { retryMs: RETRY_START_MS };
         yield ok({ type: "state", state: "connecting" });
 
@@ -241,10 +240,5 @@ function createClient(dependencies: YoutubeDependencies): YoutubeLiveChatClient 
           yield ok({ type: "state", state: "connecting" });
         }
       }, parentSignal);
-    },
-  };
-}
-
-export function createYoutubeLiveChatClient(options: Readonly<{ apiKey: string }>) {
-  return createClient(defaultDependencies(options.apiKey));
+  }
 }

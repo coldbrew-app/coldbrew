@@ -113,5 +113,6 @@ Add helper scripts to `justfile`, not `package.json`
 - expose long-running sources as `AsyncIterable<Result<T, E>>` instead of public callback interfaces; keep callbacks inside adapters at third-party boundaries
 - normalize untrusted input once at its seam into a canonical domain value; downstream code compares, stores, and keys that canonical value rather than the raw input
 - treat a module's public interface as its test surface; do not export helpers, reducers, or dependency injection solely for tests
-- prefer functions with explicit inputs and immutable snapshots over classes with changing fields; localize unavoidable runtime mutation inside the module that owns the resource
+- classes are acceptable for composition and data transformation, following the principles in Yegor Bugayenko's _Elegant Objects_; every class field must be immutable and assigned when the object is created
+- mutable state is allowed only in variables declared inside functions or methods; do not keep mutable state in object or class fields
 - avoid mutating objects

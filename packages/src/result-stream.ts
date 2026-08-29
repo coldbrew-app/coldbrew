@@ -5,11 +5,19 @@ import { ok, Result, ResultAsync, type Result as NeverthrowResult } from "nevert
 import { createAbortableStream } from "./create-abortable-stream.js";
 import { propagateError } from "./neverthrow/propagate-error.js";
 
-type TypedError = Readonly<{ type: string }>;
+export type EventSourceError = Readonly<{ type: string }>;
 
-export type ResultStream<T, E extends TypedError> = AsyncIterable<NeverthrowResult<T, E>>;
+export type ResultStream<T, E extends EventSourceError> = AsyncIterable<NeverthrowResult<T, E>>;
 
-export type ResultStreamSink<T, E extends TypedError> = Readonly<{
+export interface EventSource<T, E extends EventSourceError> {
+  stream(parentSignal?: AbortSignal): ResultStream<T, E>;
+}
+
+export interface EventSourceFactory<TInput, T, E extends EventSourceError> {
+  create(input: TInput): EventSource<T, E>;
+}
+
+export type ResultStreamSink<T, E extends EventSourceError> = Readonly<{
   emit(value: T): Promise<void>;
   fail(error: E): Promise<void>;
   end(): Promise<void>;
@@ -17,7 +25,7 @@ export type ResultStreamSink<T, E extends TypedError> = Readonly<{
 
 type Cleanup = () => void | Promise<void>;
 
-export function createResultEventStream<T, E extends TypedError>(
+export function createResultEventStream<T, E extends EventSourceError>(
   register: (
     sink: ResultStreamSink<T, E>,
     signal: AbortSignal,
@@ -66,7 +74,7 @@ export function createResultEventStream<T, E extends TypedError>(
   }, parentSignal);
 }
 
-export function fromFallibleAsyncIterator<T, E extends TypedError>(
+export function fromFallibleAsyncIterator<T, E extends EventSourceError>(
   open: (signal: AbortSignal) => AsyncIterator<T>,
   toError: (operation: "open" | "read" | "close", cause: unknown, signal: AbortSignal) => E,
   onCleanupError: (error: E) => void,
@@ -106,39 +114,45 @@ export function fromFallibleAsyncIterator<T, E extends TypedError>(
   }, parentSignal);
 }
 
-export function mergeResultStreams<T, E extends TypedError>(
+export function mergeResultStreams<T, E extends EventSourceError>(
   streams: readonly ResultStream<T, E>[],
   parentSignal?: AbortSignal,
 ): ResultStream<T, E> {
-  return createResultEventStream((sink, signal) => {
-    if (streams.length === 0) {
-      void sink.end();
-      return;
-    }
-
-    let remaining = streams.length;
-    const iterators = streams.map((stream) => stream[Symbol.asyncIterator]());
-    const tasks = iterators.map(async (iterator) => {
-      try {
-        while (!signal.aborted) {
-          const next = await iterator.next();
-          if (next.done) return;
-          const $item = next.value;
-          if ($item.isErr()) {
-            await sink.fail($item.error);
-            return;
-          }
-          await sink.emit($item.value);
-        }
-      } finally {
-        remaining -= 1;
-        if (remaining === 0) await sink.end();
-      }
-    });
-
-    return async () => {
+  return createAbortableStream(async function* (signal) {
+    if (signal.aborted) return;
+    const iterators: AsyncIterator<NeverthrowResult<T, E>>[] = [];
+    const read = async (index: number) => ({ index, result: await iterators[index]!.next() });
+    const pending = new Map<number, ReturnType<typeof read>>();
+    let closed = false;
+    const close = async () => {
+      if (closed) return;
+      closed = true;
       await Promise.allSettled(iterators.map(async (iterator) => await iterator.return?.()));
-      await Promise.allSettled(tasks);
+      await Promise.allSettled(pending.values());
     };
+
+    try {
+      for (const stream of streams) iterators.push(stream[Symbol.asyncIterator]());
+      for (const [index] of iterators.entries()) pending.set(index, read(index));
+
+      while (!signal.aborted && pending.size > 0) {
+        const { index, result } = await Promise.race(pending.values());
+        if (result.done) {
+          pending.delete(index);
+          continue;
+        }
+
+        const $item = result.value;
+        if ($item.isErr()) {
+          pending.delete(index);
+          await close();
+        } else pending.set(index, read(index));
+
+        yield $item;
+        if ($item.isErr()) return;
+      }
+    } finally {
+      await close();
+    }
   }, parentSignal);
 }
