@@ -1,33 +1,21 @@
-import { EventEmitter } from "node:events";
-
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AccessTokenSchema, RefreshTokenSchema } from "./schemas.js";
 
 const state = vi.hoisted(() => ({
-  clients: [] as Array<
-    EventEmitter & { authorization: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn> }
-  >,
-  getAuthorizeLink: vi.fn(),
+  sockets: [] as TestWebSocket[],
 }));
 
-vi.mock("@kash-88/alerts", async (importOriginal) => {
-  const original = await importOriginal<typeof import("@kash-88/alerts")>();
+class TestWebSocket extends EventTarget {
+  readonly sent: string[] = [];
+  readonly close = vi.fn();
+  readonly send = vi.fn((message: string) => this.sent.push(message));
 
-  return {
-    ...original,
-    getAuthorizeLink: state.getAuthorizeLink,
-    WebServer: class extends EventEmitter {
-      authorization = vi.fn(async () => undefined);
-      close = vi.fn();
-
-      constructor() {
-        super();
-        state.clients.push(this);
-      }
-    },
-  };
-});
+  constructor(readonly url: string) {
+    super();
+    state.sockets.push(this);
+  }
+}
 
 const { getAuthorizationUrl, getDonations, issueConnection, refreshTokens, subscribeToDonations } =
   await import("./donationalerts.js");
@@ -35,26 +23,56 @@ const { getAuthorizationUrl, getDonations, issueConnection, refreshTokens, subsc
 const accessToken = AccessTokenSchema.parse("access-token");
 const refreshToken = RefreshTokenSchema.parse("refresh-token");
 const config = { clientId: "client-id", clientSecret: "secret" };
+const socketProfile = {
+  data: {
+    id: 42,
+    socket_connection_token: "socket-connection-token",
+  },
+};
+
+function stubRealtimeFetch() {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url === "https://www.donationalerts.com/api/v1/user/oauth") {
+      return new Response(JSON.stringify(socketProfile));
+    }
+    if (url === "https://www.donationalerts.com/api/v1/centrifuge/subscribe") {
+      return new Response(
+        JSON.stringify({
+          channels: [{ channel: "$alerts:donation_42", token: "channel-token" }],
+        }),
+      );
+    }
+    throw new Error(`Unexpected request: ${url} ${String(init?.method)}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  vi.stubGlobal("WebSocket", TestWebSocket);
+  return fetchMock;
+}
+
+async function waitForSocket(index = 0) {
+  await vi.waitFor(() => expect(state.sockets[index]).toBeDefined());
+  return state.sockets[index]!;
+}
 
 afterEach(() => {
-  state.clients.length = 0;
+  state.sockets.length = 0;
   vi.clearAllMocks();
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
 describe("DonationAlerts OAuth", () => {
   it("builds an authorization URL from the explicit client ID", () => {
-    state.getAuthorizeLink.mockReturnValue("https://example.com/authorize");
+    const url = new URL(getAuthorizationUrl(config.clientId, "https://example.com/callback"));
 
-    expect(getAuthorizationUrl(config.clientId, "https://example.com/callback")).toBe(
-      "https://example.com/authorize",
-    );
-    expect(state.getAuthorizeLink).toHaveBeenCalledWith(
-      config.clientId,
-      "https://example.com/callback",
-      expect.any(Array),
-      "code",
-    );
+    expect(url.origin + url.pathname).toBe("https://www.donationalerts.com/oauth/authorize");
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      client_id: "client-id",
+      redirect_uri: "https://example.com/callback",
+      response_type: "code",
+      scope: "oauth-user-show oauth-donation-subscribe oauth-donation-index",
+    });
   });
 
   it("issues a connection from explicit configuration", async () => {
@@ -126,6 +144,7 @@ describe("getDonations", () => {
         source: "donationalerts",
         sourceDonationId: "1",
         sourceCreatedAt: "2026-08-22 12:00:00",
+        occurredAt: new Date("2026-08-22T12:00:00.000Z"),
       },
     ]);
   });
@@ -176,78 +195,136 @@ describe("getDonations", () => {
 
 describe("subscribeToDonations", () => {
   it("does not open a connection for an already aborted signal", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("WebSocket", TestWebSocket);
     const controller = new AbortController();
     controller.abort();
 
     const iterator = subscribeToDonations(accessToken, controller.signal)[Symbol.asyncIterator]();
 
     await expect(iterator.next()).resolves.toEqual({ done: true, value: undefined });
-    expect(state.clients).toHaveLength(0);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(state.sockets).toHaveLength(0);
   });
 
   it("ends the iterator and closes the connection when aborted", async () => {
+    stubRealtimeFetch();
     const controller = new AbortController();
     const iterator = subscribeToDonations(accessToken, controller.signal)[Symbol.asyncIterator]();
     const nextEvent = iterator.next();
-    const client = state.clients[0]!;
+    const socket = await waitForSocket();
 
     controller.abort();
 
     await expect(nextEvent).resolves.toEqual({ done: true, value: undefined });
-    expect(client.close).toHaveBeenCalledOnce();
+    expect(socket.close).toHaveBeenCalledOnce();
   });
 
-  it("closes the connection when the consumer stops iterating", async () => {
+  it("authorizes, subscribes, and maps donation messages", async () => {
+    const fetchMock = stubRealtimeFetch();
     const iterator = subscribeToDonations(accessToken)[Symbol.asyncIterator]();
     const nextEvent = iterator.next();
-    const client = state.clients[0]!;
+    const socket = await waitForSocket();
 
-    client.emit("message", {
-      type: "donation",
-      result: {
-        channel: "$alerts:donation_1",
-        data: {
-          data: {
-            id: 1,
-            username: "Streamer",
-            message: "Thank you",
-            amount: "10.00",
-            currency: "USD",
-            created_at: "2026-08-22 12:00:00",
-          },
-        },
+    expect(socket.url).toBe("wss://centrifugo.donationalerts.com/connection/websocket");
+    socket.dispatchEvent(new Event("open"));
+    expect(socket.sent.map((message) => JSON.parse(message))).toEqual([
+      { params: { token: "socket-connection-token" }, id: 1 },
+    ]);
+
+    socket.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify({
+          id: 1,
+          result: { client: "d558c046-c679-43e3-a62d-65989ab55f7c", version: "2.2.1" },
+        }),
+      }),
+    );
+    await vi.waitFor(() => expect(socket.sent).toHaveLength(2));
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      "https://www.donationalerts.com/api/v1/centrifuge/subscribe",
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      headers: {
+        Authorization: "Bearer access-token",
+        "Content-Type": "application/json",
       },
     });
+    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
+      channels: ["$alerts:donation_42"],
+      client: "d558c046-c679-43e3-a62d-65989ab55f7c",
+    });
+    expect(JSON.parse(socket.sent[1]!)).toEqual({
+      id: 2,
+      method: 1,
+      params: { channel: "$alerts:donation_42", token: "channel-token" },
+    });
+
+    socket.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify({
+          result: {
+            channel: "$alerts:donation_42",
+            data: {
+              data: {
+                id: 1,
+                username: "Streamer",
+                message: "Thank you",
+                amount: "10.00",
+                currency: "USD",
+                created_at: "2026-08-22 12:00:00",
+              },
+            },
+          },
+        }),
+      }),
+    );
 
     await expect(nextEvent).resolves.toMatchObject({
       done: false,
-      value: { name: "donation", data: { sourceDonationId: "1" } },
+      value: {
+        name: "donation",
+        data: {
+          sourceDonationId: "1",
+          occurredAt: new Date("2026-08-22T12:00:00.000Z"),
+        },
+      },
     });
     await iterator.return?.();
-    expect(client.close).toHaveBeenCalledOnce();
+    expect(socket.close).toHaveBeenCalledOnce();
   });
 
-  it("yields a terminal error before ending", async () => {
+  it("yields a terminal error for a socket failure", async () => {
+    stubRealtimeFetch();
     const iterator = subscribeToDonations(accessToken)[Symbol.asyncIterator]();
     const nextEvent = iterator.next();
-    const client = state.clients[0]!;
+    const socket = await waitForSocket();
 
-    client.emit("error", new Error("socket failed"));
+    socket.dispatchEvent(new Event("error"));
 
     await expect(nextEvent).resolves.toMatchObject({
       done: false,
       value: { name: "error", data: { type: "donationalerts: request error" } },
     });
     await expect(iterator.next()).resolves.toEqual({ done: true, value: undefined });
-    expect(client.close).toHaveBeenCalledOnce();
+    expect(socket.close).toHaveBeenCalledOnce();
   });
 
   it("yields a terminal error for an invalid WebSocket message", async () => {
+    stubRealtimeFetch();
     const iterator = subscribeToDonations(accessToken)[Symbol.asyncIterator]();
     const nextEvent = iterator.next();
-    const client = state.clients[0]!;
+    const socket = await waitForSocket();
 
-    client.emit("message", { type: "donation", result: {} });
+    socket.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify({ type: "donation", result: {} }),
+      }),
+    );
 
     await expect(nextEvent).resolves.toMatchObject({
       done: false,
@@ -260,22 +337,108 @@ describe("subscribeToDonations", () => {
       },
     });
     await expect(iterator.next()).resolves.toEqual({ done: true, value: undefined });
-    expect(client.close).toHaveBeenCalledOnce();
+    expect(socket.close).toHaveBeenCalledOnce();
   });
 
-  it("ends when authorization fails", async () => {
+  it("classifies a profile HTTP 401 as unauthorized", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("Unauthorized", { status: 401 })),
+    );
+    vi.stubGlobal("WebSocket", TestWebSocket);
     const iterator = subscribeToDonations(accessToken)[Symbol.asyncIterator]();
-    const nextEvent = iterator.next();
-    const client = state.clients[0]!;
-    client.authorization.mockRejectedValueOnce(new Error("authorization failed"));
 
-    client.emit("open");
+    await expect(iterator.next()).resolves.toMatchObject({
+      done: false,
+      value: { name: "error", data: { type: "donationalerts: unauthorized" } },
+    });
+    await expect(iterator.next()).resolves.toEqual({ done: true, value: undefined });
+    expect(state.sockets).toHaveLength(0);
+  });
 
-    await expect(nextEvent).resolves.toMatchObject({
+  it("rejects an invalid profile response", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ data: { id: 42 } }))),
+    );
+    vi.stubGlobal("WebSocket", TestWebSocket);
+    const iterator = subscribeToDonations(accessToken)[Symbol.asyncIterator]();
+
+    await expect(iterator.next()).resolves.toMatchObject({
       done: false,
       value: { name: "error", data: { type: "donationalerts: request error" } },
     });
     await expect(iterator.next()).resolves.toEqual({ done: true, value: undefined });
-    expect(client.close).toHaveBeenCalledOnce();
+    expect(state.sockets).toHaveLength(0);
+  });
+
+  it("classifies a channel-token HTTP 401 as unauthorized", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(new Response(JSON.stringify(socketProfile)))
+        .mockResolvedValueOnce(new Response("Unauthorized", { status: 401 })),
+    );
+    vi.stubGlobal("WebSocket", TestWebSocket);
+    const iterator = subscribeToDonations(accessToken)[Symbol.asyncIterator]();
+    const nextEvent = iterator.next();
+    const socket = await waitForSocket();
+
+    socket.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify({
+          id: 1,
+          result: { client: "d558c046-c679-43e3-a62d-65989ab55f7c", version: "2.2.1" },
+        }),
+      }),
+    );
+
+    await expect(nextEvent).resolves.toMatchObject({
+      done: false,
+      value: { name: "error", data: { type: "donationalerts: unauthorized" } },
+    });
+    await expect(iterator.next()).resolves.toEqual({ done: true, value: undefined });
+    expect(socket.close).toHaveBeenCalledOnce();
+  });
+
+  it("reconnects after a clean close", async () => {
+    stubRealtimeFetch();
+    const controller = new AbortController();
+    const iterator = subscribeToDonations(accessToken, controller.signal)[Symbol.asyncIterator]();
+    const nextEvent = iterator.next();
+    const firstSocket = await waitForSocket();
+
+    vi.useFakeTimers();
+    firstSocket.dispatchEvent(new Event("close"));
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    expect(state.sockets).toHaveLength(2);
+    const secondSocket = state.sockets[1]!;
+    secondSocket.dispatchEvent(new Event("open"));
+    expect(secondSocket.sent.map((message) => JSON.parse(message))).toEqual([
+      { params: { token: "socket-connection-token" }, id: 1 },
+    ]);
+
+    controller.abort();
+    await expect(nextEvent).resolves.toEqual({ done: true, value: undefined });
+    expect(firstSocket.close).toHaveBeenCalledOnce();
+    expect(secondSocket.close).toHaveBeenCalledOnce();
+  });
+
+  it("cancels a pending reconnect", async () => {
+    stubRealtimeFetch();
+    const controller = new AbortController();
+    const iterator = subscribeToDonations(accessToken, controller.signal)[Symbol.asyncIterator]();
+    const nextEvent = iterator.next();
+    const socket = await waitForSocket();
+
+    vi.useFakeTimers();
+    socket.dispatchEvent(new Event("close"));
+    controller.abort();
+
+    await expect(nextEvent).resolves.toEqual({ done: true, value: undefined });
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(state.sockets).toHaveLength(1);
   });
 });

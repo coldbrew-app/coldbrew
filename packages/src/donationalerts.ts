@@ -1,17 +1,14 @@
-import * as alerts from "@kash-88/alerts";
 import { delay } from "@lebedevna/delay";
 import { erro, parseJson, safeFetch, validate } from "@lebedevna/neverthrow-utils";
 import { rurl } from "@lebedevna/readonly-url";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat.js";
-import timezone from "dayjs/plugin/timezone.js";
 import utc from "dayjs/plugin/utc.js";
 import { ok, Result, safeTry } from "neverthrow";
 import { z } from "zod";
 
 import { createAbortableStream } from "./create-abortable-stream.js";
-import { logger } from "./logger.js";
-import { createResultEventStream } from "./result-stream.js";
+import { createResultEventStream, type ResultStream } from "./result-stream.js";
 import {
   AccessToken,
   AccessTokenSchema,
@@ -24,7 +21,6 @@ import {
 
 dayjs.extend(customParseFormat);
 dayjs.extend(utc);
-dayjs.extend(timezone);
 
 export type RawDonation = Omit<Donation, "donationId" | "userId">;
 
@@ -33,16 +29,13 @@ export type DonationAlertsConfig = Readonly<{
   clientSecret: string;
 }>;
 
-const DONATION_ALERTS_TIME_ZONE = "Europe/Moscow";
+const DONATION_ALERTS_WEBSOCKET_URL = "wss://centrifugo.donationalerts.com/connection/websocket";
+const DONATION_ALERTS_RECONNECT_DELAY_MS = 5_000;
 
-const scopes = [
-  alerts.OAuthScope.UserShow,
-  alerts.OAuthScope.DonationSubscribe,
-  alerts.OAuthScope.DonationIndex,
-];
+const scopes = ["oauth-user-show", "oauth-donation-subscribe", "oauth-donation-index"];
 
 const parseDonationDate = Result.fromThrowable(
-  (value: string) => dayjs.tz(value, "YYYY-MM-DD HH:mm:ss", DONATION_ALERTS_TIME_ZONE).toDate(),
+  (value: string) => dayjs.utc(value, "YYYY-MM-DD HH:mm:ss", true).toDate(),
   (cause) => erro.fmt({ type: "donationalerts: invalid donation date", cause }),
 );
 
@@ -121,13 +114,21 @@ const UserProfileSchema = z.object({
   id: z.union([z.number(), z.string()]),
 });
 
-type DonationAlertsWebServer = {
-  authorization(): Promise<void>;
-  close(): void;
-  on(event: "open", listener: () => void): void;
-  on(event: "error", listener: (error: Error) => void): void;
-  on(event: "message", listener: (message: unknown) => void): void;
-};
+const DonationAlertsSocketProfileSchema = z.object({
+  data: z.object({
+    id: z.union([z.number(), z.string()]),
+    socket_connection_token: z.string().min(1),
+  }),
+});
+
+const DonationAlertsChannelSubscriptionSchema = z.object({
+  channels: z.array(
+    z.object({
+      channel: z.string(),
+      token: z.string().min(1),
+    }),
+  ),
+});
 
 type DonationAlertsRequestError = {
   type: "donationalerts: request error";
@@ -141,21 +142,14 @@ type DonationAlertsUnauthorizedError = {
   cause: unknown;
 };
 
-const toSdkRequestError = (error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error);
+type DonationAlertsError = DonationAlertsRequestError | DonationAlertsUnauthorizedError;
 
-  return /status code 401|unauthorized/i.test(message)
-    ? erro.fmt<DonationAlertsUnauthorizedError>({
-        type: "donationalerts: unauthorized",
-        cause: error,
-        message,
-      })
-    : erro.fmt<DonationAlertsRequestError>({
-        type: "donationalerts: request error",
-        message,
-        cause: error,
-      });
-};
+const toSocketRequestError = (message: string, cause: unknown) =>
+  erro.fmt<DonationAlertsRequestError>({
+    type: "donationalerts: request error",
+    message,
+    cause,
+  });
 
 const toHttpRequestError = (error: unknown) => {
   const httpError =
@@ -176,52 +170,15 @@ const toHttpRequestError = (error: unknown) => {
       });
 };
 
-async function* toEvents<T>(
-  client: DonationAlertsWebServer,
-  toData: (
-    message: unknown,
-  ) => Result<T | undefined, DonationAlertsRequestError | DonationAlertsUnauthorizedError>,
-  signal: AbortSignal,
-) {
-  yield* createResultEventStream<T, DonationAlertsRequestError | DonationAlertsUnauthorizedError>(
-    (sink) => {
-      let closed = false;
-      const close = () => {
-        if (closed) return;
-        closed = true;
-        const $closed = Result.fromThrowable(
-          () => client.close(),
-          (cause) => toSdkRequestError(cause),
-        )();
-        if ($closed.isErr()) logger.error($closed.error);
-      };
-      client.on("open", () => {
-        void client.authorization().catch(async (error) => {
-          close();
-          await sink.fail(toSdkRequestError(error));
-        });
-      });
-      client.on("error", (error) => {
-        close();
-        void sink.fail(toSdkRequestError(error));
-      });
-      client.on("message", (message) => {
-        const $data = toData(message);
-        if ($data.isErr()) {
-          close();
-          void sink.fail($data.error);
-          return;
-        }
-        if ($data.value !== undefined) void sink.emit($data.value);
-      });
-      return close;
-    },
-    signal,
-  );
-}
-
 export function getAuthorizationUrl(clientId: string, redirectUri: string) {
-  return alerts.getAuthorizeLink(clientId, redirectUri, scopes, "code");
+  return rurl("https://www.donationalerts.com/oauth/authorize")
+    .withSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: "code",
+      scope: scopes.join(" "),
+    })
+    .toString();
 }
 
 export function issueConnection(
@@ -317,6 +274,153 @@ function toDonation(donation: z.infer<typeof DonationAlertsDonationSchema>): Raw
   };
 }
 
+function getSocketProfile(accessToken: AccessToken, signal: AbortSignal) {
+  return safeFetch("https://www.donationalerts.com/api/v1/user/oauth", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    signal,
+  })
+    .andThen(parseJson)
+    .andThen((profile) => validate(profile, DonationAlertsSocketProfileSchema))
+    .mapErr(toHttpRequestError)
+    .map(({ data }) => ({
+      userId: String(data.id),
+      socketConnectionToken: data.socket_connection_token,
+    }));
+}
+
+function getChannelToken(
+  accessToken: AccessToken,
+  channel: string,
+  clientId: string,
+  signal: AbortSignal,
+) {
+  return safeFetch("https://www.donationalerts.com/api/v1/centrifuge/subscribe", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ channels: [channel], client: clientId }),
+    signal,
+  })
+    .andThen(parseJson)
+    .andThen((subscription) => validate(subscription, DonationAlertsChannelSubscriptionSchema))
+    .mapErr(toHttpRequestError)
+    .andThen(({ channels }) => {
+      const subscription = channels.find((value) => value.channel === channel);
+      return subscription
+        ? ok(subscription.token)
+        : erro<DonationAlertsRequestError>({
+            type: "donationalerts: request error",
+            message: "DonationAlerts did not return the requested channel token",
+            cause: channels,
+          });
+    });
+}
+
+function decodeSocketMessage(data: unknown) {
+  if (typeof data !== "string") {
+    return erro<DonationAlertsRequestError>({
+      type: "donationalerts: request error",
+      message: "Invalid DonationAlerts WebSocket message",
+      cause: data,
+    });
+  }
+
+  return parseJson(data)
+    .andThen((message) => validate(message, WsEventSchema))
+    .mapErr((cause) => toSocketRequestError("Invalid DonationAlerts WebSocket message", cause));
+}
+
+function openDonationSocket(
+  accessToken: AccessToken,
+  userId: string,
+  socketConnectionToken: string,
+  parentSignal: AbortSignal,
+): ResultStream<RawDonation, DonationAlertsError> {
+  return createResultEventStream<RawDonation, DonationAlertsError>((sink, signal) => {
+    const $socket = Result.fromThrowable(
+      () => new WebSocket(DONATION_ALERTS_WEBSOCKET_URL),
+      (cause) => toSocketRequestError("Could not open DonationAlerts WebSocket", cause),
+    )();
+    if ($socket.isErr()) {
+      void sink.fail($socket.error);
+      return;
+    }
+    const socket = $socket.value;
+    const channel = `$alerts:donation_${userId}`;
+
+    const send = (message: unknown) => {
+      const $sent = Result.fromThrowable(
+        () => socket.send(JSON.stringify(message)),
+        (cause) => toSocketRequestError("Could not send DonationAlerts WebSocket message", cause),
+      )();
+      if ($sent.isErr()) void sink.fail($sent.error);
+    };
+
+    const onOpen = () => {
+      send({
+        params: { token: socketConnectionToken },
+        id: 1,
+      });
+    };
+    const onClose = () => void sink.end();
+    const onError = (event: Event) =>
+      void sink.fail(toSocketRequestError("DonationAlerts WebSocket failed", event));
+    const onMessage = (event: MessageEvent) => {
+      void (async () => {
+        const $message = decodeSocketMessage(event.data);
+        if ($message.isErr()) {
+          await sink.fail($message.error);
+          return;
+        }
+
+        const message = $message.value;
+        if (message.type === "step 1") {
+          const $channelToken = await getChannelToken(
+            accessToken,
+            channel,
+            message.result.client,
+            signal,
+          );
+          if ($channelToken.isErr()) {
+            await sink.fail($channelToken.error);
+            return;
+          }
+          if (signal.aborted) return;
+          send({
+            id: 2,
+            method: 1,
+            params: { channel, token: $channelToken.value },
+          });
+          return;
+        }
+
+        if (message.type === "donation") {
+          await sink.emit(toDonation(message.result.data.data));
+        }
+      })();
+    };
+
+    socket.addEventListener("open", onOpen);
+    socket.addEventListener("close", onClose);
+    socket.addEventListener("error", onError);
+    socket.addEventListener("message", onMessage);
+
+    return () => {
+      socket.removeEventListener("open", onOpen);
+      socket.removeEventListener("close", onClose);
+      socket.removeEventListener("error", onError);
+      socket.removeEventListener("message", onMessage);
+      const $closed = Result.fromThrowable(
+        () => socket.close(),
+        (cause) => toSocketRequestError("Could not close DonationAlerts WebSocket", cause),
+      )();
+      void $closed;
+    };
+  }, parentSignal);
+}
+
 export function getDonations(accessToken: AccessToken) {
   return safeTry(async function* () {
     const donations: RawDonation[] = [];
@@ -343,33 +447,28 @@ export function subscribeToDonations(accessToken: AccessToken, parentSignal?: Ab
   return createAbortableStream(async function* (signal) {
     if (signal.aborted) return;
 
-    // The SDK's declaration omits EventEmitter methods even though WebServer exposes them at runtime.
-    const client: DonationAlertsWebServer = new alerts.WebServer({
-      access_token: accessToken,
-      autoReconnect: true,
-    }) as any;
+    const $profile = await getSocketProfile(accessToken, signal);
+    if ($profile.isErr()) {
+      if (!signal.aborted) yield { name: "error" as const, data: $profile.error };
+      return;
+    }
 
-    const toWsEvent = (message: unknown) =>
-      validate(message, WsEventSchema).mapErr((cause) =>
-        erro.fmt<DonationAlertsRequestError>({
-          type: "donationalerts: request error",
-          message: "Invalid DonationAlerts WebSocket message",
-          cause,
-        }),
-      );
+    while (!signal.aborted) {
+      const { userId, socketConnectionToken } = $profile.value;
+      for await (const $donation of openDonationSocket(
+        accessToken,
+        userId,
+        socketConnectionToken,
+        signal,
+      )) {
+        if ($donation.isErr()) {
+          yield { name: "error" as const, data: $donation.error };
+          return;
+        }
+        yield { name: "donation" as const, data: $donation.value };
+      }
 
-    for await (const $event of toEvents(client, toWsEvent, signal)) {
-      if ($event.isErr()) {
-        yield { name: "error" as const, data: $event.error };
-        return;
-      }
-      const message = $event.value;
-      if (message.type == "donation") {
-        yield {
-          name: "donation" as const,
-          data: toDonation(message.result.data.data),
-        };
-      }
+      if (!signal.aborted) await delay(DONATION_ALERTS_RECONNECT_DELAY_MS, { signal });
     }
   }, parentSignal);
 }
