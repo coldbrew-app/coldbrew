@@ -50,7 +50,7 @@ services:
       retries: 10
       start_period: 5s
     ports:
-      - "127.0.0.1:${PGPORT:-5432}:5432"
+      - "${PGPORT:-5432}:5432"
     volumes:
       # PostgreSQL 18 stores its cluster in a version-specific subdirectory.
       - postgres_data:/var/lib/postgresql

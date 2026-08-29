@@ -15,13 +15,13 @@ function.
 
 ## Runtime layout
 
-- `caddy` is the only public-facing service. It listens on TCP ports 80 and
-  443 and UDP port 443, terminates TLS, and proxies requests to `web:3000`.
+- `caddy` listens on TCP ports 80 and 443 and UDP port 443, terminates TLS,
+  and proxies requests to `web:3000`.
 - `web`, `donationalerts`, and `video` share the locally built
   `coldbrew:local` image. Only `web` has an HTTP health check.
 - `postgres` stores data in the `postgres_data` volume. Application containers
   connect to `postgres:5432` through the private `internal` network. The host
-  can reach it at `127.0.0.1:${PGPORT:-5432}` for schema administration.
+  and remote PostgreSQL clients can reach it at `<VPS-IP>:${PGPORT:-5432}`.
 - `wal-g` creates periodic base backups, while PostgreSQL continuously archives
   WAL files to the configured S3-compatible storage.
 - All services use `restart: unless-stopped`. The app containers wait for a
@@ -49,7 +49,7 @@ The file must contain:
 - `APP_DOMAIN`, including the scheme, for example
   `https://coldbrew.example.com`;
 - `PGDATABASE`, `PGUSER`, `PGPASSWORD`, and optionally `PGPORT` for the
-  host-side PostgreSQL binding;
+  external PostgreSQL binding (defaults to `5432`);
 - `DATABASE_URL` with the Compose hostname, for example
   `postgresql://coldbrew:password@postgres:5432/coldbrew`;
 - `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET`;
@@ -58,8 +58,9 @@ The file must contain:
   an IAM role or another supported credential provider.
 
 `localhost` has different meanings on the host and in a container. Host-side
-tools use `PGHOST=127.0.0.1`; application containers must use `postgres` in
-`DATABASE_URL`. Do not put `localhost` in the containers' `DATABASE_URL`.
+tools use `PGHOST=127.0.0.1`; remote tools use the VPS address; application
+containers must use `postgres` in `DATABASE_URL`. Do not put `localhost` in
+the containers' `DATABASE_URL`.
 
 For a new database volume, start PostgreSQL, apply the schema using the
 host-side port, and then start the complete stack:
@@ -70,8 +71,10 @@ dotenvx run -f .env -- just schema-apply
 just compose-up
 ```
 
-Point the domain's DNS records to the VPS and allow TCP 80 and 443 and UDP 443
-through its firewall. Register these OAuth callback URLs:
+Point the domain's DNS records to the VPS and allow TCP 80, 443, and 5432 plus
+UDP 443 through its firewall and cloud-provider security group. If `PGPORT`
+is set to another value, allow that TCP port instead of 5432. Register these
+OAuth callback URLs:
 
 - `https://<domain>/api/auth/callback/google`
 - `https://<domain>/api/integration/donationalerts/callback`
