@@ -15,7 +15,9 @@ import { useEffect, useReducer, type ChangeEvent, type KeyboardEvent } from "rea
 
 export const Route = createFileRoute("/_authenticated/chat")({
   component: ChatPage,
-  head: () => ({ meta: [{ title: "Chat · Coldbrew" }] }),
+  head: ({ match }) => ({
+    meta: [{ title: `${match.context.locale === "ru" ? "Мультичат" : "Multichat"} · Coldbrew` }],
+  }),
   loader: async ({ context }) => {
     if (!context.viewer) return;
     await preloadRouteQuery(context.queryClient, context.trpc.chat.config.queryOptions());
@@ -28,6 +30,7 @@ const copy = {
     description: "Combine public YouTube live chats without connecting a platform account.",
     sources: "Chat sources",
     sourceHelp: "Add up to 8 YouTube live links.",
+    sourceLabel: "YouTube live URL",
     placeholder: "https://youtube.com/watch?v=…",
     add: "Add source",
     save: "Save sources",
@@ -46,31 +49,37 @@ const copy = {
     copied: "Copied",
     tokenWarning: "Copy this URL now. Coldbrew stores only its hash and cannot show it again.",
     remove: "Remove source",
+    loading: "Loading chat…",
+    retry: "Retry",
   },
   ru: {
-    eyebrow: "Чаты YouTube, один поток",
-    description: "Объединяйте публичные чаты YouTube без подключения аккаунта платформы.",
-    sources: "Источники чата",
+    eyebrow: "Все чаты в одном окне",
+    description:
+      "Соберите чаты нескольких трансляций YouTube в одной ленте. Подключать аккаунт не нужно.",
+    sources: "Трансляции",
     sourceHelp: "Добавьте до 8 ссылок на трансляции YouTube.",
+    sourceLabel: "Ссылка на трансляцию YouTube",
     placeholder: "https://youtube.com/watch?v=…",
-    add: "Добавить источник",
-    save: "Сохранить источники",
+    add: "Добавить",
+    save: "Сохранить",
     saving: "Сохраняем…",
-    invalid: "Нужна ссылка на трансляцию YouTube.",
-    duplicate: "Этот источник уже добавлен.",
-    limit: "Можно добавить не больше 8 источников чата.",
-    feed: "Объединённый чат",
-    empty: "Сообщения появятся, когда один из настроенных чатов будет в эфире.",
-    overlay: "Источник браузера OBS",
+    invalid: "Эта ссылка не ведёт на трансляцию YouTube.",
+    duplicate: "Эта трансляция уже добавлена.",
+    limit: "Можно добавить не более 8 трансляций.",
+    feed: "Все сообщения",
+    empty: "Сообщения появятся, когда начнётся хотя бы одна из добавленных трансляций.",
+    overlay: "Чат в OBS",
     overlayHelp:
-      "Секретная ссылка работает без сессии Coldbrew. После ротации старая ссылка сразу отключится.",
-    createUrl: "Создать ссылку OBS",
+      "Эта ссылка открывает чат в OBS без входа в Coldbrew. После обновления старая ссылка перестанет работать.",
+    createUrl: "Создать ссылку для OBS",
     rotate: "Обновить ссылку",
-    copy: "Копировать ссылку",
+    copy: "Скопировать ссылку",
     copied: "Скопировано",
     tokenWarning:
-      "Скопируйте ссылку сейчас. Coldbrew хранит только её хеш и не сможет показать снова.",
-    remove: "Удалить источник",
+      "Скопируйте ссылку сейчас: после закрытия страницы показать её снова не получится.",
+    remove: "Удалить трансляцию",
+    loading: "Загружаем чат…",
+    retry: "Повторить",
   },
 } as const;
 
@@ -139,13 +148,13 @@ function ChatPage() {
               <p className="text-sm text-destructive">{configQuery.error.message}</p>
               <Button onClick={() => void configQuery.refetch()} variant="outline">
                 <Icons.retry aria-hidden="true" />
-                Retry
+                {text.retry}
               </Button>
             </>
           ) : (
             <>
               <Icons.loader aria-hidden="true" className="animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">Loading chat</p>
+              <p className="text-sm text-muted-foreground">{text.loading}</p>
             </>
           )}
         </div>
@@ -168,7 +177,7 @@ function ChatPage() {
               <p className="text-sm text-muted-foreground">{text.sourceHelp}</p>
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="chat-source">URL</Label>
+              <Label htmlFor="chat-source">{text.sourceLabel}</Label>
               <div className="flex gap-2">
                 <Input
                   aria-invalid={Boolean(editor.inputError)}

@@ -35,7 +35,7 @@ function RouteComponent() {
     <section className="flex min-w-0 flex-1 flex-col gap-4">
       <CosmicPageHeader
         description={t("integrationsDescription")}
-        eyebrow={t("orbitCaption")}
+        eyebrow={t("integrationsEyebrow")}
         title={t("integrations")}
         variant="beans"
       />

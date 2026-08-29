@@ -16,7 +16,7 @@ function RouteComponent() {
     <section className="flex min-w-0 flex-1 flex-col gap-4">
       <CosmicPageHeader
         description={t("activeDevelopment")}
-        eyebrow={t("orbitCaption")}
+        eyebrow={t("alertsEyebrow")}
         title={t("alerts")}
         variant="beans"
       />
