@@ -47,7 +47,6 @@ export function SharedVideoCard({ showPriorityLabel = true, video }: Props) {
 
   return (
     <article className="group relative flex flex-col gap-3 px-4 py-4 transition-colors hover:bg-secondary/25 sm:px-5">
-      <span className="absolute top-8 left-0 h-8 w-1 rounded-r-full bg-primary/55 transition-all group-hover:h-12 group-hover:bg-[#ff647c]" />
       <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-start">
         {embedUrl && (
           <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-muted sm:w-60 sm:shrink-0">
