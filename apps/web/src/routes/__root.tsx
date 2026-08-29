@@ -225,19 +225,24 @@ function AuthenticatedApplicationContent() {
               activeProps={{ className: activeNavItem }}
               className={navItem}
               onClick={() => setOpenMobile(false)}
-              to="/chat"
-            >
-              <Icons.chat aria-hidden="true" />
-              {t("chat")}
-            </Link>
-            <Link
-              activeProps={{ className: activeNavItem }}
-              className={navItem}
-              onClick={() => setOpenMobile(false)}
               to="/integrations"
             >
               <Icons.integrations aria-hidden="true" />
               {t("integrations")}
+            </Link>
+            <Link
+              activeProps={{ className: activeNavItem }}
+              disabled
+              className={navItem}
+              onClick={() => setOpenMobile(false)}
+              to="/chat"
+            >
+              <Icons.chat aria-hidden="true" />
+              {t("chat")}
+              <Tooltip>
+                <TooltipTrigger>🚧</TooltipTrigger>
+                <TooltipContent>{t("underConstruction")}</TooltipContent>
+              </Tooltip>
             </Link>
             <Link
               activeProps={{ className: activeNavItem }}
