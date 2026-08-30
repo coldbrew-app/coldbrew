@@ -1,4 +1,7 @@
-import { getVideoTimeParts, getWatchDurationSeconds } from "@coldbrew/packages/video-timing.js";
+import {
+  getRoundedWatchDurationParts,
+  getWatchDurationSeconds,
+} from "@coldbrew/packages/video-timing.js";
 import { rurl } from "@lebedevna/readonly-url";
 import { fmtAmount, fmtDate, formatRelativeDate } from "@web/lib/fmt";
 import { getSharedVideoTimingParts } from "@web/lib/shared-video-timing";
@@ -41,7 +44,7 @@ export function SharedVideoCard({ showPriorityLabel = true, video }: Props) {
       : endTime !== null
         ? t("videoUntilTime", { endTime })
         : null;
-  const watchDuration = getVideoTimeParts(
+  const watchDuration = getRoundedWatchDurationParts(
     getWatchDurationSeconds(video.startSeconds, video.endSeconds),
   );
 

@@ -1,5 +1,6 @@
 import {
   getVideoTimeParts,
+  getRoundedWatchDurationParts,
   getWatchDurationSeconds,
   parseVideoTime,
 } from "@coldbrew/packages/video-timing.js";
@@ -58,7 +59,7 @@ export function VideoTimingFields({ allowOpenEnd = false, className, disabled = 
   const endSeconds = parseVideoTime(watch("endTime"));
   const watchDuration =
     startSeconds !== null && endSeconds !== null && endSeconds > startSeconds
-      ? getVideoTimeParts(getWatchDurationSeconds(startSeconds, endSeconds))
+      ? getRoundedWatchDurationParts(getWatchDurationSeconds(startSeconds, endSeconds))
       : null;
 
   return (

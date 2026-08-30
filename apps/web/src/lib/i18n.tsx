@@ -200,8 +200,8 @@ const en = {
     `From ${startTime} until ${endTime}`,
   parsedVideoTime: ({ hours, minutes, seconds }: VideoTimeParts) =>
     `${hours > 0 ? `${hours} hr ` : ""}${minutes} min ${seconds} sec`,
-  watchDuration: ({ hours, minutes, seconds }: VideoTimeParts) =>
-    `Watch time: ${hours > 0 ? `${hours} hr ` : ""}${minutes} min ${seconds} sec`,
+  watchDuration: ({ hours, minutes }: HourMinuteParts) =>
+    `Watch time: ${hours > 0 ? `${hours} hr ` : ""}${minutes} min`,
   enterPriorityAmount: "Enter a priority amount.",
   queueAmountHelp: "The amount and watch time determine the video’s queue position.",
   enterVideoTime: "Enter a timestamp.",
@@ -417,8 +417,8 @@ const ru = defineTranslations({
     `С ${startTime} до ${endTime}`,
   parsedVideoTime: ({ hours, minutes, seconds }: VideoTimeParts) =>
     `${hours > 0 ? `${hours} ч ` : ""}${minutes} мин ${seconds} с`,
-  watchDuration: ({ hours, minutes, seconds }: VideoTimeParts) =>
-    `Время просмотра: ${hours > 0 ? `${hours} ч ` : ""}${minutes} мин ${seconds} с`,
+  watchDuration: ({ hours, minutes }: HourMinuteParts) =>
+    `Время просмотра: ${hours > 0 ? `${hours} ч ` : ""}${minutes} мин`,
   enterPriorityAmount: "Укажите сумму для очереди.",
   queueAmountHelp: "Сумма и длительность определяют, в какую очередь попадёт видео.",
   enterVideoTime: "Укажите время.",
