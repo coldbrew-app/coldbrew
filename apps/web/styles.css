@@ -9,6 +9,21 @@
 @theme inline {
   --font-heading: "Bitter Variable", serif;
   --font-sans: "Geist Variable", sans-serif;
+  --animate-cosmic-orbit-dashes: cosmic-orbit-dashes 18s linear infinite;
+  --animate-cosmic-orbit-travel: cosmic-orbit-travel 18s linear infinite;
+
+  @keyframes cosmic-orbit-travel {
+    to {
+      offset-distance: 100%;
+    }
+  }
+
+  @keyframes cosmic-orbit-dashes {
+    to {
+      stroke-dashoffset: -84;
+    }
+  }
+
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -182,18 +197,6 @@
         transparent 20%
       ),
       linear-gradient(135deg, var(--espresso-void), #38233d 56%, #4056e8);
-  }
-
-  .cosmic-orbit {
-    transform-box: fill-box;
-    transform-origin: center;
-    animation: cosmic-orbit 18s linear infinite;
-  }
-}
-
-@keyframes cosmic-orbit {
-  to {
-    rotate: 1turn;
   }
 }
 

@@ -82,7 +82,7 @@ function Overview() {
               <span className="text-xs font-semibold text-white/60">{t("orbitCaption")}</span>
             </div>
           </div>
-          <CosmicArt className="pointer-events-none absolute right-[-44px] bottom-[-26px] w-[300px] sm:right-[-8px] sm:bottom-[-18px] sm:w-[330px]" />
+          <CosmicArt className="pointer-events-none absolute right-[-36px] bottom-[-20px] w-[230px] sm:right-[-8px] sm:bottom-[-18px] sm:w-[330px]" />
           <div className="cosmic-grid pointer-events-none absolute inset-0 opacity-[0.16]" />
         </header>
         <div className="sr-only">

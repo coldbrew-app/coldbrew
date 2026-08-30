@@ -1,5 +1,10 @@
 import { cn } from "@web/lib/utils";
 
+import cosmicCup from "../../assets/cosmic-cup.png";
+
+const orbitBodyClassName =
+  "animate-cosmic-orbit-travel [offset-path:path('M_46_126_A_126_57_0_0_1_274_76_A_126_57_0_0_1_46_126')] [offset-rotate:0deg] motion-reduce:animate-none";
+
 type Props = {
   className?: string;
   variant?: "portal" | "orbit" | "beans";
@@ -16,45 +21,30 @@ export function CosmicArt({ className, variant = "portal" }: Props) {
       fill="none"
       viewBox="0 0 320 230"
     >
-      <path
-        d="M41 80C86 24 229 11 286 73C334 126 238 190 145 175C70 163 11 119 41 80Z"
-        fill="#4056E8"
-        opacity=".22"
-      />
-      <g
-        className="cosmic-orbit"
-        style={{ transformBox: "view-box", transformOrigin: "150px 95px" }}
-      >
-        <ellipse cx="160" cy="101" rx="126" ry="57" stroke="#FFF8ED" strokeDasharray="5 9" />
-        <circle cx="46" cy="126" r="8" fill="#FF647C" stroke="#251820" strokeWidth="3" />
-        <path d="m267 73 5-12 5 12 12 5-12 5-5 12-5-12-12-5 12-5Z" fill="#FFBD3E" />
+      <image height="160" href={cosmicCup} width="240" x="45" y="47" />
+      <g>
+        <ellipse
+          className="animate-cosmic-orbit-dashes motion-reduce:animate-none"
+          cx="160"
+          cy="101"
+          pathLength="588"
+          rx="126"
+          ry="57"
+          stroke="#FFF8ED"
+          strokeDasharray="5 9"
+        />
+        <g className={orbitBodyClassName}>
+          <circle r="8" fill="#FF647C" stroke="#251820" strokeWidth="3" />
+        </g>
+        <g
+          className={cn(
+            orbitBodyClassName,
+            "[animation-delay:-9s] motion-reduce:[offset-distance:50%]",
+          )}
+        >
+          <path d="M-5-5 0-17 5-5 17 0 5 5 0 17-5 5-17 0-5-5Z" fill="#FFBD3E" />
+        </g>
       </g>
-      <path
-        d="M91 95h117v54c0 32-22 54-58 54s-59-22-59-54V95Z"
-        fill="#FFF8ED"
-        stroke="#251820"
-        strokeLinejoin="round"
-        strokeWidth="5"
-      />
-      <path
-        d="M208 111h17c30 0 30 43 0 43h-18"
-        stroke="#251820"
-        strokeLinecap="round"
-        strokeWidth="5"
-      />
-      <ellipse cx="150" cy="96" rx="59" ry="21" fill="#251820" stroke="#251820" strokeWidth="5" />
-      <ellipse cx="150" cy="95" rx="45" ry="13" fill="#4056E8" />
-      <path d="M116 94c20-16 51-16 70 0-20 15-51 15-70 0Z" fill="#171018" />
-      <circle cx="138" cy="89" r="3" fill="#FFBD3E" />
-      <circle cx="165" cy="100" r="2.5" fill="#54CFA5" />
-      <path d="m176 82 3 7 7 3-7 3-3 7-3-7-7-3 7-3 3-7Z" fill="#FF647C" />
-      <path d="M105 206c31 12 83 12 113-1" stroke="#251820" strokeLinecap="round" strokeWidth="5" />
-      <path
-        d="M67 47c8-10 20-11 29-3M235 42c8-7 17-7 23 0"
-        stroke="#FFF8ED"
-        strokeLinecap="round"
-        strokeWidth="4"
-      />
     </svg>
   );
 }
