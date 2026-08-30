@@ -164,6 +164,7 @@ jobs:
       APP_IMAGE: ghcr.io/${{ github.repository_owner }}/coldbrew:${{ needs.resolve.outputs.sha }}
       DEPLOY_PATH: ${{ vars.SSH_DEPLOY_PATH }}
       POSTGRES_IMAGE: ghcr.io/${{ github.repository_owner }}/coldbrew-postgres-walg:${{ needs.resolve.outputs.postgres_tag }}
+      REMOTE_ENV_FILE: .coldbrew-production-env-${{ github.run_id }}-${{ github.run_attempt }}
       SCHEMA_APPLIED: ${{ github.event_name == 'workflow_dispatch' && inputs.schema_applied || false }}
       SSH_HOST: ${{ vars.SSH_HOST }}
       SSH_PORT: ${{ vars.SSH_PORT }}
@@ -180,6 +181,101 @@ jobs:
           printf '%s\n' "$SSH_PRIVATE_KEY" > "$RUNNER_TEMP/deploy_key"
           chmod 600 "$HOME/.ssh/known_hosts" "$RUNNER_TEMP/deploy_key"
 
+      - name: Generate and upload production environment
+        env:
+          APP_DOMAIN: ${{ vars.APP_DOMAIN }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_ENDPOINT: ${{ vars.AWS_ENDPOINT }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+          AXIOM_TOKEN: ${{ secrets.AXIOM_TOKEN }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          DONATION_ALERTS_CLIENT_ID: ${{ vars.DONATION_ALERTS_CLIENT_ID }}
+          DONATION_ALERTS_CLIENT_SECRET: ${{ secrets.DONATION_ALERTS_CLIENT_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          PGDATABASE: ${{ vars.PGDATABASE }}
+          PGPASSWORD: ${{ secrets.PGPASSWORD }}
+          PGPORT: ${{ vars.PGPORT }}
+          PGUSER: ${{ vars.PGUSER }}
+          WALG_ARCHIVE_TIMEOUT_SECONDS: ${{ vars.WALG_ARCHIVE_TIMEOUT_SECONDS }}
+          WALG_BACKUP_INTERVAL_SECONDS: ${{ vars.WALG_BACKUP_INTERVAL_SECONDS }}
+          WALG_KEEP_FULL_BACKUPS: ${{ vars.WALG_KEEP_FULL_BACKUPS }}
+          WALG_S3_PREFIX: ${{ vars.WALG_S3_PREFIX }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: |
+          node --input-type=module - "$RUNNER_TEMP/production.env" <<'NODE'
+          import { writeFileSync } from "node:fs"
+
+          const outputPath = process.argv[2]
+          const required = [
+            "APP_DOMAIN",
+            "AWS_REGION",
+            "AXIOM_TOKEN",
+            "BETTER_AUTH_SECRET",
+            "DONATION_ALERTS_CLIENT_ID",
+            "DONATION_ALERTS_CLIENT_SECRET",
+            "GOOGLE_CLIENT_ID",
+            "GOOGLE_CLIENT_SECRET",
+            "PGDATABASE",
+            "PGPASSWORD",
+            "PGUSER",
+            "WALG_S3_PREFIX",
+            "YOUTUBE_API_KEY",
+          ]
+          const optional = [
+            "AWS_ACCESS_KEY_ID",
+            "AWS_ENDPOINT",
+            "AWS_SECRET_ACCESS_KEY",
+            "AWS_SESSION_TOKEN",
+            "PGPORT",
+            "WALG_ARCHIVE_TIMEOUT_SECONDS",
+            "WALG_BACKUP_INTERVAL_SECONDS",
+            "WALG_KEEP_FULL_BACKUPS",
+          ]
+          const missing = required.filter((name) => !process.env[name])
+
+          if (missing.length > 0) {
+            throw new Error(`Missing GitHub production configuration: ${missing.join(", ")}`)
+          }
+
+          const hasAccessKey = Boolean(process.env.AWS_ACCESS_KEY_ID)
+          const hasSecretKey = Boolean(process.env.AWS_SECRET_ACCESS_KEY)
+          if (hasAccessKey !== hasSecretKey) {
+            throw new Error(
+              "AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must either both be set or both be omitted",
+            )
+          }
+
+          const encodeUrlPart = (value) => encodeURIComponent(value)
+          const databaseUrl =
+            `postgresql://${encodeUrlPart(process.env.PGUSER)}:` +
+            `${encodeUrlPart(process.env.PGPASSWORD)}@postgres:5432/` +
+            encodeUrlPart(process.env.PGDATABASE)
+          const values = {
+            ...Object.fromEntries(required.map((name) => [name, process.env[name]])),
+            ...Object.fromEntries(
+              optional.filter((name) => process.env[name]).map((name) => [name, process.env[name]]),
+            ),
+            DATABASE_URL: databaseUrl,
+          }
+          const quote = (value) => `'${value.replaceAll("'", "\\'")}'`
+          const contents = Object.entries(values)
+            .map(([name, value]) => `${name}=${quote(value)}`)
+            .join("\n")
+
+          writeFileSync(outputPath, `${contents}\n`, { encoding: "utf8", mode: 0o600 })
+          NODE
+
+          scp \
+            -i "$RUNNER_TEMP/deploy_key" \
+            -P "$SSH_PORT" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            "$RUNNER_TEMP/production.env" \
+            "$SSH_USER@$SSH_HOST:$REMOTE_ENV_FILE"
+
       - name: Deploy immutable images
         run: |
           ssh \
@@ -193,7 +289,8 @@ jobs:
               "$TARGET_SHA" \
               "$APP_IMAGE" \
               "$POSTGRES_IMAGE" \
-              "$SCHEMA_APPLIED" <<'REMOTE'
+              "$SCHEMA_APPLIED" \
+              "$REMOTE_ENV_FILE" <<'REMOTE'
           set -euo pipefail
 
           deploy_path="$1"
@@ -201,6 +298,12 @@ jobs:
           app_image="$3"
           postgres_image="$4"
           schema_applied="$5"
+          production_env="$HOME/$6"
+
+          cleanup() {
+            rm -f "$production_env" "$deploy_path/.env.next"
+          }
+          trap cleanup EXIT
 
           export PATH="$HOME/.local/bin:$HOME/.bun/bin:$HOME/.cargo/bin:/usr/local/bin:$PATH"
 
@@ -213,7 +316,41 @@ jobs:
           done
           docker compose version >/dev/null
 
+          if [[ ! -f "$production_env" ]]; then
+            echo "The uploaded production environment file is unavailable." >&2
+            exit 1
+          fi
+
+          required_env=(
+            APP_DOMAIN
+            PGDATABASE
+            PGUSER
+            PGPASSWORD
+            DATABASE_URL
+            AXIOM_TOKEN
+            BETTER_AUTH_SECRET
+            GOOGLE_CLIENT_ID
+            GOOGLE_CLIENT_SECRET
+            DONATION_ALERTS_CLIENT_ID
+            DONATION_ALERTS_CLIENT_SECRET
+            YOUTUBE_API_KEY
+            WALG_S3_PREFIX
+            AWS_REGION
+          )
+          bunx dotenvx run -f "$production_env" --overload -- \
+            bash -c '
+              for name in "$@"; do
+                if [[ -z "${!name:-}" ]]; then
+                  echo "Generated production environment is missing required value: $name" >&2
+                  exit 1
+                fi
+              done
+            ' bash "${required_env[@]}"
+
           cd "$deploy_path"
+
+          install -m 600 "$production_env" .env.next
+          mv .env.next .env
 
           if ! git diff --quiet || ! git diff --cached --quiet; then
             echo "The production checkout has tracked local changes; refusing to overwrite them." >&2
@@ -261,4 +398,19 @@ jobs:
             echo "No previous CI/CD deployment is recorded; automatic rollback is unavailable." >&2
           fi
           exit 1
+          REMOTE
+
+      - name: Remove uploaded environment file
+        if: always()
+        continue-on-error: true
+        run: |
+          ssh \
+            -i "$RUNNER_TEMP/deploy_key" \
+            -p "$SSH_PORT" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            "$SSH_USER@$SSH_HOST" \
+            bash -s -- "$REMOTE_ENV_FILE" <<'REMOTE'
+          set -euo pipefail
+          rm -f "$HOME/$1"
           REMOTE

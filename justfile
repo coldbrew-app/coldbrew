@@ -78,7 +78,7 @@ generate-youtube-chat-proto: install
   cd packages && bunx oxfmt src/youtube-live-chat/generated
 
 compose-up:
-  docker compose up --build -d
+  docker compose up -d
 
 # Pull immutable production images, recreate the stack, and verify the public endpoint.
 production-deploy app_image postgres_image:

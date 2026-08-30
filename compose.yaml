@@ -2,7 +2,6 @@ x-app: &app
   image: ${COLDBREW_IMAGE:-coldbrew:local}
   env_file:
     - .env
-
   init: true
   restart: unless-stopped
   networks:
@@ -136,6 +135,25 @@ services:
     mem_limit: 256m
     cpus: 0.5
 
+  vector:
+    image: timberio/vector:0.58.0-alpine
+    command: ["--config", "/etc/vector/vector.yaml", "--require-healthy", "true"]
+    secrets:
+      - axiom_token
+    volumes:
+      - ./observability/vector.yaml:/etc/vector/vector.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - vector_data:/var/lib/vector
+    restart: unless-stopped
+    networks:
+      - internal
+    mem_limit: 128m
+    cpus: 0.25
+
+secrets:
+  axiom_token:
+    environment: AXIOM_TOKEN
+
 networks:
   internal:
 
@@ -143,3 +161,4 @@ volumes:
   caddy_data:
   caddy_config:
   postgres_data:
+  vector_data:

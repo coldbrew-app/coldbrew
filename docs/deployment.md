@@ -13,8 +13,10 @@ The workflow publishes these public packages as immutable images:
   of `docker/postgres-walg` so application-only changes do not restart the
   database.
 
-Application secrets stay in the untracked `/opt/coldbrew/.env` on the VPS.
-GitHub receives only the SSH credentials needed to operate the deployment.
+The `Production` GitHub environment is the source of truth for application
+configuration. Each deployment combines its individual GitHub Variables and
+Secrets into the untracked `/opt/coldbrew/.env` on the VPS before running
+Compose.
 
 `apps/donationalerts` is a long-lived process. It keeps one outgoing WebSocket
 connection per connected Coldbrew user and writes received donations to
@@ -27,6 +29,9 @@ function.
   and proxies requests to `web:3000`.
 - `web`, `donationalerts`, and `video` share one SHA-tagged GHCR image. Only
   `web` has an HTTP health check.
+- `vector` reads the three application services' Docker logs and forwards them
+  to the `coldbrew-logs` Axiom dataset. Infrastructure and Vector's own
+  logs remain local.
 - `postgres` stores data in the `postgres_data` volume. Application containers
   connect to `postgres:5432` through the private `internal` network. The host
   and remote PostgreSQL clients can reach it at `<VPS-IP>:${PGPORT:-5432}`.
@@ -65,41 +70,48 @@ and `/usr/local/bin` for non-interactive SSH sessions.
 
 Do not edit tracked files in this checkout. A deployment refuses to continue
 when tracked local changes are present. The ignored `.env` and `.deployed-sha`
-files are expected to be changed on the server.
+files are managed by the deployment workflow and are expected to change on the
+server. Do not create or edit the production `.env` manually.
 
-Create an untracked `/opt/coldbrew/.env`. One way to initialize it when the
-production decryption key is available is:
-
-```sh
-dotenvx decrypt -f .env.prod --stdout > .env
-chmod 600 .env
-```
-
-The file must contain:
+The GitHub Variables and Secrets described below provide:
 
 - `APP_DOMAIN`, including the scheme, for example
   `https://coldbrew.example.com`;
 - `PGDATABASE`, `PGUSER`, `PGPASSWORD`, and optionally `PGPORT` for the
   external PostgreSQL binding (defaults to `5432`);
-- `DATABASE_URL` with the Compose hostname, for example
-  `postgresql://coldbrew:password@postgres:5432/coldbrew`;
 - `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET`;
 - `DONATION_ALERTS_CLIENT_ID` and `DONATION_ALERTS_CLIENT_SECRET`;
+- `AXIOM_TOKEN`, an ingest-only API token scoped to the `coldbrew-logs` dataset;
 - `WALG_S3_PREFIX` and `AWS_REGION`, plus AWS credentials unless the VPS uses
   an IAM role or another supported credential provider.
 
+Create the `coldbrew-logs` dataset in Axiom before the first deployment,
+then create an API token that can only ingest into that dataset. The deployment
+stores the token with the other production values in `.env`. Compose mounts it
+as `/run/secrets/axiom_token`, and Vector resolves it through its directory
+secrets backend. Vector sends events to the dataset's
+`eu-central-1.aws.edge.axiom.co` edge deployment.
+
+Production configuration, including credentials, is stored in the ignored
+`.env` file on the VPS and passed to containers through environment variables.
+Do not add Compose file secrets for these values: keeping one configuration
+path ensures that `docker compose up` detects changes and recreates affected
+containers.
+
 `localhost` has different meanings on the host and in a container. Host-side
 tools use `PGHOST=127.0.0.1`; remote tools use the VPS address; application
-containers must use `postgres` in `DATABASE_URL`. Do not put `localhost` in
-the containers' `DATABASE_URL`.
+containers must use `postgres` in `DATABASE_URL`. The workflow generates that
+URL from `PGUSER`, `PGPASSWORD`, and `PGDATABASE`, safely URL-encoding each
+component; do not add a separate `DATABASE_URL` secret.
 
-For a new database volume, start PostgreSQL, apply the schema using the
-host-side port, and then start the complete stack once to verify the server:
+For a new database volume, first run the `Production` workflow. Its schema gate
+will stop the initial deployment, but the workflow will already have generated
+`/opt/coldbrew/.env` from GitHub. Then start PostgreSQL, apply the schema using
+the host-side port, and rerun the workflow with `schema_applied` enabled:
 
 ```sh
 just compose-db-up
 dotenvx run -f .env -- just schema-apply
-just compose-up
 ```
 
 Record the commit represented by the running database and application. This
@@ -136,19 +148,46 @@ branches to `master`; do not add a required reviewer when deployments from
 
 Add these environment variables:
 
-| Name              | Example           | Purpose                      |
-| ----------------- | ----------------- | ---------------------------- |
-| `SSH_HOST`        | `203.0.113.10`    | VPS hostname or IP address   |
-| `SSH_PORT`        | `22`              | SSH port                     |
-| `SSH_USER`        | `coldbrew-deploy` | Dedicated deployment user    |
-| `SSH_DEPLOY_PATH` | `/opt/coldbrew`   | Existing production checkout |
+| Name                           | Example                            | Required |
+| ------------------------------ | ---------------------------------- | -------- |
+| `APP_DOMAIN`                   | `https://coldbrew.example.com`     | yes      |
+| `AWS_ENDPOINT`                 | `https://s3.example.com`           | no       |
+| `AWS_REGION`                   | `eu-central-1`                     | yes      |
+| `DONATION_ALERTS_CLIENT_ID`    | `12345`                            | yes      |
+| `GOOGLE_CLIENT_ID`             | OAuth client ID                    | yes      |
+| `PGDATABASE`                   | `coldbrew`                         | yes      |
+| `PGPORT`                       | `5432`                             | no       |
+| `PGUSER`                       | `coldbrew`                         | yes      |
+| `SSH_DEPLOY_PATH`              | `/opt/coldbrew`                    | yes      |
+| `SSH_HOST`                     | `203.0.113.10`                     | yes      |
+| `SSH_PORT`                     | `22`                               | yes      |
+| `SSH_USER`                     | `coldbrew-deploy`                  | yes      |
+| `WALG_ARCHIVE_TIMEOUT_SECONDS` | `300`                              | no       |
+| `WALG_BACKUP_INTERVAL_SECONDS` | `86400`                            | no       |
+| `WALG_KEEP_FULL_BACKUPS`       | `7`                                | no       |
+| `WALG_S3_PREFIX`               | `s3://my-bucket/coldbrew/postgres` | yes      |
 
 Add these environment secrets:
 
-| Name              | Value                                        |
-| ----------------- | -------------------------------------------- |
-| `SSH_PRIVATE_KEY` | Private half of the dedicated deployment key |
-| `SSH_KNOWN_HOSTS` | Verified `known_hosts` line for the VPS      |
+| Name                            | Value                                        | Required |
+| ------------------------------- | -------------------------------------------- | -------- |
+| `AWS_ACCESS_KEY_ID`             | Static AWS access key                        | no       |
+| `AWS_SECRET_ACCESS_KEY`         | Static AWS secret key                        | no       |
+| `AWS_SESSION_TOKEN`             | Temporary AWS session token                  | no       |
+| `AXIOM_TOKEN`                   | Axiom ingest-only API token                  | yes      |
+| `BETTER_AUTH_SECRET`            | At least 32 random characters                | yes      |
+| `DONATION_ALERTS_CLIENT_SECRET` | DonationAlerts OAuth client secret           | yes      |
+| `GOOGLE_CLIENT_SECRET`          | Google OAuth client secret                   | yes      |
+| `PGPASSWORD`                    | PostgreSQL password                          | yes      |
+| `SSH_KNOWN_HOSTS`               | Verified `known_hosts` line for the VPS      | yes      |
+| `SSH_PRIVATE_KEY`               | Private half of the dedicated deployment key | yes      |
+| `YOUTUBE_API_KEY`               | YouTube Data API key                         | yes      |
+
+`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` must either both be set or both
+be omitted when the VPS uses an IAM role or another supported credential
+provider. The workflow validates this along with every required value, safely
+generates dotenv syntax, transfers it over SSH, and atomically replaces
+`/opt/coldbrew/.env` with mode `0600` on every deployment.
 
 Generate `SSH_KNOWN_HOSTS` with `ssh-keyscan -p <port> <host>`, but verify the
 reported host-key fingerprint through the VPS provider console before saving
@@ -173,18 +212,37 @@ A push or merge to `master` runs the complete workflow:
 4. schema-gate check against `.deployed-sha`;
 5. remote Compose pull, recreation, and health checks.
 
-Only one production deployment runs at a time. A successful deployment writes
-the target SHA to `/opt/coldbrew/.deployed-sha`. Named PostgreSQL and Caddy
-volumes are preserved. If `.env` changes, the next deployment recreates the
-affected containers and loads its new values; `docker compose restart` alone
-does not refresh environment variables.
+Only one production deployment runs at a time. Every attempt refreshes `.env`
+from GitHub before checking the schema gate; a successful deployment writes the
+target SHA to `/opt/coldbrew/.deployed-sha`. Named PostgreSQL and Caddy volumes
+are preserved. Updating a production Variable or Secret and rerunning the
+workflow recreates the affected containers with the new values; `docker compose
+restart` alone does not refresh environment variables.
 
 Useful checks on the VPS are:
 
 ```sh
 docker compose ps
 docker compose logs --tail=100 web donationalerts video postgres wal-g caddy
+docker compose logs --tail=100 vector
 ```
+
+Vector checks that the Axiom destination is reachable when it starts. A missing
+`AXIOM_TOKEN` environment value prevents Vector from starting; an invalid token
+is reported in Vector's logs when delivery is attempted. Neither failure prevents the application
+services from running. After deployment, confirm that events arrive in Axiom's
+`coldbrew-logs` dataset. Filter by `label.com.docker.compose.service` to
+separate `web`, `donationalerts`, and `video`. Each event also includes its
+Docker timestamp, container name, image, and stdout/stderr stream.
+
+Vector keeps up to 256 MiB of unsent events in the `vector_data` volume during a
+temporary Axiom or network outage. The source is still best-effort: an extended
+outage, a full buffer, or Vector being stopped can leave some logs available
+only through `docker compose logs`.
+
+To rotate the Axiom credential, replace the `AXIOM_TOKEN` secret in the GitHub
+`Production` environment and rerun the production workflow. The workflow
+regenerates `.env`, and Compose recreates Vector with the new environment value.
 
 ## Database schema gate
 

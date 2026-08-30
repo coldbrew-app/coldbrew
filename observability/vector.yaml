@@ -1,0 +1,64 @@
+data_dir: /var/lib/vector
+
+secret:
+  docker:
+    type: directory
+    path: /run/secrets
+
+sources:
+  docker:
+    type: docker_logs
+    docker_host: unix:///var/run/docker.sock
+
+transforms:
+  coldbrew_app_services:
+    type: filter
+    inputs:
+      - docker
+    condition:
+      type: vrl
+      source: |-
+        service = to_string(.label."com.docker.compose.service") ?? ""
+        includes(["web", "donationalerts", "video"], service)
+
+sinks:
+  axiom:
+    type: axiom
+    inputs:
+      - coldbrew_app_services
+    dataset: coldbrew-logs
+    region: eu-central-1.aws.edge.axiom.co
+    token: SECRET[docker.axiom_token]
+    compression: zstd
+    healthcheck:
+      enabled: true
+    buffer:
+      type: disk
+      max_size: 268435488
+      when_full: block
+
+tests:
+  - name: forwards application service logs
+    inputs:
+      - insert_at: coldbrew_app_services
+        type: log
+        log_fields:
+          message: application log
+          label:
+            com.docker.compose.service: web
+    outputs:
+      - extract_from: coldbrew_app_services
+        conditions:
+          - type: vrl
+            source: assert_eq!(.message, "application log")
+
+  - name: drops infrastructure service logs
+    inputs:
+      - insert_at: coldbrew_app_services
+        type: log
+        log_fields:
+          message: infrastructure log
+          label:
+            com.docker.compose.service: postgres
+    no_outputs_from:
+      - coldbrew_app_services
