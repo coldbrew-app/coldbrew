@@ -1,5 +1,5 @@
 x-app: &app
-  image: coldbrew:local
+  image: ${COLDBREW_IMAGE:-coldbrew:local}
   env_file:
     - .env
 
@@ -23,7 +23,7 @@ services:
   postgres:
     build:
       context: ./docker/postgres-walg
-    image: coldbrew-postgres-walg:local
+    image: ${COLDBREW_POSTGRES_IMAGE:-coldbrew-postgres-walg:local}
     environment:
       <<: *wal-g-environment
       POSTGRES_DB: ${PGDATABASE:?Set PGDATABASE in .env}
@@ -59,7 +59,7 @@ services:
       - internal
 
   wal-g:
-    image: coldbrew-postgres-walg:local
+    image: ${COLDBREW_POSTGRES_IMAGE:-coldbrew-postgres-walg:local}
     # This image is built by the postgres service in this Compose project.
     # Never fall back to a registry while that local build is being created.
     pull_policy: never

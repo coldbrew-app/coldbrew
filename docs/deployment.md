@@ -1,12 +1,20 @@
-# Coldbrew on a VPS
+# Coldbrew production deployment
 
-Coldbrew is deployed from a Git checkout on the VPS. Docker Compose builds the
-application image locally and runs the web app, the DonationAlerts and video
-workers, PostgreSQL, WAL-G, and Caddy. A regular deployment is:
+Production runs on a single VPS, but deployments are performed by the
+`Production` GitHub Actions workflow. Every push to `master` is checked, built
+as immutable `linux/amd64` images, published to GitHub Container Registry
+(GHCR), and deployed over SSH. The VPS never builds application images during
+a deployment.
 
-```sh
-git pull && just compose-up
-```
+The workflow publishes these public packages as immutable images:
+
+- `ghcr.io/lebedev-nikita/coldbrew`, tagged with the full commit SHA;
+- `ghcr.io/lebedev-nikita/coldbrew-postgres-walg`, tagged with the Git tree SHA
+  of `docker/postgres-walg` so application-only changes do not restart the
+  database.
+
+Application secrets stay in the untracked `/opt/coldbrew/.env` on the VPS.
+GitHub receives only the SSH credentials needed to operate the deployment.
 
 `apps/donationalerts` is a long-lived process. It keeps one outgoing WebSocket
 connection per connected Coldbrew user and writes received donations to
@@ -17,8 +25,8 @@ function.
 
 - `caddy` listens on TCP ports 80 and 443 and UDP port 443, terminates TLS,
   and proxies requests to `web:3000`.
-- `web`, `donationalerts`, and `video` share the locally built
-  `coldbrew:local` image. Only `web` has an HTTP health check.
+- `web`, `donationalerts`, and `video` share one SHA-tagged GHCR image. Only
+  `web` has an HTTP health check.
 - `postgres` stores data in the `postgres_data` volume. Application containers
   connect to `postgres:5432` through the private `internal` network. The host
   and remote PostgreSQL clients can reach it at `<VPS-IP>:${PGPORT:-5432}`.
@@ -32,9 +40,32 @@ multiple replicas could subscribe and refresh tokens for the same users.
 
 ## One-time VPS setup
 
-Install Git, Docker with the Compose plugin, Bun, `just`, `dotenvx`, and
-`pgschema`. Clone the repository into its permanent directory, for example
-`/opt/coldbrew`, and run all commands below from that directory.
+Install Git, Docker with the Compose plugin, Bun, `just`, `dotenvx`, `pgschema`,
+and `curl`. Create a dedicated deployment user that can use Docker without
+`sudo`, owns `/opt/coldbrew`, and can log in only with an SSH key. Clone the
+public repository into that directory:
+
+```sh
+git clone https://github.com/lebedev-nikita/coldbrew.git /opt/coldbrew
+cd /opt/coldbrew
+```
+
+Verify the runtime commands as that same deployment user, not as `root`:
+
+```sh
+git --version
+docker compose version
+just --version
+bunx --version
+curl --version
+```
+
+The workflow explicitly includes `~/.local/bin`, `~/.bun/bin`, `~/.cargo/bin`,
+and `/usr/local/bin` for non-interactive SSH sessions.
+
+Do not edit tracked files in this checkout. A deployment refuses to continue
+when tracked local changes are present. The ignored `.env` and `.deployed-sha`
+files are expected to be changed on the server.
 
 Create an untracked `/opt/coldbrew/.env`. One way to initialize it when the
 production decryption key is available is:
@@ -63,13 +94,25 @@ containers must use `postgres` in `DATABASE_URL`. Do not put `localhost` in
 the containers' `DATABASE_URL`.
 
 For a new database volume, start PostgreSQL, apply the schema using the
-host-side port, and then start the complete stack:
+host-side port, and then start the complete stack once to verify the server:
 
 ```sh
 just compose-db-up
 dotenvx run -f .env -- just schema-apply
 just compose-up
 ```
+
+Record the commit represented by the running database and application. This
+becomes the base used by the CI schema gate:
+
+```sh
+git rev-parse HEAD > .deployed-sha
+chmod 600 .deployed-sha
+```
+
+The first CI deployment cannot reliably roll back unless images for this base
+SHA already exist in GHCR. Subsequent successful deployments always retain a
+SHA-tagged rollback target.
 
 Point the domain's DNS records to the VPS and allow TCP 80, 443, and 5432 plus
 UDP 443 through its firewall and cloud-provider security group. If `PGPORT`
@@ -85,36 +128,95 @@ directory. When upgrading a PostgreSQL 17-or-earlier volume, migrate it with
 `pg_dump`/`pg_restore` or `pg_upgrade`. Do not delete the old volume as an
 upgrade shortcut.
 
-## Deploying updates
+## GitHub configuration
 
-Deploy from the checkout on the VPS:
+Use the existing GitHub environment named `Production`. Restrict its deployment
+branches to `master`; do not add a required reviewer when deployments from
+`master` should remain automatic.
 
-```sh
-cd /opt/coldbrew
-git pull && just compose-up
-```
+Add these environment variables:
 
-`just compose-up` runs `docker compose up --build -d`: it rebuilds the local
-application image and recreates changed services while preserving the named
-PostgreSQL and Caddy volumes. It does not apply `db/schema.sql`. When an update
-changes the schema, apply it explicitly before starting code that depends on
-it:
+| Name              | Example           | Purpose                      |
+| ----------------- | ----------------- | ---------------------------- |
+| `SSH_HOST`        | `203.0.113.10`    | VPS hostname or IP address   |
+| `SSH_PORT`        | `22`              | SSH port                     |
+| `SSH_USER`        | `coldbrew-deploy` | Dedicated deployment user    |
+| `SSH_DEPLOY_PATH` | `/opt/coldbrew`   | Existing production checkout |
 
-```sh
-dotenvx run -f .env -- just schema-apply
-just compose-up
-```
+Add these environment secrets:
 
-If `.env` changes, `just compose-up` recreates affected containers and loads
-the new values. A plain `docker compose restart` does not refresh environment
-variables injected when a container was created.
+| Name              | Value                                        |
+| ----------------- | -------------------------------------------- |
+| `SSH_PRIVATE_KEY` | Private half of the dedicated deployment key |
+| `SSH_KNOWN_HOSTS` | Verified `known_hosts` line for the VPS      |
 
-Useful checks after deployment:
+Generate `SSH_KNOWN_HOSTS` with `ssh-keyscan -p <port> <host>`, but verify the
+reported host-key fingerprint through the VPS provider console before saving
+it. Never replace this value merely because an unexpected SSH key is reported.
+
+The repository is public, so the production images are public too. After the
+first workflow publishes each GHCR package, open its package settings, change
+visibility to public, and rerun the failed deployment job. No registry token is
+then stored on the VPS.
+
+Disconnect the old Vercel project from this GitHub repository and disable its
+production and preview deployments. The `Production` environment is owned by
+the GitHub Actions workflow after this migration.
+
+## Regular deployments
+
+A push or merge to `master` runs the complete workflow:
+
+1. formatting, lint, type checking, and tests;
+2. application and, when its source tree changed, PostgreSQL/WAL-G image builds;
+3. immutable GHCR publication under the commit or source-tree SHA;
+4. schema-gate check against `.deployed-sha`;
+5. remote Compose pull, recreation, and health checks.
+
+Only one production deployment runs at a time. A successful deployment writes
+the target SHA to `/opt/coldbrew/.deployed-sha`. Named PostgreSQL and Caddy
+volumes are preserved. If `.env` changes, the next deployment recreates the
+affected containers and loads its new values; `docker compose restart` alone
+does not refresh environment variables.
+
+Useful checks on the VPS are:
 
 ```sh
 docker compose ps
 docker compose logs --tail=100 web donationalerts video postgres wal-g caddy
 ```
+
+## Database schema gate
+
+CI never applies `db/schema.sql` to production. If the file differs between
+`.deployed-sha` and the target commit, image publication succeeds but the
+deployment job exits before changing containers.
+
+Apply the exact blocked revision manually:
+
+```sh
+cd /opt/coldbrew
+git fetch --prune --tags origin
+git checkout --detach <target-sha>
+just schema-apply
+```
+
+After it succeeds, open **Actions → Production → Run workflow**, set `revision`
+to the same full SHA, enable `schema_applied`, and run it. Do not enable the
+confirmation when schema application failed or was performed for another
+revision.
+
+## Rollback
+
+When the new stack fails its Compose or public HTTP health check, CI checks out
+the previous `.deployed-sha` and starts its SHA-tagged images automatically.
+The failed SHA is not recorded as deployed.
+
+To roll back manually, run the Production workflow with the previous SHA in
+`revision`. If `db/schema.sql` differs, the schema gate blocks the rollback;
+database changes are deliberately never reversed automatically. Decide and
+perform the database recovery separately, then use `schema_applied` only after
+the database is compatible with the chosen application revision.
 
 ## Backups
 

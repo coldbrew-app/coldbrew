@@ -10,3 +10,4 @@ dist
 *.local
 *.local.*
 .env.keys
+.deployed-sha

@@ -15,26 +15,26 @@ env-init source-env=".env.dev":
   db_name="coldbrew_$(wt step eval '{{{{ branch | sanitize_db }}')"
   compose_project="$(wt step eval '{{{{ (repo ~ "_" ~ branch) | sanitize_db }}')"
 
-  dotenvx decrypt -f "{{source-env}}" -fk .env.keys --stdout > .env
-  dotenvx set -f .env --plain APP_PORT "$app_port"
-  dotenvx set -f .env --plain APP_DOMAIN "http://localhost:$app_port"
-  dotenvx set -f .env --plain PGHOST 127.0.0.1
-  dotenvx set -f .env --plain PGPORT "$db_port"
-  dotenvx set -f .env --plain PGDATABASE "$db_name"
-  dotenvx set -f .env --plain COMPOSE_PROJECT_NAME "$compose_project"
+  bunx dotenvx decrypt -f "{{source-env}}" -fk .env.keys --stdout > .env
+  bunx dotenvx set -f .env --plain APP_PORT "$app_port"
+  bunx dotenvx set -f .env --plain APP_DOMAIN "http://localhost:$app_port"
+  bunx dotenvx set -f .env --plain PGHOST 127.0.0.1
+  bunx dotenvx set -f .env --plain PGPORT "$db_port"
+  bunx dotenvx set -f .env --plain PGDATABASE "$db_name"
+  bunx dotenvx set -f .env --plain COMPOSE_PROJECT_NAME "$compose_project"
 
-  dotenvx run -f .env --overload -- bash -c 'dotenvx set -f .env --plain DATABASE_URL "postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"'
+  bunx dotenvx run -f .env --overload -- bash -c 'bunx dotenvx set -f .env --plain DATABASE_URL "postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"'
 
   chmod 600 .env
 
 dev-donationalerts:
-  dotenvx run -f .env --overload -- bun --watch apps/donationalerts/src/index.ts
+  bunx dotenvx run -f .env --overload -- bun --watch apps/donationalerts/src/index.ts
 
 dev-video:
-  dotenvx run -f .env --overload -- bun --watch apps/video/src/index.ts
+  bunx dotenvx run -f .env --overload -- bun --watch apps/video/src/index.ts
 
 dev-web:
-  dotenvx run -f .env --overload -- sh -c 'cd apps/web && bun run dev'
+  bunx dotenvx run -f .env --overload -- sh -c 'cd apps/web && bun run dev'
 
 dev:
   bunx concurrently -n 'web,donationalerts,video' 'just dev-web' 'just dev-donationalerts' 'just dev-video'
@@ -80,6 +80,19 @@ generate-youtube-chat-proto: install
 compose-up:
   docker compose up --build -d
 
+# Pull immutable production images, recreate the stack, and verify the public endpoint.
+production-deploy app_image postgres_image:
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  export COLDBREW_IMAGE="{{app_image}}"
+  export COLDBREW_POSTGRES_IMAGE="{{postgres_image}}"
+
+  docker compose pull postgres web
+  docker compose up --no-build --detach --wait --wait-timeout 180
+  bunx dotenvx run -f .env --overload -- \
+    bash -c 'curl --fail --silent --show-error --retry 10 --retry-delay 3 --retry-connrefused "${APP_DOMAIN%/}/api/health" >/dev/null'
+
 compose-db-up:
   docker compose up -d postgres
 
@@ -87,7 +100,7 @@ compose-down:
   docker compose down
 
 dev-db-up:
-  dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml up -d --wait
+  bunx dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml up -d --wait
 
 dev-db-copy $source_worktree:
   #!/usr/bin/env bash
@@ -119,7 +132,7 @@ dev-db-copy $source_worktree:
 
   if ! (
     cd "$source_worktree"
-    dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml exec -T postgres true
+    bunx dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml exec -T postgres true
   ); then
     echo "Source development database is not running: $source_worktree" >&2
     exit 1
@@ -130,19 +143,19 @@ dev-db-copy $source_worktree:
 
   (
     cd "$source_worktree"
-    dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml exec -T postgres \
+    bunx dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml exec -T postgres \
       sh -c 'pg_dump --format=custom --no-owner --no-privileges --username="$POSTGRES_USER" --dbname="$POSTGRES_DB"'
   ) > "$dump_path"
 
-  dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml exec -T postgres \
+  bunx dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml exec -T postgres \
     sh -c 'pg_restore --clean --if-exists --no-owner --no-privileges --single-transaction --exit-on-error --username="$POSTGRES_USER" --dbname="$POSTGRES_DB"' \
     < "$dump_path"
 
 dev-db-down:
-  dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml down
+  bunx dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml down
 
 dev-db-destroy:
-  dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml down --volumes
+  bunx dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml down --volumes
 
 backup-now:
   docker compose run --rm --no-deps wal-g wal-g backup-push
@@ -154,54 +167,26 @@ backup-verify:
   docker compose run --rm --no-deps wal-g wal-g wal-verify integrity
 
 test-web: install
-  dotenvx run -f .env --overload -- bunx vitest --run apps/web
+  bunx dotenvx run -f .env --overload -- bunx vitest --run apps/web
 
 test-donationalerts: install
-  dotenvx run -f .env --overload -- bunx vitest --run apps/donationalerts
+  bunx dotenvx run -f .env --overload -- bunx vitest --run apps/donationalerts
 
 test-video: install
-  dotenvx run -f .env --overload -- bunx vitest --run apps/video
+  bunx dotenvx run -f .env --overload -- bunx vitest --run apps/video
 
 test-packages: install
-  dotenvx run -f .env --overload -- bunx vitest --run packages
+  bunx dotenvx run -f .env --overload -- bunx vitest --run packages
 
 test: test-web test-donationalerts test-video test-packages
 
 check: lint fmt-check test
 
 schema-apply:
-  #!/usr/bin/env bash
-  set -euo pipefail
-
-  dotenvx run -f .env --overload -- psql -X -v ON_ERROR_STOP=1 <<'SQL'
-  DO $migration$
-  DECLARE
-    has_prefixed_slugs boolean;
-  BEGIN
-    IF to_regclass('public."user"') IS NOT NULL THEN
-      EXECUTE 'SELECT EXISTS (SELECT 1 FROM "user" WHERE slug LIKE ''@%'')'
-        INTO has_prefixed_slugs;
-
-      IF has_prefixed_slugs THEN
-        ALTER TABLE "user" DROP CONSTRAINT IF EXISTS user_slug_check;
-        UPDATE "user"
-        SET slug = substring(slug FROM 2)
-        WHERE slug LIKE '@%';
-        ALTER TABLE "user"
-          ALTER COLUMN slug TYPE varchar(47),
-          ALTER COLUMN slug SET DEFAULT gen_random_uuid()::text;
-        ALTER TABLE "user"
-          ADD CONSTRAINT user_slug_check CHECK (slug ~ '^[a-zA-Z0-9\-]{3,47}$');
-      END IF;
-    END IF;
-  END
-  $migration$;
-  SQL
-
-  dotenvx run -f .env --overload -- pgschema apply --auto-approve --file db/schema.sql
+  bunx dotenvx run -f .env --overload -- pgschema apply --auto-approve --file db/schema.sql
 
 schema-reset:
-  dotenvx run -f .env --overload -- pgschema apply --auto-approve --file db/empty.sql
+  bunx dotenvx run -f .env --overload -- pgschema apply --auto-approve --file db/empty.sql
   just schema-apply
 
 
@@ -210,18 +195,18 @@ count-lines path=".":
   cloc --config .config/cloc-options.txt "{{path}}"
 
 env-decrypt-prod:
-  dotenvx decrypt -f .env.prod
+  bunx dotenvx decrypt -f .env.prod
 
 env-decrypt-dev:
-  dotenvx decrypt -f .env.dev
+  bunx dotenvx decrypt -f .env.dev
 
 env-decrypt: env-decrypt-dev env-decrypt-prod
 
 
 env-encrypt-prod:
-  dotenvx encrypt -f .env.prod
+  bunx dotenvx encrypt -f .env.prod
 
 env-encrypt-dev:
-  dotenvx encrypt -f .env.dev
+  bunx dotenvx encrypt -f .env.dev
 
 env-encrypt: env-encrypt-dev env-encrypt-prod

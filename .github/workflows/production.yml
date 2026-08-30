@@ -1,0 +1,264 @@
+name: Production
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: Commit, branch, or tag to deploy
+        required: true
+        default: master
+        type: string
+      schema_applied:
+        description: Confirm that db/schema.sql was applied manually
+        required: true
+        default: false
+        type: boolean
+
+permissions: {}
+
+jobs:
+  resolve:
+    name: Resolve revision
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      postgres_tag: ${{ steps.revision.outputs.postgres_tag }}
+      sha: ${{ steps.revision.outputs.sha }}
+    steps:
+      - name: Check out revision
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.revision || github.sha }}
+          fetch-depth: 0
+
+      - name: Record commit SHA
+        id: revision
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "postgres_tag=$(git rev-parse HEAD:docker/postgres-walg)" >> "$GITHUB_OUTPUT"
+
+  quality:
+    name: Quality checks
+    needs: resolve
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      APP_DOMAIN: http://localhost:3000
+      BETTER_AUTH_SECRET: ci-only-secret-at-least-thirty-two-characters
+      DATABASE_URL: postgresql://coldbrew:coldbrew@127.0.0.1:5432/coldbrew
+      DONATION_ALERTS_CLIENT_ID: "1"
+      DONATION_ALERTS_CLIENT_SECRET: ci-only
+      GOOGLE_CLIENT_ID: ci-only
+      GOOGLE_CLIENT_SECRET: ci-only
+      YOUTUBE_API_KEY: ci-only
+    steps:
+      - name: Check out revision
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Set up just
+        uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Create empty CI environment file
+        run: install -m 600 /dev/null .env
+
+      - name: Check types
+        run: just typecheck
+
+      - name: Lint, format, and test
+        run: just check
+
+  publish:
+    name: Publish production images
+    needs:
+      - resolve
+      - quality
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Check out revision
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish application image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/coldbrew:${{ needs.resolve.outputs.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ needs.resolve.outputs.sha }}
+          cache-from: type=gha,scope=application
+          cache-to: type=gha,mode=max,scope=application
+
+      - name: Check for existing PostgreSQL WAL-G image
+        id: postgres_image
+        run: |
+          if docker buildx imagetools inspect \
+            "ghcr.io/${{ github.repository_owner }}/coldbrew-postgres-walg:${{ needs.resolve.outputs.postgres_tag }}" \
+            >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and publish PostgreSQL WAL-G image
+        if: steps.postgres_image.outputs.exists != 'true'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: docker/postgres-walg
+          file: docker/postgres-walg/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/coldbrew-postgres-walg:${{ needs.resolve.outputs.postgres_tag }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ needs.resolve.outputs.sha }}
+          cache-from: type=gha,scope=postgres-walg
+          cache-to: type=gha,mode=max,scope=postgres-walg
+
+  deploy:
+    name: Deploy to VPS
+    needs:
+      - resolve
+      - publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    environment:
+      name: Production
+    concurrency:
+      group: production
+      cancel-in-progress: false
+    env:
+      APP_IMAGE: ghcr.io/${{ github.repository_owner }}/coldbrew:${{ needs.resolve.outputs.sha }}
+      DEPLOY_PATH: ${{ vars.SSH_DEPLOY_PATH }}
+      POSTGRES_IMAGE: ghcr.io/${{ github.repository_owner }}/coldbrew-postgres-walg:${{ needs.resolve.outputs.postgres_tag }}
+      SCHEMA_APPLIED: ${{ github.event_name == 'workflow_dispatch' && inputs.schema_applied || false }}
+      SSH_HOST: ${{ vars.SSH_HOST }}
+      SSH_PORT: ${{ vars.SSH_PORT }}
+      SSH_USER: ${{ vars.SSH_USER }}
+      TARGET_SHA: ${{ needs.resolve.outputs.sha }}
+    steps:
+      - name: Configure SSH
+        env:
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$RUNNER_TEMP/deploy_key"
+          chmod 600 "$HOME/.ssh/known_hosts" "$RUNNER_TEMP/deploy_key"
+
+      - name: Deploy immutable images
+        run: |
+          ssh \
+            -i "$RUNNER_TEMP/deploy_key" \
+            -p "$SSH_PORT" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            "$SSH_USER@$SSH_HOST" \
+            bash -s -- \
+              "$DEPLOY_PATH" \
+              "$TARGET_SHA" \
+              "$APP_IMAGE" \
+              "$POSTGRES_IMAGE" \
+              "$SCHEMA_APPLIED" <<'REMOTE'
+          set -euo pipefail
+
+          deploy_path="$1"
+          target_sha="$2"
+          app_image="$3"
+          postgres_image="$4"
+          schema_applied="$5"
+
+          export PATH="$HOME/.local/bin:$HOME/.bun/bin:$HOME/.cargo/bin:/usr/local/bin:$PATH"
+
+          for command_name in git docker just bunx curl; do
+            if ! command -v "$command_name" >/dev/null 2>&1; then
+              echo "Required production command is unavailable: $command_name" >&2
+              echo "Install it for the SSH user or place it in a standard user bin directory." >&2
+              exit 127
+            fi
+          done
+          docker compose version >/dev/null
+
+          cd "$deploy_path"
+
+          if ! git diff --quiet || ! git diff --cached --quiet; then
+            echo "The production checkout has tracked local changes; refusing to overwrite them." >&2
+            exit 1
+          fi
+
+          git fetch --quiet --prune --tags origin
+          git cat-file -e "${target_sha}^{commit}"
+
+          previous_sha=""
+          if [[ -f .deployed-sha ]]; then
+            read -r previous_sha < .deployed-sha
+            git cat-file -e "${previous_sha}^{commit}"
+          fi
+
+          schema_changed=true
+          if [[ -n "$previous_sha" ]] && git diff --quiet "$previous_sha" "$target_sha" -- db/schema.sql; then
+            schema_changed=false
+          fi
+
+          if [[ "$schema_changed" == true && "$schema_applied" != true ]]; then
+            echo "db/schema.sql differs from the deployed revision." >&2
+            echo "Apply the target schema on the VPS, then manually run this workflow" >&2
+            echo "for revision $target_sha with schema_applied=true." >&2
+            exit 42
+          fi
+
+          git checkout --quiet --detach "$target_sha"
+
+          if just production-deploy "$app_image" "$postgres_image"; then
+            printf '%s\n' "$target_sha" > .deployed-sha
+            exit 0
+          fi
+
+          echo "Deployment failed health checks." >&2
+          if [[ -n "$previous_sha" ]]; then
+            echo "Rolling application containers back to $previous_sha." >&2
+            git checkout --quiet --detach "$previous_sha"
+            previous_postgres_tag="$(git rev-parse "${previous_sha}:docker/postgres-walg")"
+            just production-deploy \
+              "ghcr.io/lebedev-nikita/coldbrew:${previous_sha}" \
+              "ghcr.io/lebedev-nikita/coldbrew-postgres-walg:${previous_postgres_tag}" || \
+              echo "Automatic rollback also failed; inspect the VPS immediately." >&2
+          else
+            echo "No previous CI/CD deployment is recorded; automatic rollback is unavailable." >&2
+          fi
+          exit 1
+          REMOTE
