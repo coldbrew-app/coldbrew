@@ -20,13 +20,16 @@ Before editing files for a substantial task:
 
 - Use `tRPC` for client-server interactions
 - Follow the [data loading guide](docs/data-loading.md) when choosing between route loaders, `useQuery`, and `useSuspenseQuery`
-- Wrap `fetch`-requests to foreign services into neverthrow's `Result` to improve durabilty
 - Use `shadcn` for UI components
 
 ## Documentation
 
 - Documentation files referenced by this guide may and should be edited whenever needed, and kept up to date with the codebase and project conventions.
 - Read [the multichat architecture](docs/multichat.md) before changing chat providers, collectors, streams, overlays, or related external-service integrations.
+- Follow the [Neverthrow guide](docs/neverthrow.md) when working with `Result`, `ResultAsync`, HTTP requests, subscriptions, streams, workers, or other expected external failures.
+- Follow the [React guide](docs/react.md) when creating or changing React hooks or their consumers in `apps/web`.
+- Follow the [SQL guide](docs/sql.md) when editing PostgreSQL schemas or SQL embedded in TypeScript.
+- Follow the [Zod guide](docs/zod.md) when creating or changing Zod schemas.
 - Use the glossary below for all donation and queue terminology in code, SQL, UI, and documentation.
 - Follow the [SSR and hydration guide](docs/ssr-and-hydration.md) when working on server-rendered UI, route context, browser-persisted state, or hydration warnings.
 
@@ -72,6 +75,7 @@ schemas, SQL, and migrations. English identifiers use the names in the
 ## Frontend Styling
 
 - Follow the [Coldbrew UI Style Guide](docs/ui-style-guide.md) for visual direction, semantic colors, typography, components, and responsive behavior
+- Follow the icon section of the [Coldbrew UI Style Guide](docs/ui-style-guide.md#interface-icons) when choosing or adding UI icons.
 - Use `tailwindcss` for styling
 - Use `flex`, `gap` and `padding` instead of margins wherever possible
 - Pass external positioning (`margin`, `width`, `grow` etc) of the root element of components via `className` instead of hardcoding it inside component. It is similar to modifiers in BEM methodology.
@@ -104,13 +108,6 @@ Add helper scripts to `justfile`, not `package.json`
 
 ## Code style
 
-- variables of types `Result` and `ResultAsync` from "neverthrow" should start with `$` (for example: `const $donations = ResultAsync.fromThrowable(...)(...)`)
-- represent expected external failures in subscriptions, streams, workers, and other long-running processes with `Result` or `ResultAsync`; do not throw or rethrow them
-- let SQL failures, internal schema or invariant violations, and framework fail-fast errors propagate normally instead of converting them to expected `Result` values
-- convert exceptions from third-party and generated code to `Result` at the nearest application seam without editing generated files
-- keep protocol-level work with foreign services in `@coldbrew/packages`; application adapters map its normalized data and errors into Coldbrew domain types
-- prefer deep modules that own transport, retries, cancellation, and runtime resources behind a small high-level interface
-- expose long-running sources as `AsyncIterable<Result<T, E>>` instead of public callback interfaces; keep callbacks inside adapters at third-party boundaries
 - normalize untrusted input once at its seam into a canonical domain value; downstream code compares, stores, and keys that canonical value rather than the raw input
 - treat a module's public interface as its test surface; do not export helpers, reducers, or dependency injection solely for tests
 - classes are acceptable for composition and data transformation, following the principles in Yegor Bugayenko's _Elegant Objects_; every class field must be immutable and assigned when the object is created

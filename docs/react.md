@@ -1,11 +1,6 @@
----
-name: coldbrew-react-style
-description: "Write and review Coldbrew React hooks and components, including nullable hook results and required-value accessors."
----
+# Coldbrew React Guide
 
-# Coldbrew React Style
-
-Apply this skill whenever creating, editing, or reviewing React hooks or their consumers in `apps/web`.
+Follow this guide whenever creating, editing, or reviewing React hooks or their consumers in `apps/web`.
 
 ## Required hook values
 

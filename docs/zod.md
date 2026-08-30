@@ -1,11 +1,6 @@
----
-name: coldbrew-zod-style
-description: "Write and review Zod schemas in Coldbrew, including schemas for API, database, and tRPC validation."
----
+# Coldbrew Zod Guide
 
-# Coldbrew Zod style
-
-Apply this skill whenever creating, editing, or reviewing Zod schemas.
+Follow this guide whenever creating, editing, or reviewing Zod schemas.
 
 ## Object formatting
 

@@ -1,17 +1,12 @@
----
-name: coldbrew-neverthrow-style
-description: "Write and review Coldbrew code that uses Neverthrow, makes HTTP requests, or exposes long-running Result streams, including safeFetch, JSON validation, error propagation, and callback adaptation."
----
+# Coldbrew Neverthrow Guide
 
-# Coldbrew Neverthrow Style
-
-Apply this skill whenever creating, editing, or reviewing `Result`, `ResultAsync`, or application HTTP requests.
+Follow this guide whenever creating, editing, or reviewing `Result`, `ResultAsync`, or application HTTP requests.
 
 ## HTTP requests
 
 - Use `safeFetch` from `@lebedevna/neverthrow-utils` for every application HTTP request. Do not call `fetch()` directly or wrap it with `ResultAsync.fromPromise()`.
 - `safeFetch` returns a `ResultAsync<string, SafeFetchError>`. A successful 2xx response is `Ok` with its text body; non-2xx responses and transport failures are `Err` values.
-- For JSON responses, chain `parseJson` and `validate` from `@lebedevna/neverthrow-utils` with `.andThen()`. Do not split the stages into manual `isOk()` checks or call Zod `.parse()`/`.safeParse()` directly.
+- For JSON responses, chain `parseJson` and `validate` from `@lebedevna/neverthrow-utils` with `.andThen()`. Do not split the stages into manual `isOk()` checks or call Zod `.parse()` or `.safeParse()` directly.
 - Native `fetch` is allowed for infrastructure healthchecks in `compose.yaml` and when implementing a fetch-compatible library callback whose contract requires returning a raw `Response`, such as the callback passed to a tRPC HTTP link. `safeFetch` consumes the response body and cannot satisfy the latter contract.
 
 ```ts
@@ -45,6 +40,7 @@ if ($response.isErr()) {
 
 - Use `Result` for expected failures from foreign HTTP APIs, WebSockets, gRPC, generated clients, event iterators, subscriptions, and long-running workers.
 - Convert thrown exceptions from third-party or generated code at the nearest application seam. Do not edit generated files to change their error model.
+- Keep protocol-level work with foreign services in `@coldbrew/packages`; application adapters map its normalized data and errors into Coldbrew domain types.
 - Do not turn SQL failures, internal Zod/schema invariants, programmer errors, or framework fail-fast errors into expected `Result` values merely to keep a stream alive.
 
 ## `safeTry`
@@ -65,6 +61,6 @@ return safeTry(async function* () {
 
 - Prefer a deep module that owns callbacks, transport, retries, cancellation, and mutable runtime resources while exposing `AsyncIterable<Result<T, E>>` through the `ResultStream<T, E>` alias.
 - Do not expose callbacks as the public application interface for a long-running source. Keep them inside the adapter for a third-party callback API.
-- Use `createResultEventStream` for callback or event-emitter sources, `fromFallibleAsyncIterator` for iterators whose open/read/close operations can fail, and `mergeResultStreams` to fan multiple Result streams into one.
+- Use `createResultEventStream` for callback or event-emitter sources, `fromFallibleAsyncIterator` for iterators whose open, read, or close operations can fail, and `mergeResultStreams` to fan multiple Result streams into one.
 - Treat cancellation as normal completion. It must close owned resources and must not emit a user-visible error.
 - The module that starts a long-running operation owns and retains its `AbortController`; callers provide only a parent `AbortSignal`. Do not pass a fresh, unretained `new AbortController().signal`. Iterator `.return()` must abort owned work and await idempotent cleanup.
