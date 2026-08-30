@@ -1,6 +1,7 @@
 import { cn } from "@web/lib/utils";
 
 import cosmicCup from "../../assets/cosmic-cup.png";
+import cosmicCup2x from "../../assets/cosmic-cup@2x.png";
 
 const orbitBodyClassName =
   "animate-cosmic-orbit-travel [offset-path:path('M_46_126_A_126_57_0_0_1_274_76_A_126_57_0_0_1_46_126')] [offset-rotate:0deg] motion-reduce:animate-none";
@@ -15,37 +16,46 @@ export function CosmicArt({ className, variant = "portal" }: Props) {
   if (variant === "beans") return <BeanComets className={className} />;
 
   return (
-    <svg
-      aria-hidden="true"
-      className={cn("overflow-visible", className)}
-      fill="none"
-      viewBox="0 0 320 230"
-    >
-      <image height="160" href={cosmicCup} width="240" x="45" y="47" />
-      <g>
-        <ellipse
-          className="animate-cosmic-orbit-dashes motion-reduce:animate-none"
-          cx="160"
-          cy="101"
-          pathLength="588"
-          rx="126"
-          ry="57"
-          stroke="#FFF8ED"
-          strokeDasharray="5 9"
-        />
-        <g className={orbitBodyClassName}>
-          <circle r="8" fill="#FF647C" stroke="#251820" strokeWidth="3" />
+    <div aria-hidden="true" className={cn("relative aspect-[320/230] overflow-visible", className)}>
+      <img
+        alt=""
+        className="absolute top-[20.4348%] left-[14.0625%] h-[69.5652%] w-3/4 object-contain"
+        height="171"
+        sizes="248px"
+        src={cosmicCup}
+        srcSet={`${cosmicCup} 256w, ${cosmicCup2x} 512w`}
+        width="256"
+      />
+      <svg
+        className="absolute inset-0 size-full overflow-visible"
+        fill="none"
+        viewBox="0 0 320 230"
+      >
+        <g>
+          <ellipse
+            className="animate-cosmic-orbit-dashes motion-reduce:animate-none"
+            cx="160"
+            cy="101"
+            pathLength="588"
+            rx="126"
+            ry="57"
+            stroke="#FFF8ED"
+            strokeDasharray="5 9"
+          />
+          <g className={orbitBodyClassName}>
+            <circle r="8" fill="#FF647C" stroke="#251820" strokeWidth="3" />
+          </g>
+          <g
+            className={cn(
+              orbitBodyClassName,
+              "[animation-delay:-9s] motion-reduce:[offset-distance:50%]",
+            )}
+          >
+            <path d="M-5-5 0-17 5-5 17 0 5 5 0 17-5 5-17 0-5-5Z" fill="#FFBD3E" />
+          </g>
         </g>
-        <g
-          className={cn(
-            orbitBodyClassName,
-            "[animation-delay:-9s] motion-reduce:[offset-distance:50%]",
-          )}
-        >
-          <path d="M-5-5 0-17 5-5 17 0 5 5 0 17-5 5-17 0-5-5Z" fill="#FFBD3E" />
-        </g>
-      </g>
-    </svg>
+      </svg>
+    </div>
   );
 }
 
