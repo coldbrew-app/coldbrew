@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SplatRouteImport } from './routes/$'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedAlertsRouteImport } from './routes/_authenticated/alerts'
@@ -25,6 +26,11 @@ import { Route as ApiTrpcSplatRouteImport } from './routes/api/trpc/$'
 import { Route as ChatOverlayTokenRouteImport } from './routes/chat.overlay.$token'
 import { Route as ApiIntegrationDonationalertsCallbackRouteImport } from './routes/api/integration/donationalerts/callback'
 
+const SplatRoute = SplatRouteImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
@@ -104,6 +110,7 @@ const ApiIntegrationDonationalertsCallbackRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
+  '/$': typeof SplatRoute
   '/': typeof AuthenticatedIndexRoute
   '/alerts': typeof AuthenticatedAlertsRoute
   '/chat': typeof AuthenticatedChatRoute
@@ -120,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/api/integration/donationalerts/callback': typeof ApiIntegrationDonationalertsCallbackRoute
 }
 export interface FileRoutesByTo {
+  '/$': typeof SplatRoute
   '/alerts': typeof AuthenticatedAlertsRoute
   '/chat': typeof AuthenticatedChatRoute
   '/integrations': typeof AuthenticatedIntegrationsRoute
@@ -136,6 +144,7 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/$': typeof SplatRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/_authenticated/alerts': typeof AuthenticatedAlertsRoute
   '/_authenticated/chat': typeof AuthenticatedChatRoute
@@ -155,6 +164,7 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/$'
     | '/'
     | '/alerts'
     | '/chat'
@@ -171,6 +181,7 @@ export interface FileRouteTypes {
     | '/api/integration/donationalerts/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/$'
     | '/alerts'
     | '/chat'
     | '/integrations'
@@ -186,6 +197,7 @@ export interface FileRouteTypes {
     | '/api/integration/donationalerts/callback'
   id:
     | '__root__'
+    | '/$'
     | '/_authenticated'
     | '/_authenticated/alerts'
     | '/_authenticated/chat'
@@ -204,6 +216,7 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  SplatRoute: typeof SplatRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   ApiHealthRoute: typeof ApiHealthRoute
   VideosSlugRoute: typeof VideosSlugRoute
@@ -215,6 +228,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/$': {
+      id: '/$'
+      path: '/$'
+      fullPath: '/$'
+      preLoaderRoute: typeof SplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated': {
       id: '/_authenticated'
       path: ''
@@ -362,6 +382,7 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 )
 
 const rootRouteChildren: RootRouteChildren = {
+  SplatRoute: SplatRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   ApiHealthRoute: ApiHealthRoute,
   VideosSlugRoute: VideosSlugRoute,
