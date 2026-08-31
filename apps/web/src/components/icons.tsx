@@ -1,6 +1,21 @@
+import type { ChatProvider } from "@coldbrew/packages/chat.js";
 import * as icons from "lucide-react";
 
+import boostyLogo from "../../assets/chat-providers/boosty.svg";
+import kickLogo from "../../assets/chat-providers/kick.svg";
+import twitchLogo from "../../assets/chat-providers/twitch.svg";
+import vkLogo from "../../assets/chat-providers/vk.svg";
+import youtubeLogo from "../../assets/chat-providers/youtube.svg";
+
 export type IconComponent = icons.LucideIcon;
+
+export const PlatformIcons = {
+  youtube: youtubeLogo,
+  twitch: twitchLogo,
+  kick: kickLogo,
+  boosty: boostyLogo,
+  vk_video: vkLogo,
+} as const satisfies Record<ChatProvider, string>;
 
 export const Icons = {
   addVideo: icons.ListPlus,

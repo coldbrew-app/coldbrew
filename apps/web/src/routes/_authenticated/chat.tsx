@@ -8,7 +8,7 @@ import { MAX_CHAT_MESSAGE_LENGTH } from "@coldbrew/packages/chat.js";
 import { createFileRoute } from "@tanstack/react-router";
 import { ChatFeed } from "@web/components/chat-feed";
 import { CosmicPageHeader } from "@web/components/cosmic-page-header";
-import { Icons } from "@web/components/icons";
+import { Icons, PlatformIcons } from "@web/components/icons";
 import { Button } from "@web/components/ui/button";
 import { Input } from "@web/components/ui/input";
 import { useChatServiceMutations, useChatServiceQueries } from "@web/hooks/chat-service";
@@ -25,11 +25,11 @@ export const Route = createFileRoute("/_authenticated/chat")({
 });
 
 const providerMeta = {
-  youtube: { label: "YouTube", color: "#ff4057", mark: "YT" },
-  twitch: { label: "Twitch", color: "#9146ff", mark: "TW" },
-  kick: { label: "Kick", color: "#53fc18", mark: "K" },
-  boosty: { label: "Boosty", color: "#f15f2c", mark: "B" },
-  vk_video: { label: "VK Video", color: "#2688eb", mark: "VK" },
+  youtube: { label: "YouTube", color: "#ff4057", logo: PlatformIcons.youtube },
+  twitch: { label: "Twitch", color: "#9146ff", logo: PlatformIcons.twitch },
+  kick: { label: "Kick", color: "#53fc18", logo: PlatformIcons.kick },
+  boosty: { label: "Boosty", color: "#f15f2c", logo: PlatformIcons.boosty },
+  vk_video: { label: "VK Video", color: "#2688eb", logo: PlatformIcons.vk_video },
 } as const;
 
 const copy = {
@@ -98,10 +98,9 @@ function ProviderMark({ provider }: { provider: ChatProvider }) {
   return (
     <span
       aria-hidden="true"
-      className="grid size-8 shrink-0 place-items-center rounded-lg border bg-background font-heading text-[10px] font-bold shadow-sm"
-      style={{ borderColor: `${meta.color}80`, color: meta.color }}
+      className="grid size-8 shrink-0 place-items-center rounded-lg bg-background"
     >
-      {meta.mark}
+      <img alt="" className="size-5" src={meta.logo} />
     </span>
   );
 }

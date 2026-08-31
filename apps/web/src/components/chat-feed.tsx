@@ -7,7 +7,7 @@ import { cn } from "@web/lib/utils";
 import { useEffect, useRef, useState } from "react";
 
 import { useTextWithLinks } from "../hooks/use-text-with-links";
-import { Icons } from "./icons";
+import { Icons, PlatformIcons } from "./icons";
 import { Button } from "./ui/button";
 
 const providerColor = {
@@ -38,11 +38,7 @@ function Message({
       )}
       style={{ borderColor: providerColor[message.provider] }}
     >
-      <span
-        className={cn("mt-1 size-2 shrink-0 rounded-full")}
-        style={{ backgroundColor: providerColor[message.provider] }}
-        aria-hidden="true"
-      />
+      <img alt="" className="mt-0.5 size-3.5 shrink-0" src={PlatformIcons[message.provider]} />
       <p className="min-w-0 text-sm leading-relaxed">
         <strong className="pr-2 font-semibold">{message.author.displayName}</strong>
         <span className={overlay ? "text-white/90" : "text-muted-foreground"}>
