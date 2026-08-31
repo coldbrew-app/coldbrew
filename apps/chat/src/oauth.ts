@@ -304,6 +304,7 @@ export class ChatOauth {
         },
         body: JSON.stringify({
           broadcaster_user_id: broadcasterUserId,
+          method: "webhook",
           events: [{ name: "chat.message.sent", version: 1 }],
         }),
         signal,
