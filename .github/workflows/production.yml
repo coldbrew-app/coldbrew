@@ -50,12 +50,15 @@ jobs:
     env:
       APP_DOMAIN: http://localhost:3000
       BETTER_AUTH_SECRET: ci-only-secret-at-least-thirty-two-characters
+      CHAT_SERVICE_SECRET: ci-only-chat-service-secret-at-least-thirty-two-characters
+      CHAT_TOKEN_ENCRYPTION_SECRET: ci-only-chat-token-encryption-secret-at-least-thirty-two-characters
       DATABASE_URL: postgresql://coldbrew:coldbrew@127.0.0.1:5432/coldbrew
       DONATION_ALERTS_CLIENT_ID: "1"
       DONATION_ALERTS_CLIENT_SECRET: ci-only
       GOOGLE_CLIENT_ID: ci-only
       GOOGLE_CLIENT_SECRET: ci-only
-      YOUTUBE_API_KEY: ci-only
+      YOUTUBE_CLIENT_ID: ci-only
+      YOUTUBE_CLIENT_SECRET: ci-only
     steps:
       - name: Check out revision
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -191,10 +194,17 @@ jobs:
           AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
           AXIOM_TOKEN: ${{ secrets.AXIOM_TOKEN }}
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          CHAT_SERVICE_SECRET: ${{ secrets.CHAT_SERVICE_SECRET }}
+          CHAT_TOKEN_ENCRYPTION_SECRET: ${{ secrets.CHAT_TOKEN_ENCRYPTION_SECRET }}
           DONATION_ALERTS_CLIENT_ID: ${{ vars.DONATION_ALERTS_CLIENT_ID }}
           DONATION_ALERTS_CLIENT_SECRET: ${{ secrets.DONATION_ALERTS_CLIENT_SECRET }}
           GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          KICK_CLIENT_ID: ${{ vars.KICK_CLIENT_ID }}
+          KICK_CLIENT_SECRET: ${{ secrets.KICK_CLIENT_SECRET }}
+          KICK_WEBHOOK_PUBLIC_KEY: ${{ vars.KICK_WEBHOOK_PUBLIC_KEY }}
+          YOUTUBE_CLIENT_ID: ${{ vars.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           PGDATABASE: ${{ vars.PGDATABASE }}
           PGPASSWORD: ${{ secrets.PGPASSWORD }}
           PGPORT: ${{ vars.PGPORT }}
@@ -203,7 +213,6 @@ jobs:
           WALG_BACKUP_INTERVAL_SECONDS: ${{ vars.WALG_BACKUP_INTERVAL_SECONDS }}
           WALG_KEEP_FULL_BACKUPS: ${{ vars.WALG_KEEP_FULL_BACKUPS }}
           WALG_S3_PREFIX: ${{ vars.WALG_S3_PREFIX }}
-          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: |
           node --input-type=module - "$RUNNER_TEMP/production.env" <<'NODE'
           import { writeFileSync } from "node:fs"
@@ -214,15 +223,21 @@ jobs:
             "AWS_REGION",
             "AXIOM_TOKEN",
             "BETTER_AUTH_SECRET",
+            "CHAT_SERVICE_SECRET",
+            "CHAT_TOKEN_ENCRYPTION_SECRET",
             "DONATION_ALERTS_CLIENT_ID",
             "DONATION_ALERTS_CLIENT_SECRET",
             "GOOGLE_CLIENT_ID",
             "GOOGLE_CLIENT_SECRET",
+            "KICK_CLIENT_ID",
+            "KICK_CLIENT_SECRET",
+            "KICK_WEBHOOK_PUBLIC_KEY",
+            "YOUTUBE_CLIENT_ID",
+            "YOUTUBE_CLIENT_SECRET",
             "PGDATABASE",
             "PGPASSWORD",
             "PGUSER",
             "WALG_S3_PREFIX",
-            "YOUTUBE_API_KEY",
           ]
           const optional = [
             "AWS_ACCESS_KEY_ID",
@@ -329,11 +344,17 @@ jobs:
             DATABASE_URL
             AXIOM_TOKEN
             BETTER_AUTH_SECRET
+            CHAT_SERVICE_SECRET
+            CHAT_TOKEN_ENCRYPTION_SECRET
             GOOGLE_CLIENT_ID
             GOOGLE_CLIENT_SECRET
+            KICK_CLIENT_ID
+            KICK_CLIENT_SECRET
+            KICK_WEBHOOK_PUBLIC_KEY
+            YOUTUBE_CLIENT_ID
+            YOUTUBE_CLIENT_SECRET
             DONATION_ALERTS_CLIENT_ID
             DONATION_ALERTS_CLIENT_SECRET
-            YOUTUBE_API_KEY
             WALG_S3_PREFIX
             AWS_REGION
           )

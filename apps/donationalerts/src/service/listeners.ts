@@ -69,14 +69,10 @@ export const refreshListeners = (() => {
   let isRunning = false;
 
   return async (running: Map<UserId, RunningDonationListener>) => {
-    if (isRunning) {
-      logger.debug("refreshListeners: skip (is running)");
-      return;
-    }
+    if (isRunning) return;
     isRunning = true;
     using _ = defer(() => (isRunning = false));
 
-    const start = performance.now();
     const users = await store.getUsersAuthenticatedInDonationAlerts();
     const usersById = new Map(users.map((user) => [user.userId, user]));
 
@@ -102,7 +98,5 @@ export const refreshListeners = (() => {
         await delay(50);
       }
     }
-    const end = performance.now();
-    logger.debug(`refreshListeners: ${Math.round(end - start) / 1000}`);
   };
 })();

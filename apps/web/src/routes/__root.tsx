@@ -232,17 +232,12 @@ function AuthenticatedApplicationContent() {
             </Link>
             <Link
               activeProps={{ className: activeNavItem }}
-              disabled
               className={navItem}
               onClick={() => setOpenMobile(false)}
               to="/chat"
             >
               <Icons.chat aria-hidden="true" />
               {t("chat")}
-              <Tooltip>
-                <TooltipTrigger>🚧</TooltipTrigger>
-                <TooltipContent>{t("underConstruction")}</TooltipContent>
-              </Tooltip>
             </Link>
             <Link
               activeProps={{ className: activeNavItem }}

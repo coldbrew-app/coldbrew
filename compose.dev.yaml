@@ -15,5 +15,19 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql
 
+  nats:
+    image: nats:2.11-alpine
+    command: ["--jetstream", "--store_dir", "/data", "--http_port", "8222"]
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1:8222/healthz"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    ports:
+      - "127.0.0.1:${NATS_PORT:-4222}:4222"
+    volumes:
+      - nats_data:/data
+
 volumes:
+  nats_data:
   postgres_data:

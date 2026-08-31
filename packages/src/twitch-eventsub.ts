@@ -13,6 +13,7 @@ export type TwitchSocketEvent =
       type: "message";
       channel: string;
       id: string;
+      authorId: string;
       author: string;
       text: string;
       occurredAt: Date;
@@ -44,6 +45,7 @@ const NotificationSchema = z.object({
   payload: z.object({
     event: z.object({
       broadcaster_user_login: z.string(),
+      chatter_user_id: z.string(),
       chatter_user_name: z.string(),
       message_id: z.string(),
       message: z.object({
@@ -120,6 +122,7 @@ function decodeSocketMessage(raw: string) {
               type: "message" as const,
               channel: event.broadcaster_user_login.toLowerCase(),
               id: event.message_id,
+              authorId: event.chatter_user_id,
               author: event.chatter_user_name,
               text: event.message.text,
               occurredAt: new Date(notification.metadata.message_timestamp),

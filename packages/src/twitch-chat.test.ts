@@ -65,6 +65,7 @@ describe("Twitch live chat client", () => {
       payload: {
         event: {
           broadcaster_user_login: "channel-a",
+          chatter_user_id: "viewer-1",
           chatter_user_name: "Viewer",
           message_id: "message-1",
           message: { text: "Hello" },

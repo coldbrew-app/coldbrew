@@ -1,14 +1,13 @@
 import { delay } from "@lebedevna/delay";
-import { erro, parseJson, safeFetch, validate } from "@lebedevna/neverthrow-utils";
-import { rurl } from "@lebedevna/readonly-url";
-import { ok, type Result as NeverthrowResult } from "neverthrow";
+import { erro } from "@lebedevna/neverthrow-utils";
+import { ok } from "neverthrow";
 import {
   ChannelCredentials,
   createChannel,
   createClient as createGrpcClient,
   Metadata,
 } from "nice-grpc";
-import { z } from "zod";
+import { ClientError, Status } from "nice-grpc-common";
 
 import { createAbortableStream } from "./create-abortable-stream.js";
 import { logger } from "./logger.js";
@@ -26,6 +25,7 @@ const RETRY_MAX_MS = 60_000;
 export type YoutubeLiveChatItem = Readonly<{
   kind: "text" | "other";
   id?: string;
+  authorId?: string;
   author?: string;
   text?: string;
   occurredAt?: Date;
@@ -37,14 +37,16 @@ export type YoutubeLiveChatEvent =
 
 export type YoutubeLiveChatError = Readonly<{
   type: "youtube live chat error";
-  operation: "lookup" | "open" | "read" | "close";
+  operation: "open" | "read" | "close";
+  reason: "unauthorized" | "rate_limited" | "offline" | "invalid" | "unavailable";
   isAbort: boolean;
   cause: unknown;
 }>;
 
-type LiveChatLookup =
-  | Readonly<{ type: "live"; liveChatId: string }>
-  | Readonly<{ type: "offline" }>;
+export type YoutubeLiveChatStreamInput = Readonly<{
+  liveChatId: string;
+  accessToken: string;
+}>;
 
 type YoutubeStreamCursor = Readonly<{
   liveChatId: string;
@@ -57,12 +59,9 @@ type YoutubeStreamState = Readonly<{
 }>;
 
 type YoutubeDependencies = Readonly<{
-  lookup(
-    videoId: string,
-    signal: AbortSignal,
-  ): Promise<NeverthrowResult<LiveChatLookup, YoutubeLiveChatError>>;
   open(
     cursor: YoutubeStreamCursor,
+    accessToken: string,
     signal: AbortSignal,
   ): ResultStream<LiveChatMessageListResponse, YoutubeLiveChatError>;
   wait(milliseconds: number, signal: AbortSignal): Promise<void>;
@@ -73,39 +72,30 @@ function youtubeError(
   cause: unknown,
   isAbort = false,
 ) {
-  return erro.fmt({ type: "youtube live chat error" as const, operation, isAbort, cause });
+  const reason =
+    cause instanceof ClientError
+      ? cause.code === Status.PERMISSION_DENIED || cause.code === Status.UNAUTHENTICATED
+        ? "unauthorized"
+        : cause.code === Status.RESOURCE_EXHAUSTED
+          ? "rate_limited"
+          : cause.code === Status.FAILED_PRECONDITION || cause.code === Status.NOT_FOUND
+            ? "offline"
+            : cause.code === Status.INVALID_ARGUMENT
+              ? "invalid"
+              : "unavailable"
+      : "unavailable";
+  return erro.fmt({
+    type: "youtube live chat error" as const,
+    operation,
+    reason,
+    isAbort: isAbort || (cause instanceof ClientError && cause.code === Status.CANCELLED),
+    cause,
+  });
 }
 
-function defaultDependencies(apiKey: string): YoutubeDependencies {
+function defaultDependencies(): YoutubeDependencies {
   return {
-    async lookup(videoId, signal) {
-      const url = rurl("https://www.googleapis.com/youtube/v3/videos").withSearchParams({
-        id: videoId,
-        key: apiKey,
-        part: "liveStreamingDetails",
-      });
-      const schema = z.object({
-        items: z.array(
-          z.object({
-            liveStreamingDetails: z
-              .object({
-                activeLiveChatId: z.string().optional(),
-              })
-              .optional(),
-          }),
-        ),
-      });
-      const $response = await safeFetch(url.href, { signal })
-        .andThen(parseJson)
-        .andThen((value) => validate(value, schema));
-      if ($response.isErr()) {
-        const isAbort = $response.error.type === "fetch error" && $response.error.isAbort;
-        return erro(youtubeError("lookup", $response.error, isAbort));
-      }
-      const liveChatId = $response.value.items[0]?.liveStreamingDetails?.activeLiveChatId;
-      return ok(liveChatId ? { type: "live", liveChatId } : { type: "offline" });
-    },
-    async *open(cursor, signal) {
+    async *open(cursor, accessToken, signal) {
       const stream = fromFallibleAsyncIterator(
         () => {
           const channel = createChannel(
@@ -120,7 +110,7 @@ function defaultDependencies(apiKey: string): YoutubeDependencies {
                 pageToken: cursor.pageToken,
                 part: ["snippet", "authorDetails"],
               },
-              { metadata: Metadata({ "x-goog-api-key": apiKey }), signal },
+              { metadata: Metadata({ authorization: `Bearer ${accessToken}` }), signal },
             )
             [Symbol.asyncIterator]();
           return {
@@ -158,6 +148,7 @@ function itemFromWire(item: LiveChatMessageListResponse["items"][number]): Youtu
         ? "text"
         : "other",
     ...(item.id ? { id: item.id } : {}),
+    ...(item.authorDetails?.channelId ? { authorId: item.authorDetails.channelId } : {}),
     ...(item.authorDetails?.displayName ? { author: item.authorDetails.displayName } : {}),
     ...(text !== undefined ? { text } : {}),
     ...(!Number.isNaN(occurredAt.getTime()) ? { occurredAt } : {}),
@@ -168,9 +159,6 @@ function nextState(
   state: YoutubeStreamState,
   response: LiveChatMessageListResponse,
 ): YoutubeStreamState {
-  const receivedText = response.items.some(
-    (item) => item.snippet?.type === LiveChatMessageSnippet_TypeWrapper_Type.TEXT_MESSAGE_EVENT,
-  );
   return {
     cursor:
       response.offlineAt || !state.cursor
@@ -179,58 +167,54 @@ function nextState(
             ...state.cursor,
             ...(response.nextPageToken ? { pageToken: response.nextPageToken } : {}),
           },
-    retryMs: receivedText ? RETRY_START_MS : state.retryMs,
+    retryMs: RETRY_START_MS,
   };
 }
 
 export class YoutubeLiveChatClient {
   readonly stream: (
-    videoId: string,
+    input: YoutubeLiveChatStreamInput,
     parentSignal?: AbortSignal,
   ) => ResultStream<YoutubeLiveChatEvent, YoutubeLiveChatError>;
 
-  constructor(options: Readonly<{ apiKey: string }>) {
-    const dependencies = defaultDependencies(options.apiKey);
-    this.stream = (videoId, parentSignal) =>
+  constructor() {
+    const dependencies = defaultDependencies();
+    this.stream = (input, parentSignal) =>
       createAbortableStream(async function* (signal) {
-        let state: YoutubeStreamState = { retryMs: RETRY_START_MS };
+        let state: YoutubeStreamState = {
+          cursor: { liveChatId: input.liveChatId },
+          retryMs: RETRY_START_MS,
+        };
         yield ok({ type: "state", state: "connecting" });
 
         while (!signal.aborted) {
-          const $lookup = await dependencies.lookup(videoId, signal);
-          if ($lookup.isErr()) {
-            if ($lookup.error.isAbort || signal.aborted) return;
-            state = { ...state, cursor: undefined };
-            yield propagateError($lookup);
-          } else if ($lookup.value.type === "offline") {
-            state = { ...state, cursor: undefined };
-            yield ok({ type: "state", state: "offline" });
-          } else {
-            state = {
-              ...state,
-              cursor:
-                state.cursor?.liveChatId === $lookup.value.liveChatId
-                  ? state.cursor
-                  : { liveChatId: $lookup.value.liveChatId },
-            };
-            yield ok({ type: "state", state: "live" });
-            const cursor = state.cursor;
-            if (!cursor) return;
+          yield ok({ type: "state", state: "live" });
+          const cursor = state.cursor;
+          if (!cursor) return;
 
-            for await (const $response of dependencies.open(cursor, signal)) {
-              if ($response.isErr()) {
-                if ($response.error.isAbort || signal.aborted) return;
-                yield propagateError($response);
-                break;
-              }
-              state = nextState(state, $response.value);
-              for (const item of $response.value.items) {
-                yield ok({ type: "item", item: itemFromWire(item) });
-              }
-              if ($response.value.offlineAt) {
+          for await (const $response of dependencies.open(cursor, input.accessToken, signal)) {
+            if ($response.isErr()) {
+              if ($response.error.isAbort || signal.aborted) return;
+              if ($response.error.reason === "offline") {
                 yield ok({ type: "state", state: "offline" });
-                break;
+                return;
               }
+              yield propagateError($response);
+              if (
+                $response.error.reason === "unauthorized" ||
+                $response.error.reason === "invalid"
+              ) {
+                return;
+              }
+              break;
+            }
+            state = nextState(state, $response.value);
+            for (const item of $response.value.items) {
+              yield ok({ type: "item", item: itemFromWire(item) });
+            }
+            if ($response.value.offlineAt) {
+              yield ok({ type: "state", state: "offline" });
+              return;
             }
           }
 

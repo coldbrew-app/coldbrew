@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
+    "@coldbrew/chat": "workspace:*",
     "@coldbrew/packages": "workspace:*",
     "@fontsource-variable/bitter": "^5.3.0",
     "@fontsource-variable/geist": "^5.3.0",
@@ -31,6 +32,7 @@
     "clsx": "^2.1.1",
     "cookie-es": "^3.1.1",
     "emittery": "^2.0.0",
+    "event-source-polyfill": "^1.0.31",
     "kysely": "^0.29.4",
     "kysely-postgres-js": "^3.0.0",
     "linkify-it": "^6.1.0",
@@ -50,6 +52,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/router-cli": "^1.167.28",
     "@tanstack/router-plugin": "^1.168.30",
+    "@types/event-source-polyfill": "^1.0.5",
     "@types/pg": "^8.15.5",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",

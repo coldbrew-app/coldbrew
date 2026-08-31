@@ -4,12 +4,29 @@ import react from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
 import { defineConfig } from "vite";
 
-export default defineConfig({
-  envDir: "../..",
-  plugins: [tanstackStart(), nitro({ preset: "bun" }), react(), tailwindcss()],
-  resolve: { tsconfigPaths: true },
-  server: {
-    port: Number(process.env.APP_PORT ?? 3000),
-    strictPort: true,
-  },
+export default defineConfig(({ command }) => {
+  const chatServiceOrigin = `http://127.0.0.1:${Number(process.env.CHAT_PORT ?? 3001)}`;
+
+  return {
+    envDir: "../..",
+    plugins: [
+      tanstackStart(),
+      nitro({
+        preset: "bun",
+        routeRules:
+          command === "serve"
+            ? {
+                "/api/chat/**": { proxy: `${chatServiceOrigin}/**` },
+              }
+            : undefined,
+      }),
+      react(),
+      tailwindcss(),
+    ],
+    resolve: { tsconfigPaths: true },
+    server: {
+      port: Number(process.env.APP_PORT ?? 3000),
+      strictPort: true,
+    },
+  };
 });

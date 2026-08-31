@@ -12,12 +12,18 @@ env-init source-env=".env.dev":
 
   app_port="$(wt step eval '{{{{ (repo ~ "-app-" ~ branch) | hash_port }}')"
   db_port="$(wt step eval '{{{{ (repo ~ "-db-" ~ branch) | hash_port }}')"
+  chat_port="$(wt step eval '{{{{ (repo ~ "-chat-" ~ branch) | hash_port }}')"
+  nats_port="$(wt step eval '{{{{ (repo ~ "-nats-" ~ branch) | hash_port }}')"
   db_name="coldbrew_$(wt step eval '{{{{ branch | sanitize_db }}')"
   compose_project="$(wt step eval '{{{{ (repo ~ "_" ~ branch) | sanitize_db }}')"
 
   bunx dotenvx decrypt -f "{{source-env}}" -fk .env.keys --stdout > .env
   bunx dotenvx set -f .env --plain APP_PORT "$app_port"
   bunx dotenvx set -f .env --plain APP_DOMAIN "http://localhost:$app_port"
+  bunx dotenvx set -f .env --plain CHAT_PORT "$chat_port"
+  bunx dotenvx set -f .env --plain CHAT_WEB_URL "http://localhost:$app_port"
+  bunx dotenvx set -f .env --plain NATS_PORT "$nats_port"
+  bunx dotenvx set -f .env --plain NATS_SERVERS "nats://127.0.0.1:$nats_port"
   bunx dotenvx set -f .env --plain PGHOST 127.0.0.1
   bunx dotenvx set -f .env --plain PGPORT "$db_port"
   bunx dotenvx set -f .env --plain PGDATABASE "$db_name"
@@ -33,11 +39,14 @@ dev-donationalerts:
 dev-video:
   bunx dotenvx run -f .env --overload -- bun --watch apps/video/src/index.ts
 
+dev-chat:
+  bunx dotenvx run -f .env --overload -- bun --watch apps/chat/src/index.ts
+
 dev-web:
   bunx dotenvx run -f .env --overload -- sh -c 'cd apps/web && bun run dev'
 
 dev:
-  bunx concurrently -n 'web,donationalerts,video' 'just dev-web' 'just dev-donationalerts' 'just dev-video'
+  bunx concurrently -n 'web,chat,donationalerts,video' 'just dev-web' 'just dev-chat' 'just dev-donationalerts' 'just dev-video'
 
 typecheck-web:
   bunx tsc --noEmit -p apps/web/tsconfig.node.json
@@ -49,10 +58,13 @@ typecheck-donationalerts:
 typecheck-video:
   bunx tsc --noEmit -p apps/video/tsconfig.json
 
+typecheck-chat:
+  bunx tsc --noEmit -p apps/chat/tsconfig.json
+
 typecheck-packages:
   bunx tsc --noEmit -p packages/tsconfig.json
 
-typecheck: typecheck-web typecheck-donationalerts typecheck-video typecheck-packages
+typecheck: typecheck-web typecheck-chat typecheck-donationalerts typecheck-video typecheck-packages
 
 
 fmt:
@@ -87,6 +99,10 @@ production-deploy app_image postgres_image:
 
   export COLDBREW_IMAGE="{{app_image}}"
   export COLDBREW_POSTGRES_IMAGE="{{postgres_image}}"
+
+  # Keep manual Compose operations and host restarts on the deployed immutable images.
+  bunx dotenvx set -f .env --plain COLDBREW_IMAGE "$COLDBREW_IMAGE"
+  bunx dotenvx set -f .env --plain COLDBREW_POSTGRES_IMAGE "$COLDBREW_POSTGRES_IMAGE"
 
   docker compose pull postgres web
   docker compose up --no-build --detach --wait --wait-timeout 180
@@ -175,10 +191,13 @@ test-donationalerts: install
 test-video: install
   bunx dotenvx run -f .env --overload -- bunx vitest --run apps/video
 
+test-chat: install
+  bunx dotenvx run -f .env --overload -- bunx vitest --run apps/chat
+
 test-packages: install
   bunx dotenvx run -f .env --overload -- bunx vitest --run packages
 
-test: test-web test-donationalerts test-video test-packages
+test: test-web test-chat test-donationalerts test-video test-packages
 
 check: lint fmt-check test
 

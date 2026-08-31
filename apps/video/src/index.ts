@@ -6,7 +6,6 @@ import {
   youtubeVideoId,
 } from "@coldbrew/packages/youtube.js";
 import { delay } from "@lebedevna/delay";
-import dayjs from "dayjs";
 import dedent from "dedent-js";
 import { ok, safeTry } from "neverthrow";
 
@@ -16,7 +15,6 @@ import { VideoToSave } from "./sensors/db/store.js";
 async function main() {
   while (true) {
     await using _ = delay(2500);
-    logger.debug("while (true): " + dayjs().format("HH:mm:ss"));
 
     const donations = await store.getUnparsedDonations();
 

@@ -80,6 +80,9 @@ The GitHub Variables and Secrets described below provide:
 - `PGDATABASE`, `PGUSER`, `PGPASSWORD`, and optionally `PGPORT` for the
   external PostgreSQL binding (defaults to `5432`);
 - `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET`;
+- `YOUTUBE_CLIENT_ID` and `YOUTUBE_CLIENT_SECRET` for multichat OAuth;
+- `KICK_CLIENT_ID`, `KICK_CLIENT_SECRET`, and `KICK_WEBHOOK_PUBLIC_KEY` for
+  multichat OAuth and signed webhook verification;
 - `DONATION_ALERTS_CLIENT_ID` and `DONATION_ALERTS_CLIENT_SECRET`;
 - `AXIOM_TOKEN`, an ingest-only API token scoped to the `coldbrew-logs` dataset;
 - `WALG_S3_PREFIX` and `AWS_REGION`, plus AWS credentials unless the VPS uses
@@ -96,7 +99,10 @@ Production configuration, including credentials, is stored in the ignored
 `.env` file on the VPS and passed to containers through environment variables.
 Do not add Compose file secrets for these values: keeping one configuration
 path ensures that `docker compose up` detects changes and recreates affected
-containers.
+containers. The deployment recipe also records the deployed immutable
+`COLDBREW_IMAGE` and `COLDBREW_POSTGRES_IMAGE` references there, so later manual
+Compose operations cannot fall back to stale local images. A rollback replaces
+both references with the previous revision's images.
 
 `localhost` has different meanings on the host and in a container. Host-side
 tools use `PGHOST=127.0.0.1`; remote tools use the VPS address; application
@@ -133,6 +139,7 @@ OAuth callback URLs:
 
 - `https://<domain>/api/auth/callback/google`
 - `https://<domain>/api/integration/donationalerts/callback`
+- `https://<domain>/api/chat/oauth/youtube/callback`
 
 PostgreSQL 18 keeps the cluster in a version-specific subdirectory under
 `/var/lib/postgresql`; `compose.yaml` therefore mounts the volume at that
@@ -155,6 +162,9 @@ Add these environment variables:
 | `AWS_REGION`                   | `eu-central-1`                     | yes      |
 | `DONATION_ALERTS_CLIENT_ID`    | `12345`                            | yes      |
 | `GOOGLE_CLIENT_ID`             | OAuth client ID                    | yes      |
+| `KICK_CLIENT_ID`               | Kick OAuth client ID               | yes      |
+| `KICK_WEBHOOK_PUBLIC_KEY`      | Kick webhook RSA public key        | yes      |
+| `YOUTUBE_CLIENT_ID`            | YouTube chat OAuth client ID       | yes      |
 | `PGDATABASE`                   | `coldbrew`                         | yes      |
 | `PGPORT`                       | `5432`                             | no       |
 | `PGUSER`                       | `coldbrew`                         | yes      |
@@ -176,18 +186,28 @@ Add these environment secrets:
 | `AWS_SESSION_TOKEN`             | Temporary AWS session token                  | no       |
 | `AXIOM_TOKEN`                   | Axiom ingest-only API token                  | yes      |
 | `BETTER_AUTH_SECRET`            | At least 32 random characters                | yes      |
+| `CHAT_SERVICE_SECRET`           | At least 32 random characters                | yes      |
+| `CHAT_TOKEN_ENCRYPTION_SECRET`  | At least 32 random characters                | yes      |
 | `DONATION_ALERTS_CLIENT_SECRET` | DonationAlerts OAuth client secret           | yes      |
 | `GOOGLE_CLIENT_SECRET`          | Google OAuth client secret                   | yes      |
+| `KICK_CLIENT_SECRET`            | Kick OAuth client secret                     | yes      |
+| `YOUTUBE_CLIENT_SECRET`         | YouTube chat OAuth client secret             | yes      |
 | `PGPASSWORD`                    | PostgreSQL password                          | yes      |
 | `SSH_KNOWN_HOSTS`               | Verified `known_hosts` line for the VPS      | yes      |
 | `SSH_PRIVATE_KEY`               | Private half of the dedicated deployment key | yes      |
-| `YOUTUBE_API_KEY`               | YouTube Data API key                         | yes      |
 
 `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` must either both be set or both
 be omitted when the VPS uses an IAM role or another supported credential
 provider. The workflow validates this along with every required value, safely
 generates dotenv syntax, transfers it over SSH, and atomically replaces
 `/opt/coldbrew/.env` with mode `0600` on every deployment.
+
+When a service gains a required server environment variable, update the
+`Production` workflow in the same change: pass the GitHub variable or secret
+to the environment-generation step, include it in its required-value list, and
+add it to the VPS-side validation list. Document the corresponding GitHub
+configuration here. Otherwise deployments can publish an image that fails its
+health check because its generated `.env` is incomplete.
 
 Generate `SSH_KNOWN_HOSTS` with `ssh-keyscan -p <port> <host>`, but verify the
 reported host-key fingerprint through the VPS provider console before saving

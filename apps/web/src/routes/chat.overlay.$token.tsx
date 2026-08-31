@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ChatFeed } from "@web/components/chat-feed";
-import { useChatStream } from "@web/hooks/use-chat-stream";
+import { useChatOverlayClient } from "@web/hooks/chat-service";
+import { useChatServiceStream } from "@web/hooks/use-chat-service-stream";
 import { useEffect } from "react";
 
 export const Route = createFileRoute("/chat/overlay/$token")({
@@ -10,7 +11,8 @@ export const Route = createFileRoute("/chat/overlay/$token")({
 
 function ChatOverlay() {
   const { token } = Route.useParams();
-  const { connectionError, messages } = useChatStream("overlay", token);
+  const client = useChatOverlayClient(token);
+  const { connectionError, messages } = useChatServiceStream(client, "overlay");
 
   useEffect(() => {
     const previous = document.body.style.background;

@@ -1,37 +1,144 @@
 # Multichat
 
-The authenticated `/chat` page combines ordinary public YouTube chat messages. Streamers configure up to eight live-stream URLs without authorizing Coldbrew with YouTube.
+`apps/chat` owns chat aggregation. `apps/web` only authenticates the Coldbrew user, issues a
+five-minute HMAC-signed chat ticket, and renders the client. The browser then connects directly to
+the chat service through `/api/chat/trpc`; it does not proxy message streams or commands through
+the web process.
 
-Messages are transient. The web process keeps at most 200 messages per active source in memory and never stores chat history in PostgreSQL. Collectors are shared by canonical source identifier and remain alive for 90 seconds after their last viewer disconnects.
+The product accepts only provider accounts owned by the streamer and connected through OAuth.
+Multiple accounts from the same provider are supported. The old arbitrary live-stream URL editor
+is no longer used. Its legacy PostgreSQL table remains during the non-destructive rollout, but no
+application path reads or writes it.
 
-Raw source URLs are parsed once at the input seam into canonical `ChatSource` values. The editor, tRPC procedure, persistence, and collector registry exchange those values rather than raw URLs; duplicate detection and collector ownership use the shared canonical source key.
+## Runtime shape
 
-Concrete chat sources implement `EventSource<ChatStreamEvent, ChatProviderError>` and expose `ResultStream<T, E>`, an alias for `AsyncIterable<Result<T, E>>`; immutable provider factories bind a canonical source identifier when each source object is created. The process-local registry exposes the same stream shape with `ChatRegistryError`. `createResultEventStream`, `fromFallibleAsyncIterator`, and `mergeResultStreams` contain the callback, iterator, cancellation, and fan-in mechanics shared by the providers. Expected failures from event iterators, sockets, gRPC, generated clients, and foreign payloads are converted to `Result` at their nearest external-service seam. An unexpected iterator rejection remains fail-fast: fan-in closes sibling streams and propagates the original exception instead of translating it into a domain error. SQL failures and internal tRPC/Zod invariant failures also remain fail-fast. The tRPC subscription unwraps successful registry events and converts typed registry failures to a public `connection_error` event with a stable code and safe message.
+```text
+browser ── short-lived ticket ──► apps/chat tRPC
+                                      │
+                         ┌────────────┴────────────┐
+                         │                         │
+                  PostgreSQL                 NATS JetStream
+             connections, sources,      live events and leases
+              encrypted tokens,                  │
+               moderation audit        provider collectors/webhooks
+```
 
-Foreign-service mechanics live in deep `@coldbrew/packages` modules. Each module owns its callbacks, transport, retries, cancellation, and mutable runtime resources, then exposes a narrow asynchronous iterator of normalized Result events. Source class fields are immutable; sockets, controllers, retry state, and cleanup flags live only inside stream methods and their private protocol helpers. Callback APIs remain private adapters at third-party boundaries and do not leak into business logic. The YouTube client owns Data API lookup, gRPC transport, protobuf wire types, pagination, retry, and cancellation. `DonationAlertsSource` owns one immutable access token and yields normalized donations or typed errors directly; its module owns REST calls, the Centrifugo WebSocket protocol, reconnects, JSON validation, and bounded exponential backoff. Transient request failures are logged and retried inside the source, while `unauthorized` remains terminal so the worker can replace credentials. The live listener is the worker's only token-refresh owner; history synchronization only reads the current access token. Token replacement uses `tokenVersion` as a compare-and-swap guard, so a stale listener cannot overwrite or disconnect a newer connection. Twitch separates Helix/OAuth calls (`twitch-chat-api`), EventSub decoding and socket ownership (`twitch-eventsub`), and subscription/channel orchestration (`twitch-chat`). The small source classes under `apps/web/src/server/chat` add Coldbrew provider identifiers, map messages into `ChatMessage`, and choose user-safe error text.
+Provider adapters expose one normalized `ResultStream<ChatStreamEvent, ProviderError>` plus send
+and moderation commands. The application layer is provider-agnostic and uses declared
+capabilities instead of provider conditionals. A broadcast starts all supported sends
+concurrently, returns one result per source, and never rolls back successful sends when another
+provider fails.
 
-An error for one source becomes its `state: "error"` event, so other sources can continue. If a provider stream unexpectedly throws or ends while subscribers remain, the collector publishes the error state and reopens the same immutable source with bounded exponential backoff. Session-wide failures emit `connection_error` and then close normally. Public live-stream interfaces accept an optional parent `AbortSignal`; every returned iterator owns an internal cancellation scope and aborts nested work before `.return()` completes. Cancellation is normal completion and never emits an error. The process-local collector pool owns shared collectors, replay buffers, subscriber counts, retries, and grace-period shutdown; the registry owns only per-session limits and stream merging. Runtime resources remain in explicit mutable maps, while collector snapshots, retries, credentials, source state, and client state are replaced through pure reducers. WebSocket, tRPC, and React callbacks are limited to adapters that dispatch into these streams or reducers.
+Every pull collector owns a NATS KV lease keyed by `chat_source_id`. The lease has a 30-second TTL
+and a 10-second heartbeat. This permits multiple `apps/chat` replicas while keeping exactly one
+active collector per source under normal operation. JetStream deduplicates provider events by
+their source/message identity and retains a short, bounded transient window. Browser subscribers
+receive the live NATS subject for their Coldbrew user. The latest source state is cached in a
+short-lived NATS KV bucket so a newly opened editor does not incorrectly show an active source as
+offline; an incoming provider message also marks that source live.
+
+Messages are never written to PostgreSQL. The browser keeps at most 500 normalized messages.
+PostgreSQL stores command audit rows without message text: provider, source, action, provider
+message/user ID, duration, status, safe detail, and timestamp. Disconnecting an account does not
+delete those audit rows.
+
+YouTube performs active-broadcast discovery once when its collector starts. If the channel is
+offline or the broadcast ends, discovery remains idle until the streamer selects **Check stream**
+for that source. The command is distributed through NATS so it reaches the replica that owns the
+collector lease. Transport failures during an active operation still reconnect automatically with
+bounded exponential backoff.
+
+## Provider capabilities
+
+| Provider | Read          | Send | Delete | Timeout / ban / unban | Collection                                                                       |
+| -------- | ------------- | ---- | ------ | --------------------- | -------------------------------------------------------------------------------- |
+| YouTube  | yes           | yes  | yes    | yes                   | manual active-broadcast discovery + live-chat stream                             |
+| Twitch   | yes           | yes  | yes    | yes                   | EventSub WebSocket                                                               |
+| Kick     | yes           | yes  | yes    | yes                   | signed `chat.message.sent` webhook                                               |
+| Boosty   | release-gated | no   | no     | no                    | read-only target; no stable public official chat API                             |
+| VK Video | release-gated | no   | no     | no                    | read-only target; requires a registered VK application and verified API contract |
+
+Boosty and VK Video already exist in the shared provider/capability model and UI availability
+response, but their connect buttons remain disabled until an official read contract can be
+implemented without scraping or user cookies. This is an intentional product limitation, not a
+fallback to arbitrary URLs.
+
+## OAuth and credentials
+
+OAuth attempts use random state, PKCE-S256, a ten-minute expiry, and single-use rows. Provider
+access and refresh tokens are encrypted with AES-256-GCM before storage. Chat credentials are
+separate from Better Auth sign-in accounts.
+
+Token refresh is centralized in the chat service. Updates use `token_version` as a compare-and-swap
+guard so concurrent replicas cannot overwrite a newer token. Provider calls retry with the next
+collector/config snapshot after a refresh race.
+
+Required service settings:
+
+```text
+APP_DOMAIN
+BETTER_AUTH_SECRET
+DATABASE_URL
+NATS_SERVERS
+CHAT_PORT
+CHAT_WEB_URL
+CHAT_SERVICE_SECRET
+CHAT_TOKEN_ENCRYPTION_SECRET
+```
+
+Provider settings are enabled as complete groups:
+
+```text
+YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET
+TWITCH_CLIENT_ID / TWITCH_CLIENT_SECRET
+KICK_CLIENT_ID / KICK_CLIENT_SECRET / KICK_WEBHOOK_PUBLIC_KEY
+```
+
+`CHAT_SERVICE_SECRET` must have the same value in `apps/web` and `apps/chat`.
+`CHAT_TOKEN_ENCRYPTION_SECRET` should be a separate stable secret; changing it makes existing
+provider tokens unreadable. In production, the Kick developer application webhook is
+`${APP_DOMAIN}/api/chat/webhooks/kick`.
+
+OAuth callback URLs are always exposed through the web service as
+`${CHAT_WEB_URL}/api/chat/oauth/<provider>/callback`; the web proxy forwards them to the chat
+service.
+
+`GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET` belong only to Better Auth sign-in. YouTube chat requests
+`youtube.force-ssl` using its separate `YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET` pair. Twitch
+requests chat read/write and moderation scopes. Kick
+requests user/channel read, event subscription, chat write, message moderation, and ban scopes.
+Kick webhook signatures are verified over `message-id.timestamp.raw-body` with RSA-SHA256, stale
+timestamps are rejected, and `Kick-Event-Message-Id` is the JetStream idempotency key.
+
+## Moderation and broadcast
+
+The normalized moderation commands are:
+
+- delete message;
+- timeout user (seconds in the domain; converted to provider units at the adapter seam);
+- ban user;
+- unban user.
+
+YouTube unban requires the provider ban ID returned when the ban is created, so that mapping is
+stored separately from the audit. Kick timeout seconds are rounded up to minutes. UI actions are
+shown only when the connection granted the required scope.
+
+The broadcast composer sends the same normalized text to every enabled source with
+`send_message`. Read-only sources return `unsupported`; provider failures return `failed`; other
+providers continue independently. The UI shows these partial results per source.
 
 ## OBS overlay
 
-Rotating the overlay URL creates a random 256-bit token. PostgreSQL stores only its SHA-256 hash, so the raw URL is shown once and cannot be recovered. Rotation invalidates the previous URL immediately. `/chat/overlay/$token` is public, feed-only, and does not depend on browser cookies or a Coldbrew session.
+Rotating the overlay URL creates a random 256-bit token. PostgreSQL stores only its SHA-256 hash.
+The public overlay page exchanges the token with `apps/web` for a short-lived, feed-only chat
+ticket, then streams directly from `apps/chat`. Rotation invalidates the previous URL immediately.
 
-## YouTube integration
+## Development and operations
 
-The web process requires `YOUTUBE_API_KEY`. It uses the YouTube Data API v3 `videos.list` endpoint to find the active live chat, then reads messages through the low-latency gRPC `streamList` endpoint.
+`just dev-db-up` starts PostgreSQL and NATS. `just dev` starts web, chat, donation, and video
+processes. `just typecheck` and `just test` include `apps/chat`.
 
-The checked-in `packages/src/youtube-live-chat/proto/stream_list.proto` comes from the official YouTube Streaming Live Chat documentation. Run `just generate-youtube-chat-proto` after updating it. Generated TypeScript is committed beside the package client so production builds do not need `protoc`.
-
-Only ordinary text messages are displayed. System events are ignored individually and do not cause other messages from the same response to be discarded.
-
-## Twitch status
-
-Twitch is temporarily disabled. Its API client, thin web adapter, URL canonicalizer, and database enum value remain isolated for a later return, but the active URL parser and collector registry contain only YouTube. Existing Twitch sources are hidden and are deleted the next time their owner saves the source list.
-
-Provider availability is decided at the composition seam: the active source parser and provider registry. Keeping a provider out of those registries disables it without conditional checks spread across transport, UI, and business logic.
-
-When restored, one client owns one shared EventSub WebSocket and fans messages out by broadcaster. It follows Twitch reconnect URLs without opening a parallel steady-state connection and accepts at most 300 active or pending subscriptions on that socket. EventSub revocations are routed back to the affected channel as typed subscription failures.
-
-To re-enable Twitch, restore the `TWITCH_CHAT_*` environment schema, construct `TwitchChatClient` from those credentials, wrap it with `TwitchChatSourceFactory`, register the resulting factory and `parseTwitchChatSource`, and restore Twitch product copy.
-
-The current collector registry is process-local. Run a single web process until collector ownership and fan-out are moved to shared infrastructure.
+Production Compose runs NATS with JetStream storage and healthchecks the chat service. Caddy strips
+the `/api/chat` prefix before proxying to port 3001. Scale only `chat`; collector ownership is
+coordinated through NATS, while PostgreSQL remains the source of truth for account configuration
+and audit.

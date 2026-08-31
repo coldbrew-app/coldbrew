@@ -39,6 +39,7 @@ export type TwitchChatEvent =
       type: "message";
       channel: string;
       id: string;
+      authorId: string;
       author: string;
       text: string;
       occurredAt: Date;
@@ -443,6 +444,7 @@ async function handleSocketEvent(
         type: "message",
         channel: event.channel,
         id: event.id,
+        authorId: event.authorId,
         author: event.author,
         text: event.text,
         occurredAt: event.occurredAt,

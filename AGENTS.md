@@ -113,3 +113,4 @@ Add helper scripts to `justfile`, not `package.json`
 - classes are acceptable for composition and data transformation, following the principles in Yegor Bugayenko's _Elegant Objects_; every class field must be immutable and assigned when the object is created
 - mutable state is allowed only in variables declared inside functions or methods; do not keep mutable state in object or class fields
 - avoid mutating objects
+- remove legacy code and compatibility paths instead of preserving them, but always ask for the user's explicit permission before removing them

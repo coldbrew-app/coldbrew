@@ -1,10 +1,10 @@
 # Coldbrew
 
-Bun TypeScript monorepo with a TanStack Start/tRPC/Postgres web app and dedicated donation/video polling workers.
+Bun TypeScript monorepo with a TanStack Start/tRPC/Postgres web app and dedicated chat, donation, and video services.
 
 See [currency and video-queue rules](docs/currencies.md) for the fixed exchange
 rates and queue-currency transition semantics.
-See [multichat](docs/multichat.md) for YouTube chat collection, OBS tokens, and service credentials.
+See [multichat](docs/multichat.md) for the multi-provider chat service, OAuth credentials, moderation, and OBS tokens.
 
 Project tasks are managed with [just](https://just.systems/). Run `just` to list them.
 
@@ -37,8 +37,9 @@ database name, and Docker Compose project. It requires the development key in
 a new worktree.
 
 The application URL is stored in `APP_DOMAIN` in the generated `.env`. It
-serves the web UI, authentication, tRPC API, and OAuth callbacks. Each
-worktree created through Worktrunk initializes its environment and database,
+serves the web UI and authentication. `/api/chat/*` is routed to the chat
+microservice, including provider OAuth callbacks and the direct browser tRPC
+connection. Each worktree created through Worktrunk initializes its environment and database,
 copies a consistent snapshot of the development database from the worktree of
 its base branch, applies its schema, and starts its development processes
 automatically. The base worktree and its development database must already be

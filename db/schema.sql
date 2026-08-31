@@ -1,6 +1,15 @@
 CREATE TYPE donation_source AS ENUM ('donationalerts');
 CREATE TYPE video_provider AS ENUM ('youtube');
-CREATE TYPE chat_provider AS ENUM ('youtube', 'twitch');
+CREATE TYPE chat_provider AS ENUM ('youtube', 'twitch', 'kick', 'boosty', 'vk_video');
+CREATE TYPE chat_provider_connection_status AS ENUM ('connected', 'refresh_required', 'error');
+CREATE TYPE chat_moderation_action_type AS ENUM (
+  'delete_message',
+  'timeout_user',
+  'ban_user',
+  'unban_user',
+  'send_message'
+);
+CREATE TYPE chat_moderation_action_status AS ENUM ('succeeded', 'failed', 'unsupported');
 
 CREATE DOMAIN js_date AS timestamptz(3);
 CREATE DOMAIN positive_int AS integer CHECK (VALUE > 0);
@@ -89,13 +98,110 @@ CREATE TABLE chat_overlay (
   updated_at js_date  NOT NULL DEFAULT now()
 );
 
-CREATE TABLE chat_overlay_source (
-  chat_overlay_source_id serial        PRIMARY KEY,
-  user_id                int           NOT NULL REFERENCES chat_overlay (user_id)
-                                      ON DELETE CASCADE,
+CREATE TABLE chat_provider_connection (
+  chat_provider_connection_id uuid                            PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id                     int                             NOT NULL REFERENCES "user" (user_id)
+                                                               ON DELETE CASCADE,
+  provider                    chat_provider                   NOT NULL,
+  provider_user_id            text                            NOT NULL
+                                                               CHECK (char_length(provider_user_id) BETWEEN 1 AND 200),
+  display_name                text                            NOT NULL
+                                                               CHECK (char_length(display_name) BETWEEN 1 AND 200),
+  access_token_ciphertext     bytea                               NULL,
+  refresh_token_ciphertext    bytea                               NULL,
+  access_token_expires_at     js_date                             NULL,
+  scopes                      text[]                          NOT NULL DEFAULT '{}',
+  status                      chat_provider_connection_status NOT NULL DEFAULT 'connected',
+  token_version               positive_int                    NOT NULL DEFAULT 1,
+  connected_at                js_date                         NOT NULL DEFAULT now(),
+  updated_at                  js_date                         NOT NULL DEFAULT now(),
+  UNIQUE (provider, provider_user_id),
+  UNIQUE (chat_provider_connection_id, user_id, provider)
+);
+
+CREATE INDEX chat_provider_connection_user_idx
+  ON chat_provider_connection (user_id, connected_at);
+
+CREATE TABLE chat_source (
+  chat_source_id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+  chat_provider_connection_id uuid          NOT NULL,
+  user_id                     int           NOT NULL REFERENCES "user" (user_id) ON DELETE CASCADE,
+  provider                    chat_provider NOT NULL,
+  provider_source_id          text          NOT NULL
+                                             CHECK (char_length(provider_source_id) BETWEEN 1 AND 200),
+  display_name                text          NOT NULL
+                                             CHECK (char_length(display_name) BETWEEN 1 AND 200),
+  source_url                  text          NOT NULL,
+  position                    nonnegative_int NOT NULL CHECK (position < 20),
+  enabled                     boolean       NOT NULL DEFAULT true,
+  show_in_overlay             boolean       NOT NULL DEFAULT true,
+  created_at                  js_date       NOT NULL DEFAULT now(),
+  updated_at                  js_date       NOT NULL DEFAULT now(),
+  UNIQUE (user_id, provider, provider_source_id),
+  UNIQUE (user_id, position),
+  UNIQUE (chat_source_id, user_id),
+  FOREIGN KEY (chat_provider_connection_id, user_id, provider)
+    REFERENCES chat_provider_connection (chat_provider_connection_id, user_id, provider)
+    ON DELETE CASCADE
+);
+
+CREATE INDEX chat_source_connection_idx
+  ON chat_source (chat_provider_connection_id, position);
+
+CREATE INDEX chat_source_user_enabled_idx
+  ON chat_source (user_id, position)
+  WHERE enabled;
+
+CREATE TABLE chat_oauth_attempt (
+  state_hash             char(64)      PRIMARY KEY CHECK (state_hash ~ '^[0-9a-f]{64}$'),
+  user_id                int           NOT NULL REFERENCES "user" (user_id) ON DELETE CASCADE,
   provider               chat_provider NOT NULL,
-  source_identifier      text          NOT NULL CHECK (char_length(source_identifier) BETWEEN 1 AND 100),
-  source_url             text          NOT NULL,
+  pkce_verifier_ciphertext bytea       NOT NULL,
+  return_url             text          NOT NULL,
+  expires_at             js_date       NOT NULL,
+  created_at             js_date       NOT NULL DEFAULT now()
+);
+
+CREATE INDEX chat_oauth_attempt_expires_idx
+  ON chat_oauth_attempt (expires_at);
+
+CREATE TABLE chat_provider_ban (
+  chat_source_id  uuid          NOT NULL REFERENCES chat_source (chat_source_id) ON DELETE CASCADE,
+  provider_user_id text         NOT NULL,
+  provider_ban_id text          NOT NULL,
+  updated_at      js_date       NOT NULL DEFAULT now(),
+  PRIMARY KEY (chat_source_id, provider_user_id)
+);
+
+CREATE TABLE chat_moderation_action (
+  chat_moderation_action_id bigint                         PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  user_id                   int                            NOT NULL REFERENCES "user" (user_id)
+                                                             ON DELETE CASCADE,
+  chat_source_id            uuid                           NOT NULL,
+  provider                  chat_provider                  NOT NULL,
+  action_type               chat_moderation_action_type    NOT NULL,
+  status                    chat_moderation_action_status  NOT NULL,
+  provider_message_id       text                               NULL,
+  provider_user_id          text                               NULL,
+  duration_seconds          positive_int                       NULL,
+  reason                    text                               NULL,
+  detail                    text                               NULL,
+  occurred_at               js_date                        NOT NULL DEFAULT now()
+);
+
+CREATE INDEX chat_moderation_action_user_occurred_idx
+  ON chat_moderation_action (user_id, occurred_at DESC, chat_moderation_action_id DESC);
+
+-- Legacy rows are retained for a non-destructive rollout. The application no longer reads or
+-- writes arbitrary URL sources; this table can be dropped in a separately approved migration.
+CREATE TABLE chat_overlay_source (
+  chat_overlay_source_id serial          PRIMARY KEY,
+  user_id                int             NOT NULL REFERENCES chat_overlay (user_id)
+                                         ON DELETE CASCADE,
+  provider               chat_provider   NOT NULL,
+  source_identifier      text            NOT NULL
+                                         CHECK (char_length(source_identifier) BETWEEN 1 AND 100),
+  source_url             text            NOT NULL,
   position               nonnegative_int NOT NULL CHECK (position < 8),
   UNIQUE (user_id, provider, source_identifier),
   UNIQUE (user_id, position)

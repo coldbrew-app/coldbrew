@@ -9,6 +9,16 @@
     "suspicious": "off"
   },
   "plugins": [],
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "name": "neverthrow",
+        "importNames": ["err"],
+        "message": "Create Err results with erro from @lebedevna/neverthrow-utils."
+      }
+    ]
+  },
   "overrides": [
     {
       "files": ["*.ts"],
@@ -20,6 +30,24 @@
       "files": ["*.ts", "*.tsx"],
       "rules": {
         "typescript/consistent-type-assertions": ["error", { "assertionStyle": "never" }]
+      }
+    },
+    {
+      "files": ["apps/web/src/components/**/*.{ts,tsx}", "apps/web/src/routes/**/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "name": "@tanstack/react-query",
+            "importNames": ["useMutation", "useQuery"],
+            "message": "Wrap queries and mutations in custom hooks under apps/web/src/hooks."
+          },
+          {
+            "name": "neverthrow",
+            "importNames": ["err"],
+            "message": "Create Err results with erro from @lebedevna/neverthrow-utils."
+          }
+        ]
       }
     }
   ]
