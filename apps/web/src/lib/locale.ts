@@ -7,6 +7,8 @@ export function resolveLocale(
   storedLocale: string | null | undefined,
   preferredLanguage: string | undefined,
 ): Locale {
-  if (storedLocale === "ru" || storedLocale === "en") return storedLocale;
-  return preferredLanguage?.toLowerCase().startsWith("ru") ? "ru" : "en";
+  if (storedLocale === "ru" || storedLocale === "en") {
+    return storedLocale;
+  }
+  return preferredLanguage?.toLowerCase().startsWith("ru") === true ? "ru" : "en";
 }

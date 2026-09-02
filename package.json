@@ -15,6 +15,7 @@
     "@types/node": "^24.13.3",
     "concurrently": "^10.0.4",
     "oxfmt": "^0.60.0",
+    "oxlint-tsgolint": "^7.0.2001",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"
   },

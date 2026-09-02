@@ -130,6 +130,7 @@ services:
     command: ["bun", "apps/chat/src/index.ts"]
     environment:
       CHAT_PORT: 3001
+      CHAT_PUBLIC_URL: ${APP_DOMAIN:?Set APP_DOMAIN in .env}/api/chat
       CHAT_WEB_URL: ${APP_DOMAIN:?Set APP_DOMAIN in .env}
       NATS_SERVERS: nats://nats:4222
     depends_on:

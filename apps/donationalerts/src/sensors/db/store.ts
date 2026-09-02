@@ -1,12 +1,12 @@
 import { jsonb } from "@coldbrew/packages/jsonb.js";
 import { createSql } from "@coldbrew/packages/pg.js";
 import {
-  AccessToken,
-  Donation,
   DonationAlertsUserSchema,
   DonationSchema,
-  RefreshToken,
-  UserId,
+  type AccessToken,
+  type Donation,
+  type RefreshToken,
+  type UserId,
 } from "@coldbrew/packages/schemas.js";
 import { z } from "zod";
 
@@ -19,7 +19,9 @@ export class Store {
     userId: UserId,
     donations: readonly Omit<Donation, "donationId" | "userId">[],
   ) {
-    if (donations.length === 0) return [];
+    if (donations.length === 0) {
+      return [];
+    }
     return await sql.begin(async (tx) => {
       const input = jsonb(tx, donations);
 

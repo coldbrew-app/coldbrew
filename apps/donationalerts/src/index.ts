@@ -1,6 +1,6 @@
 import { getDonations } from "@coldbrew/packages/donationalerts.js";
 import { logger } from "@coldbrew/packages/logger.js";
-import { DonationAlertsUser, UserId } from "@coldbrew/packages/schemas.js";
+import type { DonationAlertsUser, UserId } from "@coldbrew/packages/schemas.js";
 import { CronJob } from "cron";
 
 import { store } from "./sensors/db/index.js";
@@ -39,4 +39,4 @@ async function main() {
   });
 }
 
-main();
+await main();

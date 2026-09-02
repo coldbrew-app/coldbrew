@@ -14,6 +14,8 @@ export function withProps<Props extends object, Defaults extends Partial<Props>>
       (props as { className?: ClassValue }).className,
     );
 
+    // Generic HOC prop merging requires a bridge across TypeScript's unresolved generic spread.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     return <Component {...({ ...defaultProps, ...props, className } as unknown as Props)} />;
   };
 }

@@ -18,7 +18,9 @@ export const Route = createFileRoute("/_authenticated/integrations")({
     meta: [{ title: `${createTranslator(match.context.locale)("integrations")} · Coldbrew` }],
   }),
   loader: async ({ context }) => {
-    if (!context.viewer) return;
+    if (!context.viewer) {
+      return;
+    }
     await preloadRouteQuery(context.queryClient, context.trpc.authUrls.queryOptions());
   },
 });

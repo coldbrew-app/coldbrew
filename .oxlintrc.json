@@ -1,15 +1,43 @@
 {
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
   "categories": {
-    "correctness": "off",
-    "nursery": "off",
-    "pedantic": "off",
-    "perf": "off",
-    "restriction": "off",
-    "style": "off",
-    "suspicious": "off"
+    "correctness": "error",
+    "suspicious": "error"
   },
-  "plugins": [],
+  "plugins": [
+    "eslint",
+    "import",
+    "jsx-a11y",
+    "node",
+    "oxc",
+    "promise",
+    "react",
+    "typescript",
+    "unicorn",
+    "vitest"
+  ],
+  "options": {
+    "denyWarnings": true,
+    "reportUnusedDisableDirectives": "error",
+    "typeAware": true,
+    "typeCheck": false
+  },
+  "ignorePatterns": [
+    "apps/web/src/routeTree.gen.ts",
+    "packages/src/youtube-live-chat/generated/**"
+  ],
+  "settings": {
+    "react": {
+      "version": "19.1.1"
+    },
+    "vitest": {
+      "typecheck": false
+    }
+  },
   "rules": {
+    "curly": "error",
+    "eqeqeq": "error",
+    "import/no-cycle": "error",
     "no-restricted-imports": [
       "error",
       {
@@ -17,19 +45,41 @@
         "importNames": ["err"],
         "message": "Create Err results with erro from @lebedevna/neverthrow-utils."
       }
-    ]
+    ],
+    "no-unexpected-multiline": "off",
+    "no-underscore-dangle": "off",
+    "require-yield": "off",
+    "react/exhaustive-effect-dependencies": "off",
+    "react/incompatible-library": "off",
+    "react/react-in-jsx-scope": "off",
+    "react/set-state-in-effect": "off",
+    "typescript/await-thenable": "error",
+    "typescript/consistent-return": "off",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-floating-promises": ["error", { "ignoreVoid": true }],
+    "typescript/no-misused-promises": "error",
+    "typescript/no-unnecessary-type-assertion": "error",
+    "typescript/no-unsafe-argument": "error",
+    "typescript/no-unsafe-assignment": "error",
+    "typescript/no-unsafe-call": "error",
+    "typescript/no-unsafe-member-access": "error",
+    "typescript/no-unsafe-return": "error",
+    "typescript/only-throw-error": "error",
+    "typescript/switch-exhaustiveness-check": "error",
+    "typescript/use-unknown-in-catch-callback-variable": "error",
+    "vitest/require-mock-type-parameters": "off"
   },
   "overrides": [
     {
-      "files": ["*.ts"],
+      "files": ["**/*.d.ts"],
       "rules": {
-        "no-use-before-define": "error"
+        "import/no-unassigned-import": "off"
       }
     },
     {
-      "files": ["*.ts", "*.tsx"],
+      "files": ["**/*.ts"],
       "rules": {
-        "typescript/consistent-type-assertions": ["error", { "assertionStyle": "never" }]
+        "no-use-before-define": "error"
       }
     },
     {
@@ -48,6 +98,46 @@
             "message": "Create Err results with erro from @lebedevna/neverthrow-utils."
           }
         ]
+      }
+    },
+    {
+      "files": ["apps/web/src/components/ui/label.tsx"],
+      "rules": {
+        "jsx-a11y/label-has-associated-control": "off"
+      }
+    },
+    {
+      "files": ["apps/web/src/routes/_authenticated/integrations.tsx"],
+      "rules": {
+        "jsx-a11y/anchor-has-content": "off",
+        "jsx-a11y/control-has-associated-label": "off"
+      }
+    },
+    {
+      "files": [
+        "apps/web/src/components/shared-video-card.tsx",
+        "apps/web/src/components/video-card.tsx"
+      ],
+      "rules": {
+        "react/iframe-missing-sandbox": "off"
+      }
+    },
+    {
+      "files": ["apps/web/src/routes/$.tsx"],
+      "rules": {
+        "typescript/only-throw-error": "off"
+      }
+    },
+    {
+      "files": ["apps/web/src/server/sensors/db/store.test.ts"],
+      "rules": {
+        "typescript/no-unsafe-type-assertion": "off"
+      }
+    },
+    {
+      "files": ["packages/src/neverthrow/propagate-error.ts"],
+      "rules": {
+        "typescript/no-unsafe-type-assertion": "off"
       }
     }
   ]

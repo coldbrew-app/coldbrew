@@ -4,29 +4,29 @@ import { conversionFactorForCurrencyChange } from "@coldbrew/packages/currency.j
 import { jsonb } from "@coldbrew/packages/jsonb.js";
 import { createSql } from "@coldbrew/packages/pg.js";
 import {
-  AccessToken,
-  AuthUserId,
-  Donation,
   DonationAlertsUserSchema,
   DonationSchema,
-  MoneyAmount,
-  PublicQueueSettings,
   PublicQueueSettingsSchema,
   QueueCurrencySchema,
-  QueueCurrency,
-  RefreshToken,
   SharedVideoSchema,
-  Slug,
   SlugSchema,
-  UserId,
   UserIdSchema,
   UserInfoSchema,
-  VideoId,
   VideoIdSchema,
   VideoPrioritySchema,
   VideoSchema,
+  type AccessToken,
+  type AuthUserId,
+  type Donation,
+  type MoneyAmount,
+  type PublicQueueSettings,
+  type QueueCurrency,
+  type RefreshToken,
+  type Slug,
+  type UserId,
+  type VideoId,
 } from "@coldbrew/packages/schemas.js";
-import { Sql } from "postgres";
+import type { Sql } from "postgres";
 import { z } from "zod";
 
 function isUserSlugConflict(error: unknown) {
@@ -51,7 +51,9 @@ export class Store {
     userId: UserId,
     donations: readonly Omit<Donation, "donationId" | "userId">[],
   ) {
-    if (donations.length === 0) return [];
+    if (donations.length === 0) {
+      return [];
+    }
     return await this.sql.begin(async (sql) => {
       const input = jsonb(sql, donations);
       const rows = await sql`
@@ -485,7 +487,9 @@ export class Store {
         queueCurrency: QueueCurrencySchema,
       });
       const previousCurrency = schema.parse(userRows[0]).queueCurrency;
-      if (previousCurrency === queueCurrency) return previousCurrency;
+      if (previousCurrency === queueCurrency) {
+        return previousCurrency;
+      }
 
       const { numerator, denominator } = conversionFactorForCurrencyChange(
         previousCurrency,
@@ -557,7 +561,9 @@ export class Store {
       total: z.int().nonnegative(),
     });
     const summary = summarySchema.optional().parse(summaryRows[0]);
-    if (summary === undefined || !summary.publicQueueEnabled) return null;
+    if (!summary?.publicQueueEnabled) {
+      return null;
+    }
     const status: "queue" | "watched" =
       input.status === "watched" && summary.publicQueueShowWatched ? "watched" : "queue";
     const totalPages = Math.ceil(summary.total / input.pageSize);
@@ -663,7 +669,9 @@ export class Store {
 
   async getOrCreateUserId(authUserId: AuthUserId, preferredSlug: Slug): Promise<UserId> {
     const existing = await this.getUserId(authUserId);
-    if (existing) return existing;
+    if (existing) {
+      return existing;
+    }
     let slug = preferredSlug;
     while (true) {
       try {
@@ -693,7 +701,9 @@ export class Store {
           return userId;
         });
       } catch (error) {
-        if (!isUserSlugConflict(error)) throw error;
+        if (!isUserSlugConflict(error)) {
+          throw error;
+        }
         slug = SlugSchema.parse(randomUUID());
       }
     }

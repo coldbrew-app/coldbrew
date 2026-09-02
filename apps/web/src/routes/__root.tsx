@@ -123,7 +123,9 @@ function useDark(initialTheme: Theme) {
 export function AuthenticatedRoot() {
   const { viewer } = Route.useRouteContext();
 
-  if (!viewer) return <SignIn />;
+  if (!viewer) {
+    return <SignIn />;
+  }
 
   return (
     <Suspense fallback={<PageLoadingSkeleton />}>
@@ -160,7 +162,12 @@ function AuthenticatedApplicationContent() {
 
   useEffect(() => {
     const closeLanguageMenu = (event: MouseEvent) => {
-      if (!languageMenuRef.current?.contains(event.target as Node)) setIsLanguageMenuOpen(false);
+      if (
+        !(event.target instanceof Node) ||
+        languageMenuRef.current?.contains(event.target) !== true
+      ) {
+        setIsLanguageMenuOpen(false);
+      }
     };
 
     document.addEventListener("mousedown", closeLanguageMenu);
@@ -333,7 +340,7 @@ function AuthenticatedApplicationContent() {
               </div>
             </div>
             <div className="flex items-center gap-2.5 border-t border-sidebar-border px-2 pt-5">
-              {user.image ? (
+              {user.image !== null ? (
                 <img alt="" className="size-8 rounded-lg object-cover" src={user.image} />
               ) : (
                 <div className="grid size-8 place-items-center rounded-lg bg-linear-to-br from-[#d8a168] to-[#8a5939] text-[11px] font-bold text-white">
@@ -352,9 +359,8 @@ function AuthenticatedApplicationContent() {
                 <TooltipTrigger
                   aria-label={t("signOut")}
                   className="cursor-pointer text-sidebar-foreground/55 hover:text-sidebar-primary"
-                  onClick={async () => {
-                    await signOut();
-                    window.location.assign("/");
+                  onClick={() => {
+                    void signOut().then(() => window.location.assign("/"));
                   }}
                   type="button"
                 >

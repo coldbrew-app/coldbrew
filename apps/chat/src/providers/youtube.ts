@@ -6,7 +6,7 @@ import { YoutubeLiveChatClient } from "@coldbrew/packages/youtube-live-chat.js";
 import { delay } from "@lebedevna/delay";
 import { erro, parseJson, safeFetch, validate } from "@lebedevna/neverthrow-utils";
 import { rurl } from "@lebedevna/readonly-url";
-import { ok, type Result } from "neverthrow";
+import { ok, safeTry, type Result } from "neverthrow";
 import { z } from "zod";
 
 import type {
@@ -23,32 +23,6 @@ const DISCOVERY_RETRY_MAX_MS = 60_000;
 type ActiveBroadcast = Readonly<{
   liveChatId: string;
 }>;
-
-const YoutubeApiErrorSchema = z.object({
-  error: z.object({
-    errors: z.array(z.object({ reason: z.string() })),
-  }),
-});
-
-function isLiveStreamingNotEnabled(cause: unknown) {
-  if (
-    typeof cause !== "object" ||
-    cause === null ||
-    !("type" in cause) ||
-    cause.type !== "http error" ||
-    !("status" in cause) ||
-    cause.status !== 403 ||
-    !("text" in cause) ||
-    typeof cause.text !== "string"
-  ) {
-    return false;
-  }
-  const $body = parseJson(cause.text).andThen((value) => validate(value, YoutubeApiErrorSchema));
-  return (
-    $body.isOk() &&
-    $body.value.error.errors.some(({ reason }) => reason === "liveStreamingNotEnabled")
-  );
-}
 
 function operationError(detail: string, cause?: unknown): ChatProviderOperationError {
   if (
@@ -81,7 +55,11 @@ function operationError(detail: string, cause?: unknown): ChatProviderOperationE
       return { type: "provider rejected command", detail, cause };
     }
   }
-  return { type: "provider unavailable", detail, ...(cause ? { cause } : {}) };
+  return {
+    type: "provider unavailable",
+    detail,
+    cause,
+  };
 }
 
 function accessToken(connectedSource: ConnectedChatSource) {
@@ -100,11 +78,14 @@ async function activeBroadcast(
   signal: AbortSignal,
 ): Promise<Result<ActiveBroadcast | null, ChatProviderOperationError>> {
   const token = accessToken(connectedSource);
-  if (!token) return erro(operationError("YouTube authorization is required"));
+  if (!token) {
+    return erro(operationError("YouTube authorization is required"));
+  }
   const url = rurl("https://www.googleapis.com/youtube/v3/liveBroadcasts").withSearchParams({
     part: "snippet",
     broadcastStatus: "active",
     broadcastType: "all",
+    mine: true,
   });
   const schema = z.object({
     items: z.array(
@@ -122,7 +103,6 @@ async function activeBroadcast(
     .andThen(parseJson)
     .andThen((value) => validate(value, schema));
   if ($response.isErr()) {
-    if (isLiveStreamingNotEnabled($response.error)) return ok(null);
     return erro(operationError("Could not discover the active YouTube broadcast", $response.error));
   }
   const broadcast = $response.value.items.find((item) => item.snippet.liveChatId);
@@ -130,7 +110,9 @@ async function activeBroadcast(
 }
 
 async function waitUntilAborted(signal: AbortSignal) {
-  if (signal.aborted) return;
+  if (signal.aborted) {
+    return;
+  }
   await new Promise<void>((resolve) =>
     signal.addEventListener("abort", () => resolve(), { once: true }),
   );
@@ -143,10 +125,16 @@ async function liveChatRequest(
   signal: AbortSignal,
 ) {
   const token = accessToken(connectedSource);
-  if (!token) return erro(operationError("YouTube authorization is required"));
+  if (!token) {
+    return erro(operationError("YouTube authorization is required"));
+  }
+  const headers = new Headers(init.headers);
+  for (const [name, value] of Object.entries(youtubeHeaders(token))) {
+    headers.set(name, value);
+  }
   return await safeFetch(rurl(path, "https://www.googleapis.com/youtube/v3/").href, {
     ...init,
-    headers: { ...youtubeHeaders(token), ...init.headers },
+    headers,
     signal,
   }).mapErr((error) => operationError("YouTube rejected the chat command", error));
 }
@@ -267,28 +255,31 @@ export class YoutubeChatProvider implements ChatProviderAdapter {
     text: string,
     signal: AbortSignal,
   ): Promise<Result<void, ChatProviderOperationError>> {
-    const $broadcast = await activeBroadcast(connectedSource, signal);
-    if ($broadcast.isErr()) return propagateError($broadcast);
-    if (!$broadcast.value) return erro(operationError("The YouTube channel is not live"));
-    const $response = await liveChatRequest(
-      connectedSource,
-      rurl("liveChat/messages", "https://www.googleapis.com/youtube/v3/").withSearchParam(
-        "part",
-        "snippet",
-      ).href,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          snippet: {
-            liveChatId: $broadcast.value.liveChatId,
-            type: "textMessageEvent",
-            textMessageDetails: { messageText: text },
-          },
-        }),
-      },
-      signal,
-    );
-    return $response.map(() => undefined);
+    return await safeTry(async function* () {
+      const broadcast = yield* await activeBroadcast(connectedSource, signal);
+      if (!broadcast) {
+        return erro(operationError("The YouTube channel is not live"));
+      }
+      yield* await liveChatRequest(
+        connectedSource,
+        rurl("liveChat/messages", "https://www.googleapis.com/youtube/v3/").withSearchParam(
+          "part",
+          "snippet",
+        ).href,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            snippet: {
+              liveChatId: broadcast.liveChatId,
+              type: "textMessageEvent",
+              textMessageDetails: { messageText: text },
+            },
+          }),
+        },
+        signal,
+      );
+      return ok(undefined);
+    });
   }
 
   async moderate(
@@ -328,38 +319,39 @@ export class YoutubeChatProvider implements ChatProviderAdapter {
       return $response.map(() => ({}));
     }
 
-    const $broadcast = await activeBroadcast(connectedSource, signal);
-    if ($broadcast.isErr()) return propagateError($broadcast);
-    if (!$broadcast.value) return erro(operationError("The YouTube channel is not live"));
-    const $response = await liveChatRequest(
-      connectedSource,
-      rurl("liveChat/bans", "https://www.googleapis.com/youtube/v3/").withSearchParam(
-        "part",
-        "snippet",
-      ).href,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          snippet: {
-            liveChatId: $broadcast.value.liveChatId,
-            type: command.type === "timeout_user" ? "temporary" : "permanent",
-            ...(command.type === "timeout_user"
-              ? { banDurationSeconds: command.durationSeconds }
-              : {}),
-            bannedUserDetails: { channelId: command.providerUserId },
-          },
-        }),
-      },
-      signal,
-    );
-    if ($response.isErr()) return propagateError($response);
-    const schema = z.object({
-      id: z.string(),
+    return await safeTry(async function* () {
+      const broadcast = yield* await activeBroadcast(connectedSource, signal);
+      if (!broadcast) {
+        return erro(operationError("The YouTube channel is not live"));
+      }
+      const response = yield* await liveChatRequest(
+        connectedSource,
+        rurl("liveChat/bans", "https://www.googleapis.com/youtube/v3/").withSearchParam(
+          "part",
+          "snippet",
+        ).href,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            snippet: {
+              liveChatId: broadcast.liveChatId,
+              type: command.type === "timeout_user" ? "temporary" : "permanent",
+              ...(command.type === "timeout_user"
+                ? { banDurationSeconds: command.durationSeconds }
+                : {}),
+              bannedUserDetails: { channelId: command.providerUserId },
+            },
+          }),
+        },
+        signal,
+      );
+      const schema = z.object({
+        id: z.string(),
+      });
+      return parseJson(response)
+        .andThen((value) => validate(value, schema))
+        .map((ban) => ({ providerBanId: ban.id }))
+        .mapErr((error) => operationError("YouTube returned an invalid ban", error));
     });
-    const $ban = parseJson($response.value).andThen((value) => validate(value, schema));
-    return $ban.match(
-      (ban) => ok({ providerBanId: ban.id }),
-      (error) => erro(operationError("YouTube returned an invalid ban", error)),
-    );
   }
 }

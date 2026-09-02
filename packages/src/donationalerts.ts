@@ -12,13 +12,13 @@ import { logger } from "./logger.js";
 import { propagateError } from "./neverthrow/propagate-error.js";
 import { createResultEventStream, type EventSource, type ResultStream } from "./result-stream.js";
 import {
-  AccessToken,
   AccessTokenSchema,
   CurrencyCodeSchema,
-  Donation,
   MoneyAmountSchema,
-  RefreshToken,
   RefreshTokenSchema,
+  type AccessToken,
+  type Donation,
+  type RefreshToken,
 } from "./schemas.js";
 
 dayjs.extend(customParseFormat);
@@ -358,7 +358,9 @@ function openDonationSocket(
         () => socket.send(JSON.stringify(message)),
         (cause) => toSocketRequestError("Could not send DonationAlerts WebSocket message", cause),
       )();
-      if ($sent.isErr()) void sink.fail($sent.error);
+      if ($sent.isErr()) {
+        void sink.fail($sent.error);
+      }
     };
 
     const onOpen = () => {
@@ -390,7 +392,9 @@ function openDonationSocket(
             await sink.fail($channelToken.error);
             return;
           }
-          if (signal.aborted) return;
+          if (signal.aborted) {
+            return;
+          }
           send({
             id: 2,
             method: 1,
@@ -434,14 +438,9 @@ export function getDonations(accessToken: AccessToken) {
       const page = yield* getDonationsPage(accessToken, pageNum);
       donations.push(...page.data.map(toDonation));
 
-      if (pageNum >= page.meta.last_page) return ok(donations);
-    }
-  }).mapErr((error) => {
-    switch (error.type) {
-      case "donationalerts: unauthorized":
-        return error;
-      default:
-        return toHttpRequestError(error);
+      if (pageNum >= page.meta.last_page) {
+        return ok(donations);
+      }
     }
   });
 }
@@ -452,13 +451,17 @@ export class DonationAlertsSource implements EventSource<RawDonation, DonationAl
   stream(parentSignal?: AbortSignal): ResultStream<RawDonation, DonationAlertsError> {
     const accessToken = this.accessToken;
     return createAbortableStream(async function* (signal) {
-      if (signal.aborted) return;
+      if (signal.aborted) {
+        return;
+      }
 
       let retryMs = DONATION_ALERTS_RETRY_START_MS;
       while (!signal.aborted) {
         const $profile = await getSocketProfile(accessToken, signal);
         if ($profile.isErr()) {
-          if (signal.aborted) return;
+          if (signal.aborted) {
+            return;
+          }
           if ($profile.error.type === "donationalerts: unauthorized") {
             yield propagateError($profile);
             return;

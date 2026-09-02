@@ -1,4 +1,4 @@
-import { MoneyAmountSchema, VideoPriority } from "@coldbrew/packages/schemas.js";
+import { MoneyAmountSchema, type VideoPriority } from "@coldbrew/packages/schemas.js";
 import { getRoundedWatchDurationParts } from "@coldbrew/packages/video-timing.js";
 import { Link } from "@tanstack/react-router";
 import { useUpdateVideoPriorityM, useUserInfo } from "@web/hooks/api";

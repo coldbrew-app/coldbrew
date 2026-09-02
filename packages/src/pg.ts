@@ -5,7 +5,8 @@ const JSONB_OID = 3802;
 const jsonParser = jsonBigint({ storeAsString: true });
 
 export function parseJsonb(value: string) {
-  return jsonParser.parse(value);
+  const parsed: unknown = jsonParser.parse(value);
+  return parsed;
 }
 
 export function createSql(url: string) {

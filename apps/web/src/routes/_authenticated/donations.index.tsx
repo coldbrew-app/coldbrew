@@ -25,7 +25,9 @@ export const Route = createFileRoute("/_authenticated/donations/")({
   }),
   loaderDeps: ({ search }) => search,
   loader: async ({ context, deps }) => {
-    if (!context.viewer) return;
+    if (!context.viewer) {
+      return;
+    }
     await preloadRouteQuery(context.queryClient, context.trpc.donationPage.queryOptions(deps));
   },
 });
@@ -41,7 +43,9 @@ function DonationsIndex() {
   useDelayedEffect(
     () => {
       const normalizedQuery = query.trim();
-      if (normalizedQuery === search.query) return;
+      if (normalizedQuery === search.query) {
+        return;
+      }
       void navigate({
         replace: true,
         search: (previous) => ({ ...previous, page: 1, query: normalizedQuery }),
@@ -55,10 +59,10 @@ function DonationsIndex() {
     if (donationsQ.data && !donationsQ.isPlaceholderData && donationsQ.data.page !== search.page) {
       void navigate({
         replace: true,
-        search: (previous) => ({ ...previous, page: donationsQ.data!.page }),
+        search: (previous) => ({ ...previous, page: donationsQ.data.page }),
       });
     }
-  }, [donationsQ.data, navigate, search.page]);
+  }, [donationsQ.data, donationsQ.isPlaceholderData, navigate, search.page]);
 
   return (
     <>

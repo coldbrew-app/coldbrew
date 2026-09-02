@@ -40,7 +40,9 @@ export function AddVideoForm({ onCancel }: Props) {
 
   const addVideo = async ({ url, amount, startTime, endTime }: AddVideoFormValues) => {
     const timing = parseVideoTiming({ startTime, endTime }, { allowOpenEnd: true });
-    if (timing === null) return;
+    if (timing === null) {
+      return;
+    }
 
     try {
       await addVideoM.mutateAsync({ url: url.trim(), amount, ...timing });
@@ -64,7 +66,6 @@ export function AddVideoForm({ onCancel }: Props) {
               <Input
                 aria-describedby={formState.errors.url ? urlErrorId : undefined}
                 aria-invalid={Boolean(formState.errors.url)}
-                autoFocus
                 disabled={addVideoM.isPending}
                 id="manual-video-url"
                 placeholder="https://youtu.be/…"

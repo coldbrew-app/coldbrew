@@ -6,11 +6,13 @@ import { Button } from "./ui/button";
 export type PaginationItem = number | "ellipsis";
 
 export function getPaginationItems(page: number, totalPages: number): PaginationItem[] {
-  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, index) => index + 1);
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
 
   const pages = [...new Set([1, page - 1, page, page + 1, totalPages])]
     .filter((item) => item >= 1 && item <= totalPages)
-    .sort((left, right) => left - right);
+    .toSorted((left, right) => left - right);
 
   return pages.flatMap((item, index) => {
     const previous = pages[index - 1];
@@ -40,7 +42,9 @@ export function PagePagination({
   totalPages,
 }: Props) {
   const { t } = useI18n();
-  if (total === 0) return null;
+  if (total === 0) {
+    return null;
+  }
 
   const firstItem = (page - 1) * pageSize + 1;
   const lastItem = Math.min(page * pageSize, total);
@@ -55,13 +59,10 @@ export function PagePagination({
           {t("showingResults", { first: firstItem, last: lastItem, total })}
         </span>
         {isLoading && (
-          <span
-            className="flex shrink-0 items-center gap-1.5 text-[11px] font-medium text-muted-foreground sm:col-start-3 sm:justify-self-end"
-            role="status"
-          >
+          <output className="flex shrink-0 items-center gap-1.5 text-[11px] font-medium text-muted-foreground sm:col-start-3 sm:justify-self-end">
             <Icons.loader aria-hidden="true" className="animate-spin" size={14} />
             <span>{loadingLabel}</span>
-          </span>
+          </output>
         )}
       </div>
       {totalPages > 1 && (

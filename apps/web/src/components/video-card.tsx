@@ -41,7 +41,9 @@ const getYoutubeEmbedUrl = (url: string, startSeconds: number, endSeconds: numbe
       : (parsedUrl.searchParams.get("v") ??
         parsedUrl.pathname.match(/^\/(?:embed|shorts)\/([^/]+)/)?.[1]);
 
-  if (!videoId) return null;
+  if (!videoId) {
+    return null;
+  }
 
   return rurl(`https://www.youtube-nocookie.com/embed/${videoId}`).withSearchParams({
     start: startSeconds,
@@ -118,9 +120,13 @@ export default function VideoCard({
   };
 
   const save = async (input: VideoFormValues) => {
-    if (!onUpdate) return;
+    if (!onUpdate) {
+      return;
+    }
     const timing = parseVideoTiming(input, { allowOpenEnd: false });
-    if (timing === null || timing.endSeconds === null) return;
+    if (timing === null || timing.endSeconds === null) {
+      return;
+    }
 
     await onUpdate({ amount: input.amount, ...timing, endSeconds: timing.endSeconds });
     setIsEditing(false);
@@ -130,7 +136,7 @@ export default function VideoCard({
     <article className="group relative flex flex-col gap-3 px-4 py-4 transition-colors hover:bg-secondary/25 sm:px-5">
       <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-start">
         <div className="flex flex-col gap-3 sm:shrink-0">
-          {embedUrl && (
+          {embedUrl !== null && (
             <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-muted sm:w-60">
               <iframe
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -138,6 +144,7 @@ export default function VideoCard({
                 className="size-full"
                 loading="lazy"
                 referrerPolicy="strict-origin-when-cross-origin"
+                sandbox="allow-presentation allow-same-origin allow-scripts"
                 src={embedUrl}
                 title={
                   video.source === "donation"
@@ -163,7 +170,7 @@ export default function VideoCard({
                     {t(video.source === "donation" ? "fromDonation" : "addedManually")}
                   </span>
                 )}
-                {showPriorityLabel && video.priorityLabel && (
+                {showPriorityLabel && video.priorityLabel !== null && (
                   <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-secondary-foreground">
                     {video.priorityLabel}
                   </span>

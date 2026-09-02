@@ -5,7 +5,13 @@ import postgres from "postgres";
 
 import { ChatApplication } from "./chat-application.js";
 import { runChatCollectors } from "./collectors.js";
-import { chatServiceSecret, chatTokenEncryptionSecret, chatWebUrl, env } from "./env.js";
+import {
+  chatPublicUrl,
+  chatServiceSecret,
+  chatTokenEncryptionSecret,
+  chatWebUrl,
+  env,
+} from "./env.js";
 import { KickWebhookHandler } from "./kick-webhook.js";
 import { connectChatNats } from "./nats.js";
 import { ChatOauth, chatOauthConfigs } from "./oauth.js";
@@ -33,24 +39,19 @@ async function main() {
   const kick = env.KICK_WEBHOOK_PUBLIC_KEY
     ? configuredPair(env.KICK_CLIENT_ID, env.KICK_CLIENT_SECRET)
     : undefined;
-  const oauthConfigs = chatOauthConfigs({
-    youtube: configuredPair(env.YOUTUBE_CLIENT_ID, env.YOUTUBE_CLIENT_SECRET),
-    twitch: configuredPair(env.TWITCH_CLIENT_ID, env.TWITCH_CLIENT_SECRET),
-    kick,
-  });
-  const oauth = new ChatOauth(store, chatWebUrl, oauthConfigs);
-  const baseProviders: ChatProviderAdapter[] = [new YoutubeChatProvider()];
+  const youtube = configuredPair(env.YOUTUBE_CLIENT_ID, env.YOUTUBE_CLIENT_SECRET);
   const twitch = configuredPair(env.TWITCH_CLIENT_ID, env.TWITCH_CLIENT_SECRET);
-  if (twitch) baseProviders.push(new TwitchChatProvider(twitch.clientId, twitch.clientSecret));
-  if (kick) baseProviders.push(new KickChatProvider());
-  const refresher = new ChatTokenRefresher(
-    store,
-    tokenRefreshConfigs({
-      youtube: configuredPair(env.YOUTUBE_CLIENT_ID, env.YOUTUBE_CLIENT_SECRET),
-      twitch,
-      kick,
-    }),
-  );
+  const providerConfigs = { youtube, twitch, kick };
+  const oauthConfigs = chatOauthConfigs(providerConfigs);
+  const oauth = new ChatOauth(store, chatPublicUrl, oauthConfigs);
+  const baseProviders: ChatProviderAdapter[] = [new YoutubeChatProvider()];
+  if (twitch) {
+    baseProviders.push(new TwitchChatProvider(twitch.clientId, twitch.clientSecret));
+  }
+  if (kick) {
+    baseProviders.push(new KickChatProvider());
+  }
+  const refresher = new ChatTokenRefresher(store, tokenRefreshConfigs(providerConfigs));
   const providers = baseProviders.map(
     (provider): ChatProviderAdapter => new RefreshingChatProvider(provider, refresher),
   );
@@ -80,9 +81,13 @@ async function main() {
     port: env.CHAT_PORT,
     async fetch(request) {
       const url = rurl(request.url);
-      if (url.pathname === "/health") return Response.json({ status: "ok" });
+      if (url.pathname === "/health") {
+        return Response.json({ status: "ok" });
+      }
       if (url.pathname === "/webhooks/kick" && request.method === "POST") {
-        if (!kickWebhook) return new Response("Kick integration is unavailable", { status: 503 });
+        if (kickWebhook === null) {
+          return new Response("Kick integration is unavailable", { status: 503 });
+        }
         const $handled = await kickWebhook.handle(request.headers, await request.text());
         return $handled.match(
           () => new Response(null, { status: 204 }),
@@ -95,8 +100,11 @@ async function main() {
         );
       }
       const callback = url.pathname.match(/^\/oauth\/(youtube|twitch|kick)\/callback$/);
-      if (callback) {
-        const provider = callback[1] as "youtube" | "twitch" | "kick";
+      if (callback !== null) {
+        const provider = callback[1];
+        if (provider !== "youtube" && provider !== "twitch" && provider !== "kick") {
+          return new Response("Not found", { status: 404 });
+        }
         const $completion = await oauth.finish(provider, request.url, request.signal);
         return $completion.match(
           (returnUrl) =>
@@ -122,7 +130,7 @@ async function main() {
 
   const shutdown = async () => {
     serviceController.abort();
-    server.stop(false);
+    await server.stop(false);
     await collectors;
     await nats.close();
     await sql.end();

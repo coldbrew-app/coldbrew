@@ -30,7 +30,9 @@ export class TokenCipher {
     return Result.fromThrowable(
       () => {
         const version = value[0];
-        if (version !== ENVELOPE_VERSION) throw new Error("Unsupported token envelope version");
+        if (version !== ENVELOPE_VERSION) {
+          throw new Error("Unsupported token envelope version");
+        }
         const nonceStart = 1;
         const tagStart = nonceStart + NONCE_LENGTH;
         const ciphertextStart = tagStart + AUTH_TAG_LENGTH;

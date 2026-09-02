@@ -19,7 +19,7 @@ import {
   type KV,
   type NatsConnection,
 } from "nats";
-import SuperJSON from "superjson";
+import { SuperJSON } from "superjson";
 
 import type { ChatCollectorControl, ChatEventBroker } from "./chat-application.js";
 
@@ -46,7 +46,9 @@ function sourceStateKey(userId: number, sourceId: string) {
 async function ensureChatStream(connection: NatsConnection) {
   const manager = await connection.jetstreamManager();
   const streams = await manager.streams.list(CHAT_SUBJECT).next();
-  if (streams.some((stream) => stream.config.name === CHAT_STREAM)) return;
+  if (streams.some((stream) => stream.config.name === CHAT_STREAM)) {
+    return;
+  }
   await manager.streams.add({
     name: CHAT_STREAM,
     subjects: [CHAT_SUBJECT],
@@ -120,7 +122,9 @@ export class NatsCollectorLeases {
       revision = await this.bucket.create(key, codec.encode(owner));
     } catch (cause) {
       const current = await this.bucket.get(key);
-      if (current) return null;
+      if (current) {
+        return null;
+      }
       throw cause;
     }
 
@@ -129,7 +133,9 @@ export class NatsCollectorLeases {
       async maintain(signal) {
         while (!signal.aborted) {
           await delay(COLLECTOR_LEASE_HEARTBEAT_MS, { signal });
-          if (signal.aborted) return;
+          if (signal.aborted) {
+            return;
+          }
           revision = await bucket.update(key, codec.encode(owner), revision);
         }
       },
@@ -156,7 +162,9 @@ export class NatsChatCollectorControl implements ChatCollectorControl {
     signal.addEventListener("abort", stop, { once: true });
     try {
       for await (const entry of watcher) {
-        if (entry.operation === "PUT") yield ChatSourceIdSchema.parse(entry.key);
+        if (entry.operation === "PUT") {
+          yield ChatSourceIdSchema.parse(entry.key);
+        }
       }
     } finally {
       signal.removeEventListener("abort", stop);

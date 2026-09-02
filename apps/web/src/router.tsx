@@ -8,12 +8,16 @@ import { createApi } from "./lib/trpc";
 import { routeTree } from "./routeTree.gen";
 
 function getInitialLocale() {
-  if (typeof document === "undefined") return "en" as const;
+  if (typeof document === "undefined") {
+    return "en" as const;
+  }
   return resolveLocale(parseCookie(document.cookie)[localeCookieName], navigator.language);
 }
 
 function getInitialTheme() {
-  if (typeof document === "undefined") return "light" as const;
+  if (typeof document === "undefined") {
+    return "light" as const;
+  }
   return resolveTheme(parseCookie(document.cookie)[themeCookieName]);
 }
 

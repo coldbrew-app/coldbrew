@@ -30,7 +30,9 @@ export interface ChatCollectorLeases {
 }
 
 function eventKey(event: ChatStreamEvent) {
-  if (event.type === "message") return `message:${event.message.sourceId}:${event.message.id}`;
+  if (event.type === "message") {
+    return `message:${event.message.sourceId}:${event.message.id}`;
+  }
   if (event.type === "message_deleted") {
     return `deleted:${event.sourceId}:${event.messageId}`;
   }
@@ -58,7 +60,9 @@ async function collectSource(
     const leaseController = new AbortController();
     const collectionSignal = AbortSignal.any([signal, leaseController.signal]);
     const maintaining = lease.maintain(collectionSignal).catch((cause: unknown) => {
-      if (!collectionSignal.aborted) logger.error({ cause, sourceId }, "Chat collector lease lost");
+      if (!collectionSignal.aborted) {
+        logger.error({ cause, sourceId }, "Chat collector lease lost");
+      }
       leaseController.abort();
     });
 
@@ -80,17 +84,22 @@ async function collectSource(
         await broker.publish(userId, $event.value, eventKey($event.value));
       }
     } catch (cause) {
-      if (!collectionSignal.aborted) logger.error({ cause, sourceId }, "Chat collector failed");
+      if (!collectionSignal.aborted) {
+        logger.error({ cause, sourceId }, "Chat collector failed");
+      }
     } finally {
       leaseController.abort();
       await maintaining;
       await lease.release().catch((cause: unknown) => {
-        if (!signal.aborted)
+        if (!signal.aborted) {
           logger.error({ cause, sourceId }, "Chat collector lease release failed");
+        }
       });
     }
 
-    if (!signal.aborted) await delay(STREAM_RETRY_MS, { signal });
+    if (!signal.aborted) {
+      await delay(STREAM_RETRY_MS, { signal });
+    }
   }
 }
 
@@ -124,7 +133,9 @@ export async function runChatCollectors(
 
     for (const [sourceId, collector] of running) {
       const desiredSource = desired.get(sourceId);
-      if (desiredSource?.credentials.tokenVersion === collector.tokenVersion) continue;
+      if (desiredSource?.credentials.tokenVersion === collector.tokenVersion) {
+        continue;
+      }
       collector.abort();
       running.delete(sourceId);
     }
@@ -132,7 +143,9 @@ export async function runChatCollectors(
     for (const ownedSource of enabledSources) {
       const source = ownedSource.connectedSource.source;
       const provider = providerByName.get(source.provider);
-      if (!provider || provider.collection !== "pull" || running.has(source.sourceId)) continue;
+      if (!provider || provider.collection !== "pull" || running.has(source.sourceId)) {
+        continue;
+      }
 
       const controller = new AbortController();
       const generation = Symbol(source.sourceId);
@@ -170,11 +183,15 @@ export async function runChatCollectors(
     for await (const sourceId of collectorControl.refreshes(signal)) {
       await serialized(async () => {
         const collector = running.get(sourceId);
-        if (!collector) return;
+        if (!collector) {
+          return;
+        }
         collector.abort();
         running.delete(sourceId);
         await collector.work;
-        if (!signal.aborted) await reconcile();
+        if (!signal.aborted) {
+          await reconcile();
+        }
       });
     }
   })();
@@ -185,7 +202,9 @@ export async function runChatCollectors(
       await delay(RECONCILE_INTERVAL_MS, { signal });
     }
   } finally {
-    for (const collector of running.values()) collector.abort();
+    for (const collector of running.values()) {
+      collector.abort();
+    }
     await Promise.allSettled([...running.values()].map(({ work }) => work));
     await refreshing;
   }

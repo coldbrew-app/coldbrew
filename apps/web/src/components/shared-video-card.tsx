@@ -24,7 +24,9 @@ const getYoutubeEmbedUrl = (url: string, startSeconds: number, endSeconds: numbe
       : (parsedUrl.searchParams.get("v") ??
         parsedUrl.pathname.match(/^\/(?:embed|shorts)\/([^/]+)/)?.[1]);
 
-  if (!videoId) return null;
+  if (!videoId) {
+    return null;
+  }
 
   return rurl(`https://www.youtube-nocookie.com/embed/${videoId}`).withSearchParams({
     start: startSeconds,
@@ -51,7 +53,7 @@ export function SharedVideoCard({ showPriorityLabel = true, video }: Props) {
   return (
     <article className="group relative flex flex-col gap-3 px-4 py-4 transition-colors hover:bg-secondary/25 sm:px-5">
       <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-start">
-        {embedUrl && (
+        {embedUrl !== null && (
           <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-muted sm:w-60 sm:shrink-0">
             <iframe
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -59,6 +61,7 @@ export function SharedVideoCard({ showPriorityLabel = true, video }: Props) {
               className="size-full"
               loading="lazy"
               referrerPolicy="strict-origin-when-cross-origin"
+              sandbox="allow-presentation allow-same-origin allow-scripts"
               src={embedUrl}
               title={t("youtubeVideo")}
             />
@@ -74,7 +77,7 @@ export function SharedVideoCard({ showPriorityLabel = true, video }: Props) {
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="flex min-w-0 grow flex-wrap items-center gap-x-2 gap-y-1">
               <strong className="text-[13px] text-card-foreground">{t("video")}</strong>
-              {showPriorityLabel && video.priorityLabel && (
+              {showPriorityLabel && video.priorityLabel !== null && (
                 <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-secondary-foreground">
                   {video.priorityLabel}
                 </span>

@@ -1,5 +1,5 @@
 import { refreshTokens } from "@coldbrew/packages/donationalerts.js";
-import { RefreshToken, UserId } from "@coldbrew/packages/schemas.js";
+import type { RefreshToken, UserId } from "@coldbrew/packages/schemas.js";
 import { erro } from "@lebedevna/neverthrow-utils";
 import { ok, safeTry } from "neverthrow";
 
@@ -22,7 +22,9 @@ export function refreshAccessToken(user: {
       tokens.refreshToken,
       tokens.accessToken,
     );
-    if (!updated) return erro({ type: "donationalerts: stale credentials" });
+    if (!updated) {
+      return erro({ type: "donationalerts: stale credentials" });
+    }
 
     return ok({ ...tokens, tokenVersion: user.tokenVersion + 1 });
   });

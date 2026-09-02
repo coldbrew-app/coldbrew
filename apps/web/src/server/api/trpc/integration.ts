@@ -12,7 +12,7 @@ export const integrationRouter = router({
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      if (input.source == "donationalerts") {
+      if (input.source === "donationalerts") {
         await store.disconnectDonationAlerts(ctx.userId);
       }
     }),

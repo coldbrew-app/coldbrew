@@ -55,7 +55,9 @@ describe("VideoSchema", () => {
     const video = VideoSchema.parse({ ...baseVideo, source: "donation", donation });
 
     expect(video.source).toBe("donation");
-    if (video.source !== "donation") throw new Error("expected a donation video");
+    if (video.source !== "donation") {
+      throw new Error("expected a donation video");
+    }
     expect(video.donation.author).toBe("Viewer");
   });
 

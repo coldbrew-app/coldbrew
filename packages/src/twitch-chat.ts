@@ -165,7 +165,9 @@ export function reduceTwitchState(state: TwitchState, action: TwitchAction): Twi
   }
   if (action.type === "unregister") {
     const current = state.channels.get(action.channel);
-    if (!current) return state;
+    if (!current) {
+      return state;
+    }
     const owners = new Set([...current.owners].filter((owner) => owner !== action.owner));
     if (owners.size === 0) {
       return {
@@ -179,7 +181,9 @@ export function reduceTwitchState(state: TwitchState, action: TwitchAction): Twi
     };
   }
   const current = state.channels.get(action.channel);
-  if (!current) return state;
+  if (!current) {
+    return state;
+  }
   if (action.type === "subscription revoked") {
     return {
       ...state,
@@ -204,7 +208,9 @@ export function reduceTwitchState(state: TwitchState, action: TwitchAction): Twi
       }),
     };
   }
-  if (current.subscribingSessionId !== action.sessionId) return state;
+  if (current.subscribingSessionId !== action.sessionId) {
+    return state;
+  }
   return {
     ...state,
     channels: replaceChannel(state.channels, action.channel, {
@@ -279,7 +285,9 @@ async function validateRuntime(
   signal: AbortSignal,
 ) {
   const state = runtime.state;
-  if (dependencies.now() - state.lastValidatedAt < VALIDATION_INTERVAL_MS) return true;
+  if (dependencies.now() - state.lastValidatedAt < VALIDATION_INTERVAL_MS) {
+    return true;
+  }
   const $credentials = await dependencies.validateCredentials(state.credentials, signal);
   if ($credentials.isErr()) {
     for (const channel of state.channels.keys()) {
@@ -304,13 +312,17 @@ async function ensureValidCredentials(
   dependencies: TwitchDependencies,
   signal: AbortSignal,
 ) {
-  if (runtime.validation) return await runtime.validation;
+  if (runtime.validation) {
+    return await runtime.validation;
+  }
   const validation = validateRuntime(runtime, dependencies, signal);
   runtime.validation = validation;
   try {
     return await validation;
   } finally {
-    if (runtime.validation === validation) runtime.validation = null;
+    if (runtime.validation === validation) {
+      runtime.validation = null;
+    }
   }
 }
 
@@ -350,7 +362,9 @@ async function subscribeChannel(
       channel,
       signal,
     );
-    if (!isCurrentSubscription(runtime, channel, sessionId)) return;
+    if (!isCurrentSubscription(runtime, channel, sessionId)) {
+      return;
+    }
     if ($broadcasterId.isErr()) {
       updateTwitchState(runtime, {
         type: "subscription finished",
@@ -382,7 +396,9 @@ async function subscribeChannel(
     sessionId,
     signal,
   );
-  if (!isCurrentSubscription(runtime, channel, sessionId)) return;
+  if (!isCurrentSubscription(runtime, channel, sessionId)) {
+    return;
+  }
   const status = $subscription.isOk() ? "live" : "error";
   const detail = $subscription.isErr()
     ? $subscription.error.type === "rejected"
@@ -417,10 +433,14 @@ async function handleSocketEvent(
     }
     return;
   }
-  if (event.type === "reconnect") return;
+  if (event.type === "reconnect") {
+    return;
+  }
   if (event.type === "revocation") {
     for (const [channel, state] of runtime.state.channels) {
-      if (state.broadcasterId !== event.broadcasterId) continue;
+      if (state.broadcasterId !== event.broadcasterId) {
+        continue;
+      }
       updateTwitchState(runtime, {
         type: "subscription revoked",
         channel,
@@ -436,7 +456,9 @@ async function handleSocketEvent(
     }
     return;
   }
-  if (!runtime.state.channels.has(event.channel)) return;
+  if (!runtime.state.channels.has(event.channel)) {
+    return;
+  }
   await ResultAsync.fromPromise(
     runtime.events.emit(
       "event",
@@ -462,12 +484,18 @@ async function runTwitchConnection(
 ) {
   let reconnectUrl: string | undefined;
   while (!signal.aborted && runtime.state.channels.size > 0) {
-    if (!(await ensureValidCredentials(runtime, dependencies, signal))) return;
+    if (!(await ensureValidCredentials(runtime, dependencies, signal))) {
+      return;
+    }
     let shouldReconnectImmediately = false;
     for await (const $event of dependencies.socketEvents(signal, reconnectUrl)) {
-      if (runtime.run?.generation !== generation) return;
+      if (runtime.run?.generation !== generation) {
+        return;
+      }
       if ($event.isErr()) {
-        if (signal.aborted) return;
+        if (signal.aborted) {
+          return;
+        }
         for (const channel of runtime.state.channels.keys()) {
           await publishError(runtime, channel, "socket", $event.error, signal.aborted);
         }
@@ -481,8 +509,12 @@ async function runTwitchConnection(
       await handleSocketEvent(runtime, dependencies, $event.value, signal);
     }
     updateTwitchState(runtime, { type: "session closed" });
-    if (signal.aborted || runtime.state.channels.size === 0) return;
-    if (shouldReconnectImmediately) continue;
+    if (signal.aborted || runtime.state.channels.size === 0) {
+      return;
+    }
+    if (shouldReconnectImmediately) {
+      continue;
+    }
     reconnectUrl = undefined;
     const $waited = await dependencies.wait(RECONNECT_DELAY_MS, signal);
     if ($waited.isErr()) {
@@ -503,8 +535,12 @@ async function runTwitchValidation(
 ) {
   while (!signal.aborted) {
     const $waited = await dependencies.wait(VALIDATION_INTERVAL_MS, signal);
-    if ($waited.isErr()) return;
-    if (runtime.state.channels.size === 0) return;
+    if ($waited.isErr()) {
+      return;
+    }
+    if (runtime.state.channels.size === 0) {
+      return;
+    }
     await ensureValidCredentials(runtime, dependencies, signal);
   }
 }
@@ -522,12 +558,16 @@ async function ownTwitchRun(
     controller.abort();
     await Promise.allSettled([validation]);
   } finally {
-    if (runtime.run?.generation === generation) runtime.run = null;
+    if (runtime.run?.generation === generation) {
+      runtime.run = null;
+    }
   }
 }
 
 function ensureTwitchConnection(runtime: TwitchRuntime, dependencies: TwitchDependencies) {
-  if (runtime.run && !runtime.run.controller.signal.aborted) return;
+  if (runtime.run && !runtime.run.controller.signal.aborted) {
+    return;
+  }
   const generation = Symbol("twitch connection");
   const controller = new AbortController();
   const run: TwitchRun = { generation, controller, task: Promise.resolve() };
@@ -538,7 +578,9 @@ function ensureTwitchConnection(runtime: TwitchRuntime, dependencies: TwitchDepe
 
 async function stopTwitchConnection(runtime: TwitchRuntime) {
   const run = runtime.run;
-  if (!run) return;
+  if (!run) {
+    return;
+  }
   run.controller.abort();
   await Promise.allSettled([run.task]);
 }
@@ -593,7 +635,9 @@ export class TwitchChatClient {
               twitchOperationError("Could not read a Twitch provider event", cause),
             );
             if ($next.isErr()) {
-              if (signal.aborted) return;
+              if (signal.aborted) {
+                return;
+              }
               yield erro({
                 type: "twitch chat error",
                 operation: "read",
@@ -603,13 +647,19 @@ export class TwitchChatClient {
               });
               return;
             }
-            if ($next.value.done) return;
+            if ($next.value.done === true) {
+              return;
+            }
             const $data = $next.value.value.data;
             if ($data.isErr()) {
-              if ($data.error.channel === channel) yield $data;
+              if ($data.error.channel === channel) {
+                yield $data;
+              }
               continue;
             }
-            if ($data.value.channel === channel) yield ok($data.value);
+            if ($data.value.channel === channel) {
+              yield ok($data.value);
+            }
           }
         } finally {
           if (iterator.return) {
@@ -618,7 +668,9 @@ export class TwitchChatClient {
             );
           }
           updateTwitchState(runtime, { type: "unregister", channel, owner });
-          if (runtime.state.channels.size === 0) await stopTwitchConnection(runtime);
+          if (runtime.state.channels.size === 0) {
+            await stopTwitchConnection(runtime);
+          }
         }
       }, parentSignal);
   }

@@ -45,7 +45,9 @@ export const Route = createFileRoute("/_authenticated/videos")({
     videoStatus: search.videoStatus,
   }),
   loader: async ({ context, deps }) => {
-    if (!context.viewer) return;
+    if (!context.viewer) {
+      return;
+    }
     const videoPageInput = VideoPageInputSchema.parse(deps);
     await Promise.all([
       preloadRouteQuery(context.queryClient, context.trpc.videoPage.queryOptions(videoPageInput)),
@@ -80,10 +82,10 @@ function VideoQueue() {
     if (videosQ.data && !videosQ.isPlaceholderData && videosQ.data.page !== search.page) {
       void navigate({
         replace: true,
-        search: (previous) => ({ ...previous, page: videosQ.data!.page }),
+        search: (previous) => ({ ...previous, page: videosQ.data.page }),
       });
     }
-  }, [navigate, search.page, videosQ.data]);
+  }, [navigate, search.page, videosQ.data, videosQ.isPlaceholderData]);
 
   const tabs = [
     {

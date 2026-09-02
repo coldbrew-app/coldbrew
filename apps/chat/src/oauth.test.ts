@@ -1,16 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { ChatOauth, chatOauthConfigs } from "./oauth.js";
-import type { ChatStore } from "./store.js";
 
 describe("chat OAuth", () => {
-  it("uses the web proxy URL for provider callbacks", async () => {
+  it("uses the public chat service URL for provider callbacks", async () => {
     const store = {
       createOauthAttempt: vi.fn(async () => undefined),
-    } as unknown as ChatStore;
+      consumeOauthAttempt: vi.fn(async () => null),
+      hasSourceCapacity: vi.fn(async () => true),
+      saveProviderAccount: vi.fn(async () => "connection-id"),
+    };
     const oauth = new ChatOauth(
       store,
-      "http://localhost:5173",
+      "http://localhost:5173/api/chat",
       chatOauthConfigs({ youtube: { clientId: "client-id", clientSecret: "client-secret" } }),
     );
 
@@ -26,15 +28,15 @@ describe("chat OAuth", () => {
       createOauthAttempt: vi.fn(async () => undefined),
       consumeOauthAttempt: vi.fn(async () => ({
         userId: 42,
-        provider: "kick",
+        provider: "kick" as const,
         verifier: "verifier",
         returnUrl: "http://localhost:5173/chat",
       })),
       hasSourceCapacity: vi.fn(async () => true),
-      saveProviderAccount: vi.fn(async () => undefined),
-    } as unknown as ChatStore;
+      saveProviderAccount: vi.fn(async () => "connection-id"),
+    };
     const fetchMock = vi
-      .fn()
+      .fn<typeof fetch>()
       .mockResolvedValueOnce(new Response('{"access_token":"token"}'))
       .mockResolvedValueOnce(
         new Response('{"data":[{"broadcaster_user_id":123,"slug":"streamer"}]}'),
@@ -43,7 +45,7 @@ describe("chat OAuth", () => {
     vi.stubGlobal("fetch", fetchMock);
     const oauth = new ChatOauth(
       store,
-      "http://localhost:5173",
+      "http://localhost:5173/api/chat",
       chatOauthConfigs({ kick: { clientId: "client-id", clientSecret: "client-secret" } }),
     );
 
@@ -53,7 +55,12 @@ describe("chat OAuth", () => {
       AbortSignal.timeout(1_000),
     );
 
-    expect(JSON.parse(fetchMock.mock.calls[2]?.[1]?.body as string)).toEqual({
+    const body = fetchMock.mock.calls[2]?.[1]?.body;
+    expect(typeof body).toBe("string");
+    if (typeof body !== "string") {
+      throw new TypeError("Kick subscription request body must be a string.");
+    }
+    expect(JSON.parse(body)).toEqual({
       broadcaster_user_id: 123,
       method: "webhook",
       events: [{ name: "chat.message.sent", version: 1 }],

@@ -76,14 +76,11 @@ collector/config snapshot after a refresh race.
 Required service settings:
 
 ```text
-APP_DOMAIN
-BETTER_AUTH_SECRET
 DATABASE_URL
 NATS_SERVERS
 CHAT_PORT
+CHAT_PUBLIC_URL
 CHAT_WEB_URL
-CHAT_SERVICE_SECRET
-CHAT_TOKEN_ENCRYPTION_SECRET
 ```
 
 Provider settings are enabled as complete groups:
@@ -96,12 +93,14 @@ KICK_CLIENT_ID / KICK_CLIENT_SECRET / KICK_WEBHOOK_PUBLIC_KEY
 
 `CHAT_SERVICE_SECRET` must have the same value in `apps/web` and `apps/chat`.
 `CHAT_TOKEN_ENCRYPTION_SECRET` should be a separate stable secret; changing it makes existing
-provider tokens unreadable. In production, the Kick developer application webhook is
+provider tokens unreadable. For backwards-compatible local rollout, either value falls back to
+`BETTER_AUTH_SECRET` when omitted. Production should set both explicitly. In production,
+`CHAT_PUBLIC_URL` is `${APP_DOMAIN}/api/chat` and the Kick developer application webhook is
 `${APP_DOMAIN}/api/chat/webhooks/kick`.
 
-OAuth callback URLs are always exposed through the web service as
-`${CHAT_WEB_URL}/api/chat/oauth/<provider>/callback`; the web proxy forwards them to the chat
-service.
+`CHAT_WEB_URL` falls back to `APP_DOMAIN`; `CHAT_PUBLIC_URL` falls back to its `/api/chat` path.
+The explicit values remain useful when the chat service is exposed on a separate development
+origin.
 
 `GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET` belong only to Better Auth sign-in. YouTube chat requests
 `youtube.force-ssl` using its separate `YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET` pair. Twitch

@@ -31,7 +31,9 @@ export const Route = createFileRoute("/_authenticated/")({
     ],
   }),
   loader: async ({ context }) => {
-    if (!context.viewer) return;
+    if (!context.viewer) {
+      return;
+    }
     await Promise.all([
       preloadRouteQuery(context.queryClient, context.trpc.donationOverview.queryOptions()),
       preloadRouteQuery(context.queryClient, context.trpc.authUrls.queryOptions()),

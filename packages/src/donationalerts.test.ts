@@ -2,9 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AccessTokenSchema, RefreshTokenSchema } from "./schemas.js";
 
-const state = vi.hoisted(() => ({
-  sockets: [] as TestWebSocket[],
-}));
+const state = vi.hoisted<{ sockets: TestWebSocket[] }>(() => ({ sockets: [] }));
 
 class TestWebSocket extends EventTarget {
   readonly sent: string[] = [];
@@ -32,7 +30,7 @@ const socketProfile = {
 
 function stubRealtimeFetch() {
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input);
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     if (url === "https://www.donationalerts.com/api/v1/user/oauth") {
       return new Response(JSON.stringify(socketProfile));
     }
@@ -52,7 +50,27 @@ function stubRealtimeFetch() {
 
 async function waitForSocket(index = 0) {
   await vi.waitFor(() => expect(state.sockets[index]).toBeDefined());
-  return state.sockets[index]!;
+  return state.sockets[index];
+}
+
+function sentMessageAt(socket: TestWebSocket, index: number) {
+  return socket.sent[index];
+}
+
+function parseJson(value: string): unknown {
+  const parsed: unknown = JSON.parse(value);
+  return parsed;
+}
+
+function iteratorValue<T>(result: IteratorResult<T>) {
+  if (result.done === true) {
+    throw new Error("Expected the DonationAlerts stream to yield a value.");
+  }
+  return result.value;
+}
+
+async function nextValue<T>(iterator: AsyncIterator<T>) {
+  return iteratorValue(await iterator.next());
 }
 
 afterEach(() => {
@@ -247,7 +265,7 @@ describe("DonationAlertsSource", () => {
 
     expect(socket.url).toBe("wss://centrifugo.donationalerts.com/connection/websocket");
     socket.dispatchEvent(new Event("open"));
-    expect(socket.sent.map((message) => JSON.parse(message))).toEqual([
+    expect(socket.sent.map(parseJson)).toEqual([
       { params: { token: "socket-connection-token" }, id: 1 },
     ]);
 
@@ -272,11 +290,15 @@ describe("DonationAlertsSource", () => {
         "Content-Type": "application/json",
       },
     });
-    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
+    const subscriptionBody = fetchMock.mock.calls[1]?.[1]?.body;
+    if (typeof subscriptionBody !== "string") {
+      throw new Error("Expected the subscription body to be a string.");
+    }
+    expect(JSON.parse(subscriptionBody)).toEqual({
       channels: ["$alerts:donation_42"],
       client: "d558c046-c679-43e3-a62d-65989ab55f7c",
     });
-    expect(JSON.parse(socket.sent[1]!)).toEqual({
+    expect(parseJson(sentMessageAt(socket, 1))).toEqual({
       id: 2,
       method: 1,
       params: { channel: "$alerts:donation_42", token: "channel-token" },
@@ -302,14 +324,10 @@ describe("DonationAlertsSource", () => {
       }),
     );
 
-    await expect(nextEvent).resolves.toMatchObject({
-      done: false,
-      value: expect.objectContaining({
-        value: expect.objectContaining({
-          sourceDonationId: "1",
-          occurredAt: new Date("2026-08-22T12:00:00.000Z"),
-        }),
-      }),
+    const donation = iteratorValue(await nextEvent)._unsafeUnwrap();
+    expect(donation).toMatchObject({
+      sourceDonationId: "1",
+      occurredAt: new Date("2026-08-22T12:00:00.000Z"),
     });
     await iterator.return?.();
     expect(socket.close).toHaveBeenCalledOnce();
@@ -353,7 +371,7 @@ describe("DonationAlertsSource", () => {
       }),
     );
     await vi.advanceTimersByTimeAsync(5_000);
-    const secondSocket = state.sockets[1]!;
+    const secondSocket = await waitForSocket(1);
     secondSocket.dispatchEvent(
       new MessageEvent("message", {
         data: JSON.stringify({ type: "donation", result: {} }),
@@ -379,11 +397,8 @@ describe("DonationAlertsSource", () => {
     vi.stubGlobal("WebSocket", TestWebSocket);
     const iterator = new DonationAlertsSource(accessToken).stream()[Symbol.asyncIterator]();
 
-    await expect(iterator.next()).resolves.toMatchObject({
-      done: false,
-      value: expect.objectContaining({
-        error: expect.objectContaining({ type: "donationalerts: unauthorized" }),
-      }),
+    expect((await nextValue(iterator))._unsafeUnwrapErr()).toMatchObject({
+      type: "donationalerts: unauthorized",
     });
     await expect(iterator.next()).resolves.toEqual({ done: true, value: undefined });
     expect(state.sockets).toHaveLength(0);
@@ -435,11 +450,9 @@ describe("DonationAlertsSource", () => {
       }),
     );
 
-    await expect(nextEvent).resolves.toMatchObject({
-      done: false,
-      value: expect.objectContaining({
-        error: expect.objectContaining({ type: "donationalerts: unauthorized" }),
-      }),
+    const unauthorized = await nextEvent;
+    expect(iteratorValue(unauthorized)._unsafeUnwrapErr()).toMatchObject({
+      type: "donationalerts: unauthorized",
     });
     await expect(iterator.next()).resolves.toEqual({ done: true, value: undefined });
     expect(socket.close).toHaveBeenCalledOnce();
@@ -459,9 +472,9 @@ describe("DonationAlertsSource", () => {
     await vi.advanceTimersByTimeAsync(5_000);
 
     expect(state.sockets).toHaveLength(2);
-    const secondSocket = state.sockets[1]!;
+    const secondSocket = await waitForSocket(1);
     secondSocket.dispatchEvent(new Event("open"));
-    expect(secondSocket.sent.map((message) => JSON.parse(message))).toEqual([
+    expect(secondSocket.sent.map(parseJson)).toEqual([
       { params: { token: "socket-connection-token" }, id: 1 },
     ]);
 

@@ -32,7 +32,9 @@ export function formatVideoTime(totalSeconds: number) {
 
 export function parseVideoTime(value: string) {
   const match = value.trim().match(/^(?:(\d+):([0-5]\d):([0-5]\d)|(\d+):([0-5]\d))$/);
-  if (match === null) return null;
+  if (match === null) {
+    return null;
+  }
 
   const [, hours = "0", hourMinutes, hourSeconds, minutes = "0", minuteSeconds] = match;
   const totalSeconds =

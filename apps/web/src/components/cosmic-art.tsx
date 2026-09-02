@@ -12,8 +12,12 @@ type Props = {
 };
 
 export function CosmicArt({ className, variant = "portal" }: Props) {
-  if (variant === "orbit") return <OrbitArt className={className} />;
-  if (variant === "beans") return <BeanComets className={className} />;
+  if (variant === "orbit") {
+    return <OrbitArt className={className} />;
+  }
+  if (variant === "beans") {
+    return <BeanComets className={className} />;
+  }
 
   return (
     <div aria-hidden="true" className={cn("relative aspect-[320/230] overflow-visible", className)}>

@@ -10,11 +10,10 @@ import {
   MAX_CHAT_MESSAGE_LENGTH,
 } from "@coldbrew/packages/chat.js";
 import { createAbortableStream } from "@coldbrew/packages/create-abortable-stream.js";
-import { logger } from "@coldbrew/packages/logger.js";
 import { rurl } from "@lebedevna/readonly-url";
 import { initTRPC, TRPCError } from "@trpc/server";
 import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
-import SuperJSON from "superjson";
+import { SuperJSON } from "superjson";
 import { z } from "zod";
 
 import type { ChatApplication } from "./chat-application.js";
@@ -38,7 +37,7 @@ type Context = Readonly<{
 
 function bearerToken(request: Request) {
   const value = request.headers.get("authorization");
-  return value?.startsWith("Bearer ") ? value.slice("Bearer ".length) : null;
+  return value !== null && value.startsWith("Bearer ") ? value.slice("Bearer ".length) : null;
 }
 
 function applicationError(error: Readonly<{ detail: string }>): never {
@@ -60,7 +59,9 @@ export function createChatRouter(dependencies: Dependencies) {
     return next({ ctx: { ...ctx, ticket: ctx.ticket } });
   });
   const ticketProcedure = t.procedure.use(({ ctx, next }) => {
-    if (!ctx.ticket) throw new TRPCError({ code: "UNAUTHORIZED" });
+    if (!ctx.ticket) {
+      throw new TRPCError({ code: "UNAUTHORIZED" });
+    }
     return next({ ctx: { ...ctx, ticket: ctx.ticket } });
   });
 
@@ -114,7 +115,7 @@ export function createChatRouter(dependencies: Dependencies) {
       .output(z.object({ authorizationUrl: z.url() }))
       .mutation(async ({ ctx, input }) => {
         const returnUrl = rurl("/chat", dependencies.webUrl).href;
-        logger.debug({ returnUrl });
+        console.debug({ returnUrl });
         const $url = await dependencies.oauth.start(ctx.ticket.userId, input.provider, returnUrl);
         return $url.match((authorizationUrl) => ({ authorizationUrl }), applicationError);
       }),
@@ -180,7 +181,9 @@ export function createChatRouter(dependencies: Dependencies) {
 export function createChatContext(ticketSecret: string) {
   return async ({ req }: FetchCreateContextFnOptions): Promise<Context> => {
     const token = bearerToken(req);
-    if (!token) return { request: req, ticket: null };
+    if (token === null) {
+      return { request: req, ticket: null };
+    }
     const $ticket = verifyChatTicket(ticketSecret, token);
     return { request: req, ticket: $ticket.isOk() ? $ticket.value : null };
   };

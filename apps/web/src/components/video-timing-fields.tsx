@@ -30,10 +30,15 @@ export function parseVideoTiming(
   const normalizedEndTime = endTime.trim();
   const endSeconds = normalizedEndTime === "" ? null : parseVideoTime(normalizedEndTime);
 
-  if (startSeconds === null) return null;
-  if (endSeconds === null)
+  if (startSeconds === null) {
+    return null;
+  }
+  if (endSeconds === null) {
     return allowOpenEnd && normalizedEndTime === "" ? { startSeconds, endSeconds: null } : null;
-  if (endSeconds <= startSeconds) return null;
+  }
+  if (endSeconds <= startSeconds) {
+    return null;
+  }
 
   return { startSeconds, endSeconds };
 }
@@ -100,11 +105,19 @@ export function VideoTimingFields({ allowOpenEnd = false, className, disabled = 
           {...register("endTime", {
             required: allowOpenEnd ? false : t("enterVideoTime"),
             validate: (value) => {
-              if (value.trim() === "") return allowOpenEnd || t("enterVideoTime");
-              const endSeconds = parseVideoTime(value);
-              if (endSeconds === null) return t("invalidVideoTime");
-              const startSeconds = parseVideoTime(getValues("startTime"));
-              return startSeconds === null || endSeconds > startSeconds || t("videoEndAfterStart");
+              if (value.trim() === "") {
+                return allowOpenEnd || t("enterVideoTime");
+              }
+              const candidateEndSeconds = parseVideoTime(value);
+              if (candidateEndSeconds === null) {
+                return t("invalidVideoTime");
+              }
+              const candidateStartSeconds = parseVideoTime(getValues("startTime"));
+              return (
+                candidateStartSeconds === null ||
+                candidateEndSeconds > candidateStartSeconds ||
+                t("videoEndAfterStart")
+              );
             },
           })}
         />

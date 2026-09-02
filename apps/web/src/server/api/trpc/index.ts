@@ -54,7 +54,9 @@ export const appRouter = router({
   }),
 
   userInfo: procedure.query(async ({ ctx }) => {
-    if (ctx.userId === null) return null;
+    if (ctx.userId === null) {
+      return null;
+    }
     return await store.getUserInfo(ctx.userId);
   }),
 

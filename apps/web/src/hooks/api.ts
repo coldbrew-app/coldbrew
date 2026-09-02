@@ -11,14 +11,18 @@ export function useUserInfoSafe() {
 export function useUserInfo() {
   const userInfo = useUserInfoSafe();
 
-  if (userInfo === null) throw new Error("Authenticated user info is required.");
+  if (userInfo === null) {
+    throw new Error("Authenticated user info is required.");
+  }
   return userInfo;
 }
 
 export function useSlug() {
   const userInfo = useUserInfoSafe();
 
-  if (!userInfo?.slug) throw new Error("not slug");
+  if (!userInfo?.slug) {
+    throw new Error("not slug");
+  }
   return userInfo.slug;
 }
 
@@ -26,8 +30,8 @@ export function useSetSlugM() {
   const { queryClient, trpc } = useApi();
   return useMutation(
     trpc.updateSlug.mutationOptions({
-      onSuccess() {
-        queryClient.invalidateQueries({ queryKey: trpc.userInfo.queryKey() });
+      async onSuccess() {
+        await queryClient.invalidateQueries({ queryKey: trpc.userInfo.queryKey() });
       },
     }),
   );
@@ -37,10 +41,12 @@ export function useUpdateQueueCurrencyM() {
   const { queryClient, trpc } = useApi();
   return useMutation(
     trpc.updateQueueCurrency.mutationOptions({
-      onSuccess() {
-        queryClient.invalidateQueries({ queryKey: trpc.userInfo.queryKey() });
-        queryClient.invalidateQueries({ queryKey: trpc.videoPage.queryKey() });
-        queryClient.invalidateQueries({ queryKey: trpc.videoPriorities.queryKey() });
+      async onSuccess() {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: trpc.userInfo.queryKey() }),
+          queryClient.invalidateQueries({ queryKey: trpc.videoPage.queryKey() }),
+          queryClient.invalidateQueries({ queryKey: trpc.videoPriorities.queryKey() }),
+        ]);
       },
     }),
   );
@@ -50,9 +56,11 @@ export function useUpdatePublicQueueSettingsM() {
   const { queryClient, trpc } = useApi();
   return useMutation(
     trpc.updatePublicQueueSettings.mutationOptions({
-      onSuccess() {
-        queryClient.invalidateQueries({ queryKey: trpc.userInfo.queryKey() });
-        queryClient.invalidateQueries({ queryKey: trpc.sharedVideoPage.queryKey() });
+      async onSuccess() {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: trpc.userInfo.queryKey() }),
+          queryClient.invalidateQueries({ queryKey: trpc.sharedVideoPage.queryKey() }),
+        ]);
       },
     }),
   );
@@ -63,8 +71,8 @@ export function useDisconnectM() {
 
   return useMutation(
     trpc.integration.disconnect.mutationOptions({
-      onSuccess() {
-        queryClient.invalidateQueries({ queryKey: trpc.userInfo.queryKey() });
+      async onSuccess() {
+        await queryClient.invalidateQueries({ queryKey: trpc.userInfo.queryKey() });
       },
     }),
   );
@@ -107,8 +115,8 @@ export function useAddVideoM() {
   const { queryClient, trpc } = useApi();
   return useMutation(
     trpc.addVideo.mutationOptions({
-      onSuccess() {
-        queryClient.invalidateQueries({ queryKey: trpc.videoPage.queryKey() });
+      async onSuccess() {
+        await queryClient.invalidateQueries({ queryKey: trpc.videoPage.queryKey() });
       },
     }),
   );
@@ -123,9 +131,11 @@ export function useUpdateVideoPriorityM() {
   const { queryClient, trpc } = useApi();
   return useMutation(
     trpc.updateVideoPriority.mutationOptions({
-      onSuccess() {
-        queryClient.invalidateQueries({ queryKey: trpc.videoPriorities.queryKey() });
-        queryClient.invalidateQueries({ queryKey: trpc.videoPage.queryKey() });
+      async onSuccess() {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: trpc.videoPriorities.queryKey() }),
+          queryClient.invalidateQueries({ queryKey: trpc.videoPage.queryKey() }),
+        ]);
       },
     }),
   );
@@ -135,8 +145,8 @@ export function useUpdateVideoStatusM() {
   const { queryClient, trpc } = useApi();
   return useMutation(
     trpc.updateVideoStatus.mutationOptions({
-      onSuccess() {
-        queryClient.invalidateQueries({ queryKey: trpc.videoPage.queryKey() });
+      async onSuccess() {
+        await queryClient.invalidateQueries({ queryKey: trpc.videoPage.queryKey() });
       },
     }),
   );
@@ -146,8 +156,8 @@ export function useUpdateVideoM() {
   const { queryClient, trpc } = useApi();
   return useMutation(
     trpc.updateVideo.mutationOptions({
-      onSuccess() {
-        queryClient.invalidateQueries({ queryKey: trpc.videoPage.queryKey() });
+      async onSuccess() {
+        await queryClient.invalidateQueries({ queryKey: trpc.videoPage.queryKey() });
       },
     }),
   );

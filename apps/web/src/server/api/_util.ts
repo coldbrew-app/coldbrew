@@ -1,4 +1,4 @@
-import { AuthUserIdSchema, UserId } from "@coldbrew/packages/schemas.js";
+import { AuthUserIdSchema, type UserId } from "@coldbrew/packages/schemas.js";
 import { slugFromEmail } from "@coldbrew/packages/slug.js";
 
 import { auth } from "../lib/auth.js";
@@ -15,7 +15,9 @@ export type Viewer = {
 
 export async function getViewer(req: Request): Promise<Viewer | null> {
   const session = await auth.api.getSession({ headers: req.headers });
-  if (!session) return null;
+  if (!session) {
+    return null;
+  }
 
   const authUserId = AuthUserIdSchema.parse(session.user.id);
   const slug = slugFromEmail(session.user.email);

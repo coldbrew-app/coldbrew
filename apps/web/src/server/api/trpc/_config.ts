@@ -1,6 +1,6 @@
 import { initTRPC, TRPCError } from "@trpc/server";
-import { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
-import SuperJSON from "superjson";
+import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
+import { SuperJSON } from "superjson";
 
 import { getUserId } from "../_util.js";
 

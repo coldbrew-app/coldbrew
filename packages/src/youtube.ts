@@ -15,7 +15,9 @@ function parseUrl(url: string) {
 
 function isYoutubeUrl(url: ReadonlyURL) {
   const host = url.hostname.toLowerCase();
-  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return false;
+  }
   return (
     host === "youtu.be" ||
     host === "youtube.com" ||
@@ -27,7 +29,9 @@ function isYoutubeUrl(url: ReadonlyURL) {
 
 export function youtubeVideoId(url: string) {
   const parsedUrl = parseUrl(url);
-  if (parsedUrl === null || !isYoutubeUrl(parsedUrl)) return null;
+  if (parsedUrl === null || !isYoutubeUrl(parsedUrl)) {
+    return null;
+  }
 
   const host = parsedUrl.hostname.toLowerCase();
   const id =
@@ -39,14 +43,18 @@ export function youtubeVideoId(url: string) {
 }
 
 export function parseYoutubeTimestamp(value: string | null) {
-  if (value === null) return null;
+  if (value === null) {
+    return null;
+  }
   if (/^\d+$/.test(value)) {
     const seconds = Number(value);
     return Number.isSafeInteger(seconds) ? seconds : null;
   }
 
   const match = value.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/);
-  if (match === null || match[0] === "") return null;
+  if (match === null || match[0] === "") {
+    return null;
+  }
 
   const [, hours = "0", minutes = "0", seconds = "0"] = match;
   const totalSeconds = Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds);
@@ -62,7 +70,9 @@ function youtubeDurationSeconds(responseBody: string) {
   const lengthSeconds = responseBody.match(
     /(?:"|\\")lengthSeconds(?:"|\\")\s*:\s*(?:"|\\")(\d+)/,
   )?.[1];
-  if (lengthSeconds !== undefined) return Number(lengthSeconds);
+  if (lengthSeconds) {
+    return Number(lengthSeconds);
+  }
 
   const approxDurationMs = responseBody.match(
     /(?:"|\\")approxDurationMs(?:"|\\")\s*:\s*(?:"|\\")(\d+)/,

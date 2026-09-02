@@ -14,7 +14,7 @@ export type DonationId = z.infer<typeof DonationIdSchema>;
 
 export const SlugSchema = z
   .string()
-  .regex(/^[a-zA-Z0-9\-]{3,47}$/)
+  .regex(/^[a-zA-Z0-9-]{3,47}$/)
   .brand("slug");
 export type Slug = z.infer<typeof SlugSchema>;
 

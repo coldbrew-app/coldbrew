@@ -157,7 +157,9 @@ export async function* twitchSocketEvents(
         void sink.fail($decoded.error);
         return;
       }
-      if ($decoded.value) void sink.emit($decoded.value);
+      if ($decoded.value) {
+        void sink.emit($decoded.value);
+      }
     };
     const onClose = () => void sink.end();
     const onError = () => void sink.emit({ type: "error" });

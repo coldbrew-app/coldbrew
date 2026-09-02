@@ -1,11 +1,9 @@
 import { createHash, randomBytes } from "node:crypto";
 
 import type { ChatProvider } from "@coldbrew/packages/chat.js";
-import { logger } from "@coldbrew/packages/logger.js";
-import { propagateError } from "@coldbrew/packages/neverthrow/propagate-error.js";
 import { erro, parseJson, safeFetch, validate } from "@lebedevna/neverthrow-utils";
 import { rurl } from "@lebedevna/readonly-url";
-import { ok, type Result } from "neverthrow";
+import { ok, safeTry, type Result } from "neverthrow";
 import { z } from "zod";
 
 import type { ChatStore } from "./store.js";
@@ -42,6 +40,11 @@ type ProviderIdentity = Readonly<{
   sourceUrl: string;
 }>;
 
+type ChatOauthStore = Pick<
+  ChatStore,
+  "consumeOauthAttempt" | "createOauthAttempt" | "hasSourceCapacity" | "saveProviderAccount"
+>;
+
 const TokenResponseSchema = z.object({
   access_token: z.string().min(1),
   refresh_token: z.string().min(1).optional(),
@@ -57,17 +60,20 @@ function codeChallenge(verifier: string) {
   return createHash("sha256").update(verifier).digest("base64url");
 }
 
-function callbackUrl(webUrl: string, provider: ChatOauthProvider) {
-  return rurl(`/api/chat/oauth/${provider}/callback`, webUrl).href;
+function callbackUrl(publicUrl: string, provider: ChatOauthProvider) {
+  const url = rurl(publicUrl);
+  const basePath = url.pathname.endsWith("/") ? url.pathname.slice(0, -1) : url.pathname;
+  return url.withPathname(`${basePath}/oauth/${provider}/callback`).href;
 }
 
 function normalizedScopes(
   value: string | readonly string[] | undefined,
   fallback: readonly string[],
 ) {
-  if (Array.isArray(value)) return [...value];
-  if (typeof value === "string") return value.split(/[ ,]+/).filter(Boolean);
-  return [...fallback];
+  if (typeof value === "string") {
+    return value.split(/[ ,]+/).filter(Boolean);
+  }
+  return value ? [...value] : [...fallback];
 }
 
 async function identity(
@@ -177,8 +183,8 @@ export class ChatOauth {
   private readonly configs: ReadonlyMap<ChatOauthProvider, ProviderConfig>;
 
   constructor(
-    private readonly store: ChatStore,
-    private readonly webUrl: string,
+    private readonly store: ChatOauthStore,
+    private readonly publicUrl: string,
     configs: readonly ProviderConfig[],
   ) {
     this.configs = new Map(configs.map((config) => [config.provider, config]));
@@ -209,14 +215,11 @@ export class ChatOauth {
     let url = rurl(config.authorizationUrl).withSearchParams({
       response_type: "code",
       client_id: config.clientId,
-      redirect_uri: callbackUrl(this.webUrl, provider),
+      redirect_uri: callbackUrl(this.publicUrl, provider),
       scope: config.scopes.join(" "),
       state,
       code_challenge: codeChallenge(verifier),
       code_challenge_method: "S256",
-    });
-    logger.debug({
-      callback: url.searchParams.get("redirect_uri"),
     });
     if (provider === "youtube") {
       url = url.withSearchParam("access_type", "offline").withSearchParam("prompt", "consent");
@@ -232,7 +235,7 @@ export class ChatOauth {
     const url = rurl(requestUrl);
     const state = url.searchParams.get("state");
     const code = url.searchParams.get("code");
-    if (!state || !code || url.searchParams.has("error")) {
+    if (state === null || code === null || url.searchParams.has("error")) {
       return erro({ type: "invalid oauth callback", detail: "OAuth callback is incomplete" });
     }
     const attempt = await this.store.consumeOauthAttempt(sha256(state), provider);
@@ -247,98 +250,96 @@ export class ChatOauth {
         returnUrl: attempt.returnUrl,
       });
     }
-    const $token = await safeFetch(config.tokenUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "authorization_code",
-        code,
-        client_id: config.clientId,
-        client_secret: config.clientSecret,
-        redirect_uri: callbackUrl(this.webUrl, provider),
-        code_verifier: attempt.verifier,
-      }),
-      signal,
-    })
-      .andThen(parseJson)
-      .andThen((value) => validate(value, TokenResponseSchema));
-    if ($token.isErr()) {
-      return erro({
-        type: "oauth token exchange failed",
-        detail: `Не удалось завершить OAuth ${provider}`,
-        returnUrl: attempt.returnUrl,
-        cause: $token.error,
-      });
-    }
-    const $identity = await identity(provider, config.clientId, $token.value.access_token, signal);
-    if ($identity.isErr()) {
-      return propagateError(erro({ ...$identity.error, returnUrl: attempt.returnUrl }));
-    }
-    if (
-      !(await this.store.hasSourceCapacity(
-        attempt.userId,
-        provider,
-        $identity.value.providerUserId,
-      ))
-    ) {
-      return erro({
-        type: "chat source limit reached",
-        detail: "Достигнут лимит подключённых чат-каналов",
-        returnUrl: attempt.returnUrl,
-      });
-    }
-    if (provider === "kick") {
-      const broadcasterUserId = Number($identity.value.providerUserId);
-      if (!Number.isSafeInteger(broadcasterUserId) || broadcasterUserId <= 0) {
-        return erro({
-          type: "oauth profile failed",
-          detail: "Kick вернул некорректный идентификатор канала",
-          returnUrl: attempt.returnUrl,
-        });
-      }
-      const $subscription = await safeFetch("https://api.kick.com/public/v1/events/subscriptions", {
+    const publicUrl = this.publicUrl;
+    const store = this.store;
+    return await safeTry(async function* () {
+      const token = yield* safeFetch(config.tokenUrl, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${$token.value.access_token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          broadcaster_user_id: broadcasterUserId,
-          method: "webhook",
-          events: [{ name: "chat.message.sent", version: 1 }],
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "authorization_code",
+          code,
+          client_id: config.clientId,
+          client_secret: config.clientSecret,
+          redirect_uri: callbackUrl(publicUrl, provider),
+          code_verifier: attempt.verifier,
         }),
         signal,
-      });
-      if ($subscription.isErr()) {
+      })
+        .andThen(parseJson)
+        .andThen((value) => validate(value, TokenResponseSchema))
+        .mapErr(
+          (cause): ChatOauthError => ({
+            type: "oauth token exchange failed",
+            detail: `Не удалось завершить OAuth ${provider}`,
+            returnUrl: attempt.returnUrl,
+            cause,
+          }),
+        );
+      const providerIdentity = yield* (
+        await identity(provider, config.clientId, token.access_token, signal)
+      ).mapErr((error): ChatOauthError => ({ ...error, returnUrl: attempt.returnUrl }));
+      if (
+        !(await store.hasSourceCapacity(attempt.userId, provider, providerIdentity.providerUserId))
+      ) {
         return erro({
-          type: "oauth profile failed",
-          detail: "Не удалось подписаться на события чата Kick",
+          type: "chat source limit reached",
+          detail: "Достигнут лимит подключённых чат-каналов",
           returnUrl: attempt.returnUrl,
-          cause: $subscription.error,
         });
       }
-    }
-    await this.store.saveProviderAccount(
-      attempt.userId,
-      {
-        provider,
-        providerUserId: $identity.value.providerUserId,
-        displayName: $identity.value.displayName,
-        accessToken: $token.value.access_token,
-        ...($token.value.refresh_token ? { refreshToken: $token.value.refresh_token } : {}),
-        ...($token.value.expires_in
-          ? { accessTokenExpiresAt: new Date(Date.now() + $token.value.expires_in * 1_000) }
-          : {}),
-        scopes: normalizedScopes($token.value.scope, config.scopes),
-      },
-      {
-        provider,
-        providerSourceId: $identity.value.providerUserId,
-        displayName: $identity.value.displayName,
-        sourceUrl: $identity.value.sourceUrl,
-      },
-    );
-    return ok(attempt.returnUrl);
+      if (provider === "kick") {
+        const broadcasterUserId = Number(providerIdentity.providerUserId);
+        if (!Number.isSafeInteger(broadcasterUserId) || broadcasterUserId <= 0) {
+          return erro({
+            type: "oauth profile failed",
+            detail: "Kick вернул некорректный идентификатор канала",
+            returnUrl: attempt.returnUrl,
+          });
+        }
+        yield* safeFetch("https://api.kick.com/public/v1/events/subscriptions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            broadcaster_user_id: broadcasterUserId,
+            method: "webhook",
+            events: [{ name: "chat.message.sent", version: 1 }],
+          }),
+          signal,
+        }).mapErr(
+          (cause): ChatOauthError => ({
+            type: "oauth profile failed",
+            detail: "Не удалось подписаться на события чата Kick",
+            returnUrl: attempt.returnUrl,
+            cause,
+          }),
+        );
+      }
+      await store.saveProviderAccount(
+        attempt.userId,
+        {
+          provider,
+          providerUserId: providerIdentity.providerUserId,
+          displayName: providerIdentity.displayName,
+          accessToken: token.access_token,
+          refreshToken: token.refresh_token,
+          ...(token.expires_in
+            ? { accessTokenExpiresAt: new Date(Date.now() + token.expires_in * 1_000) }
+            : {}),
+          scopes: normalizedScopes(token.scope, config.scopes),
+        },
+        {
+          provider,
+          providerSourceId: providerIdentity.providerUserId,
+          displayName: providerIdentity.displayName,
+          sourceUrl: providerIdentity.sourceUrl,
+        },
+      );
+      return ok(attempt.returnUrl);
+    });
   }
 }
 

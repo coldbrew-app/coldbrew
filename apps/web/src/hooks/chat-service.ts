@@ -16,7 +16,9 @@ type ChatServiceMutationCallbacks = Readonly<{
 }>;
 
 function requireChatServiceClient(client: ChatServiceClient | null) {
-  if (client === null) throw new Error("Chat service client is required.");
+  if (client === null) {
+    throw new Error("Chat service client is required.");
+  }
   return client;
 }
 

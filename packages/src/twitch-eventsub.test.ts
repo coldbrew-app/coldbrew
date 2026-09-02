@@ -2,9 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { twitchSocketEvents } from "./twitch-eventsub.js";
 
-const state = vi.hoisted(() => ({
-  sockets: [] as TestWebSocket[],
-}));
+const state = vi.hoisted<{ sockets: TestWebSocket[] }>(() => ({ sockets: [] }));
 
 class TestWebSocket extends EventTarget {
   close = vi.fn();
@@ -26,7 +24,7 @@ describe("twitchSocketEvents", () => {
     vi.stubGlobal("WebSocket", TestWebSocket);
     const iterator = twitchSocketEvents(new AbortController().signal)[Symbol.asyncIterator]();
     const nextEvent = iterator.next();
-    const socket = state.sockets[0]!;
+    const socket = state.sockets[0];
 
     socket.dispatchEvent(
       new MessageEvent("message", {
@@ -44,6 +42,9 @@ describe("twitchSocketEvents", () => {
 
     const event = await nextEvent;
     expect(event.done).toBe(false);
+    if (event.done === true) {
+      throw new Error("Expected Twitch EventSub to yield a welcome event.");
+    }
     expect(event.value._unsafeUnwrap()).toEqual({ type: "welcome", sessionId: "session-id" });
     await iterator.return?.();
   });
@@ -52,7 +53,7 @@ describe("twitchSocketEvents", () => {
     vi.stubGlobal("WebSocket", TestWebSocket);
     const iterator = twitchSocketEvents(new AbortController().signal)[Symbol.asyncIterator]();
     const nextEvent = iterator.next();
-    const socket = state.sockets[0]!;
+    const socket = state.sockets[0];
 
     socket.dispatchEvent(
       new MessageEvent("message", {
@@ -64,6 +65,9 @@ describe("twitchSocketEvents", () => {
 
     const event = await nextEvent;
     expect(event.done).toBe(false);
+    if (event.done === true) {
+      throw new Error("Expected Twitch EventSub to yield a parsing error.");
+    }
     expect(event.value._unsafeUnwrapErr()).toMatchObject({
       type: "twitch operation error",
       detail: "Could not decode the Twitch socket message",

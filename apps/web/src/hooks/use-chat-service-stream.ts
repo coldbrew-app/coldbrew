@@ -23,7 +23,9 @@ type StreamAction =
 const initialState: StreamState = { messages: [], statuses: {}, connectionError: null };
 
 function reducer(state: StreamState, action: StreamAction): StreamState {
-  if (action.type === "reset") return initialState;
+  if (action.type === "reset") {
+    return initialState;
+  }
   if (action.type === "transport failed") {
     return {
       ...state,
@@ -42,7 +44,9 @@ function reducer(state: StreamState, action: StreamAction): StreamState {
     };
   }
   const event = action.event;
-  if (event.type === "connection_error") return { ...state, connectionError: event.error };
+  if (event.type === "connection_error") {
+    return { ...state, connectionError: event.error };
+  }
   if (event.type === "state") {
     return { ...state, statuses: { ...state.statuses, [event.sourceId]: event.state } };
   }
@@ -79,7 +83,9 @@ export function useChatServiceStream(
 
   useEffect(() => {
     dispatch({ type: "reset" });
-    if (!client) return;
+    if (!client) {
+      return;
+    }
     const observer = {
       onData: (event: ChatStreamEvent) => dispatch({ type: "event", event }),
       onError: () => dispatch({ type: "transport failed" }),
@@ -88,7 +94,9 @@ export function useChatServiceStream(
       mode === "editor"
         ? client.stream.subscribe(undefined, observer)
         : client.overlayStream.subscribe(undefined, observer);
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [client, mode]);
 
   return {

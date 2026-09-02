@@ -36,6 +36,14 @@ class FakeWebSocket extends EventTarget {
   }
 }
 
+async function nextValue<T>(iterator: AsyncIterator<T>) {
+  const result = await iterator.next();
+  if (result.done === true) {
+    throw new Error("Expected the Twitch stream to yield a value.");
+  }
+  return result.value;
+}
+
 afterEach(() => {
   FakeWebSocket.instances.length = 0;
   vi.clearAllMocks();
@@ -51,7 +59,7 @@ describe("Twitch live chat client", () => {
 
     await first.next();
     await second.next();
-    const socket = FakeWebSocket.instances[0]!;
+    const socket = FakeWebSocket.instances[0];
     socket.message({
       metadata: { message_type: "session_welcome" },
       payload: { session: { id: "session-1" } },
@@ -74,8 +82,8 @@ describe("Twitch live chat client", () => {
     });
 
     await first.next();
-    const message = await first.next();
-    expect(message.value?._unsafeUnwrap()).toMatchObject({
+    const message = await nextValue(first);
+    expect(message._unsafeUnwrap()).toMatchObject({
       type: "message",
       channel: "channel-a",
       id: "message-1",
@@ -90,7 +98,7 @@ describe("Twitch live chat client", () => {
     vi.stubGlobal("WebSocket", FakeWebSocket);
     const iterator = new TwitchChatClient(credentials).stream("channel-a")[Symbol.asyncIterator]();
     await iterator.next();
-    const firstSocket = FakeWebSocket.instances[0]!;
+    const firstSocket = FakeWebSocket.instances[0];
     firstSocket.message({
       metadata: { message_type: "session_reconnect" },
       payload: { session: { reconnect_url: "wss://eventsub.wss.twitch.tv/reconnect" } },
@@ -105,7 +113,7 @@ describe("Twitch live chat client", () => {
     vi.stubGlobal("WebSocket", FakeWebSocket);
     const iterator = new TwitchChatClient(credentials).stream("channel-a")[Symbol.asyncIterator]();
     await iterator.next();
-    const socket = FakeWebSocket.instances[0]!;
+    const socket = FakeWebSocket.instances[0];
     socket.message({
       metadata: { message_type: "session_welcome" },
       payload: { session: { id: "session-1" } },
@@ -123,8 +131,8 @@ describe("Twitch live chat client", () => {
       },
     });
 
-    const revoked = await iterator.next();
-    expect(revoked.value?._unsafeUnwrapErr()).toMatchObject({
+    const revoked = await nextValue(iterator);
+    expect(revoked._unsafeUnwrapErr()).toMatchObject({
       type: "twitch chat error",
       operation: "subscription",
       channel: "channel-a",

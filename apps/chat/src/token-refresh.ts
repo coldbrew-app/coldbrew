@@ -30,7 +30,11 @@ const TokenResponseSchema = z.object({
 });
 
 function refreshError(detail: string, cause?: unknown): ChatProviderOperationError {
-  return { type: "provider unauthorized", detail, ...(cause ? { cause } : {}) };
+  return {
+    type: "provider unauthorized",
+    detail,
+    cause,
+  };
 }
 
 export class ChatTokenRefresher {
@@ -82,7 +86,7 @@ export class ChatTokenRefresher {
       {
         accessToken: $token.value.access_token,
         refreshToken: nextRefreshToken,
-        ...(nextExpiry ? { accessTokenExpiresAt: nextExpiry } : {}),
+        accessTokenExpiresAt: nextExpiry,
       },
     );
     if (!nextVersion) {
@@ -97,7 +101,7 @@ export class ChatTokenRefresher {
         ...connectedSource.credentials,
         accessToken: $token.value.access_token,
         refreshToken: nextRefreshToken,
-        ...(nextExpiry ? { expiresAt: nextExpiry } : {}),
+        expiresAt: nextExpiry,
         tokenVersion: nextVersion,
       },
     });
@@ -142,7 +146,9 @@ export class RefreshingChatProvider implements ChatProviderAdapter {
     signal: AbortSignal,
   ): Promise<Result<void, ChatProviderOperationError>> {
     const $source = await this.refresher.refresh(connectedSource, signal);
-    if ($source.isErr()) return propagateError($source);
+    if ($source.isErr()) {
+      return propagateError($source);
+    }
     return await this.delegate.sendMessage($source.value, text, signal);
   }
 
@@ -153,7 +159,9 @@ export class RefreshingChatProvider implements ChatProviderAdapter {
     signal: AbortSignal,
   ): Promise<Result<ChatProviderCommandSuccess, ChatProviderOperationError>> {
     const $source = await this.refresher.refresh(connectedSource, signal);
-    if ($source.isErr()) return propagateError($source);
+    if ($source.isErr()) {
+      return propagateError($source);
+    }
     return await this.delegate.moderate($source.value, command, context, signal);
   }
 }

@@ -1,12 +1,12 @@
 import { jsonb } from "@coldbrew/packages/jsonb.js";
 import { createSql } from "@coldbrew/packages/pg.js";
 import {
-  Donation,
   DonationSchema,
-  MoneyAmount,
   QueueCurrencySchema,
+  type Donation,
+  type MoneyAmount,
 } from "@coldbrew/packages/schemas.js";
-import { Sql } from "postgres";
+import type { Sql } from "postgres";
 import { z } from "zod";
 
 export type VideoToSave = {
@@ -60,7 +60,9 @@ export class Store {
         SET videos_parsed_at = now()
         WHERE donation_id = ${String(donationId)}
       `;
-      if (videos.length === 0) return;
+      if (videos.length === 0) {
+        return;
+      }
       await sql`
         WITH input AS (
           SELECT *

@@ -62,8 +62,12 @@ export function verifyChatTicket(
     () => ChatTicketPayloadSchema.parse(JSON.parse(Buffer.from(payload, "base64url").toString())),
     (): ChatTicketError => ({ type: "invalid chat ticket" }),
   )();
-  if (parsedPayload.isErr()) return parsedPayload;
-  if (parsedPayload.value.expiresAt <= now) return erro({ type: "expired chat ticket" });
+  if (parsedPayload.isErr()) {
+    return parsedPayload;
+  }
+  if (parsedPayload.value.expiresAt <= now) {
+    return erro({ type: "expired chat ticket" });
+  }
 
   return ok(parsedPayload.value);
 }

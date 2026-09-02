@@ -105,7 +105,13 @@ function ProviderMark({ provider }: { provider: ChatProvider }) {
   );
 }
 
-function SourceState({ state, locale }: { state?: string; locale: "ru" | "en" }) {
+function SourceState({
+  state,
+  locale,
+}: {
+  state?: "connecting" | "error" | "live" | "offline";
+  locale: "ru" | "en";
+}) {
   const text = copy[locale];
   const normalized = state ?? "offline";
   return (
@@ -122,7 +128,7 @@ function SourceState({ state, locale }: { state?: string; locale: "ru" | "en" })
                 : "bg-muted-foreground/40",
         )}
       />
-      {text[normalized as "live" | "offline" | "connecting" | "error"]}
+      {text[normalized]}
     </span>
   );
 }
@@ -146,9 +152,11 @@ function ChatPage() {
     useChatServiceMutations(chatClient, {
       onBroadcastSuccess: (result) => {
         setBroadcastResult(result);
-        if (result.results.some(({ status }) => status === "succeeded")) setMessage("");
+        if (result.results.some(({ status }) => status === "succeeded")) {
+          setMessage("");
+        }
       },
-      onMessageDeleted: stream.removeMessage,
+      onMessageDeleted: (sourceId, messageId) => stream.removeMessage(sourceId, messageId),
       onOverlayUrlChanged: (nextOverlayUrl) => {
         setOverlayUrl(nextOverlayUrl);
         setOverlayCopied(false);
@@ -167,7 +175,7 @@ function ChatPage() {
     const source = sourceById.get(sourceId);
     return source ? (connectionsById.get(source.connectionId)?.capabilities ?? []) : [];
   };
-  const availability = availabilityQuery.data ?? ([] as ChatProviderAvailability[]);
+  const availability: ChatProviderAvailability[] = availabilityQuery.data ?? [];
   const writableConnectionCount =
     config?.connections.filter(
       ({ capabilities, status }) => status === "connected" && capabilities.includes("send_message"),
@@ -175,7 +183,9 @@ function ChatPage() {
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (!message.trim() || broadcast.isPending) return;
+    if (!message.trim() || broadcast.isPending) {
+      return;
+    }
     setBroadcastResult(null);
     broadcast.mutate(message);
   };
@@ -260,7 +270,14 @@ function ChatPage() {
                         {providerMeta[connection.provider].label}
                       </p>
                     </div>
-                    <SourceState state={source ? sourceState : "error"} locale={locale} />
+                    <SourceState
+                      {...(source
+                        ? sourceState
+                          ? { state: sourceState }
+                          : {}
+                        : { state: "error" })}
+                      locale={locale}
+                    />
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     {!connection.capabilities.includes("send_message") && (
@@ -363,7 +380,7 @@ function ChatPage() {
                 {config.hasOverlayToken ? text.rotateOverlay : text.createOverlay}
               </Button>
             </div>
-            {overlayUrl && (
+            {overlayUrl !== null && (
               <Button
                 onClick={() => {
                   void navigator.clipboard.writeText(overlayUrl);

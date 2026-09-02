@@ -1,4 +1,4 @@
-type Constructor<T> = (new (...args: any[]) => T) & Function;
+type Constructor<T> = abstract new (...args: never[]) => T;
 
 export function isInstanceof<TSource, TTarget extends TSource>(
   value: TSource,
@@ -14,10 +14,10 @@ export function isInstanceof<TSource, TConstructors extends readonly Constructor
 ): value is InstanceType<TConstructors[number]>;
 export function isInstanceof(
   value: unknown,
-  constructors: Constructor<any> | readonly Constructor<any>[],
+  constructors: Constructor<unknown> | readonly Constructor<unknown>[],
 ): boolean {
-  if (Array.isArray(constructors)) {
-    return constructors.some((constructor) => value instanceof constructor);
+  if (typeof constructors === "function") {
+    return value instanceof constructors;
   }
-  return value instanceof (constructors as any);
+  return constructors.some((constructor) => value instanceof constructor);
 }

@@ -1,4 +1,8 @@
-import type { ChatSourceId, ChatStreamEvent } from "@coldbrew/packages/chat.js";
+import {
+  ChatSourceIdSchema,
+  type ChatSourceId,
+  type ChatStreamEvent,
+} from "@coldbrew/packages/chat.js";
 import { erro } from "@lebedevna/neverthrow-utils";
 import { ok } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
@@ -12,7 +16,7 @@ import {
 } from "./collectors.js";
 import type { ChatProviderAdapter, ConnectedChatSource } from "./provider.js";
 
-const sourceId = "00000000-0000-4000-8000-000000000001" as ChatSourceId;
+const sourceId = ChatSourceIdSchema.parse("00000000-0000-4000-8000-000000000001");
 const connectedSource: ConnectedChatSource = {
   source: {
     sourceId,
@@ -38,7 +42,9 @@ const leases: ChatCollectorLeases = {
   async acquire() {
     return {
       async maintain(signal) {
-        if (signal.aborted) return;
+        if (signal.aborted) {
+          return;
+        }
         await new Promise<void>((resolve) =>
           signal.addEventListener("abort", () => resolve(), { once: true }),
         );
@@ -51,7 +57,9 @@ const leases: ChatCollectorLeases = {
 function idleRefreshControl(): ChatCollectorRefreshControl {
   return {
     async *refreshes(signal) {
-      if (signal.aborted) return;
+      if (signal.aborted) {
+        return;
+      }
       await new Promise<void>((resolve) =>
         signal.addEventListener("abort", () => resolve(), { once: true }),
       );
@@ -66,7 +74,9 @@ describe("chat collectors", () => {
     const broker: ChatEventBroker = {
       async publish(_userId, event) {
         published.push(event);
-        if (event.type === "state" && event.state === "offline") controller.abort();
+        if (event.type === "state" && event.state === "offline") {
+          controller.abort();
+        }
       },
       async *stream() {},
     };
@@ -108,14 +118,22 @@ describe("chat collectors", () => {
         const refreshedSourceId = await new Promise<ChatSourceId>((resolve) => {
           requestRefresh = resolve;
         });
-        if (!signal.aborted) yield refreshedSourceId;
+        if (!signal.aborted) {
+          yield refreshedSourceId;
+        }
       },
     };
     const broker: ChatEventBroker = {
       async publish(_userId, event) {
-        if (event.type !== "state") return;
-        if (event.state === "offline") requestRefresh?.(sourceId);
-        if (event.state === "live") controller.abort();
+        if (event.type !== "state") {
+          return;
+        }
+        if (event.state === "offline") {
+          requestRefresh?.(sourceId);
+        }
+        if (event.state === "live") {
+          controller.abort();
+        }
       },
       async *stream() {},
     };

@@ -43,7 +43,11 @@ export function formatRelativeDate(date: Date, locale: Locale) {
   const minutes = round((date.getTime() - Date.now()) / 60_000);
   const relativeTime = new Intl.RelativeTimeFormat(localeTag[locale], { numeric: "auto" });
 
-  if (abs(minutes) < 60) return relativeTime.format(minutes, "minute");
-  if (abs(minutes) < 24 * 60) return relativeTime.format(round(minutes / 60), "hour");
+  if (abs(minutes) < 60) {
+    return relativeTime.format(minutes, "minute");
+  }
+  if (abs(minutes) < 24 * 60) {
+    return relativeTime.format(round(minutes / 60), "hour");
+  }
   return relativeTime.format(round(minutes / (24 * 60)), "day");
 }

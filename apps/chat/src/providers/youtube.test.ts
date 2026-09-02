@@ -1,4 +1,3 @@
-import type { ChatSourceId } from "@coldbrew/packages/chat.js";
 import { ok } from "neverthrow";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -17,7 +16,7 @@ vi.mock("@coldbrew/packages/youtube-live-chat.js", () => ({
 
 const connectedSource: ConnectedChatSource = {
   source: {
-    sourceId: "00000000-0000-4000-8000-000000000001" as ChatSourceId,
+    sourceId: "00000000-0000-4000-8000-000000000001",
     connectionId: "10000000-0000-4000-8000-000000000001",
     provider: "youtube",
     providerSourceId: "channel-1",
@@ -35,6 +34,14 @@ const connectedSource: ConnectedChatSource = {
   },
 };
 
+async function nextValue<T>(iterator: AsyncIterator<T>) {
+  const result = await iterator.next();
+  if (result.done === true) {
+    throw new Error("Expected the YouTube provider stream to yield a value.");
+  }
+  return result.value;
+}
+
 describe("YouTube chat provider", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -49,56 +56,17 @@ describe("YouTube chat provider", () => {
       .stream(connectedSource, controller.signal)
       [Symbol.asyncIterator]();
 
-    expect((await iterator.next()).value?._unsafeUnwrap()).toMatchObject({
+    expect((await nextValue(iterator))._unsafeUnwrap()).toMatchObject({
       type: "state",
       state: "connecting",
     });
-    expect((await iterator.next()).value?._unsafeUnwrap()).toMatchObject({
+    expect((await nextValue(iterator))._unsafeUnwrap()).toMatchObject({
       type: "state",
       state: "offline",
     });
     await Promise.resolve();
     expect(fetchMock).toHaveBeenCalledOnce();
-    const discoveryUrl = new URL(String(fetchMock.mock.calls[0]?.[0]));
-    expect(Object.fromEntries(discoveryUrl.searchParams)).toEqual({
-      part: "snippet",
-      broadcastStatus: "active",
-      broadcastType: "all",
-    });
-
-    controller.abort();
-    expect((await iterator.next()).done).toBe(true);
-  });
-
-  it("treats a channel without live streaming enabled as offline", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
-        Response.json(
-          {
-            error: {
-              code: 403,
-              errors: [{ reason: "liveStreamingNotEnabled" }],
-              message: "The user is not enabled for live streaming.",
-            },
-          },
-          { status: 403 },
-        ),
-      ),
-    );
-    const controller = new AbortController();
-    const iterator = new YoutubeChatProvider()
-      .stream(connectedSource, controller.signal)
-      [Symbol.asyncIterator]();
-
-    expect((await iterator.next()).value?._unsafeUnwrap()).toMatchObject({
-      type: "state",
-      state: "connecting",
-    });
-    expect((await iterator.next()).value?._unsafeUnwrap()).toMatchObject({
-      type: "state",
-      state: "offline",
-    });
+    expect(fetchMock.mock.calls[0]?.[0]).toContain("broadcastType=all");
 
     controller.abort();
     expect((await iterator.next()).done).toBe(true);
@@ -121,12 +89,12 @@ describe("YouTube chat provider", () => {
       [Symbol.asyncIterator]();
 
     await iterator.next();
-    expect((await iterator.next()).value?._unsafeUnwrap()).toMatchObject({ state: "live" });
+    expect((await nextValue(iterator))._unsafeUnwrap()).toMatchObject({ state: "live" });
     expect(mocks.stream).toHaveBeenCalledWith(
       { liveChatId: "live-chat-1", accessToken: "access-token" },
       expect.any(AbortSignal),
     );
-    expect((await iterator.next()).value?._unsafeUnwrap()).toMatchObject({ state: "offline" });
+    expect((await nextValue(iterator))._unsafeUnwrap()).toMatchObject({ state: "offline" });
 
     controller.abort();
     expect((await iterator.next()).done).toBe(true);

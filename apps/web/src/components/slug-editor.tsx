@@ -34,9 +34,9 @@ export function SlugEditor({ className }: Props) {
   });
 
   const setSlugM = useSetSlugM();
-  const saveSlug = async ({ slug }: SlugFormValues) => {
-    await setSlugM.mutateAsync({ slug });
-    reset({ slug });
+  const saveSlug = async ({ slug: nextSlug }: SlugFormValues) => {
+    await setSlugM.mutateAsync({ slug: nextSlug });
+    reset({ slug: nextSlug });
     setCopied(false);
   };
 
@@ -75,8 +75,15 @@ export function SlugEditor({ className }: Props) {
                 id="public-video-queue-slug"
                 maxLength={47}
                 {...register("slug", {
-                  onChange: (event) => {
-                    event.target.value = event.target.value.toLowerCase();
+                  onChange: (event: unknown) => {
+                    if (
+                      typeof event === "object" &&
+                      event !== null &&
+                      "target" in event &&
+                      event.target instanceof HTMLInputElement
+                    ) {
+                      event.target.value = event.target.value.toLowerCase();
+                    }
                   },
                   validate: (value) => SlugSchema.safeParse(value).success || t("slugInvalid"),
                 })}

@@ -49,7 +49,9 @@ export type ChatOauthAttempt = Readonly<{
 
 function capabilitiesFor(provider: ChatProvider, scopes: readonly string[]): ChatCapability[] {
   const granted = new Set(scopes);
-  if (provider === "boosty" || provider === "vk_video") return ["read"];
+  if (provider === "boosty" || provider === "vk_video") {
+    return ["read"];
+  }
   if (provider === "youtube") {
     return granted.has("https://www.googleapis.com/auth/youtube.force-ssl")
       ? ["read", "send_message", "delete_message", "timeout_user", "ban_user", "unban_user"]
@@ -286,7 +288,9 @@ export class ChatStore implements ChatRepository {
       LIMIT 1
     `;
     const row = OwnedConnectedSourceRowSchema.optional().parse(rows[0]);
-    if (!row) return null;
+    if (!row) {
+      return null;
+    }
     const { userId, ...sourceRow } = row;
     return {
       userId,
@@ -438,7 +442,9 @@ export class ChatStore implements ChatRepository {
       returnUrl: z.url(),
     });
     const row = schema.optional().parse(rows[0]);
-    if (!row) return null;
+    if (!row) {
+      return null;
+    }
     return {
       userId: row.userId,
       provider: row.provider,

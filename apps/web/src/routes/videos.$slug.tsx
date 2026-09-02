@@ -143,7 +143,9 @@ function SharedVideoQueue() {
         search: { page: videosQ.data.page, status: videosQ.data.status },
       });
     }
-  }, [navigate, page, status, videosQ.data]);
+  }, [navigate, page, status, videosQ.data, videosQ.isPlaceholderData]);
+
+  const displayedStatus = videosQ.data?.status ?? status;
 
   return (
     <main className="relative min-h-dvh overflow-hidden bg-background p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-foreground sm:p-8">
@@ -218,12 +220,12 @@ function SharedVideoQueue() {
                 ))}
               </div>
             )}
-            {videosQ.data.items.length ? (
+            {videosQ.data.items.length > 0 ? (
               <PagePagination
                 isLoading={videosQ.isFetching}
                 loadingLabel={t("loadingVideoQueue")}
                 onPageChange={(nextPage) =>
-                  void navigate({ search: { page: nextPage, status: videosQ.data!.status } })
+                  void navigate({ search: { page: nextPage, status: displayedStatus } })
                 }
                 page={videosQ.data.page}
                 pageSize={videosQ.data.pageSize}

@@ -42,7 +42,7 @@ export default function DonationCard({ donation, ...props }: Props) {
         </div>
         <p className="mt-1 truncate text-xs text-muted-foreground">
           {messageChunks.map((chunk, index) =>
-            chunk.type == "string" ? (
+            chunk.type === "string" ? (
               <span key={index}>{chunk.value}</span>
             ) : (
               <a

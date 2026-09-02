@@ -2,18 +2,32 @@ import { ClientError, Status } from "nice-grpc-common";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { YoutubeLiveChatClient } from "./youtube-live-chat.js";
-import { LiveChatMessageSnippet_TypeWrapper_Type } from "./youtube-live-chat/generated/stream_list.js";
+import {
+  LiveChatMessageSnippet_TypeWrapper_Type,
+  type V3DataLiveChatMessageServiceClient,
+} from "./youtube-live-chat/generated/stream_list.js";
 
 const mocks = vi.hoisted(() => ({
-  close: vi.fn(),
-  streamList: vi.fn(),
+  close: vi.fn<() => void>(),
+  streamList: vi.fn<V3DataLiveChatMessageServiceClient["streamList"]>(),
 }));
+
+function iteratorValue<T>(result: IteratorResult<T>) {
+  if (result.done === true) {
+    throw new Error("Expected the YouTube live chat stream to yield a value.");
+  }
+  return result.value;
+}
+
+async function nextValue<T>(iterator: AsyncIterator<T>) {
+  return iteratorValue(await iterator.next());
+}
 
 vi.mock("nice-grpc", () => ({
   ChannelCredentials: { createSsl: vi.fn(() => "credentials") },
   createChannel: vi.fn(() => ({ close: mocks.close })),
   createClient: vi.fn(() => ({ streamList: mocks.streamList })),
-  Metadata: vi.fn((values) => values),
+  Metadata: vi.fn((values: Record<string, string>) => values),
 }));
 
 describe("YouTube live chat client", () => {
@@ -48,15 +62,15 @@ describe("YouTube live chat client", () => {
       .stream({ liveChatId: "live-chat-1", accessToken: "access-token" })
       [Symbol.asyncIterator]();
 
-    expect((await iterator.next()).value?._unsafeUnwrap()).toEqual({
+    expect((await nextValue(iterator))._unsafeUnwrap()).toEqual({
       type: "state",
       state: "connecting",
     });
-    expect((await iterator.next()).value?._unsafeUnwrap()).toEqual({
+    expect((await nextValue(iterator))._unsafeUnwrap()).toEqual({
       type: "state",
       state: "live",
     });
-    expect((await iterator.next()).value?._unsafeUnwrap()).toEqual({
+    expect((await nextValue(iterator))._unsafeUnwrap()).toEqual({
       type: "item",
       item: {
         kind: "text",
@@ -67,22 +81,20 @@ describe("YouTube live chat client", () => {
         occurredAt: new Date("2026-08-31T10:00:00.000Z"),
       },
     });
-    expect((await iterator.next()).value?._unsafeUnwrap()).toEqual({
+    expect((await nextValue(iterator))._unsafeUnwrap()).toEqual({
       type: "state",
       state: "offline",
     });
     expect((await iterator.next()).done).toBe(true);
-    expect(mocks.streamList).toHaveBeenCalledWith(
-      {
-        liveChatId: "live-chat-1",
-        pageToken: undefined,
-        part: ["snippet", "authorDetails"],
-      },
-      {
-        metadata: { authorization: "Bearer access-token" },
-        signal: expect.any(AbortSignal),
-      },
-    );
+    expect(mocks.streamList).toHaveBeenCalledOnce();
+    const firstCall = mocks.streamList.mock.calls[0];
+    expect(firstCall[0]).toEqual({
+      liveChatId: "live-chat-1",
+      pageToken: undefined,
+      part: ["snippet", "authorDetails"],
+    });
+    expect(firstCall[1]?.metadata).toEqual({ authorization: "Bearer access-token" });
+    expect(firstCall[1]?.signal).toBeInstanceOf(AbortSignal);
     expect(mocks.close).toHaveBeenCalledOnce();
   });
 
@@ -112,19 +124,19 @@ describe("YouTube live chat client", () => {
     await iterator.next();
     const firstReconnect = iterator.next();
     await vi.advanceTimersByTimeAsync(5_000);
-    expect((await firstReconnect).value?._unsafeUnwrap()).toEqual({
+    expect(iteratorValue(await firstReconnect)._unsafeUnwrap()).toEqual({
       type: "state",
       state: "connecting",
     });
     await iterator.next();
     const secondReconnect = iterator.next();
     await vi.advanceTimersByTimeAsync(5_000);
-    expect((await secondReconnect).value?._unsafeUnwrap()).toEqual({
+    expect(iteratorValue(await secondReconnect)._unsafeUnwrap()).toEqual({
       type: "state",
       state: "connecting",
     });
     await iterator.next();
-    expect((await iterator.next()).value?._unsafeUnwrap()).toEqual({
+    expect((await nextValue(iterator))._unsafeUnwrap()).toEqual({
       type: "state",
       state: "offline",
     });
@@ -150,17 +162,14 @@ describe("YouTube live chat client", () => {
 
     await iterator.next();
     await iterator.next();
-    const failed = await iterator.next();
+    const failed = await nextValue(iterator);
 
-    expect(failed.value?.isErr()).toBe(true);
-    if (failed.value?.isErr()) {
-      expect(failed.value.error).toMatchObject({
-        type: "youtube live chat error",
-        operation: "read",
-        reason: "unauthorized",
-        isAbort: false,
-      });
-    }
+    expect(failed._unsafeUnwrapErr()).toMatchObject({
+      type: "youtube live chat error",
+      operation: "read",
+      reason: "unauthorized",
+      isAbort: false,
+    });
     expect((await iterator.next()).done).toBe(true);
     expect(mocks.streamList).toHaveBeenCalledOnce();
   });

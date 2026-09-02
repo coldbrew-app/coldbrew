@@ -48,13 +48,10 @@ describe("TwitchChatProvider.sendMessage", () => {
       new AbortController().signal,
     );
 
-    expect($result.isErr()).toBe(true);
-    if ($result.isErr()) {
-      expect($result.error).toMatchObject({
-        type: "provider rejected command",
-        detail: "Message held by AutoMod",
-      });
-    }
+    expect($result._unsafeUnwrapErr()).toMatchObject({
+      type: "provider rejected command",
+      detail: "Message held by AutoMod",
+    });
   });
 
   it("accepts a message only when Twitch confirms delivery", async () => {

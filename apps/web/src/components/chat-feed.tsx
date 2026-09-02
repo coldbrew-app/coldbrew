@@ -162,9 +162,12 @@ export function ChatFeed({
   };
 
   useEffect(() => {
-    if (nearBottom || overlay) scrollToBottom();
-    else setUnread((count) => count + 1);
-  }, [messages.length]);
+    if (nearBottom || overlay) {
+      scrollToBottom();
+    } else {
+      setUnread((count) => count + 1);
+    }
+  }, [messages.length, nearBottom, overlay]);
 
   return (
     <div className="relative flex min-h-0 grow flex-col">

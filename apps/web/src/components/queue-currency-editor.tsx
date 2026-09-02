@@ -1,8 +1,8 @@
 import { defaultCurrencyChangeRate } from "@coldbrew/packages/currency.js";
 import {
   MoneyAmountSchema,
-  QueueCurrency,
   QueueCurrencySchema,
+  type QueueCurrency,
 } from "@coldbrew/packages/schemas.js";
 import { useUpdateQueueCurrencyM, useUserInfo } from "@web/hooks/api";
 import { formatMoneyInputValue } from "@web/lib/fmt";

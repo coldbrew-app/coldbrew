@@ -17,14 +17,20 @@ export function createAbortableStream<T>(
           try {
             const result = await iterator.next();
             resolved = true;
-            if (result.done) controller.abort();
+            if (result.done === true) {
+              controller.abort();
+            }
             return result;
           } finally {
-            if (!resolved) controller.abort();
+            if (!resolved) {
+              controller.abort();
+            }
           }
         },
         return() {
-          if (returning) return returning;
+          if (returning) {
+            return returning;
+          }
           controller.abort();
           returning = iterator.return
             ? iterator.return()

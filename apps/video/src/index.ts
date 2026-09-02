@@ -10,7 +10,7 @@ import dedent from "dedent-js";
 import { ok, safeTry } from "neverthrow";
 
 import { store } from "./sensors/db/index.js";
-import { VideoToSave } from "./sensors/db/store.js";
+import type { VideoToSave } from "./sensors/db/store.js";
 
 async function main() {
   while (true) {
@@ -26,7 +26,9 @@ async function main() {
         const $iteration = await safeTry(async function* () {
           const timing = yield* getYoutubeTiming(url);
           const providerVideoId = youtubeVideoId(url);
-          if (providerVideoId === null) return ok();
+          if (providerVideoId === null) {
+            return ok();
+          }
           const queueAmount =
             convertWithDefaultRate(donation.amount, donation.currency, donation.queueCurrency)
               ?.amount ?? null;
@@ -40,7 +42,9 @@ async function main() {
           });
           return ok();
         });
-        if ($iteration.isOk()) continue urls_loop;
+        if ($iteration.isOk()) {
+          continue urls_loop;
+        }
         const error = $iteration.error;
 
         logger.warn(dedent`
@@ -48,7 +52,7 @@ async function main() {
           ${error}
         `);
 
-        if (error.type == "http error" && error.status == 429) {
+        if (error.type === "http error" && error.status === 429) {
           continue donations_loop;
         }
       }
@@ -58,4 +62,4 @@ async function main() {
   }
 }
 
-main();
+await main();

@@ -11,10 +11,14 @@ import { getUserId } from "./_util.js";
 
 export async function handleDonationAlertsCallback(request: Request): Promise<Response> {
   const authCode = rurl(request.url).searchParams.get("code");
-  if (!authCode) return new Response("no auth code", { status: 400 });
+  if (authCode === null) {
+    return new Response("no auth code", { status: 400 });
+  }
 
   const userId = await getUserId(request);
-  if (!userId) return new Response("Unauthorized", { status: 401 });
+  if (userId === null) {
+    return new Response("Unauthorized", { status: 401 });
+  }
 
   const appUrl = rurl("/integrations", env.APP_DOMAIN);
 

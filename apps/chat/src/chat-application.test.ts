@@ -1,9 +1,5 @@
-import type {
-  ChatConfig,
-  ChatProvider,
-  ChatSourceId,
-  ChatStreamEvent,
-} from "@coldbrew/packages/chat.js";
+import type { ChatConfig, ChatProvider, ChatStreamEvent } from "@coldbrew/packages/chat.js";
+import { ChatSourceIdSchema, type ChatSourceId } from "@coldbrew/packages/chat.js";
 import { erro } from "@lebedevna/neverthrow-utils";
 import { ok } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
@@ -17,9 +13,9 @@ import {
 } from "./chat-application.js";
 import type { ChatProviderAdapter, ConnectedChatSource } from "./provider.js";
 
-const youtubeSourceId = "00000000-0000-4000-8000-000000000001" as ChatSourceId;
-const twitchSourceId = "00000000-0000-4000-8000-000000000002" as ChatSourceId;
-const boostySourceId = "00000000-0000-4000-8000-000000000003" as ChatSourceId;
+const youtubeSourceId = ChatSourceIdSchema.parse("00000000-0000-4000-8000-000000000001");
+const twitchSourceId = ChatSourceIdSchema.parse("00000000-0000-4000-8000-000000000002");
+const boostySourceId = ChatSourceIdSchema.parse("00000000-0000-4000-8000-000000000003");
 
 function source(
   sourceId: ChatSourceId,

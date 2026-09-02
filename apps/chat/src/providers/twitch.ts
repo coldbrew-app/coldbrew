@@ -3,7 +3,7 @@ import { propagateError } from "@coldbrew/packages/neverthrow/propagate-error.js
 import { TwitchChatClient } from "@coldbrew/packages/twitch-chat.js";
 import { erro, parseJson, safeFetch, validate } from "@lebedevna/neverthrow-utils";
 import { rurl } from "@lebedevna/readonly-url";
-import { ok, type Result } from "neverthrow";
+import { ok, safeTry, type Result } from "neverthrow";
 import { z } from "zod";
 
 import type {
@@ -28,7 +28,11 @@ function operationError(detail: string, cause?: unknown): ChatProviderOperationE
       return { type: "provider rate limited", detail, cause };
     }
   }
-  return { type: "provider unavailable", detail, ...(cause ? { cause } : {}) };
+  return {
+    type: "provider unavailable",
+    detail,
+    cause,
+  };
 }
 
 const SendMessageResponseSchema = z.object({
@@ -118,30 +122,30 @@ export class TwitchChatProvider implements ChatProviderAdapter {
     signal: AbortSignal,
   ): Promise<Result<void, ChatProviderOperationError>> {
     const $headers = this.headers(connectedSource);
-    if ($headers.isErr()) return propagateError($headers);
-    const $response = await safeFetch("https://api.twitch.tv/helix/chat/messages", {
-      method: "POST",
-      headers: { ...$headers.value, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        broadcaster_id: connectedSource.source.providerSourceId,
-        sender_id: connectedSource.source.providerSourceId,
-        message: text,
-      }),
-      signal,
-    })
-      .andThen(parseJson)
-      .andThen((value) => validate(value, SendMessageResponseSchema));
-    if ($response.isErr()) {
-      return erro(operationError("Twitch rejected the chat message", $response.error));
-    }
-    const delivery = $response.value.data.at(0);
-    if (!delivery?.is_sent) {
-      return erro({
-        type: "provider rejected command",
-        detail: delivery?.drop_reason?.message ?? "Twitch did not deliver the chat message",
-      });
-    }
-    return ok(undefined);
+    return await safeTry(async function* () {
+      const headers = yield* $headers;
+      const response = yield* safeFetch("https://api.twitch.tv/helix/chat/messages", {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          broadcaster_id: connectedSource.source.providerSourceId,
+          sender_id: connectedSource.source.providerSourceId,
+          message: text,
+        }),
+        signal,
+      })
+        .andThen(parseJson)
+        .andThen((value) => validate(value, SendMessageResponseSchema))
+        .mapErr((error) => operationError("Twitch rejected the chat message", error));
+      const delivery = response.data.at(0);
+      if (delivery?.is_sent !== true) {
+        return erro({
+          type: "provider rejected command",
+          detail: delivery?.drop_reason?.message ?? "Twitch did not deliver the chat message",
+        });
+      }
+      return ok(undefined);
+    });
   }
 
   async moderate(
@@ -151,7 +155,9 @@ export class TwitchChatProvider implements ChatProviderAdapter {
     signal: AbortSignal,
   ): Promise<Result<ChatProviderCommandSuccess, ChatProviderOperationError>> {
     const $headers = this.headers(connectedSource);
-    if ($headers.isErr()) return propagateError($headers);
+    if ($headers.isErr()) {
+      return propagateError($headers);
+    }
     const baseUrl = rurl("https://api.twitch.tv/helix/moderation").withSearchParams({
       broadcaster_id: connectedSource.source.providerSourceId,
       moderator_id: connectedSource.source.providerSourceId,

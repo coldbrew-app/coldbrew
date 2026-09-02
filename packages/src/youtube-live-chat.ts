@@ -190,11 +190,15 @@ export class YoutubeLiveChatClient {
         while (!signal.aborted) {
           yield ok({ type: "state", state: "live" });
           const cursor = state.cursor;
-          if (!cursor) return;
+          if (!cursor) {
+            return;
+          }
 
           for await (const $response of dependencies.open(cursor, input.accessToken, signal)) {
             if ($response.isErr()) {
-              if ($response.error.isAbort || signal.aborted) return;
+              if ($response.error.isAbort || signal.aborted) {
+                return;
+              }
               if ($response.error.reason === "offline") {
                 yield ok({ type: "state", state: "offline" });
                 return;
@@ -219,7 +223,9 @@ export class YoutubeLiveChatClient {
           }
 
           await dependencies.wait(state.retryMs, signal);
-          if (signal.aborted) return;
+          if (signal.aborted) {
+            return;
+          }
           state = { ...state, retryMs: Math.min(state.retryMs * 2, RETRY_MAX_MS) };
           yield ok({ type: "state", state: "connecting" });
         }

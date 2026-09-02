@@ -10,7 +10,7 @@ export const env = createEnv({
     GOOGLE_CLIENT_ID: z.string().nonempty(),
     GOOGLE_CLIENT_SECRET: z.string().nonempty(),
 
-    DONATION_ALERTS_CLIENT_ID: z.string().refine((str) => str.length > 0 && !isNaN(+str)),
+    DONATION_ALERTS_CLIENT_ID: z.string().refine((str) => str.length > 0 && !isNaN(Number(str))),
     DONATION_ALERTS_CLIENT_SECRET: z.string().nonempty(),
   },
   runtimeEnv: process.env,

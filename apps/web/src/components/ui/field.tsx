@@ -24,7 +24,6 @@ function Field({
       className={cn(fieldVariants({ orientation }), className)}
       data-orientation={orientation}
       data-slot="field"
-      role="group"
       {...props}
     />
   );
@@ -62,11 +61,20 @@ function FieldError({
   errors?: Array<{ message?: string } | undefined>;
 }) {
   const content = useMemo(() => {
-    if (children) return children;
-    if (!errors?.length) return null;
+    if (children) {
+      return children;
+    }
+    if (!errors?.length) {
+      return null;
+    }
 
-    const uniqueErrors = [...new Map(errors.map((error) => [error?.message, error])).values()];
-    if (uniqueErrors.length === 1) return uniqueErrors[0]?.message;
+    const presentErrors = errors ?? [];
+    const uniqueErrors = [
+      ...new Map(presentErrors.map((error) => [error?.message, error])).values(),
+    ];
+    if (uniqueErrors.length === 1) {
+      return uniqueErrors[0]?.message;
+    }
 
     return (
       <ul className="flex list-inside list-disc flex-col gap-1">
@@ -75,7 +83,9 @@ function FieldError({
     );
   }, [children, errors]);
 
-  if (!content) return null;
+  if (!content) {
+    return null;
+  }
 
   return (
     <div

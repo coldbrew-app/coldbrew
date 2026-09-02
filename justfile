@@ -21,6 +21,7 @@ env-init source-env=".env.dev":
   bunx dotenvx set -f .env --plain APP_PORT "$app_port"
   bunx dotenvx set -f .env --plain APP_DOMAIN "http://localhost:$app_port"
   bunx dotenvx set -f .env --plain CHAT_PORT "$chat_port"
+  bunx dotenvx set -f .env --plain CHAT_PUBLIC_URL "http://localhost:$chat_port"
   bunx dotenvx set -f .env --plain CHAT_WEB_URL "http://localhost:$app_port"
   bunx dotenvx set -f .env --plain NATS_PORT "$nats_port"
   bunx dotenvx set -f .env --plain NATS_SERVERS "nats://127.0.0.1:$nats_port"

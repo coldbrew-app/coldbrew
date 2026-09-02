@@ -54,7 +54,7 @@ export default function SignIn() {
         <Button
           aria-busy={isSigningIn}
           disabled={isSigningIn}
-          onClick={handleSignIn}
+          onClick={() => void handleSignIn()}
           size="lg"
           variant="outline"
         >
@@ -81,7 +81,7 @@ export default function SignIn() {
                 aria-busy={isSigningIn}
                 className="h-11 rounded-xl px-5 shadow-lg shadow-primary/20"
                 disabled={isSigningIn}
-                onClick={handleSignIn}
+                onClick={() => void handleSignIn()}
                 size="lg"
               >
                 {t(isSigningIn ? "redirecting" : "continueWithGoogle")}

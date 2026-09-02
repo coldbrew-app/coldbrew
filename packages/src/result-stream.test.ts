@@ -8,17 +8,31 @@ import {
   type ResultStream,
 } from "./result-stream.js";
 
+async function nextValue<T>(iterator: AsyncIterator<T>) {
+  const result = await iterator.next();
+  if (result.done === true) {
+    throw new Error("Expected the result stream to yield a value.");
+  }
+  return result.value;
+}
+
 describe("result streams", () => {
   it("turns external iterator failures into results and closes once", async () => {
     const cleanup = vi.fn();
     const failure = { type: "external failure" as const };
     const iterator = fromFallibleAsyncIterator(
-      () => ({ next: async () => await Promise.reject(failure), return: async () => cleanup() }),
+      () => ({
+        next: async (): Promise<IteratorResult<never>> => await Promise.reject(failure),
+        return: async (): Promise<IteratorResult<never>> => {
+          cleanup();
+          return { done: true, value: undefined };
+        },
+      }),
       () => failure,
       () => undefined,
     )[Symbol.asyncIterator]();
 
-    expect((await iterator.next()).value?._unsafeUnwrapErr()).toBe(failure);
+    expect((await nextValue(iterator))._unsafeUnwrapErr()).toBe(failure);
     expect(await iterator.next()).toEqual({ done: true, value: undefined });
     expect(cleanup).toHaveBeenCalledOnce();
   });
@@ -54,7 +68,9 @@ describe("result streams", () => {
     );
     const collected = [];
 
-    for await (const $item of mergeResultStreams([first, sibling])) collected.push($item);
+    for await (const $item of mergeResultStreams([first, sibling])) {
+      collected.push($item);
+    }
 
     expect(collected[0]?._unsafeUnwrap()).toBe("first");
     expect(collected[1]?._unsafeUnwrapErr()).toBe(failure);

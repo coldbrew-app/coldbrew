@@ -1,7 +1,7 @@
 import { createVerify } from "node:crypto";
 
 import { erro, parseJson, validate } from "@lebedevna/neverthrow-utils";
-import { ok, Result, type Result as NeverthrowResult } from "neverthrow";
+import { ok, Result, safeTry, type Result as NeverthrowResult } from "neverthrow";
 import { z } from "zod";
 
 import type { ChatEventBroker } from "./chat-application.js";
@@ -30,7 +30,7 @@ type KickWebhookError = Readonly<{
 
 function requiredHeader(headers: Headers, name: string) {
   const value = headers.get(name);
-  return value
+  return value !== null
     ? ok(value)
     : erro<KickWebhookError>({ type: "invalid kick webhook", detail: `${name} is missing` });
 }
@@ -71,59 +71,54 @@ export class KickWebhookHandler {
   ) {}
 
   async handle(headers: Headers, body: string): Promise<NeverthrowResult<void, KickWebhookError>> {
-    const $messageId = requiredHeader(headers, "Kick-Event-Message-Id");
-    if ($messageId.isErr()) return $messageId;
-    const $timestamp = requiredHeader(headers, "Kick-Event-Message-Timestamp");
-    if ($timestamp.isErr()) return $timestamp;
-    const $signature = requiredHeader(headers, "Kick-Event-Signature");
-    if ($signature.isErr()) return $signature;
-    const $eventType = requiredHeader(headers, "Kick-Event-Type");
-    if ($eventType.isErr()) return $eventType;
-    const $signatureValid = verifySignature(
-      this.publicKey,
-      $messageId.value,
-      $timestamp.value,
-      body,
-      $signature.value,
-    );
-    if ($signatureValid.isErr()) return $signatureValid;
+    const publicKey = this.publicKey;
+    const store = this.store;
+    const broker = this.broker;
+    return await safeTry(async function* () {
+      const messageId = yield* requiredHeader(headers, "Kick-Event-Message-Id");
+      const timestamp = yield* requiredHeader(headers, "Kick-Event-Message-Timestamp");
+      const signature = yield* requiredHeader(headers, "Kick-Event-Signature");
+      const eventType = yield* requiredHeader(headers, "Kick-Event-Type");
+      yield* verifySignature(publicKey, messageId, timestamp, body, signature);
 
-    if ($eventType.value === "chat.message.sent") {
-      const $message = parseJson(body).andThen((value) => validate(value, KickMessageSchema));
-      if ($message.isErr()) {
-        return erro({
-          type: "invalid kick webhook",
-          detail: "Kick message payload is invalid",
-          cause: $message.error,
-        });
-      }
-      const source = await this.store.getEnabledSourceByProviderId(
-        "kick",
-        $message.value.broadcaster.user_id,
-      );
-      if (!source) return erro({ type: "unknown kick source", detail: "Kick source not found" });
-      await this.broker.publish(
-        source.userId,
-        {
-          type: "message",
-          message: {
-            id: $message.value.message_id,
-            sourceId: source.connectedSource.source.sourceId,
-            connectionId: source.connectedSource.source.connectionId,
-            provider: "kick",
-            author: {
-              id: $message.value.sender.user_id,
-              displayName: $message.value.sender.username,
+      if (eventType === "chat.message.sent") {
+        const message = yield* parseJson(body)
+          .andThen((value) => validate(value, KickMessageSchema))
+          .mapErr(
+            (cause): KickWebhookError => ({
+              type: "invalid kick webhook",
+              detail: "Kick message payload is invalid",
+              cause,
+            }),
+          );
+        const source = await store.getEnabledSourceByProviderId(
+          "kick",
+          message.broadcaster.user_id,
+        );
+        if (!source) {
+          return erro({ type: "unknown kick source", detail: "Kick source not found" });
+        }
+        await broker.publish(
+          source.userId,
+          {
+            type: "message",
+            message: {
+              id: message.message_id,
+              sourceId: source.connectedSource.source.sourceId,
+              connectionId: source.connectedSource.source.connectionId,
+              provider: "kick",
+              author: {
+                id: message.sender.user_id,
+                displayName: message.sender.username,
+              },
+              text: message.content,
+              occurredAt: new Date(message.created_at),
             },
-            text: $message.value.content,
-            occurredAt: new Date($message.value.created_at),
           },
-        },
-        `kick:${$messageId.value}`,
-      );
+          `kick:${messageId}`,
+        );
+      }
       return ok(undefined);
-    }
-
-    return ok(undefined);
+    });
   }
 }

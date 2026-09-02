@@ -3,23 +3,49 @@ import type { DefaultError, FetchQueryOptions, QueryKey } from "@tanstack/react-
 import { QueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { createIsomorphicFn } from "@tanstack/react-start";
-import { createTRPCClient, httpBatchLink, httpSubscriptionLink, splitLink } from "@trpc/client";
+import {
+  createTRPCClient,
+  httpBatchLink,
+  httpSubscriptionLink,
+  splitLink,
+  type HTTPBatchLinkOptions,
+} from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import superjson from "superjson";
 
 import type { AppRouter } from "../server/api/trpc/index";
 
+type AppRouterTypes = AppRouter["_def"]["_config"]["$types"];
+type TrpcFetch = NonNullable<HTTPBatchLinkOptions<AppRouterTypes>["fetch"]>;
+type TrpcFetchInput = Parameters<TrpcFetch>[0];
+type TrpcFetchOptions = Parameters<TrpcFetch>[1];
+
+function fetchInputUrl(input: TrpcFetchInput) {
+  if (typeof input === "string") {
+    return input;
+  }
+  return input instanceof URL ? input.href : input.url;
+}
+
+function toRequestInit(options: TrpcFetchOptions, headers?: Headers): RequestInit {
+  return {
+    ...options,
+    credentials: "include",
+    headers: headers ?? options?.headers,
+  };
+}
+
 const authenticatedFetch = createIsomorphicFn()
-  .client((url: RequestInfo | URL, options?: RequestInit) =>
-    fetch(url, { ...options, credentials: "include" }),
-  )
-  .server(async (url: RequestInfo | URL, options?: RequestInit) => {
+  .client((url: TrpcFetchInput, options?: TrpcFetchOptions) => fetch(url, toRequestInit(options)))
+  .server(async (url: TrpcFetchInput, options?: TrpcFetchOptions) => {
     const { getRequestHeader, getRequestUrl } = await import("@tanstack/react-start/server");
     const headers = new Headers(options?.headers);
     const cookie = getRequestHeader("cookie");
-    if (cookie) headers.set("cookie", cookie);
+    if (cookie) {
+      headers.set("cookie", cookie);
+    }
 
-    return fetch(rurl(url.toString(), getRequestUrl()).href, { ...options, headers });
+    return fetch(rurl(fetchInputUrl(url), getRequestUrl()).href, toRequestInit(options, headers));
   });
 
 export function createApi() {

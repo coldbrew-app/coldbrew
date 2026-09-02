@@ -585,12 +585,17 @@ export type Translate = <Key extends TranslationKey>(
 ) => string;
 
 export function createTranslator(locale: Locale): Translate {
-  return ((key: TranslationKey, ...args: unknown[]) => {
+  return (key: TranslationKey, ...args: unknown[]) => {
     const message = messages[locale][key];
-    return typeof message === "function"
-      ? (message as (values: unknown) => string)(args[0])
-      : message;
-  }) as Translate;
+    if (typeof message !== "function") {
+      return message;
+    }
+    const translated: unknown = Reflect.apply(message, undefined, args);
+    if (typeof translated !== "string") {
+      throw new TypeError(`Translation ${key} did not return a string.`);
+    }
+    return translated;
+  };
 }
 
 type I18n = {
@@ -644,6 +649,8 @@ export function I18nProvider({
 
 export function useI18n() {
   const context = useContext(I18nContext);
-  if (!context) throw new Error("useI18n must be used within I18nProvider");
+  if (!context) {
+    throw new Error("useI18n must be used within I18nProvider");
+  }
   return context;
 }

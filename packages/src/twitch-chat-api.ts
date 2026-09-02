@@ -75,10 +75,14 @@ async function validateCredentials(
     canRefresh
   ) {
     const $credentials = await refreshCredentials(credentials, signal);
-    if ($credentials.isErr()) return $credentials;
+    if ($credentials.isErr()) {
+      return $credentials;
+    }
     return await validateCredentials($credentials.value, signal, false);
   }
-  if ($response.isErr()) return propagateError($response);
+  if ($response.isErr()) {
+    return propagateError($response);
+  }
   if ($response.value.client_id !== credentials.clientId) {
     return erro({ type: "twitch client mismatch" });
   }

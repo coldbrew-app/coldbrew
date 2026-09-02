@@ -1,6 +1,6 @@
 import { DonationAlertsSource } from "@coldbrew/packages/donationalerts.js";
 import { logger } from "@coldbrew/packages/logger.js";
-import { DonationAlertsUser, UserId } from "@coldbrew/packages/schemas.js";
+import type { DonationAlertsUser, UserId } from "@coldbrew/packages/schemas.js";
 import { delay } from "@lebedevna/delay";
 import { ok, safeTry } from "neverthrow";
 import { defer } from "using-defer";
@@ -21,13 +21,17 @@ async function deployListener(user: DonationAlertsUser, signal: AbortSignal) {
 
   await safeTry(async function* () {
     outer_loop: while (true) {
-      if (signal.aborted) return ok();
+      if (signal.aborted) {
+        return ok();
+      }
 
       const source = new DonationAlertsSource(accessToken);
       for await (const $donation of source.stream(signal)) {
-        if (signal.aborted) return ok();
+        if (signal.aborted) {
+          return ok();
+        }
 
-        if ($donation.isErr() && $donation.error.type == "donationalerts: unauthorized") {
+        if ($donation.isErr() && $donation.error.type === "donationalerts: unauthorized") {
           const tokens = yield* refreshAccessToken({
             userId,
             refreshToken,
@@ -46,13 +50,15 @@ async function deployListener(user: DonationAlertsUser, signal: AbortSignal) {
         await store.insertDonations(userId, [$donation.value]);
       }
 
-      if (!signal.aborted) await delay(UNEXPECTED_COMPLETION_RETRY_MS, { signal });
+      if (!signal.aborted) {
+        await delay(UNEXPECTED_COMPLETION_RETRY_MS, { signal });
+      }
     }
   }).match(
     () => logger.info(`listener exited gracefully: userId=${userId}`),
     async (error) => {
-      if (error.type == "donationalerts: failed to fetch tokens") {
-        if (error.cause.type == "donationalerts: unauthorized") {
+      if (error.type === "donationalerts: failed to fetch tokens") {
+        if (error.cause.type === "donationalerts: unauthorized") {
           const users = await store.getUsersAuthenticatedInDonationAlerts();
           const current = users.find((candidate) => candidate.userId === userId);
           if (current?.tokenVersion === tokenVersion) {
@@ -69,7 +75,9 @@ export const refreshListeners = (() => {
   let isRunning = false;
 
   return async (running: Map<UserId, RunningDonationListener>) => {
-    if (isRunning) return;
+    if (isRunning) {
+      return;
+    }
     isRunning = true;
     using _ = defer(() => (isRunning = false));
 
@@ -92,9 +100,13 @@ export const refreshListeners = (() => {
           tokenVersion: user.tokenVersion,
         };
         running.set(user.userId, listener);
-        deployListener(user, controller.signal).finally(() => {
-          if (running.get(user.userId) === listener) running.delete(user.userId);
-        });
+        void deployListener(user, controller.signal)
+          .catch((error: unknown) => logger.error(error))
+          .finally(() => {
+            if (running.get(user.userId) === listener) {
+              running.delete(user.userId);
+            }
+          });
         await delay(50);
       }
     }

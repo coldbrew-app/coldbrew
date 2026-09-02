@@ -5,7 +5,7 @@ import { nitro } from "nitro/vite";
 import { defineConfig } from "vite";
 
 export default defineConfig(({ command }) => {
-  const chatServiceOrigin = `http://127.0.0.1:${Number(process.env.CHAT_PORT ?? 3001)}`;
+  const chatServiceOrigin = `http://127.0.0.1:${Number(process.env["CHAT_PORT"] ?? 3001)}`;
 
   return {
     envDir: "../..",
@@ -13,19 +13,20 @@ export default defineConfig(({ command }) => {
       tanstackStart(),
       nitro({
         preset: "bun",
-        routeRules:
-          command === "serve"
-            ? {
+        ...(command === "serve"
+          ? {
+              routeRules: {
                 "/api/chat/**": { proxy: `${chatServiceOrigin}/**` },
-              }
-            : undefined,
+              },
+            }
+          : {}),
       }),
       react(),
       tailwindcss(),
     ],
     resolve: { tsconfigPaths: true },
     server: {
-      port: Number(process.env.APP_PORT ?? 3000),
+      port: Number(process.env["APP_PORT"] ?? 3000),
       strictPort: true,
     },
   };

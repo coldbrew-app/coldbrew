@@ -1,7 +1,7 @@
 import type { ChatRouter } from "@coldbrew/chat/trpc";
 import { createTRPCClient, httpBatchLink, httpSubscriptionLink, splitLink } from "@trpc/client";
 import { EventSourcePolyfill } from "event-source-polyfill";
-import SuperJSON from "superjson";
+import { SuperJSON } from "superjson";
 
 export function createChatServiceClient(ticket: string) {
   const authorization = `Bearer ${ticket}`;
