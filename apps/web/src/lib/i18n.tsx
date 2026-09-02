@@ -111,7 +111,7 @@ const en = {
   googleDataDescription:
     "When you continue with Google, Google shares your name, email address, and profile image with Coldbrew. We use them to create your account, identify you when you return, and show your account details.",
   googleDataNoExtraAccess:
-    "Coldbrew does not request access to Gmail, Google Drive, Google Calendar, or other Google services.",
+    "Google sign-in does not give Coldbrew access to Gmail, Google Drive, or Google Calendar. If you separately connect YouTube chat, Coldbrew requests YouTube permissions for chat messages and moderation.",
   readPrivacyPolicy: "Read the Privacy policy",
   landingFooter: "Coldbrew — tools for streamers.",
   legalLinks: "Legal information",
@@ -262,16 +262,16 @@ const en = {
   legalEffectiveDate: "Effective as of September 2, 2026.",
   privacyDataTitle: "Data we process",
   privacyDataDescription:
-    "We process account data: name, email address, and profile image. When you connect donation sources or chat, the service receives data needed to operate those integrations, including technical access tokens, information about the connected channel, messages, and donation data.",
+    "We process account data: name, email address, and profile image. When you connect YouTube chat, Coldbrew receives OAuth access and refresh tokens, your channel identity, active-broadcast information, live chat messages, and identifiers needed for moderation. Connected donation sources provide the account, donation, and token data needed to operate those integrations.",
   privacyPurposeTitle: "Why we use it",
   privacyPurposeDescription:
-    "This data lets us create and protect your account, receive donations, build the video queue, show the public queue and chat overlays, and maintain the service.",
+    "This data lets us create and protect your account, receive donations, build the video queue, and maintain the service. YouTube data is used only to show the connected live chat, send messages you request, perform moderation actions you initiate, and display chat in an overlay you enable.",
   privacySharingTitle: "Sharing and access",
   privacySharingDescription:
-    "We do not sell personal data. We share data with third-party platforms only when it is necessary for an integration you have connected. If you enable a public queue or overlay, the information selected for those features is available to visitors through its public link.",
+    "We do not sell personal or Google user data, use it for advertising, or share it except as needed to operate an integration you connected. If you enable a public queue or chat overlay, the information selected for that feature is available to visitors through its public link.",
   privacyRetentionTitle: "Retention and your rights",
   privacyRetentionDescription:
-    "We retain data while it is needed to operate your account and the service. You can disconnect an integration in settings; when you delete your account, related data is deleted in line with the service's technical capabilities and applicable law.",
+    "YouTube OAuth tokens are encrypted at rest and retained only while the connection is active. Live chat message text is processed transiently and is not stored in the Coldbrew database. Disconnecting YouTube removes its stored tokens and connection data from Coldbrew; you can also revoke access in your Google Account. When you delete your Coldbrew account, its related data is deleted subject to applicable law.",
   privacyAgreement:
     "By using Coldbrew, you agree to this policy. For questions about data processing, contact the service owner through an available support channel.",
   termsServiceTitle: "The service",
@@ -392,7 +392,7 @@ const ru = defineTranslations({
   googleDataDescription:
     "При входе Google передаёт Coldbrew ваше имя, адрес электронной почты и изображение профиля. Они нужны, чтобы создать аккаунт, узнавать вас при повторном входе и показывать данные аккаунта.",
   googleDataNoExtraAccess:
-    "Coldbrew не запрашивает доступ к Gmail, Google Диску, Google Календарю и другим сервисам Google.",
+    "Вход через Google не даёт Coldbrew доступ к Gmail, Google Диску или Google Календарю. Если вы отдельно подключите чат YouTube, Coldbrew запросит разрешения YouTube для работы с сообщениями и модерацией.",
   readPrivacyPolicy: "Открыть Политику конфиденциальности",
   landingFooter: "Coldbrew — инструменты для стримеров.",
   legalLinks: "Юридическая информация",
@@ -543,16 +543,16 @@ const ru = defineTranslations({
   legalEffectiveDate: "Действует с 2 сентября 2026 года.",
   privacyDataTitle: "Какие данные мы обрабатываем",
   privacyDataDescription:
-    "Мы обрабатываем данные учётной записи: имя, адрес электронной почты и изображение профиля. При подключении источников донатов или чата сервис получает данные, необходимые для работы интеграций, включая технические токены доступа, сведения о подключённом канале, сообщения и данные донатов.",
+    "Мы обрабатываем данные учётной записи: имя, адрес электронной почты и изображение профиля. При подключении чата YouTube Coldbrew получает токены доступа и обновления OAuth, сведения о вашем канале и активной трансляции, сообщения чата и идентификаторы для модерации. Подключённые источники донатов передают данные аккаунта, донатов и токенов, необходимые для работы этих интеграций.",
   privacyPurposeTitle: "Зачем это нужно",
   privacyPurposeDescription:
-    "Эти данные нужны, чтобы создать и защитить учётную запись, получать донаты, формировать очередь видео, показывать публичную очередь и чат-оверлеи, а также поддерживать работу сервиса.",
+    "Эти данные нужны, чтобы создать и защитить учётную запись, получать донаты, формировать очередь видео и поддерживать работу сервиса. Данные YouTube используются только для показа подключённого чата, отправки запрошенных вами сообщений, выполнения инициированных вами действий модерации и вывода чата в включённый вами оверлей.",
   privacySharingTitle: "Передача и доступ",
   privacySharingDescription:
-    "Мы не продаём персональные данные. Данные передаются внешним платформам только когда это нужно для подключённой вами интеграции. Если вы включили публичную очередь или оверлей, сведения, выбранные для показа в этих функциях, доступны посетителям по публичной ссылке.",
+    "Мы не продаём персональные данные или данные пользователей Google, не используем их для рекламы и не передаём иначе, чем для работы подключённой вами интеграции. Если вы включили публичную очередь или чат-оверлей, выбранные для этой функции сведения доступны посетителям по публичной ссылке.",
   privacyRetentionTitle: "Хранение и ваши права",
   privacyRetentionDescription:
-    "Мы храним данные, пока они необходимы для работы учётной записи и сервиса. Вы можете отключить интеграцию в настройках; при удалении учётной записи связанные с ней данные удаляются в соответствии с техническими возможностями сервиса и требованиями закона.",
+    "Токены OAuth YouTube хранятся в зашифрованном виде только пока подключение активно. Текст сообщений чата обрабатывается временно и не сохраняется в базе данных Coldbrew. Отключение YouTube удаляет его токены и данные подключения из Coldbrew; доступ также можно отозвать в аккаунте Google. При удалении аккаунта Coldbrew связанные с ним данные удаляются с учётом требований закона.",
   privacyAgreement:
     "Используя Coldbrew, вы соглашаетесь с этой политикой. По вопросам обработки данных свяжитесь с владельцем сервиса через доступный канал поддержки.",
   termsServiceTitle: "Сервис",
