@@ -206,6 +206,7 @@ jobs:
           YOUTUBE_CLIENT_ID: ${{ vars.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           PGDATABASE: ${{ vars.PGDATABASE }}
+          PGHOST: ${{ vars.PGHOST }}
           PGPASSWORD: ${{ secrets.PGPASSWORD }}
           PGPORT: ${{ vars.PGPORT }}
           PGUSER: ${{ vars.PGUSER }}
@@ -235,6 +236,7 @@ jobs:
             "YOUTUBE_CLIENT_ID",
             "YOUTUBE_CLIENT_SECRET",
             "PGDATABASE",
+            "PGHOST",
             "PGPASSWORD",
             "PGUSER",
             "WALG_S3_PREFIX",
@@ -266,7 +268,7 @@ jobs:
           const encodeUrlPart = (value) => encodeURIComponent(value)
           const databaseUrl =
             `postgresql://${encodeUrlPart(process.env.PGUSER)}:` +
-            `${encodeUrlPart(process.env.PGPASSWORD)}@postgres:5432/` +
+            `${encodeUrlPart(process.env.PGPASSWORD)}@${encodeUrlPart(process.env.PGHOST)}:5432/` +
             encodeUrlPart(process.env.PGDATABASE)
           const values = {
             ...Object.fromEntries(required.map((name) => [name, process.env[name]])),

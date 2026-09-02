@@ -77,7 +77,7 @@ The GitHub Variables and Secrets described below provide:
 
 - `APP_DOMAIN`, including the scheme, for example
   `https://coldbrew.example.com`;
-- `PGDATABASE`, `PGUSER`, `PGPASSWORD`, and optionally `PGPORT` for the
+- `PGDATABASE`, `PGHOST`, `PGUSER`, `PGPASSWORD`, and optionally `PGPORT` for the
   external PostgreSQL binding (defaults to `5432`);
 - `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET`;
 - `YOUTUBE_CLIENT_ID` and `YOUTUBE_CLIENT_SECRET` for multichat OAuth;
@@ -106,9 +106,9 @@ both references with the previous revision's images.
 
 `localhost` has different meanings on the host and in a container. Host-side
 tools use `PGHOST=127.0.0.1`; remote tools use the VPS address; application
-containers must use `postgres` in `DATABASE_URL`. The workflow generates that
-URL from `PGUSER`, `PGPASSWORD`, and `PGDATABASE`, safely URL-encoding each
-component; do not add a separate `DATABASE_URL` secret.
+containers must set `PGHOST=postgres`. The workflow generates `DATABASE_URL`
+from `PGUSER`, `PGPASSWORD`, `PGHOST`, and `PGDATABASE`, safely URL-encoding
+each component; do not add a separate `DATABASE_URL` secret.
 
 For a new database volume, first run the `Production` workflow. Its schema gate
 will stop the initial deployment, but the workflow will already have generated
@@ -166,6 +166,7 @@ Add these environment variables:
 | `KICK_WEBHOOK_PUBLIC_KEY`      | Kick webhook RSA public key        | yes      |
 | `YOUTUBE_CLIENT_ID`            | YouTube chat OAuth client ID       | yes      |
 | `PGDATABASE`                   | `coldbrew`                         | yes      |
+| `PGHOST`                       | `postgres`                         | yes      |
 | `PGPORT`                       | `5432`                             | no       |
 | `PGUSER`                       | `coldbrew`                         | yes      |
 | `SSH_DEPLOY_PATH`              | `/opt/coldbrew`                    | yes      |
