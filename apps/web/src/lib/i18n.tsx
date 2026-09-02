@@ -76,11 +76,45 @@ const en = {
   readyForOverlay: "Need an overlay for your stream?",
   overlayDescription: "Show donations on stream with a browser source.",
   createOverlay: "Create overlay",
+  landingPageTitle: "Donations, video queue, and multichat for streamers",
+  signIn: "Sign in",
   welcomeBack: "Welcome back",
   signInDescription: "Sign in to manage your stream from one place.",
   signInEyebrow: "A long brew for bright moments",
   signInStory:
     "Collect every supporter signal, keep videos in orbit, and react when they reach the front.",
+  landingHeadline: "One calm control room for a busy stream.",
+  landingDescription:
+    "Coldbrew helps streamers collect donations, organise viewer-submitted videos, follow live chats, and share what is coming next — all in one place.",
+  landingSignInNote: "Google sign-in creates and protects your Coldbrew account.",
+  landingSignalEyebrow: "From supporter to stream",
+  landingWorkflowEyebrow: "One connected flow",
+  landingWorkflow: "Donation → video queue → on-stream reaction",
+  landingFeaturesEyebrow: "Built for live moments",
+  landingFeaturesTitle: "Keep every supporter signal within reach.",
+  landingFeaturesDescription:
+    "Connect the services you use, then manage the activity around your stream without switching between dashboards.",
+  landingDonationsTitle: "Donations in one feed",
+  landingDonationsDescription:
+    "Connect supported donation sources and browse supporter names, amounts, messages, and recent activity together.",
+  landingVideoQueueTitle: "A video queue you control",
+  landingVideoQueueDescription:
+    "Turn supported links from donation messages into videos, add videos manually, and organise them by your own priorities.",
+  landingMultichatTitle: "Live chats side by side",
+  landingMultichatDescription:
+    "Bring supported streaming chats into one feed so messages stay visible while you focus on the broadcast.",
+  landingSharingTitle: "Public views and overlays",
+  landingSharingDescription:
+    "Share a public video queue with viewers and use browser-source overlays to bring selected activity onto the stream.",
+  googleDataEyebrow: "Transparent Google sign-in",
+  googleDataTitle: "Your account data has one job.",
+  googleDataDescription:
+    "When you continue with Google, Google shares your name, email address, and profile image with Coldbrew. We use them to create your account, identify you when you return, and show your account details.",
+  googleDataNoExtraAccess:
+    "Coldbrew does not request access to Gmail, Google Drive, Google Calendar, or other Google services.",
+  readPrivacyPolicy: "Read the Privacy policy",
+  landingFooter: "Coldbrew — tools for streamers.",
+  legalLinks: "Legal information",
   redirecting: "Redirecting…",
   continueWithGoogle: "Continue with Google",
   integrationsDescription: "Connect services to keep all your donations in one place.",
@@ -323,11 +357,45 @@ const ru = defineTranslations({
   readyForOverlay: "Нужен оверлей для стрима?",
   overlayDescription: "Выведите донаты на стрим через браузерный источник.",
   createOverlay: "Создать оверлей",
+  landingPageTitle: "Донаты, очередь видео и мультичат для стримеров",
+  signIn: "Войти",
   welcomeBack: "С возвращением",
   signInDescription: "Войдите, чтобы управлять донатами и видео в одном месте.",
   signInEyebrow: "Всё для вашего стрима",
   signInStory:
     "Собирайте донаты с разных платформ, управляйте очередью видео и не упускайте важное во время стрима.",
+  landingHeadline: "Всё для активного стрима — на одном спокойном экране.",
+  landingDescription:
+    "Coldbrew помогает стримерам собирать донаты, управлять видео от зрителей, следить за чатами и показывать, что будет дальше, — в одном месте.",
+  landingSignInNote: "Вход через Google создаёт и защищает ваш аккаунт Coldbrew.",
+  landingSignalEyebrow: "От зрителя до стрима",
+  landingWorkflowEyebrow: "Единый процесс",
+  landingWorkflow: "Донат → очередь видео → реакция на стриме",
+  landingFeaturesEyebrow: "Для живых моментов",
+  landingFeaturesTitle: "Каждый сигнал от зрителей остаётся под рукой.",
+  landingFeaturesDescription:
+    "Подключите нужные сервисы и управляйте событиями вокруг стрима, не переключаясь между разными панелями.",
+  landingDonationsTitle: "Донаты в одной ленте",
+  landingDonationsDescription:
+    "Подключайте поддерживаемые источники донатов и просматривайте имена отправителей, суммы, сообщения и последние события вместе.",
+  landingVideoQueueTitle: "Управляемая очередь видео",
+  landingVideoQueueDescription:
+    "Превращайте поддерживаемые ссылки из сообщений к донатам в видео, добавляйте видео вручную и распределяйте их по своим очередям.",
+  landingMultichatTitle: "Чаты в одной ленте",
+  landingMultichatDescription:
+    "Объединяйте чаты поддерживаемых стриминговых платформ, чтобы видеть сообщения и не отвлекаться от трансляции.",
+  landingSharingTitle: "Публичные страницы и оверлеи",
+  landingSharingDescription:
+    "Делитесь со зрителями публичной очередью видео и выводите выбранные события на стрим через браузерные оверлеи.",
+  googleDataEyebrow: "Прозрачный вход через Google",
+  googleDataTitle: "Данные аккаунта используются только по назначению.",
+  googleDataDescription:
+    "При входе Google передаёт Coldbrew ваше имя, адрес электронной почты и изображение профиля. Они нужны, чтобы создать аккаунт, узнавать вас при повторном входе и показывать данные аккаунта.",
+  googleDataNoExtraAccess:
+    "Coldbrew не запрашивает доступ к Gmail, Google Диску, Google Календарю и другим сервисам Google.",
+  readPrivacyPolicy: "Открыть Политику конфиденциальности",
+  landingFooter: "Coldbrew — инструменты для стримеров.",
+  legalLinks: "Юридическая информация",
   redirecting: "Входим…",
   continueWithGoogle: "Войти через Google",
   integrationsDescription: "Подключите сервисы, чтобы собирать все донаты в одном месте.",

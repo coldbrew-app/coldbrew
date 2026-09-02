@@ -22,7 +22,13 @@ import { useAuthUrlQ, useDonationOverviewQ, useUserInfoSafe } from "../../hooks/
 export const Route = createFileRoute("/_authenticated/")({
   component: Overview,
   head: ({ match }) => ({
-    meta: [{ title: `${createTranslator(match.context.locale)("overview")} · Coldbrew` }],
+    meta: [
+      {
+        title: `${createTranslator(match.context.locale)(
+          match.context.viewer ? "overview" : "landingPageTitle",
+        )} · Coldbrew`,
+      },
+    ],
   }),
   loader: async ({ context }) => {
     if (!context.viewer) return;
