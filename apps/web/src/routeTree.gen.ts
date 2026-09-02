@@ -19,6 +19,8 @@ import { Route as AuthenticatedIntegrationsRouteImport } from './routes/_authent
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedVideosRouteImport } from './routes/_authenticated/videos'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as DocsPrivacyRouteImport } from './routes/docs/privacy'
+import { Route as DocsTosRouteImport } from './routes/docs/tos'
 import { Route as VideosSlugRouteImport } from './routes/videos.$slug'
 import { Route as AuthenticatedDonationsIndexRouteImport } from './routes/_authenticated/donations.index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -76,6 +78,16 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
   path: '/api/health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DocsPrivacyRoute = DocsPrivacyRouteImport.update({
+  id: '/docs/privacy',
+  path: '/docs/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsTosRoute = DocsTosRouteImport.update({
+  id: '/docs/tos',
+  path: '/docs/tos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VideosSlugRoute = VideosSlugRouteImport.update({
   id: '/videos/$slug',
   path: '/videos/$slug',
@@ -119,6 +131,8 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRoute
   '/videos': typeof AuthenticatedVideosRoute
   '/api/health': typeof ApiHealthRoute
+  '/docs/privacy': typeof DocsPrivacyRoute
+  '/docs/tos': typeof DocsTosRoute
   '/videos/$slug': typeof VideosSlugRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
@@ -134,6 +148,8 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/videos': typeof AuthenticatedVideosRoute
   '/api/health': typeof ApiHealthRoute
+  '/docs/privacy': typeof DocsPrivacyRoute
+  '/docs/tos': typeof DocsTosRoute
   '/videos/$slug': typeof VideosSlugRoute
   '/': typeof AuthenticatedIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -153,6 +169,8 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/videos': typeof AuthenticatedVideosRoute
   '/api/health': typeof ApiHealthRoute
+  '/docs/privacy': typeof DocsPrivacyRoute
+  '/docs/tos': typeof DocsTosRoute
   '/videos/$slug': typeof VideosSlugRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -173,6 +191,8 @@ export interface FileRouteTypes {
     | '/settings'
     | '/videos'
     | '/api/health'
+    | '/docs/privacy'
+    | '/docs/tos'
     | '/videos/$slug'
     | '/api/auth/$'
     | '/api/trpc/$'
@@ -188,6 +208,8 @@ export interface FileRouteTypes {
     | '/settings'
     | '/videos'
     | '/api/health'
+    | '/docs/privacy'
+    | '/docs/tos'
     | '/videos/$slug'
     | '/'
     | '/api/auth/$'
@@ -206,6 +228,8 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/videos'
     | '/api/health'
+    | '/docs/privacy'
+    | '/docs/tos'
     | '/videos/$slug'
     | '/_authenticated/'
     | '/api/auth/$'
@@ -219,6 +243,8 @@ export interface RootRouteChildren {
   SplatRoute: typeof SplatRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   ApiHealthRoute: typeof ApiHealthRoute
+  DocsPrivacyRoute: typeof DocsPrivacyRoute
+  DocsTosRoute: typeof DocsTosRoute
   VideosSlugRoute: typeof VideosSlugRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
@@ -296,6 +322,20 @@ declare module '@tanstack/react-router' {
       path: '/api/health'
       fullPath: '/api/health'
       preLoaderRoute: typeof ApiHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs/privacy': {
+      id: '/docs/privacy'
+      path: '/docs/privacy'
+      fullPath: '/docs/privacy'
+      preLoaderRoute: typeof DocsPrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs/tos': {
+      id: '/docs/tos'
+      path: '/docs/tos'
+      fullPath: '/docs/tos'
+      preLoaderRoute: typeof DocsTosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/videos/$slug': {
@@ -385,6 +425,8 @@ const rootRouteChildren: RootRouteChildren = {
   SplatRoute: SplatRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   ApiHealthRoute: ApiHealthRoute,
+  DocsPrivacyRoute: DocsPrivacyRoute,
+  DocsTosRoute: DocsTosRoute,
   VideosSlugRoute: VideosSlugRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,
