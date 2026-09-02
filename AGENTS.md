@@ -31,6 +31,7 @@ Before editing files for a substantial task:
 - Follow the [SQL guide](docs/sql.md) when editing PostgreSQL schemas or SQL embedded in TypeScript.
 - Follow the [Zod guide](docs/zod.md) when creating or changing Zod schemas.
 - Use the glossary below for all donation and queue terminology in code, SQL, UI, and documentation.
+- Follow the [internationalization guide](docs/internationalization.md) when changing localized UI copy, locale handling, or locale-sensitive formatting.
 - Follow the [SSR and hydration guide](docs/ssr-and-hydration.md) when working on server-rendered UI, route context, browser-persisted state, or hydration warnings.
 
 ## Glossary
