@@ -1,4 +1,3 @@
-import { getAuthorizationUrl } from "@coldbrew/packages/donationalerts.js";
 import {
   MoneyAmountSchema,
   PublicQueueSettingsSchema,
@@ -7,13 +6,13 @@ import {
   SlugSchema,
   VideoIdSchema,
 } from "@coldbrew/packages/schemas.js";
-import { getYoutubeTiming, youtubeVideoId } from "@coldbrew/packages/youtube.js";
+import { youtubeVideoId } from "@coldbrew/packages/youtube.js";
 import { TRPCError } from "@trpc/server";
-import { getRedirectUri } from "@web/server/lib/getRedirectUrl.js";
 import { z } from "zod";
 
+import { donationAlertsAuthorizationURL } from "../../donationalerts.js";
 import { store } from "../../sensors/db/index.js";
-import { donationAlertsConfig } from "../../sensors/donationalerts.js";
+import { getYoutubeTiming } from "../../youtube.js";
 import { authenticatedProcedure, procedure, router } from "./_config.js";
 import { chatRouter } from "./chat.js";
 import { integrationRouter } from "./integration.js";
@@ -47,11 +46,13 @@ export const appRouter = router({
   chat: chatRouter,
   integration: integrationRouter,
 
-  authUrls: authenticatedProcedure.query(() => {
-    return {
-      donationAlerts: getAuthorizationUrl(donationAlertsConfig.clientId, getRedirectUri()),
-    };
-  }),
+  authUrls: authenticatedProcedure
+    .output(
+      z.object({
+        donationAlerts: z.url(),
+      }),
+    )
+    .query(() => ({ donationAlerts: donationAlertsAuthorizationURL() })),
 
   userInfo: procedure.query(async ({ ctx }) => {
     if (ctx.userId === null) {
@@ -136,14 +137,17 @@ export const appRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid YouTube URL." });
       }
 
-      const $timing = await getYoutubeTiming(input.url, {
-        startSeconds: input.startSeconds,
-        endSeconds: input.endSeconds,
-      });
-      if ($timing.isErr()) {
+      let timing;
+      try {
+        timing = await getYoutubeTiming(input.url, {
+          startSeconds: input.startSeconds,
+          endSeconds: input.endSeconds,
+        });
+      } catch (cause) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Could not read this YouTube video.",
+          cause,
         });
       }
 
@@ -151,7 +155,7 @@ export const appRouter = router({
         providerVideoId,
         url: input.url,
         queueAmount: input.amount,
-        ...$timing.value,
+        ...timing,
       });
       return { videoId };
     }),

@@ -1,4 +1,3 @@
-import { useDelayedEffect } from "@lebedevna/use-helpers";
 import { createFileRoute } from "@tanstack/react-router";
 import DonationCard from "@web/components/donation-card";
 import { EmptyState } from "@web/components/empty-state";
@@ -40,8 +39,8 @@ function DonationsIndex() {
   const [query, setQuery] = useState(search.query);
 
   useEffect(() => setQuery(search.query), [search.query]);
-  useDelayedEffect(
-    () => {
+  useEffect(() => {
+    const timeout = setTimeout(() => {
       const normalizedQuery = query.trim();
       if (normalizedQuery === search.query) {
         return;
@@ -50,10 +49,9 @@ function DonationsIndex() {
         replace: true,
         search: (previous) => ({ ...previous, page: 1, query: normalizedQuery }),
       });
-    },
-    300,
-    [navigate, query, search.query],
-  );
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [navigate, query, search.query]);
 
   useEffect(() => {
     if (donationsQ.data && !donationsQ.isPlaceholderData && donationsQ.data.page !== search.page) {

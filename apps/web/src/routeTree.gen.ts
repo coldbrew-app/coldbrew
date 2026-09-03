@@ -24,6 +24,7 @@ import { Route as DocsTosRouteImport } from './routes/docs/tos'
 import { Route as VideosSlugRouteImport } from './routes/videos.$slug'
 import { Route as AuthenticatedDonationsIndexRouteImport } from './routes/_authenticated/donations.index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiChatSplatRouteImport } from './routes/api/chat/$'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api/trpc/$'
 import { Route as ChatOverlayTokenRouteImport } from './routes/chat.overlay.$token'
 import { Route as ApiIntegrationDonationalertsCallbackRouteImport } from './routes/api/integration/donationalerts/callback'
@@ -104,6 +105,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiChatSplatRoute = ApiChatSplatRouteImport.update({
+  id: '/api/chat/$',
+  path: '/api/chat/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTrpcSplatRoute = ApiTrpcSplatRouteImport.update({
   id: '/api/trpc/$',
   path: '/api/trpc/$',
@@ -135,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/docs/tos': typeof DocsTosRoute
   '/videos/$slug': typeof VideosSlugRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/chat/$': typeof ApiChatSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/chat/overlay/$token': typeof ChatOverlayTokenRoute
   '/donations/': typeof AuthenticatedDonationsIndexRoute
@@ -153,6 +160,7 @@ export interface FileRoutesByTo {
   '/videos/$slug': typeof VideosSlugRoute
   '/': typeof AuthenticatedIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/chat/$': typeof ApiChatSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/chat/overlay/$token': typeof ChatOverlayTokenRoute
   '/donations': typeof AuthenticatedDonationsIndexRoute
@@ -174,6 +182,7 @@ export interface FileRoutesById {
   '/videos/$slug': typeof VideosSlugRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/chat/$': typeof ApiChatSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/chat/overlay/$token': typeof ChatOverlayTokenRoute
   '/_authenticated/donations/': typeof AuthenticatedDonationsIndexRoute
@@ -195,6 +204,7 @@ export interface FileRouteTypes {
     | '/docs/tos'
     | '/videos/$slug'
     | '/api/auth/$'
+    | '/api/chat/$'
     | '/api/trpc/$'
     | '/chat/overlay/$token'
     | '/donations/'
@@ -213,6 +223,7 @@ export interface FileRouteTypes {
     | '/videos/$slug'
     | '/'
     | '/api/auth/$'
+    | '/api/chat/$'
     | '/api/trpc/$'
     | '/chat/overlay/$token'
     | '/donations'
@@ -233,6 +244,7 @@ export interface FileRouteTypes {
     | '/videos/$slug'
     | '/_authenticated/'
     | '/api/auth/$'
+    | '/api/chat/$'
     | '/api/trpc/$'
     | '/chat/overlay/$token'
     | '/_authenticated/donations/'
@@ -247,6 +259,7 @@ export interface RootRouteChildren {
   DocsTosRoute: typeof DocsTosRoute
   VideosSlugRoute: typeof VideosSlugRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiChatSplatRoute: typeof ApiChatSplatRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
   ChatOverlayTokenRoute: typeof ChatOverlayTokenRoute
   ApiIntegrationDonationalertsCallbackRoute: typeof ApiIntegrationDonationalertsCallbackRoute
@@ -359,6 +372,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/chat/$': {
+      id: '/api/chat/$'
+      path: '/api/chat/$'
+      fullPath: '/api/chat/$'
+      preLoaderRoute: typeof ApiChatSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/trpc/$': {
       id: '/api/trpc/$'
       path: '/api/trpc/$'
@@ -429,6 +449,7 @@ const rootRouteChildren: RootRouteChildren = {
   DocsTosRoute: DocsTosRoute,
   VideosSlugRoute: VideosSlugRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiChatSplatRoute: ApiChatSplatRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,
   ChatOverlayTokenRoute: ChatOverlayTokenRoute,
   ApiIntegrationDonationalertsCallbackRoute:

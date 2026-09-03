@@ -1,6 +1,6 @@
 # ADR 0001: Separate chat aggregation module
 
-- Status: accepted
+- Status: accepted; direct browser access superseded by ADR 0002
 - Date: 2026-08-30
 
 ## Context

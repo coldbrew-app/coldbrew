@@ -21,7 +21,8 @@ env-init source-env=".env.dev":
   bunx dotenvx set -f .env --plain APP_PORT "$app_port"
   bunx dotenvx set -f .env --plain APP_DOMAIN "http://localhost:$app_port"
   bunx dotenvx set -f .env --plain CHAT_PORT "$chat_port"
-  bunx dotenvx set -f .env --plain CHAT_PUBLIC_URL "http://localhost:$chat_port"
+  bunx dotenvx set -f .env --plain CHAT_PUBLIC_URL "http://localhost:$app_port/api/chat"
+  bunx dotenvx set -f .env --plain CHAT_SERVICE_URL "http://127.0.0.1:$chat_port"
   bunx dotenvx set -f .env --plain CHAT_WEB_URL "http://localhost:$app_port"
   bunx dotenvx set -f .env --plain NATS_PORT "$nats_port"
   bunx dotenvx set -f .env --plain NATS_SERVERS "nats://127.0.0.1:$nats_port"
@@ -34,61 +35,94 @@ env-init source-env=".env.dev":
 
   chmod 600 .env
 
-dev-donationalerts:
-  bunx dotenvx run -f .env --overload -- bun --watch apps/donationalerts/src/index.ts
+dev-donations:
+  bunx dotenvx run -f .env --overload -- go run ./apps/donations
 
 dev-video:
-  bunx dotenvx run -f .env --overload -- bun --watch apps/video/src/index.ts
+  bunx dotenvx run -f .env --overload -- go run ./apps/video
 
 dev-chat:
-  bunx dotenvx run -f .env --overload -- bun --watch apps/chat/src/index.ts
+  bunx dotenvx run -f .env --overload -- go run ./apps/chat
 
 dev-web:
   bunx dotenvx run -f .env --overload -- sh -c 'cd apps/web && bun run dev'
 
 dev:
-  bunx concurrently -n 'web,chat,donationalerts,video' 'just dev-web' 'just dev-chat' 'just dev-donationalerts' 'just dev-video'
+  bunx concurrently -n 'web,chat,donations,video' 'just dev-web' 'just dev-chat' 'just dev-donations' 'just dev-video'
 
 typecheck-web:
   bunx tsc --noEmit -p apps/web/tsconfig.node.json
   bunx tsc --noEmit -p apps/web/tsconfig.json
 
-typecheck-donationalerts:
-  bunx tsc --noEmit -p apps/donationalerts/tsconfig.json
+typecheck-donations:
+  go test ./apps/donations ./internal/donationalerts
 
 typecheck-video:
-  bunx tsc --noEmit -p apps/video/tsconfig.json
+  go test ./apps/video ./internal/money ./internal/youtube
 
 typecheck-chat:
-  bunx tsc --noEmit -p apps/chat/tsconfig.json
+  go test ./apps/chat ./internal/chat
 
 typecheck-packages:
   bunx tsc --noEmit -p packages/tsconfig.json
 
-typecheck: typecheck-web typecheck-chat typecheck-donationalerts typecheck-video typecheck-packages
+typecheck: typecheck-web typecheck-chat typecheck-donations typecheck-video typecheck-packages
 
 
 fmt:
   bunx oxfmt
+  go fmt ./...
 
 fmt-check:
   bunx oxfmt --check
+  gofmt -l apps internal | awk '{ print; found = 1 } END { exit found }'
 
-lint:
+lint-ts:
   bunx oxlint
+
+lint-go:
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  go vet ./...
+  stderr_file="$(mktemp)"
+  trap 'rm -f "$stderr_file"' EXIT
+  if ! diagnostics="$(rg --files --glob '*.go' | xargs go tool gopls check 2>"$stderr_file")"; then
+    cat "$stderr_file" >&2
+    printf '%s\n' "$diagnostics" >&2
+    exit 1
+  fi
+  if grep -qv '^go: downloading ' "$stderr_file"; then
+    grep -v '^go: downloading ' "$stderr_file" >&2
+    exit 1
+  fi
+  if [[ -n "$diagnostics" ]]; then
+    printf '%s\n' "$diagnostics"
+    exit 1
+  fi
+
+lint: lint-ts lint-go
 
 build-web: install
   cd apps/web && bunx vite build
 
-generate-youtube-chat-proto: install
-  cd packages && ./node_modules/.bin/grpc_tools_node_protoc \
-    --plugin=protoc-gen-ts_proto=./node_modules/.bin/protoc-gen-ts_proto \
-    --ts_proto_out=src/youtube-live-chat/generated \
-    --ts_proto_opt=outputServices=nice-grpc,outputServices=generic-definitions,outputJsonMethods=false,useExactTypes=false,esModuleInterop=true,importSuffix=.js,forceLong=string \
-    --proto_path=src/youtube-live-chat/proto \
-    --proto_path=node_modules/grpc-tools/bin \
-    src/youtube-live-chat/proto/stream_list.proto
-  cd packages && bunx oxfmt src/youtube-live-chat/generated
+generate-youtube-chat-go-proto:
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  tool_dir="$(mktemp -d "${TMPDIR:-/tmp}/coldbrew-protoc.XXXXXX")"
+  trap 'rm -rf "$tool_dir"' EXIT
+  GOBIN="$tool_dir" go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
+  GOBIN="$tool_dir" go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
+  PATH="$tool_dir:$PATH" protoc \
+    --proto_path=internal/youtubechatpb \
+    --go_out=internal/youtubechatpb \
+    --go_opt=paths=source_relative \
+    --go_opt=Mstream_list.proto=github.com/lebedev-nikita/coldbrew/internal/youtubechatpb \
+    --go-grpc_out=internal/youtubechatpb \
+    --go-grpc_opt=paths=source_relative \
+    --go-grpc_opt=Mstream_list.proto=github.com/lebedev-nikita/coldbrew/internal/youtubechatpb \
+    internal/youtubechatpb/stream_list.proto
 
 compose-up:
   docker compose up -d
@@ -107,8 +141,20 @@ production-deploy app_image postgres_image:
 
   docker compose pull postgres web
   docker compose up --no-build --detach --wait --wait-timeout 180
+  # Git may replace the bind-mounted Caddyfile inode without Compose detecting
+  # a service change. Recreate Caddy so it mounts the checked-out revision.
+  # The same recipe also recreates it with the previous file during rollback.
+  docker compose up --no-build --detach --wait --wait-timeout 180 --force-recreate --no-deps caddy
   bunx dotenvx run -f .env --overload -- \
     bash -c 'curl --fail --silent --show-error --retry 10 --retry-delay 3 --retry-connrefused "${APP_DOMAIN%/}/api/health" >/dev/null'
+  bunx dotenvx run -f .env --overload -- \
+    bash -c '
+      status="$(curl --silent --show-error --output /dev/null --write-out "%{http_code}" "${APP_DOMAIN%/}/api/chat/deployment-routing-probe")"
+      if [[ "$status" != 404 ]]; then
+        echo "Public /api/chat route bypasses the web service: expected HTTP 404, got $status" >&2
+        exit 1
+      fi
+    '
 
 compose-db-up:
   docker compose up -d postgres
@@ -186,19 +232,19 @@ backup-verify:
 test-web: install
   bunx dotenvx run -f .env --overload -- bunx vitest --run apps/web
 
-test-donationalerts: install
-  bunx dotenvx run -f .env --overload -- bunx vitest --run apps/donationalerts
+test-donations: install
+  go test ./apps/donations ./internal/donationalerts
 
 test-video: install
-  bunx dotenvx run -f .env --overload -- bunx vitest --run apps/video
+  go test ./apps/video ./internal/money ./internal/youtube
 
 test-chat: install
-  bunx dotenvx run -f .env --overload -- bunx vitest --run apps/chat
+  go test ./apps/chat ./internal/chat
 
 test-packages: install
   bunx dotenvx run -f .env --overload -- bunx vitest --run packages
 
-test: test-web test-chat test-donationalerts test-video test-packages
+test: test-web test-chat test-donations test-video test-packages
 
 check: lint fmt-check test
 

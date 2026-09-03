@@ -2,43 +2,14 @@
 
 This app is created for streamers. It connects to many donation platforms (such as donationalerts.com), fetches donates from all of them and displays them all in one place.
 
-<!-- intent-skills:start -->
-
-## Skill Loading
-
-Before editing files for a substantial task:
-
-- Run `bun intent list` from the workspace root to see available local skills.
-- If a listed skill matches the task, run `bun intent load <package>#<skill>` before changing files.
-- Use the loaded `SKILL.md` guidance while making the change.
-- Monorepos: when working across packages, run the skill check from the workspace root and prefer the local skill for the package being changed.
-- Multiple matches: prefer the most specific local skill for the package or concern you are changing; load additional skills only when the task spans multiple packages or concerns.
-
-<!-- intent-skills:end -->
-
-## Libraries
-
-- Use `tRPC` for client-server interactions
-- Follow the [data loading guide](docs/data-loading.md) when choosing between route loaders, `useQuery`, and `useSuspenseQuery`
-- Use `shadcn` for UI components
-
-## Documentation
-
-- Documentation files referenced by this guide may and should be edited whenever needed, and kept up to date with the codebase and project conventions.
-- Read [the multichat architecture](docs/multichat.md) before changing chat providers, collectors, streams, overlays, or related external-service integrations.
-- Follow the [Neverthrow guide](docs/neverthrow.md) when working with `Result`, `ResultAsync`, HTTP requests, subscriptions, streams, workers, or other expected external failures.
-- Follow the [React guide](docs/react.md) when creating or changing React hooks or their consumers in `apps/web`.
-- Follow the [SQL guide](docs/sql.md) when editing PostgreSQL schemas or SQL embedded in TypeScript.
-- Follow the [Zod guide](docs/zod.md) when creating or changing Zod schemas.
-- Use the glossary below for all donation and queue terminology in code, SQL, UI, and documentation.
-- Follow the [internationalization guide](docs/internationalization.md) when changing localized UI copy, locale handling, or locale-sensitive formatting.
-- Follow the [SSR and hydration guide](docs/ssr-and-hydration.md) when working on server-rendered UI, route context, browser-persisted state, or hydration warnings.
-
 ## Glossary
 
-Use these names consistently in product text, documentation, TypeScript, API
-schemas, SQL, and migrations. English identifiers use the names in the
+Use these names consistently in product text, documentation, Go, TypeScript,
+API schemas, SQL, and migrations. English identifiers use the names in the
 **Code/DB** column; Russian UI copy uses the names in the **Russian** column.
+Apply each language's casing conventions: SQL uses `snake_case`, TypeScript uses
+`camelCase` or `PascalCase`, and Go uses `PascalCase` with initialisms such as
+`ID` (for example, `SourceDonationID`).
 
 | Term               | Russian                          | Code/DB                                      | Definition                                                                                                                     |
 | ------------------ | -------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
@@ -73,13 +44,78 @@ schemas, SQL, and migrations. English identifiers use the names in the
 - Do not add a currency field to videos or priorities. Their currency is the owning user's `queue_currency`.
 - Use **video priority** for the persisted grouping; use **video queue** for the overall `/videos` product surface.
 
-## Frontend Styling
+## Repository structure
 
-- Follow the [Coldbrew UI Style Guide](docs/ui-style-guide.md) for visual direction, semantic colors, typography, components, and responsive behavior
+- `apps/web` and `packages` contain the TypeScript web application and shared TypeScript packages.
+- `apps/chat`, `apps/donations`, and `apps/video` are Go service entrypoints; their application packages live under `internal`.
+- `db` and the API wire contracts are shared boundaries. Keep their terminology and behavior consistent across both languages.
+
+## Code style
+
+- Normalize untrusted input once at its seam into a canonical domain value; downstream code compares, stores, and keys that canonical value rather than the raw input.
+- Treat a module's public interface as its test surface. Do not widen a public API or add dependency injection solely for tests.
+- Remove legacy code and compatibility paths instead of preserving them, but always ask for the user's explicit permission before removing them.
+
+## TypeScript and TSX
+
+<!-- intent-skills:start -->
+
+### Skill Loading
+
+Before editing TS and TSX files for a substantial task:
+
+- Run `bun intent list` from the workspace root to see available local skills.
+- If a listed skill matches the task, run `bun intent load <package>#<skill>` before changing files.
+- Use the loaded `SKILL.md` guidance while making the change.
+- Monorepos: when working across packages, run the skill check from the workspace root and prefer the local skill for the package being changed.
+- Multiple matches: prefer the most specific local skill for the package or concern you are changing; load additional skills only when the task spans multiple packages or concerns.
+
+<!-- intent-skills:end -->
+
+### Libraries
+
+- Use `tRPC` for client-server interactions. A tRPC wire contract may be implemented by a Go service; keep its TypeScript contract and Go implementation synchronized.
+- Follow the [data loading guide](docs/data-loading.md) when choosing between route loaders, `useQuery`, and `useSuspenseQuery`.
+- Use `shadcn` for UI components.
+
+### Code style
+
+- Avoid mutating objects.
+
+### Creating new page
+
+- Every new page should declare a document title like this:
+
+  ```ts
+  export const Route = createFileRoute("/donations")({
+    component: DonationsLayout,
+    head: () => ({ meta: [{ title: "Donations · Coldbrew" }] }),
+  });
+  ```
+
+### Frontend styling
+
+- Follow the [Coldbrew UI Style Guide](docs/ui-style-guide.md) for visual direction, semantic colors, typography, components, and responsive behavior.
 - Follow the icon section of the [Coldbrew UI Style Guide](docs/ui-style-guide.md#interface-icons) when choosing or adding UI icons.
-- Use `tailwindcss` for styling
-- Use `flex`, `gap` and `padding` instead of margins wherever possible
-- Pass external positioning (`margin`, `width`, `grow` etc) of the root element of components via `className` instead of hardcoding it inside component. It is similar to modifiers in BEM methodology.
+- Use `tailwindcss` for styling.
+- Use `flex`, `gap` and `padding` instead of margins wherever possible.
+- Pass external positioning (`margin`, `width`, `grow` etc.) of the root element of components via `className` instead of hardcoding it inside the component. It is similar to modifiers in BEM methodology.
+
+## Go
+
+- Use the repository-wide `just` recipes for formatting, tests, and checks; they include the Go services and their `internal` packages.
+- Read the relevant domain guide before changing a Go service, especially the multichat architecture and shared SQL rules.
+
+## Documentation
+
+- Documentation files referenced by this guide may and should be edited whenever needed, and kept up to date with the codebase and project conventions.
+- Read [the multichat architecture](docs/multichat.md) before changing chat providers, collectors, streams, overlays, or related external-service integrations.
+- In TypeScript, follow the [error-handling guide](docs/errors.md) when working with HTTP requests, subscriptions, streams, workers, or other external failures.
+- Follow the [React guide](docs/react.md) when creating or changing React hooks or their consumers in `apps/web`.
+- Follow the [SQL guide](docs/sql.md) when editing PostgreSQL schemas or SQL embedded in Go or TypeScript.
+- In TypeScript, follow the [Zod guide](docs/zod.md) when creating or changing Zod schemas.
+- Follow the [internationalization guide](docs/i18n.md) when changing localized UI copy, locale handling, or locale-sensitive formatting.
+- Follow the [SSR and hydration guide](docs/ssr-and-hydration.md) when working on server-rendered UI, route context, browser-persisted state, or hydration warnings in `apps/web`.
 
 ## Scripts
 
@@ -92,26 +128,8 @@ Add helper scripts to `justfile`, not `package.json`
 
 ## Check yourself
 
-- `just typecheck` - for typechecking
-- `just fmt` - for formatting
+- `just typecheck` - type-checks TypeScript and compiles and tests the Go service packages.
+- `just test` - runs the TypeScript and Go test suites.
+- `just fmt` - formats TypeScript, Go, Markdown, and other supported files.
+- `just check` - runs linting, formatting checks, and both test suites.
 - Make sure that file `vite.config.js` does not exist. You already have `vite.config.ts`.
-
-## Creating new page
-
-- every new page should declare a document.title like this:
-
-  ```ts
-  export const Route = createFileRoute("/donations")({
-    component: DonationsLayout,
-    head: () => ({ meta: [{ title: "Donations · Coldbrew" }] }),
-  });
-  ```
-
-## Code style
-
-- normalize untrusted input once at its seam into a canonical domain value; downstream code compares, stores, and keys that canonical value rather than the raw input
-- treat a module's public interface as its test surface; do not export helpers, reducers, or dependency injection solely for tests
-- classes are acceptable for composition and data transformation, following the principles in Yegor Bugayenko's _Elegant Objects_; every class field must be immutable and assigned when the object is created
-- mutable state is allowed only in variables declared inside functions or methods; do not keep mutable state in object or class fields
-- avoid mutating objects
-- remove legacy code and compatibility paths instead of preserving them, but always ask for the user's explicit permission before removing them

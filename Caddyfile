@@ -1,11 +1,4 @@
 {$APP_DOMAIN} {
   encode zstd gzip
-
-  handle_path /api/chat/* {
-    reverse_proxy chat:3001
-  }
-
-  handle {
-    reverse_proxy web:3000
-  }
+  reverse_proxy web:3000
 }

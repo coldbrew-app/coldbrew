@@ -21,12 +21,6 @@ export type Slug = z.infer<typeof SlugSchema>;
 export const AuthUserIdSchema = z.string().min(1).brand("auth user id");
 export type AuthUserId = z.infer<typeof AuthUserIdSchema>;
 
-export const RefreshTokenSchema = z.string().min(1).brand("refresh token");
-export type RefreshToken = z.infer<typeof RefreshTokenSchema>;
-
-export const AccessTokenSchema = z.string().min(1).brand("access token");
-export type AccessToken = z.infer<typeof AccessTokenSchema>;
-
 export const DonationSourceSchema = z.enum(["donationalerts"]);
 export type DonationSource = z.infer<typeof DonationSourceSchema>;
 
@@ -154,13 +148,3 @@ export const UserInfoSchema = z.object({
   publicQueueSettings: PublicQueueSettingsSchema,
 });
 export type UserInfo = z.infer<typeof UserInfoSchema>;
-
-export const DonationAlertsUserSchema = z.object({
-  userId: UserIdSchema,
-  sourceUserId: z.string().min(1),
-  accessToken: AccessTokenSchema,
-  refreshToken: RefreshTokenSchema,
-  tokenVersion: z.int().positive(),
-  historyCheckpoint: z.string().nullable(),
-});
-export type DonationAlertsUser = z.infer<typeof DonationAlertsUserSchema>;

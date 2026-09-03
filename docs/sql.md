@@ -1,6 +1,6 @@
 # Coldbrew SQL Guide
 
-Follow this guide for `db/*.sql` and SQL embedded in TypeScript.
+Follow this guide for `db/*.sql` and SQL embedded in Go or TypeScript. The naming and layout rules apply to both languages; language-specific rules are called out below.
 
 ## Naming and syntax
 

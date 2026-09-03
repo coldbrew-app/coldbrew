@@ -6,27 +6,13 @@
     "./*.js": "./src/*.ts"
   },
   "dependencies": {
-    "@bufbuild/protobuf": "^2.14.0",
-    "@lebedevna/delay": "^0.1.0",
-    "@lebedevna/neverthrow-utils": "^0.3.0",
     "@lebedevna/readonly-url": "^0.4.1",
-    "consola": "^3.4.2",
-    "dayjs": "^1.11.22",
-    "emittery": "^2.0.0",
     "json-bigint": "^1.0.0",
     "linkify-it": "^6.1.0",
-    "neverthrow": "^8.2.0",
-    "nice-grpc": "^2.1.17",
-    "nice-grpc-common": "^2.0.4",
     "postgres": "^3.4.9",
-    "snakecase-keys": "^9.0.2",
-    "using-defer": "^0.0.7",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/json-bigint": "^1.0.4",
-    "grpc-tools": "^1.13.1",
-    "ts-proto": "^2.12.1",
-    "type-fest": "^5.8.0"
+    "@types/json-bigint": "^1.0.4"
   }
 }

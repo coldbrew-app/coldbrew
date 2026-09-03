@@ -1,7 +1,5 @@
-import { MoneyAmountSchema, QueueCurrencySchema } from "./schemas.js";
-import type { CurrencyCode, MoneyAmount, QueueCurrency } from "./schemas.js";
-
-export const queueCurrencies = ["RUB", "USD", "EUR"] as const;
+import { MoneyAmountSchema } from "./schemas.js";
+import type { MoneyAmount, QueueCurrency } from "./schemas.js";
 
 const rublesPerUnit: Record<QueueCurrency, bigint> = {
   RUB: 1n,
@@ -20,29 +18,6 @@ function moneyAmount(value: bigint): MoneyAmount {
 
 function roundDiv(numerator: bigint, denominator: bigint) {
   return (numerator + denominator / 2n) / denominator;
-}
-
-export function isQueueCurrency(currency: CurrencyCode) {
-  return QueueCurrencySchema.safeParse(currency).success;
-}
-
-export function convertWithDefaultRate(
-  amount: MoneyAmount,
-  sourceCurrencyCode: CurrencyCode,
-  currency: QueueCurrency,
-) {
-  const $sourceCurrency = QueueCurrencySchema.safeParse(sourceCurrencyCode);
-  if (!$sourceCurrency.success) {
-    return null;
-  }
-  const sourceCurrency = $sourceCurrency.data;
-  return {
-    amount: moneyAmount(
-      roundDiv(cents(amount) * rublesPerUnit[sourceCurrency], rublesPerUnit[currency]),
-    ),
-    currency,
-    rate: `${rublesPerUnit[sourceCurrency]}/${rublesPerUnit[currency]}`,
-  };
 }
 
 export function conversionFactorForCurrencyChange(

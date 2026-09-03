@@ -18,4 +18,5 @@ chat integration modules.
   transactional across providers.
 - **chat aggregation module** — the separately deployed module that owns provider connections,
   collectors, provider webhooks, normalized events, moderation commands, broadcast messages, and
-  the moderation audit. `apps/web` owns presentation and Coldbrew authentication only.
+  the moderation audit. `apps/web` owns the public tRPC interface, Coldbrew authentication, and
+  validation at the module's external seam.

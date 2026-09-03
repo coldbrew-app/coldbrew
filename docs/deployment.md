@@ -18,29 +18,33 @@ configuration. Each deployment combines its individual GitHub Variables and
 Secrets into the untracked `/opt/coldbrew/.env` on the VPS before running
 Compose.
 
-`apps/donationalerts` is a long-lived process. It keeps one outgoing WebSocket
-connection per connected Coldbrew user and writes received donations to
-PostgreSQL, so it must run as a persistent worker rather than as a serverless
-function.
+`apps/donations` is a long-lived worker for donation-source integrations. Its
+DonationAlerts integration refreshes tokens, imports donation history, keeps
+one outgoing WebSocket connection per connected Coldbrew user, and writes
+received donations to PostgreSQL. `apps/web` owns the provider's OAuth flow and
+connection lifecycle.
 
 ## Runtime layout
 
-- `caddy` listens on TCP ports 80 and 443 and UDP port 443, terminates TLS,
-  and proxies requests to `web:3000`.
-- `web`, `donationalerts`, and `video` share one SHA-tagged GHCR image. Only
-  `web` has an HTTP health check.
-- `vector` reads the three application services' Docker logs and forwards them
+- `caddy` listens on TCP ports 80 and 443 and UDP port 443, terminates TLS, and proxies all public
+  requests to `web:3000`. The web container reaches `chat:3001` through the private network.
+- `web`, `chat`, `donations`, and `video` share one SHA-tagged GHCR image.
+  `web` and `chat` have HTTP health checks; `donations` and `video` are workers.
+- `vector` reads the four application services' Docker logs and forwards them
   to the `coldbrew-logs` Axiom dataset. Infrastructure and Vector's own
   logs remain local.
+- `nats` carries transient chat events and collector leases through JetStream,
+  with state stored in the `nats_data` volume.
 - `postgres` stores data in the `postgres_data` volume. Application containers
   connect to `postgres:5432` through the private `internal` network. The host
   and remote PostgreSQL clients can reach it at `<VPS-IP>:${PGPORT:-5432}`.
 - `wal-g` creates periodic base backups, while PostgreSQL continuously archives
   WAL files to the configured S3-compatible storage.
 - All services use `restart: unless-stopped`. The app containers wait for a
-  healthy PostgreSQL instance, and Caddy waits for a healthy web app.
+  healthy PostgreSQL instance, `chat` also waits for NATS, `web` waits for the
+  private chat API, and Caddy waits for healthy web.
 
-Run only one `donationalerts` replica. The worker has no leader election, so
+Run only one `donations` replica. The worker has no leader election, so
 multiple replicas could subscribe and refresh tokens for the same users.
 
 ## One-time VPS setup
@@ -235,16 +239,20 @@ A push or merge to `master` runs the complete workflow:
 
 Only one production deployment runs at a time. Every attempt refreshes `.env`
 from GitHub before checking the schema gate; a successful deployment writes the
-target SHA to `/opt/coldbrew/.deployed-sha`. Named PostgreSQL and Caddy volumes
-are preserved. Updating a production Variable or Secret and rerunning the
+target SHA to `/opt/coldbrew/.deployed-sha`. Named PostgreSQL, NATS, Vector, and
+Caddy volumes are preserved. Updating a production Variable or Secret and rerunning the
 workflow recreates the affected containers with the new values; `docker compose
-restart` alone does not refresh environment variables.
+restart` alone does not refresh environment variables. The deployment recipe explicitly recreates
+Caddy after Compose converges so its file bind mount points to the `Caddyfile` inode from the
+checked-out revision; rollback recreates it with the previous revision the same way. A public
+routing probe then verifies that `/api/chat` reaches the web allowlist instead of bypassing it and
+reaching the private chat service directly.
 
 Useful checks on the VPS are:
 
 ```sh
 docker compose ps
-docker compose logs --tail=100 web donationalerts video postgres wal-g caddy
+docker compose logs --tail=100 web chat donations video postgres nats wal-g caddy
 docker compose logs --tail=100 vector
 ```
 
@@ -253,7 +261,7 @@ Vector checks that the Axiom destination is reachable when it starts. A missing
 is reported in Vector's logs when delivery is attempted. Neither failure prevents the application
 services from running. After deployment, confirm that events arrive in Axiom's
 `coldbrew-logs` dataset. Filter by `label.com.docker.compose.service` to
-separate `web`, `donationalerts`, and `video`. Each event also includes its
+separate `web`, `chat`, `donations`, and `video`. Each event also includes its
 Docker timestamp, container name, image, and stdout/stderr stream.
 
 Vector keeps up to 256 MiB of unsent events in the `vector_data` volume during a

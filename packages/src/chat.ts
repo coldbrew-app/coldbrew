@@ -33,7 +33,7 @@ export const ChatProviderConnectionSchema = z.object({
   displayName: z.string().min(1).max(200),
   status: ChatProviderConnectionStatusSchema,
   capabilities: z.array(ChatCapabilitySchema),
-  connectedAt: z.date(),
+  connectedAt: z.coerce.date(),
 });
 export type ChatProviderConnection = z.infer<typeof ChatProviderConnectionSchema>;
 
@@ -62,7 +62,7 @@ export const ChatMessageSchema = z.object({
   provider: ChatProviderSchema,
   author: ChatAuthorSchema,
   text: z.string(),
-  occurredAt: z.date(),
+  occurredAt: z.coerce.date(),
 });
 export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 
@@ -168,6 +168,4 @@ export const ChatProviderAvailabilitySchema = z.object({
 });
 export type ChatProviderAvailability = z.infer<typeof ChatProviderAvailabilitySchema>;
 
-export const MAX_CHAT_CONNECTIONS = 20;
-export const MAX_CHAT_SOURCES = 20;
 export const MAX_CHAT_MESSAGE_LENGTH = 500;

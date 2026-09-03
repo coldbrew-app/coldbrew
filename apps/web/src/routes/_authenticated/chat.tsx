@@ -13,12 +13,37 @@ import { Button } from "@web/components/ui/button";
 import { Input } from "@web/components/ui/input";
 import { useChatServiceMutations, useChatServiceQueries } from "@web/hooks/chat-service";
 import { useChatServiceStream } from "@web/hooks/use-chat-service-stream";
-import { useI18n } from "@web/lib/i18n";
+import { useI18n, type TranslationKey } from "@web/lib/i18n";
 import { cn } from "@web/lib/utils";
 import { useState, type FormEvent } from "react";
+import { z } from "zod";
+
+const chatOauthErrorSchema = z.enum([
+  "invalid oauth callback",
+  "expired oauth attempt",
+  "oauth provider unavailable",
+  "oauth token exchange failed",
+  "oauth profile failed",
+  "chat source limit reached",
+  "unknown",
+]);
+
+const chatOauthErrorMessages = {
+  "invalid oauth callback": "chatOauthInvalidCallback",
+  "expired oauth attempt": "chatOauthExpired",
+  "oauth provider unavailable": "chatOauthProviderUnavailable",
+  "oauth token exchange failed": "chatOauthTokenExchangeFailed",
+  "oauth profile failed": "chatOauthProfileFailed",
+  "chat source limit reached": "chatOauthSourceLimitReached",
+  unknown: "chatOauthUnknownError",
+} as const satisfies Record<z.infer<typeof chatOauthErrorSchema>, TranslationKey>;
 
 export const Route = createFileRoute("/_authenticated/chat")({
   component: ChatPage,
+  validateSearch: z.object({
+    chat_oauth: z.enum(["success", "error"]).optional().catch(undefined),
+    chat_oauth_error: chatOauthErrorSchema.optional().catch(undefined),
+  }),
   head: ({ match }) => ({
     meta: [{ title: `${match.context.locale === "ru" ? "Мультичат" : "Multichat"} · Coldbrew` }],
   }),
@@ -134,22 +159,18 @@ function SourceState({
 }
 
 function ChatPage() {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
+  const { chat_oauth: chatOauth, chat_oauth_error: chatOauthError } = Route.useSearch();
   const text = copy[locale];
-  const {
-    availabilityQuery,
-    client: chatClient,
-    configQuery,
-    ticketQuery,
-  } = useChatServiceQueries();
-  const stream = useChatServiceStream(chatClient);
+  const { availabilityQuery, configQuery } = useChatServiceQueries();
+  const stream = useChatServiceStream();
   const [message, setMessage] = useState("");
   const [broadcastResult, setBroadcastResult] = useState<ChatBroadcastResult | null>(null);
   const [overlayUrl, setOverlayUrl] = useState<string | null>(null);
   const [overlayCopied, setOverlayCopied] = useState(false);
 
   const { broadcast, disconnect, moderate, refreshSource, rotateOverlay, startOauth } =
-    useChatServiceMutations(chatClient, {
+    useChatServiceMutations({
       onBroadcastSuccess: (result) => {
         setBroadcastResult(result);
         if (result.results.some(({ status }) => status === "succeeded")) {
@@ -187,7 +208,7 @@ function ChatPage() {
       return;
     }
     setBroadcastResult(null);
-    broadcast.mutate(message);
+    broadcast.mutate({ text: message });
   };
 
   if (!config) {
@@ -199,12 +220,10 @@ function ChatPage() {
           title={locale === "ru" ? "Мультичат" : "Multichat"}
         />
         <div className="cosmic-panel grid min-h-64 place-items-center p-6 text-center">
-          {ticketQuery.isError || configQuery.isError ? (
+          {configQuery.isError ? (
             <div className="flex flex-col items-center gap-3">
-              <p className="text-sm text-destructive">
-                {ticketQuery.error?.message ?? configQuery.error?.message}
-              </p>
-              <Button onClick={() => void ticketQuery.refetch()} variant="outline">
+              <p className="text-sm text-destructive">{configQuery.error?.message}</p>
+              <Button onClick={() => void configQuery.refetch()} variant="outline">
                 <Icons.retry aria-hidden="true" />
                 Retry
               </Button>
@@ -227,6 +246,21 @@ function ChatPage() {
         eyebrow={text.eyebrow}
         title={locale === "ru" ? "Мультичат" : "Multichat"}
       />
+      {chatOauth && (
+        <div
+          className={cn(
+            "rounded-xl border px-3.5 py-3 text-[13px]",
+            chatOauth === "success"
+              ? "border-emerald-300/50 bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"
+              : "border-red-300/50 bg-red-50 text-red-700 dark:bg-red-400/10 dark:text-red-300",
+          )}
+          role={chatOauth === "error" ? "alert" : "status"}
+        >
+          {chatOauth === "success"
+            ? t("chatOauthSuccess")
+            : t(chatOauthErrorMessages[chatOauthError ?? "unknown"])}
+        </div>
+      )}
       <div className="grid min-h-[680px] gap-4 xl:grid-cols-[330px_minmax(0,1fr)]">
         <aside className="cosmic-panel flex min-h-0 flex-col overflow-hidden">
           <header className="flex flex-col gap-1 border-b border-border p-4">
@@ -251,7 +285,7 @@ function ChatPage() {
               const isRefreshing =
                 source !== undefined &&
                 refreshSource.isPending &&
-                refreshSource.variables === source.sourceId;
+                refreshSource.variables?.sourceId === source.sourceId;
               return (
                 <article
                   className="relative flex flex-col gap-2 overflow-hidden rounded-xl border border-border bg-muted/30 p-3"
@@ -293,7 +327,7 @@ function ChatPage() {
                             sourceState === "live" ||
                             sourceState === "connecting"
                           }
-                          onClick={() => refreshSource.mutate(source.sourceId)}
+                          onClick={() => refreshSource.mutate({ sourceId: source.sourceId })}
                           size="xs"
                           variant="ghost"
                         >
@@ -307,7 +341,7 @@ function ChatPage() {
                       )}
                       <Button
                         disabled={disconnect.isPending}
-                        onClick={() => disconnect.mutate(connection.connectionId)}
+                        onClick={() => disconnect.mutate({ connectionId: connection.connectionId })}
                         size="xs"
                         variant="ghost"
                       >
@@ -317,7 +351,7 @@ function ChatPage() {
                   </div>
                   {source &&
                     refreshSource.isError &&
-                    refreshSource.variables === source.sourceId && (
+                    refreshSource.variables?.sourceId === source.sourceId && (
                       <p className="text-[11px] text-destructive">{refreshSource.error.message}</p>
                     )}
                 </article>
@@ -343,7 +377,7 @@ function ChatPage() {
                         provider.provider === "twitch" ||
                         provider.provider === "kick"
                       ) {
-                        startOauth.mutate(provider.provider);
+                        startOauth.mutate({ provider: provider.provider });
                       }
                     }}
                     title={provider.detail}

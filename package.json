@@ -7,7 +7,6 @@
   ],
   "dependencies": {
     "@dotenvx/dotenvx": "^2.19.2",
-    "neverthrow": "^8.2.0",
     "oxlint": "^1.79.0"
   },
   "devDependencies": {
@@ -21,8 +20,6 @@
   },
   "intent": {
     "skills": [
-      "@lebedevna/delay",
-      "@lebedevna/neverthrow-utils",
       "@lebedevna/readonly-url",
       "@tanstack/react-start",
       "@tanstack/router-plugin",

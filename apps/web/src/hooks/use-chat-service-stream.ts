@@ -5,7 +5,7 @@ import {
   type ChatSourceState,
   type ChatStreamEvent,
 } from "@coldbrew/packages/chat.js";
-import type { ChatServiceClient } from "@web/lib/chat-service";
+import { useApi } from "@web/lib/trpc";
 import { useEffect, useReducer } from "react";
 
 type StreamState = Readonly<{
@@ -75,29 +75,32 @@ function reducer(state: StreamState, action: StreamAction): StreamState {
   };
 }
 
-export function useChatServiceStream(
-  client: ChatServiceClient | null,
-  mode: "editor" | "overlay" = "editor",
-) {
+export function useChatServiceStream(mode: "editor" | "overlay" = "editor", overlayToken?: string) {
+  const { trpcClient } = useApi();
   const [state, dispatch] = useReducer(reducer, initialState);
 
   useEffect(() => {
     dispatch({ type: "reset" });
-    if (!client) {
-      return;
-    }
     const observer = {
       onData: (event: ChatStreamEvent) => dispatch({ type: "event", event }),
       onError: () => dispatch({ type: "transport failed" }),
     };
-    const subscription =
-      mode === "editor"
-        ? client.stream.subscribe(undefined, observer)
-        : client.overlayStream.subscribe(undefined, observer);
+    const subscription = (() => {
+      if (mode === "editor") {
+        return trpcClient.chat.stream.subscribe(undefined, observer);
+      }
+      if (overlayToken === undefined) {
+        return null;
+      }
+      return trpcClient.chat.overlayStream.subscribe({ token: overlayToken }, observer);
+    })();
+    if (subscription === null) {
+      return;
+    }
     return () => {
       subscription.unsubscribe();
     };
-  }, [client, mode]);
+  }, [mode, overlayToken, trpcClient]);
 
   return {
     ...state,
