@@ -2,6 +2,7 @@ package youtube
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"reflect"
@@ -136,6 +137,17 @@ func TestGetTimingRejectsUnsupportedURLWithoutFetching(t *testing.T) {
 	_, err := GetTiming(context.Background(), client, "https://example.com/watch?v=dQw4w9WgXcQ", nil)
 	if err == nil || err.Error() != "youtube: invalid url" || called {
 		t.Fatalf("expected invalid URL without fetch, got err=%v called=%v", err, called)
+	}
+}
+
+func TestGetTimingClassifiesTransportFailure(t *testing.T) {
+	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("connection reset")
+	})}
+	_, err := GetTiming(context.Background(), client, "https://youtu.be/dQw4w9WgXcQ", nil)
+	var transportError *TransportError
+	if !errors.As(err, &transportError) {
+		t.Fatalf("expected TransportError, got %v", err)
 	}
 }
 

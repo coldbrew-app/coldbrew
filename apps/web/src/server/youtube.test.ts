@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getYoutubeTiming } from "./youtube.js";
+import { getYoutubeTiming, YoutubeTimingError } from "./youtube.js";
 
 const youtube = vi.hoisted(() => ({
   getBasicInfo: vi.fn(),
@@ -23,7 +23,11 @@ describe("getYoutubeTiming", () => {
         startSeconds: 10,
         endSeconds: 70,
       }),
-    ).resolves.toEqual({ startSeconds: 10, endSeconds: 70, durationSeconds: 120 });
+    ).resolves.toEqual({
+      startSeconds: 10,
+      endSeconds: 70,
+      durationSeconds: 120,
+    });
     expect(youtube.getBasicInfo).toHaveBeenCalledWith("video");
   });
 
@@ -31,11 +35,23 @@ describe("getYoutubeTiming", () => {
     youtube.getBasicInfo.mockResolvedValue({ basic_info: { duration: 120 } });
 
     await expect(
-      getYoutubeTiming("https://youtu.be/video", { startSeconds: 100, endSeconds: 130 }),
+      getYoutubeTiming("https://youtu.be/video", {
+        startSeconds: 100,
+        endSeconds: 130,
+      }),
     ).rejects.toMatchObject({
       name: "YoutubeTimingError",
       type: "youtube: invalid timing",
     });
+  });
+
+  it("exposes the typed error to the video queue seam", async () => {
+    youtube.getBasicInfo.mockResolvedValue({ basic_info: { duration: 0 } });
+
+    const error = await getYoutubeTiming("https://youtu.be/video").catch((cause: unknown) => cause);
+
+    expect(error).toBeInstanceOf(YoutubeTimingError);
+    expect(error).toMatchObject({ type: "youtube: invalid duration" });
   });
 
   it("uses an end timestamp from the URL", async () => {

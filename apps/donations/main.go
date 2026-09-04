@@ -12,32 +12,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/lebedev-nikita/coldbrew/internal/donationalerts"
+	"github.com/lebedev-nikita/coldbrew/internal/donations"
 )
-
-type authenticatedUser struct {
-	UserID            int
-	SourceUserID      string
-	AccessToken       string
-	RefreshToken      string
-	TokenVersion      int
-	HistoryCheckpoint *string
-}
-
-type store struct{ pool *pgxpool.Pool }
-
-type runningListener struct {
-	cancel       context.CancelFunc
-	tokenVersion int
-}
-
-type listenerCompletion struct {
-	userID       int
-	tokenVersion int
-	err          error
-}
 
 func main() {
 	if err := run(); err != nil {
@@ -47,280 +25,102 @@ func main() {
 }
 
 func run() error {
-	serviceConfig, err := loadConfig()
+	config, err := loadConfig()
 	if err != nil {
 		return err
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	pool, err := pgxpool.New(ctx, serviceConfig.databaseURL)
+	pool, err := pgxpool.New(ctx, config.databaseURL)
 	if err != nil {
-		return fmt.Errorf("connect to database: %w", err)
+		return fmt.Errorf("connect PostgreSQL: %w", err)
 	}
 	defer pool.Close()
 	if err := pool.Ping(ctx); err != nil {
-		return fmt.Errorf("ping database: %w", err)
+		return fmt.Errorf("ping PostgreSQL: %w", err)
 	}
 
-	serviceStore := &store{pool: pool}
-	apiClient := donationalerts.NewClient(&http.Client{Timeout: 30 * time.Second})
-	source := donationalerts.NewSource(apiClient)
-	config := donationalerts.Config{ClientID: serviceConfig.clientID, ClientSecret: serviceConfig.clientSecret}
-	return runWorker(ctx, serviceStore, apiClient, source, config)
-}
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+	client := donationalerts.NewClient(httpClient)
+	provider := donations.NewDonationAlertsAdapter(client, donationalerts.NewSource(client))
+	application := donations.NewApplication(
+		donations.NewStore(pool),
+		provider,
+		donationalerts.Config{ClientID: config.clientID, ClientSecret: config.clientSecret},
+	)
+	server := &http.Server{
+		Addr:              ":" + strconv.Itoa(config.port),
+		Handler:           donations.NewHTTPHandler(application, config.serviceSecret),
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+	workerErrors := make(chan error, 1)
+	go func() { workerErrors <- application.Run(ctx) }()
+	serverErrors := make(chan error, 1)
+	go func() {
+		slog.Info("Donations service listening", "address", server.Addr)
+		serverErrors <- server.ListenAndServe()
+	}()
 
-type config struct {
-	databaseURL  string
-	clientID     string
-	clientSecret string
-}
-
-func loadConfig() (config, error) {
-	serviceConfig := config{
-		databaseURL:  os.Getenv("DATABASE_URL"),
-		clientID:     os.Getenv("DONATION_ALERTS_CLIENT_ID"),
-		clientSecret: os.Getenv("DONATION_ALERTS_CLIENT_SECRET"),
-	}
-	if serviceConfig.databaseURL == "" || serviceConfig.clientID == "" || serviceConfig.clientSecret == "" {
-		return config{}, errors.New("DATABASE_URL, DONATION_ALERTS_CLIENT_ID, and DONATION_ALERTS_CLIENT_SECRET are required")
-	}
-	if _, err := strconv.ParseUint(serviceConfig.clientID, 10, 64); err != nil {
-		return config{}, errors.New("DONATION_ALERTS_CLIENT_ID must be numeric")
-	}
-	return serviceConfig, nil
-}
-
-func runWorker(ctx context.Context, serviceStore *store, apiClient *donationalerts.Client, source *donationalerts.Source, config donationalerts.Config) error {
-	running := make(map[int]runningListener)
-	completed := make(chan listenerCompletion)
-	if err := refreshListeners(ctx, serviceStore, apiClient, source, config, running, completed); err != nil {
-		return err
-	}
-
-	refreshTicker := time.NewTicker(10 * time.Second)
-	defer refreshTicker.Stop()
-	historyTimer := time.NewTimer(time.Until(time.Now().Truncate(time.Hour).Add(time.Hour)))
-	defer historyTimer.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			for _, listener := range running {
-				listener.cancel()
-			}
-			return nil
-		case completion := <-completed:
-			listener, exists := running[completion.userID]
-			if exists && listener.tokenVersion == completion.tokenVersion {
-				delete(running, completion.userID)
-			}
-			if completion.err != nil {
-				slog.Error("DonationAlerts listener exited", "userId", completion.userID, "error", completion.err)
-			}
-		case <-refreshTicker.C:
-			if err := refreshListeners(ctx, serviceStore, apiClient, source, config, running, completed); err != nil {
-				slog.Error("refresh DonationAlerts listeners", "error", err)
-			}
-		case <-historyTimer.C:
-			go syncHistory(ctx, serviceStore, apiClient)
-			historyTimer.Reset(time.Until(time.Now().Truncate(time.Hour).Add(time.Hour)))
-		}
-	}
-}
-
-func refreshListeners(ctx context.Context, serviceStore *store, apiClient *donationalerts.Client, source *donationalerts.Source, config donationalerts.Config, running map[int]runningListener, completed chan<- listenerCompletion) error {
-	users, err := serviceStore.getUsers(ctx)
-	if err != nil {
-		return fmt.Errorf("get DonationAlerts users: %w", err)
-	}
-	usersByID := make(map[int]authenticatedUser, len(users))
-	for _, user := range users {
-		usersByID[user.UserID] = user
-	}
-	for userID, listener := range running {
-		user, exists := usersByID[userID]
-		if !exists || user.TokenVersion != listener.tokenVersion {
-			listener.cancel()
-			delete(running, userID)
-		}
-	}
-	for _, user := range users {
-		if _, exists := running[user.UserID]; exists {
-			continue
-		}
-		listenerCtx, cancel := context.WithCancel(ctx)
-		running[user.UserID] = runningListener{cancel: cancel, tokenVersion: user.TokenVersion}
-		go func() {
-			err := listen(listenerCtx, serviceStore, apiClient, source, config, user)
-			select {
-			case completed <- listenerCompletion{userID: user.UserID, tokenVersion: user.TokenVersion, err: err}:
-			case <-ctx.Done():
-			}
-		}()
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-time.After(50 * time.Millisecond):
-		}
-	}
-	return nil
-}
-
-func listen(ctx context.Context, serviceStore *store, apiClient *donationalerts.Client, source *donationalerts.Source, config donationalerts.Config, user authenticatedUser) error {
-	accessToken := user.AccessToken
-	refreshToken := user.RefreshToken
-	tokenVersion := user.TokenVersion
-	for ctx.Err() == nil {
-		err := source.Run(ctx, accessToken, func(donation donationalerts.Donation) error {
-			return serviceStore.insertDonations(ctx, user.UserID, []donationalerts.Donation{donation})
-		})
-		if err == nil || ctx.Err() != nil {
-			return nil
-		}
-		var requestError *donationalerts.RequestError
-		if !errors.As(err, &requestError) || !requestError.Unauthorized {
-			return err
-		}
-		tokens, refreshErr := apiClient.RefreshTokens(ctx, config, refreshToken)
-		if refreshErr != nil {
-			var refreshRequestError *donationalerts.RequestError
-			if errors.As(refreshErr, &refreshRequestError) && refreshRequestError.Unauthorized {
-				if disconnectErr := serviceStore.disconnectIfVersion(ctx, user.UserID, tokenVersion); disconnectErr != nil {
-					return errors.Join(refreshErr, disconnectErr)
-				}
-			}
-			return fmt.Errorf("refresh DonationAlerts tokens: %w", refreshErr)
-		}
-		updated, err := serviceStore.setTokens(ctx, user.UserID, tokenVersion, tokens)
+	var runErr error
+	workerFinished := false
+	select {
+	case <-ctx.Done():
+	case err := <-workerErrors:
+		workerFinished = true
 		if err != nil {
-			return err
+			runErr = fmt.Errorf("run donation integration worker: %w", err)
 		}
-		if !updated {
-			return errors.New("donationalerts: stale credentials")
-		}
-		accessToken = tokens.AccessToken
-		refreshToken = tokens.RefreshToken
-		tokenVersion++
-	}
-	return nil
-}
-
-func syncHistory(ctx context.Context, serviceStore *store, apiClient *donationalerts.Client) {
-	users, err := serviceStore.getUsers(ctx)
-	if err != nil {
-		slog.Error("get users for DonationAlerts history", "error", err)
-		return
-	}
-	for _, user := range users {
-		donations, err := apiClient.GetDonations(ctx, user.AccessToken)
-		if err != nil {
-			slog.Error("fetch DonationAlerts history", "userId", user.UserID, "error", err)
-			continue
-		}
-		if err := serviceStore.insertDonations(ctx, user.UserID, donations); err != nil {
-			slog.Error("insert DonationAlerts history", "userId", user.UserID, "error", err)
+	case err := <-serverErrors:
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			runErr = fmt.Errorf("serve donations HTTP: %w", err)
 		}
 	}
-}
-
-func (serviceStore *store) getUsers(ctx context.Context) ([]authenticatedUser, error) {
-	rows, err := serviceStore.pool.Query(ctx, `
-		SELECT user_id, source_user_id, access_token, refresh_token, token_version, history_checkpoint
-		FROM donationalerts_connection
-		ORDER BY user_id
-	`)
-	if err != nil {
-		return nil, err
+	stop()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	var shutdownErr error
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		shutdownErr = fmt.Errorf("shutdown donations HTTP: %w", err)
 	}
-	defer rows.Close()
-	users := make([]authenticatedUser, 0)
-	for rows.Next() {
-		var user authenticatedUser
-		if err := rows.Scan(&user.UserID, &user.SourceUserID, &user.AccessToken, &user.RefreshToken, &user.TokenVersion, &user.HistoryCheckpoint); err != nil {
-			return nil, err
-		}
-		users = append(users, user)
-	}
-	return users, rows.Err()
-}
-
-func (serviceStore *store) insertDonations(ctx context.Context, userID int, donations []donationalerts.Donation) error {
-	if len(donations) == 0 {
-		return nil
-	}
-	return pgx.BeginFunc(ctx, serviceStore.pool, func(tx pgx.Tx) error {
-		return insertDonations(ctx, tx, userID, donations)
-	})
-}
-
-func insertDonations(ctx context.Context, tx pgx.Tx, userID int, donations []donationalerts.Donation) error {
-	for _, donation := range donations {
-		if _, err := tx.Exec(ctx, `
-				INSERT INTO donation (
-					source,
-					source_donation_id,
-					user_id,
-					author,
-					message,
-					amount,
-					currency,
-					source_created_at,
-					occurred_at
-				)
-				VALUES ('donationalerts', $1, $2, $3, $4, $5, $6, $7, $8)
-				ON CONFLICT (user_id, source, source_donation_id) DO NOTHING
-		`, donation.SourceDonationID, userID, donation.Author, donation.Message, donation.Amount, donation.Currency, donation.SourceCreatedAt, donation.OccurredAt); err != nil {
-			return err
+	if !workerFinished {
+		if err := <-workerErrors; err != nil {
+			runErr = errors.Join(runErr, fmt.Errorf("stop donation integration worker: %w", err))
 		}
 	}
-	return nil
+	return errors.Join(runErr, shutdownErr)
 }
 
-func (serviceStore *store) SaveConnectionWithDonations(ctx context.Context, userID int, connection donationalerts.Connection, donations []donationalerts.Donation) error {
-	return pgx.BeginFunc(ctx, serviceStore.pool, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `
-			INSERT INTO donationalerts_connection (
-				user_id, source_user_id, access_token, refresh_token
-			)
-			VALUES ($1, $2, $3, $4)
-			ON CONFLICT (user_id) DO UPDATE
-			SET
-				source_user_id = EXCLUDED.source_user_id,
-				access_token = EXCLUDED.access_token,
-				refresh_token = EXCLUDED.refresh_token,
-				token_version = donationalerts_connection.token_version + 1,
-				updated_at = now()
-		`, userID, connection.SourceUserID, connection.AccessToken, connection.RefreshToken); err != nil {
-			return err
+type serviceConfig struct {
+	databaseURL   string
+	clientID      string
+	clientSecret  string
+	serviceSecret string
+	port          int
+}
+
+func loadConfig() (serviceConfig, error) {
+	config := serviceConfig{
+		databaseURL:   os.Getenv("DATABASE_URL"),
+		clientID:      os.Getenv("DONATION_ALERTS_CLIENT_ID"),
+		clientSecret:  os.Getenv("DONATION_ALERTS_CLIENT_SECRET"),
+		serviceSecret: os.Getenv("DONATIONS_SERVICE_SECRET"),
+		port:          3002,
+	}
+	if config.databaseURL == "" || config.clientID == "" || config.clientSecret == "" {
+		return serviceConfig{}, errors.New("DATABASE_URL, DONATION_ALERTS_CLIENT_ID, and DONATION_ALERTS_CLIENT_SECRET are required")
+	}
+	if _, err := strconv.ParseUint(config.clientID, 10, 64); err != nil {
+		return serviceConfig{}, errors.New("DONATION_ALERTS_CLIENT_ID must be numeric")
+	}
+	if len(config.serviceSecret) < 32 {
+		return serviceConfig{}, errors.New("DONATIONS_SERVICE_SECRET must contain at least 32 characters")
+	}
+	if rawPort := os.Getenv("DONATIONS_PORT"); rawPort != "" {
+		port, err := strconv.Atoi(rawPort)
+		if err != nil || port <= 0 || port > 65535 {
+			return serviceConfig{}, errors.New("DONATIONS_PORT must be a valid port")
 		}
-		return insertDonations(ctx, tx, userID, donations)
-	})
-}
-
-func (serviceStore *store) Disconnect(ctx context.Context, userID int) error {
-	_, err := serviceStore.pool.Exec(ctx, `
-		DELETE FROM donationalerts_connection
-		WHERE user_id = $1
-	`, userID)
-	return err
-}
-
-func (serviceStore *store) setTokens(ctx context.Context, userID, tokenVersion int, tokens donationalerts.Tokens) (bool, error) {
-	command, err := serviceStore.pool.Exec(ctx, `
-		UPDATE donationalerts_connection
-		SET
-			refresh_token = $1,
-			access_token = $2,
-			token_version = token_version + 1,
-			updated_at = now()
-		WHERE user_id = $3 AND token_version = $4
-	`, tokens.RefreshToken, tokens.AccessToken, userID, tokenVersion)
-	return command.RowsAffected() == 1, err
-}
-
-func (serviceStore *store) disconnectIfVersion(ctx context.Context, userID, tokenVersion int) error {
-	_, err := serviceStore.pool.Exec(ctx, `
-		DELETE FROM donationalerts_connection
-		WHERE user_id = $1 AND token_version = $2
-	`, userID, tokenVersion)
-	return err
+		config.port = port
+	}
+	return config, nil
 }

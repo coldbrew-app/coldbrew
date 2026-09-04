@@ -41,6 +41,12 @@ func (e *HTTPError) Error() string {
 	return fmt.Sprintf("http error: GET %s returned %d", e.URL, e.Status)
 }
 
+type TransportError struct{ Err error }
+
+func (e *TransportError) Error() string { return "youtube transport: " + e.Err.Error() }
+
+func (e *TransportError) Unwrap() error { return e.Err }
+
 func ExtractURLs(message string) []string {
 	matches := urlPattern.FindAllString(message, -1)
 	result := make([]string, 0, len(matches))
@@ -149,14 +155,17 @@ func fetch(ctx context.Context, client *http.Client, method, rawURL, body string
 	}
 	response, err := client.Do(request)
 	if err != nil {
-		return "", err
+		return "", &TransportError{Err: err}
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return "", &HTTPError{Status: response.StatusCode, URL: rawURL}
 	}
 	bytes, err := io.ReadAll(response.Body)
-	return string(bytes), err
+	if err != nil {
+		return "", &TransportError{Err: err}
+	}
+	return string(bytes), nil
 }
 
 func timingFromDuration(parsed *url.URL, duration int, requested *RequestedTiming) (Timing, error) {

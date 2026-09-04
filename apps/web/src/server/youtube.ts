@@ -3,19 +3,19 @@ import { rurl, type ReadonlyURL } from "@lebedevna/readonly-url";
 import { Innertube } from "youtubei.js";
 import { z } from "zod";
 
-type RequestedYoutubeTiming = {
+export type RequestedYoutubeTiming = {
   startSeconds: number;
   endSeconds: number | null;
 };
 
-type YoutubeTimingErrorType =
+export type YoutubeTimingErrorType =
   | "youtube: invalid url"
   | "youtube: invalid duration"
   | "youtube: invalid timing"
   | "youtube: duration not found"
   | "youtube: request failed";
 
-class YoutubeTimingError extends Error {
+export class YoutubeTimingError extends Error {
   readonly type: YoutubeTimingErrorType;
   readonly details?: Readonly<Record<string, number>>;
 
@@ -30,6 +30,12 @@ class YoutubeTimingError extends Error {
     this.details = details;
   }
 }
+
+export type YoutubeTiming = {
+  startSeconds: number;
+  endSeconds: number;
+  durationSeconds: number;
+};
 
 let youtubeClientPromise: Promise<Innertube> | undefined;
 
@@ -52,7 +58,9 @@ function timingFromDuration(
   requestedTiming?: RequestedYoutubeTiming,
 ) {
   if (!Number.isSafeInteger(endOfVideoSeconds) || endOfVideoSeconds <= 0) {
-    throw new YoutubeTimingError("youtube: invalid duration", { duration: endOfVideoSeconds });
+    throw new YoutubeTimingError("youtube: invalid duration", {
+      duration: endOfVideoSeconds,
+    });
   }
 
   if (requestedTiming !== undefined) {
@@ -98,7 +106,9 @@ export async function getYoutubeTiming(url: string, requestedTiming?: RequestedY
   try {
     info = await (await youtubeClient()).getBasicInfo(providerVideoId);
   } catch (cause) {
-    throw new YoutubeTimingError("youtube: request failed", undefined, { cause });
+    throw new YoutubeTimingError("youtube: request failed", undefined, {
+      cause,
+    });
   }
 
   const schema = z.object({

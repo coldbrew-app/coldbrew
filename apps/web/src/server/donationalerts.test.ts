@@ -3,46 +3,39 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("./env.js", () => ({
   env: {
     APP_DOMAIN: "https://coldbrew.test",
-    DONATION_ALERTS_CLIENT_ID: "1",
-    DONATION_ALERTS_CLIENT_SECRET: "client-secret",
   },
+}));
+
+const { authorizationUrl, connect } = vi.hoisted(() => ({
+  authorizationUrl: vi.fn(),
+  connect: vi.fn(),
+}));
+vi.mock("./donation-integration/client.js", () => ({
+  donationIntegration: { authorizationUrl, connect },
 }));
 
 import { authorizeDonationAlerts, donationAlertsAuthorizationURL } from "./donationalerts.js";
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => vi.clearAllMocks());
 
 describe("DonationAlerts OAuth", () => {
-  it("builds the authorization URL", () => {
-    const url = new URL(donationAlertsAuthorizationURL());
+  it("delegates authorization URL creation to the donation integration", async () => {
+    authorizationUrl.mockResolvedValue({ authorizationUrl: "https://donation.test/authorize" });
 
-    expect(url.origin + url.pathname).toBe("https://www.donationalerts.com/oauth/authorize");
-    expect(Object.fromEntries(url.searchParams)).toEqual({
-      client_id: "1",
-      redirect_uri: "https://coldbrew.test/api/integration/donationalerts/callback",
-      response_type: "code",
-      scope: "oauth-user-show oauth-donation-subscribe oauth-donation-index",
-    });
+    await expect(donationAlertsAuthorizationURL()).resolves.toBe("https://donation.test/authorize");
+    expect(authorizationUrl).toHaveBeenCalledWith(
+      "https://coldbrew.test/api/integration/donationalerts/callback",
+    );
   });
 
-  it("exchanges the code and loads the account", async () => {
-    const fetchMock = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(
-        Response.json({ access_token: "access-token", refresh_token: "refresh-token" }),
-      )
-      .mockResolvedValueOnce(Response.json({ data: { id: 42 } }));
-    vi.stubGlobal("fetch", fetchMock);
+  it("delegates the authenticated connection to the donation integration", async () => {
+    connect.mockResolvedValue({ connected: true });
 
-    await expect(authorizeDonationAlerts("auth-code")).resolves.toEqual({
-      accessToken: "access-token",
-      refreshToken: "refresh-token",
-      sourceUserId: "42",
-    });
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
-      "https://www.donationalerts.com/api/v1/user/oauth",
-      expect.objectContaining({ headers: { Authorization: "Bearer access-token" } }),
+    await expect(authorizeDonationAlerts(42, "auth-code")).resolves.toBeUndefined();
+    expect(connect).toHaveBeenCalledWith(
+      42,
+      "auth-code",
+      "https://coldbrew.test/api/integration/donationalerts/callback",
     );
   });
 });

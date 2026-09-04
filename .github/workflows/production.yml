@@ -56,6 +56,8 @@ jobs:
       DATABASE_URL: postgresql://coldbrew:coldbrew@127.0.0.1:5432/coldbrew
       DONATION_ALERTS_CLIENT_ID: "1"
       DONATION_ALERTS_CLIENT_SECRET: ci-only
+      DONATIONS_SERVICE_SECRET: ci-only-donations-service-secret-at-least-thirty-two-characters
+      DONATIONS_SERVICE_URL: http://127.0.0.1:3002
       GOOGLE_CLIENT_ID: ci-only
       GOOGLE_CLIENT_SECRET: ci-only
       YOUTUBE_CLIENT_ID: ci-only
@@ -202,6 +204,7 @@ jobs:
           CHAT_TOKEN_ENCRYPTION_SECRET: ${{ secrets.CHAT_TOKEN_ENCRYPTION_SECRET }}
           DONATION_ALERTS_CLIENT_ID: ${{ vars.DONATION_ALERTS_CLIENT_ID }}
           DONATION_ALERTS_CLIENT_SECRET: ${{ secrets.DONATION_ALERTS_CLIENT_SECRET }}
+          DONATIONS_SERVICE_SECRET: ${{ secrets.DONATIONS_SERVICE_SECRET }}
           GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           KICK_CLIENT_ID: ${{ vars.KICK_CLIENT_ID }}
@@ -232,6 +235,7 @@ jobs:
             "CHAT_TOKEN_ENCRYPTION_SECRET",
             "DONATION_ALERTS_CLIENT_ID",
             "DONATION_ALERTS_CLIENT_SECRET",
+            "DONATIONS_SERVICE_SECRET",
             "GOOGLE_CLIENT_ID",
             "GOOGLE_CLIENT_SECRET",
             "KICK_CLIENT_ID",
@@ -361,6 +365,7 @@ jobs:
             YOUTUBE_CLIENT_SECRET
             DONATION_ALERTS_CLIENT_ID
             DONATION_ALERTS_CLIENT_SECRET
+            DONATIONS_SERVICE_SECRET
             WALG_S3_PREFIX
             AWS_REGION
           )

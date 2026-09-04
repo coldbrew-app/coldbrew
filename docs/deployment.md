@@ -18,18 +18,19 @@ configuration. Each deployment combines its individual GitHub Variables and
 Secrets into the untracked `/opt/coldbrew/.env` on the VPS before running
 Compose.
 
-`apps/donations` is a long-lived worker for donation-source integrations. Its
-DonationAlerts integration refreshes tokens, imports donation history, keeps
-one outgoing WebSocket connection per connected Coldbrew user, and writes
-received donations to PostgreSQL. `apps/web` owns the provider's OAuth flow and
-connection lifecycle.
+`apps/donations` is the donation integration module. Its DonationAlerts
+integration owns OAuth mechanics and connection lifecycle, refreshes tokens,
+imports donation history, keeps one outgoing WebSocket connection per connected
+Coldbrew user, and writes received donations to PostgreSQL. `apps/web` owns
+Coldbrew authentication and the public OAuth routes.
 
 ## Runtime layout
 
 - `caddy` listens on TCP ports 80 and 443 and UDP port 443, terminates TLS, and proxies all public
-  requests to `web:3000`. The web container reaches `chat:3001` through the private network.
+  requests to `web:3000`. The web container reaches `chat:3001` and `donations:3002` through the
+  private network.
 - `web`, `chat`, `donations`, and `video` share one SHA-tagged GHCR image.
-  `web` and `chat` have HTTP health checks; `donations` and `video` are workers.
+  `web`, `chat`, and `donations` have HTTP health checks; `video` is a worker.
 - `vector` reads the four application services' Docker logs and forwards them
   to the `coldbrew-logs` Axiom dataset. Infrastructure and Vector's own
   logs remain local.
@@ -88,6 +89,7 @@ The GitHub Variables and Secrets described below provide:
 - `KICK_CLIENT_ID`, `KICK_CLIENT_SECRET`, and `KICK_WEBHOOK_PUBLIC_KEY` for
   multichat OAuth and signed webhook verification;
 - `DONATION_ALERTS_CLIENT_ID` and `DONATION_ALERTS_CLIENT_SECRET`;
+- `DONATIONS_SERVICE_SECRET`, shared only by web and donations;
 - `AXIOM_TOKEN`, an ingest-only API token scoped to the `coldbrew-logs` dataset;
 - `WALG_S3_PREFIX` and `AWS_REGION`, plus AWS credentials unless the VPS uses
   an IAM role or another supported credential provider.
@@ -193,6 +195,7 @@ Add these environment secrets:
 | `BETTER_AUTH_SECRET`            | At least 32 random characters                | yes      |
 | `CHAT_SERVICE_SECRET`           | At least 32 random characters                | yes      |
 | `CHAT_TOKEN_ENCRYPTION_SECRET`  | At least 32 random characters                | yes      |
+| `DONATIONS_SERVICE_SECRET`      | At least 32 random characters                | yes      |
 | `DONATION_ALERTS_CLIENT_SECRET` | DonationAlerts OAuth client secret           | yes      |
 | `GOOGLE_CLIENT_SECRET`          | Google OAuth client secret                   | yes      |
 | `KICK_CLIENT_SECRET`            | Kick OAuth client secret                     | yes      |
@@ -337,18 +340,15 @@ The main known constraints in the current implementation are:
 - the hourly history sync processes users sequentially but fetches every page
   of every user's lifetime donation history, despite the schema already having
   a `history_checkpoint` field;
-- subscription startup is staggered by 50 ms, but there is no explicit
-  concurrency limit or reconnect jitter;
-- token refresh is not serialized per user across the worker and the web OAuth
-  callback;
-- the workers do not handle `SIGTERM` explicitly and expose no health endpoint
-  or heartbeat;
+- listener startup has no explicit concurrency limit or reconnect jitter;
+- the donation integration exposes a process health endpoint but no per-listener
+  heartbeat;
 - each process uses a PostgreSQL pool with a maximum of 10 connections, so
   PostgreSQL capacity must account for the web app and both workers;
-- the video worker polls up to 100 unparsed donations every 2.5 seconds and
-  processes them serially. A YouTube 429 leaves the donation pending for a
-  later polling iteration, without a separate retry schedule or backoff.
+- the video worker claims durable donation scan jobs serially. Claims use a
+  lease so interrupted work becomes available again, while YouTube rate limits
+  and transport failures use a bounded retry schedule with exponential backoff;
 
-Donation insertion already batches reconciled history, awaits live WebSocket
-writes, keeps upstream donation IDs as text, and uses the database uniqueness
-constraint as the final idempotency guard.
+Donation insertion awaits live WebSocket writes, keeps upstream donation IDs as
+text, and uses the database uniqueness constraint as the final idempotency
+guard. Initial connection history and credentials commit in one transaction.

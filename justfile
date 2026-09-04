@@ -13,6 +13,7 @@ env-init source-env=".env.dev":
   app_port="$(wt step eval '{{{{ (repo ~ "-app-" ~ branch) | hash_port }}')"
   db_port="$(wt step eval '{{{{ (repo ~ "-db-" ~ branch) | hash_port }}')"
   chat_port="$(wt step eval '{{{{ (repo ~ "-chat-" ~ branch) | hash_port }}')"
+  donations_port="$(wt step eval '{{{{ (repo ~ "-donations-" ~ branch) | hash_port }}')"
   nats_port="$(wt step eval '{{{{ (repo ~ "-nats-" ~ branch) | hash_port }}')"
   db_name="coldbrew_$(wt step eval '{{{{ branch | sanitize_db }}')"
   compose_project="$(wt step eval '{{{{ (repo ~ "_" ~ branch) | sanitize_db }}')"
@@ -24,6 +25,8 @@ env-init source-env=".env.dev":
   bunx dotenvx set -f .env --plain CHAT_PUBLIC_URL "http://localhost:$app_port/api/chat"
   bunx dotenvx set -f .env --plain CHAT_SERVICE_URL "http://127.0.0.1:$chat_port"
   bunx dotenvx set -f .env --plain CHAT_WEB_URL "http://localhost:$app_port"
+  bunx dotenvx set -f .env --plain DONATIONS_PORT "$donations_port"
+  bunx dotenvx set -f .env --plain DONATIONS_SERVICE_URL "http://127.0.0.1:$donations_port"
   bunx dotenvx set -f .env --plain NATS_PORT "$nats_port"
   bunx dotenvx set -f .env --plain NATS_SERVERS "nats://127.0.0.1:$nats_port"
   bunx dotenvx set -f .env --plain PGHOST 127.0.0.1
@@ -55,10 +58,10 @@ typecheck-web:
   bunx tsc --noEmit -p apps/web/tsconfig.json
 
 typecheck-donations:
-  go test ./apps/donations ./internal/donationalerts
+  go test ./apps/donations ./internal/donations ./internal/donationalerts
 
 typecheck-video:
-  go test ./apps/video ./internal/money ./internal/youtube
+  go test ./apps/video ./internal/videoingest ./internal/money ./internal/youtube
 
 typecheck-chat:
   go test ./apps/chat ./internal/chat
@@ -233,10 +236,10 @@ test-web: install
   bunx dotenvx run -f .env --overload -- bunx vitest --run apps/web
 
 test-donations: install
-  go test ./apps/donations ./internal/donationalerts
+  go test ./apps/donations ./internal/donations ./internal/donationalerts
 
 test-video: install
-  go test ./apps/video ./internal/money ./internal/youtube
+  go test ./apps/video ./internal/videoingest ./internal/money ./internal/youtube
 
 test-chat: install
   go test ./apps/chat ./internal/chat

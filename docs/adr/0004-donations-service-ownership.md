@@ -1,34 +1,47 @@
-# 0004. Donation source responsibilities follow runtime lifecycle
+# 0004. Donation integration module owns provider lifecycle
 
 ## Status
 
-Accepted.
+Accepted (supersedes the original web-owned OAuth mechanics decision)
 
 ## Context
 
-DonationAlerts OAuth is initiated by an authenticated web user, while token
-refresh, history synchronization, and realtime collection are long-running
-background work. Keeping the OAuth exchange in a private worker would require
-an otherwise unnecessary internal HTTP API.
+DonationAlerts OAuth is initiated by an authenticated web user, while code exchange, profile
+loading, history synchronization, token refresh, and realtime collection form one credential
+lifecycle. Splitting that lifecycle between `apps/web` and `apps/donations` exposed credentials and
+transaction invariants at two seams. It also allowed the OAuth callback to report success before
+the initial donation history was imported.
 
 ## Decision
 
-`apps/web` owns the DonationAlerts OAuth authorization URL, callback, token
-exchange, and connection lifecycle. It validates DonationAlerts responses with
-Zod and stores the resulting connection for the authenticated user.
+`apps/web` owns Coldbrew authentication and the public authorization and callback routes. The
+existing callback remains linked to the authenticated session and does not add an OAuth `state`
+parameter.
 
-`apps/donations` owns long-running donation-source work. Its first integration
-refreshes DonationAlerts tokens, imports donation history, collects realtime
-donations, and writes them to the database. It is a worker and exposes no HTTP
-API.
+The donation integration module in `internal/donations` owns DonationAlerts OAuth code exchange,
+profile loading, connection lifecycle, initial and periodic history import, token refresh, realtime
+collection, and donation persistence. `apps/donations` only composes its adapters and runs the HTTP
+server and worker under one cancellation context.
 
-The existing session-linked callback remains unchanged and does not add an
-OAuth `state` parameter. This preserves current behavior but retains the known
-login-CSRF risk until the flow is explicitly hardened.
+The module exposes a private JSON interface authenticated with `DONATIONS_SERVICE_SECRET`.
+`apps/web` sends the authenticated Coldbrew user ID, authorization code, and exact public callback
+URL to that interface. Connecting performs code exchange, profile loading, and complete history
+loading before atomically storing the connection and idempotent donations. A history failure stores
+neither connection nor donations.
+
+The PostgreSQL adapter owns connection transactions and token-version compare-and-swap operations.
+Realtime listeners are replaced when a reconnect increments `token_version`; stale refreshes cannot
+overwrite or disconnect a newer connection.
 
 ## Consequences
 
-The web and donations processes both receive the DonationAlerts OAuth client
-credentials. The web process writes connections, while the donations worker
-detects their token-version changes. Only one donations replica may run until
+The donations module constructs the public authorization URL and owns both DonationAlerts client
+credentials. `apps/web` uses only `DONATIONS_SERVICE_URL` and the shared
+`DONATIONS_SERVICE_SECRET` for this integration.
+
+The initial history is visible as soon as the public callback reports success, at the cost of making
+that callback wait for all DonationAlerts history pages. Only one donations replica may run until
 collector leadership is introduced.
+
+The missing OAuth `state` remains a known login-CSRF risk and must be addressed by a separate
+hardening decision.

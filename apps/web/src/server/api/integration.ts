@@ -3,7 +3,6 @@ import { z } from "zod";
 
 import { authorizeDonationAlerts } from "../donationalerts.js";
 import { env } from "../env.js";
-import { store } from "../sensors/db/index.js";
 import { getUserId } from "./_util.js";
 
 export async function handleDonationAlertsCallback(request: Request): Promise<Response> {
@@ -24,8 +23,7 @@ export async function handleDonationAlertsCallback(request: Request): Promise<Re
   const appUrl = rurl("/integrations", env.APP_DOMAIN);
 
   try {
-    const connection = await authorizeDonationAlerts(authCode.data);
-    await store.saveDonationAlertsConnection(userId, connection);
+    await authorizeDonationAlerts(userId, authCode.data);
 
     return Response.redirect(appUrl.withSearchParam("success", true).href, 302);
   } catch (error) {

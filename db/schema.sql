@@ -228,6 +228,21 @@ CREATE TABLE donation (
 CREATE INDEX donation_videos_unparsed_idx ON donation (occurred_at) WHERE videos_parsed_at IS NULL;
 CREATE INDEX donation_user_occurred_idx ON donation (user_id, occurred_at DESC, donation_id DESC);
 
+CREATE TABLE donation_video_scan (
+  donation_id      bigint          PRIMARY KEY REFERENCES donation (donation_id) ON DELETE CASCADE,
+  generation       bigint          NOT NULL DEFAULT 0 CHECK (generation >= 0),
+  attempts         nonnegative_int NOT NULL DEFAULT 0,
+  available_at     js_date         NOT NULL DEFAULT now(),
+  lease_expires_at js_date             NULL,
+  completed_at     js_date             NULL,
+  last_error       text                NULL CHECK (char_length(last_error) <= 1000),
+  CHECK (completed_at IS NULL OR lease_expires_at IS NULL)
+);
+
+CREATE INDEX donation_video_scan_available_idx
+  ON donation_video_scan (available_at, lease_expires_at, donation_id)
+  WHERE completed_at IS NULL;
+
 CREATE TABLE video_priority (
   video_priority_id    serial        PRIMARY KEY,
   user_id              int           NOT NULL REFERENCES "user" (user_id) ON DELETE CASCADE,
@@ -272,6 +287,26 @@ CREATE INDEX video_bookmarked_idx ON video (bookmarked_at DESC, video_id DESC)
   WHERE bookmarked_at IS NOT NULL;
 
 -- functions and triggers
+
+CREATE FUNCTION enqueue_donation_video_scan()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.videos_parsed_at IS NULL THEN
+    INSERT INTO donation_video_scan (donation_id)
+    VALUES (NEW.donation_id)
+    ON CONFLICT (donation_id) DO NOTHING;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER enqueue_donation_video_scan
+AFTER INSERT ON donation
+FOR EACH ROW
+EXECUTE FUNCTION enqueue_donation_video_scan();
 
 CREATE FUNCTION set_video_priority_id()
 RETURNS trigger
