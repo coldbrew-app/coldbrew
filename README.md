@@ -14,6 +14,14 @@ Related documentation:
 - [multichat architecture and provider setup](docs/multichat.md);
 - [production deployment, configuration, and backups](docs/deployment.md).
 
+## GitHub automation
+
+The `Translate Russian issues` workflow translates newly opened Russian Issues
+to English with the OpenAI API and adds the original Russian title and
+description as a comment. Add `OPENAI_API_KEY__TRANSLATE` as a repository
+Actions secret before enabling the workflow. The key is used only by that
+workflow and is not written to its logs.
+
 ## Development prerequisites
 
 Install these tools on the host:
