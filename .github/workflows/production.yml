@@ -200,6 +200,8 @@ jobs:
           AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
           AXIOM_TOKEN: ${{ secrets.AXIOM_TOKEN }}
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          BOOSTY_CLIENT_ID: ${{ vars.BOOSTY_CLIENT_ID }}
+          BOOSTY_CLIENT_SECRET: ${{ secrets.BOOSTY_CLIENT_SECRET }}
           CHAT_SERVICE_SECRET: ${{ secrets.CHAT_SERVICE_SECRET }}
           CHAT_TOKEN_ENCRYPTION_SECRET: ${{ secrets.CHAT_TOKEN_ENCRYPTION_SECRET }}
           DONATION_ALERTS_CLIENT_ID: ${{ vars.DONATION_ALERTS_CLIENT_ID }}
@@ -210,6 +212,10 @@ jobs:
           KICK_CLIENT_ID: ${{ vars.KICK_CLIENT_ID }}
           KICK_CLIENT_SECRET: ${{ secrets.KICK_CLIENT_SECRET }}
           KICK_WEBHOOK_PUBLIC_KEY: ${{ vars.KICK_WEBHOOK_PUBLIC_KEY }}
+          TWITCH_CLIENT_ID: ${{ vars.TWITCH_CLIENT_ID }}
+          TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
+          VK_VIDEO_CLIENT_ID: ${{ vars.VK_VIDEO_CLIENT_ID }}
+          VK_VIDEO_CLIENT_SECRET: ${{ secrets.VK_VIDEO_CLIENT_SECRET }}
           YOUTUBE_CLIENT_ID: ${{ vars.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           PGDATABASE: ${{ vars.PGDATABASE }}
@@ -238,11 +244,6 @@ jobs:
             "DONATIONS_SERVICE_SECRET",
             "GOOGLE_CLIENT_ID",
             "GOOGLE_CLIENT_SECRET",
-            "KICK_CLIENT_ID",
-            "KICK_CLIENT_SECRET",
-            "KICK_WEBHOOK_PUBLIC_KEY",
-            "YOUTUBE_CLIENT_ID",
-            "YOUTUBE_CLIENT_SECRET",
             "PGDATABASE",
             "PGHOST",
             "PGPASSWORD",
@@ -254,10 +255,21 @@ jobs:
             "AWS_ENDPOINT",
             "AWS_SECRET_ACCESS_KEY",
             "AWS_SESSION_TOKEN",
+            "BOOSTY_CLIENT_ID",
+            "BOOSTY_CLIENT_SECRET",
+            "KICK_CLIENT_ID",
+            "KICK_CLIENT_SECRET",
+            "KICK_WEBHOOK_PUBLIC_KEY",
             "PGPORT",
+            "TWITCH_CLIENT_ID",
+            "TWITCH_CLIENT_SECRET",
+            "VK_VIDEO_CLIENT_ID",
+            "VK_VIDEO_CLIENT_SECRET",
             "WALG_ARCHIVE_TIMEOUT_SECONDS",
             "WALG_BACKUP_INTERVAL_SECONDS",
             "WALG_KEEP_FULL_BACKUPS",
+            "YOUTUBE_CLIENT_ID",
+            "YOUTUBE_CLIENT_SECRET",
           ]
           const missing = required.filter((name) => !process.env[name])
 
@@ -271,6 +283,20 @@ jobs:
             throw new Error(
               "AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must either both be set or both be omitted",
             )
+          }
+
+          const optionalGroups = [
+            ["BOOSTY_CLIENT_ID", "BOOSTY_CLIENT_SECRET"],
+            ["KICK_CLIENT_ID", "KICK_CLIENT_SECRET", "KICK_WEBHOOK_PUBLIC_KEY"],
+            ["TWITCH_CLIENT_ID", "TWITCH_CLIENT_SECRET"],
+            ["VK_VIDEO_CLIENT_ID", "VK_VIDEO_CLIENT_SECRET"],
+            ["YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET"],
+          ]
+          for (const group of optionalGroups) {
+            const configured = group.filter((name) => process.env[name])
+            if (configured.length > 0 && configured.length < group.length) {
+              throw new Error(`${group.join(", ")} must either all be set or all be omitted`)
+            }
           }
 
           const encodeUrlPart = (value) => encodeURIComponent(value)
@@ -358,11 +384,6 @@ jobs:
             CHAT_TOKEN_ENCRYPTION_SECRET
             GOOGLE_CLIENT_ID
             GOOGLE_CLIENT_SECRET
-            KICK_CLIENT_ID
-            KICK_CLIENT_SECRET
-            KICK_WEBHOOK_PUBLIC_KEY
-            YOUTUBE_CLIENT_ID
-            YOUTUBE_CLIENT_SECRET
             DONATION_ALERTS_CLIENT_ID
             DONATION_ALERTS_CLIENT_SECRET
             DONATIONS_SERVICE_SECRET
