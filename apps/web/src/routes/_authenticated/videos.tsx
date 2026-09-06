@@ -116,159 +116,145 @@ function VideoQueue() {
   ] as const;
 
   return (
-    <section className="flex min-w-0 flex-1 flex-col gap-4">
+    <section className="cosmic-panel flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
       <CosmicPageHeader
-        description={t("queueOrbitDescription")}
-        eyebrow={t("queueOrbit")}
+        description={t("videosForStream")}
         title={t("videoQueue")}
+        actions={
+          <Button
+            aria-controls="add-video-form"
+            aria-expanded={isAddingVideo}
+            onClick={() => setIsAddingVideo((isOpen) => !isOpen)}
+            size="sm"
+            type="button"
+            variant={isAddingVideo ? "secondary" : "default"}
+          >
+            <Icons.addVideo aria-hidden="true" />
+            {t("addVideo")}
+          </Button>
+        }
       />
-      <div className="w-full">
-        <article className="cosmic-panel overflow-hidden">
-          <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-            <div className="flex flex-col gap-1">
-              <h2 className="font-heading text-lg font-semibold text-card-foreground">
-                {t("videoQueue")}
-              </h2>
-              <p className="text-xs text-muted-foreground">{t("videosForStream")}</p>
-            </div>
-            <Button
-              aria-controls="add-video-form"
-              aria-expanded={isAddingVideo}
-              onClick={() => setIsAddingVideo((isOpen) => !isOpen)}
-              size="sm"
-              type="button"
-              variant={isAddingVideo ? "secondary" : "default"}
-            >
-              <Icons.addVideo aria-hidden="true" />
-              {t("addVideo")}
-            </Button>
-          </div>
-          {isAddingVideo && <AddVideoForm onCancel={() => setIsAddingVideo(false)} />}
-          <div className="border-b border-border px-4 py-2 lg:hidden">
-            <Button
-              aria-controls="queue-sharing queue-priorities"
-              aria-expanded={isQueueSettingsOpen}
-              className="w-full justify-start"
-              onClick={() => setIsQueueSettingsOpen((isOpen) => !isOpen)}
-              variant="ghost"
-            >
-              <Icons.settings aria-hidden="true" />
-              {t("queueConfiguration")}
-            </Button>
-          </div>
-          <div className={isQueueSettingsOpen ? "block" : "hidden lg:block"} id="queue-sharing">
-            <SlugEditor />
-          </div>
-          <div className="flex flex-col lg:flex-row">
-            <div className="order-2 min-w-0 grow lg:order-1">
-              {videosQ.isLoading ? (
-                <VideoListSkeleton
-                  aria-busy="true"
-                  aria-label={t("loadingVideoQueue")}
-                  withActions
-                />
-              ) : videosQ.isError ? (
-                <QueryErrorState
-                  isRetrying={videosQ.isFetching}
-                  onRetry={() => void videosQ.refetch()}
-                />
-              ) : visibleVideos.length ? (
-                <>
-                  <div className="divide-y divide-border">
-                    {visibleVideos.map((video) => (
-                      <VideoCard
-                        isUpdating={updateVideoStatusM.isPending || updateVideoM.isPending}
-                        key={video.videoId}
-                        onUpdate={(input) =>
-                          updateVideoM.mutateAsync({
-                            videoId: video.videoId,
-                            ...input,
-                          })
-                        }
-                        onStatusChange={(status) =>
-                          updateVideoStatusM.mutate({ videoId: video.videoId, ...status })
-                        }
-                        showSource
-                        video={video}
-                      />
-                    ))}
-                  </div>
-                  <PagePagination
-                    isLoading={videosQ.isFetching}
-                    loadingLabel={t("loadingVideoQueue")}
-                    onPageChange={(page) =>
-                      void navigate({ search: (previous) => ({ ...previous, page }) })
-                    }
-                    page={videosQ.data!.page}
-                    pageSize={videosQ.data!.pageSize}
-                    total={videosQ.data!.total}
-                    totalPages={videosQ.data!.totalPages}
-                  />
-                </>
-              ) : (
-                <EmptyState
-                  description={
-                    statusCounts.all ? t("filteredVideosWillAppear") : t("videoLinksWillAppear")
-                  }
-                  headingLevel={3}
-                  icon={Icons.video}
-                  title={
-                    statusCounts.all
-                      ? activeTab !== "all"
-                        ? t("noFilteredVideos", {
-                            status:
-                              tabs.find((tab) => tab.id === activeTab)?.label.toLowerCase() ?? "",
-                          })
-                        : t("noVideos")
-                      : t("noVideosInQueue")
-                  }
-                />
-              )}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+          <div className="order-2 min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain lg:order-1">
+            {isAddingVideo && <AddVideoForm onCancel={() => setIsAddingVideo(false)} />}
+            <div className={isQueueSettingsOpen ? "block" : "hidden lg:block"} id="queue-sharing">
+              <SlugEditor />
             </div>
 
-            <aside className="relative order-1 overflow-hidden border-b border-border bg-muted/40 p-3 lg:order-2 lg:w-72 lg:shrink-0 lg:border-b-0 lg:border-l">
-              <nav
-                className="grid grid-cols-2 gap-1 lg:grid-cols-1"
-                aria-label={t("videoStatusFilters")}
-              >
-                {tabs.map(({ id, label, count, icon: Icon }) => {
-                  const isActive = id === activeTab;
-                  return (
-                    <Link
-                      aria-current={isActive ? "page" : undefined}
-                      className={buttonVariants({
-                        className: "h-auto px-3 py-2 text-left text-xs font-semibold",
-                        variant: isActive ? "secondary" : "ghost",
-                      })}
-                      key={id}
-                      search={(previous) => ({
-                        page: 1,
-                        videoPriorityId: previous.videoPriorityId ?? "all",
-                        videoStatus: id,
-                      })}
-                      to="/videos"
-                    >
-                      <Icon aria-hidden="true" size={15} />
-                      <span className="grow">{label}</span>
-                      <span className="text-[10px] font-bold">{count}</span>
-                    </Link>
-                  );
-                })}
-              </nav>
-              <div
-                className={isQueueSettingsOpen ? "block" : "hidden lg:block"}
-                id="queue-priorities"
-              >
-                <VideoPriorities
-                  remainingSecondsByPriorityId={videosQ.data?.remainingSecondsByPriorityId ?? {}}
-                  selectedVideoPriorityId={selectedVideoPriorityId}
-                  videoCountByPriorityId={videosQ.data?.priorityCounts ?? {}}
-                />
+            {videosQ.isLoading ? (
+              <VideoListSkeleton aria-busy="true" aria-label={t("loadingVideoQueue")} withActions />
+            ) : videosQ.isError ? (
+              <QueryErrorState
+                isRetrying={videosQ.isFetching}
+                onRetry={() => void videosQ.refetch()}
+              />
+            ) : visibleVideos.length ? (
+              <div className="divide-y divide-border">
+                {visibleVideos.map((video) => (
+                  <VideoCard
+                    isUpdating={updateVideoStatusM.isPending || updateVideoM.isPending}
+                    key={video.videoId}
+                    onUpdate={(input) =>
+                      updateVideoM.mutateAsync({
+                        videoId: video.videoId,
+                        ...input,
+                      })
+                    }
+                    onStatusChange={(status) =>
+                      updateVideoStatusM.mutate({ videoId: video.videoId, ...status })
+                    }
+                    showSource
+                    video={video}
+                  />
+                ))}
               </div>
-            </aside>
+            ) : (
+              <EmptyState
+                description={
+                  statusCounts.all ? t("filteredVideosWillAppear") : t("videoLinksWillAppear")
+                }
+                headingLevel={3}
+                icon={Icons.video}
+                title={
+                  statusCounts.all
+                    ? activeTab !== "all"
+                      ? t("noFilteredVideos", {
+                          status:
+                            tabs.find((tab) => tab.id === activeTab)?.label.toLowerCase() ?? "",
+                        })
+                      : t("noVideos")
+                    : t("noVideosInQueue")
+                }
+              />
+            )}
           </div>
-        </article>
+
+          <aside className="relative order-1 flex shrink-0 flex-col overflow-hidden border-b border-border bg-muted/40 p-3 lg:order-2 lg:min-h-0 lg:w-72 lg:border-b-0 lg:border-l">
+            <nav
+              className="grid shrink-0 grid-cols-2 gap-1 lg:grid-cols-1"
+              aria-label={t("videoStatusFilters")}
+            >
+              {tabs.map(({ id, label, count, icon: Icon }) => {
+                const isActive = id === activeTab;
+                return (
+                  <Link
+                    aria-current={isActive ? "page" : undefined}
+                    className={buttonVariants({
+                      className: "h-auto px-3 py-2 text-left text-xs font-semibold",
+                      variant: isActive ? "secondary" : "ghost",
+                    })}
+                    key={id}
+                    search={(previous) => ({
+                      page: 1,
+                      videoPriorityId: previous.videoPriorityId ?? "all",
+                      videoStatus: id,
+                    })}
+                    to="/videos"
+                  >
+                    <Icon aria-hidden="true" size={15} />
+                    <span className="grow">{label}</span>
+                    <span className="text-[10px] font-bold">{count}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+            <div className="shrink-0 pt-2 lg:hidden">
+              <Button
+                aria-controls="queue-sharing queue-priorities"
+                aria-expanded={isQueueSettingsOpen}
+                className="w-full justify-start"
+                onClick={() => setIsQueueSettingsOpen((isOpen) => !isOpen)}
+                variant="ghost"
+              >
+                <Icons.settings aria-hidden="true" />
+                {t("queueConfiguration")}
+              </Button>
+            </div>
+            <div
+              className={`${isQueueSettingsOpen ? "block" : "hidden lg:block"} max-h-32 overflow-y-auto overscroll-contain lg:min-h-0 lg:max-h-none lg:flex-1`}
+              id="queue-priorities"
+            >
+              <VideoPriorities
+                remainingSecondsByPriorityId={videosQ.data?.remainingSecondsByPriorityId ?? {}}
+                selectedVideoPriorityId={selectedVideoPriorityId}
+                videoCountByPriorityId={videosQ.data?.priorityCounts ?? {}}
+              />
+            </div>
+          </aside>
+        </div>
       </div>
+      {videosQ.data && !videosQ.isError && visibleVideos.length > 0 && (
+        <PagePagination
+          isLoading={videosQ.isFetching}
+          loadingLabel={t("loadingVideoQueue")}
+          onPageChange={(page) => void navigate({ search: (previous) => ({ ...previous, page }) })}
+          page={videosQ.data.page}
+          pageSize={videosQ.data.pageSize}
+          total={videosQ.data.total}
+          totalPages={videosQ.data.totalPages}
+        />
+      )}
     </section>
   );
 }

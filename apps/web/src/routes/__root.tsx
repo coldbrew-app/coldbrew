@@ -402,8 +402,8 @@ function AuthenticatedApplicationContent() {
             </Button>
           </div>
         )}
-        <div id="app-content" className="min-h-0 min-w-0 grow overflow-y-auto overscroll-contain">
-          <div className="mx-auto min-h-full w-full max-w-[1500px] px-3 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-6 lg:px-8">
+        <div id="app-content" className="min-h-0 min-w-0 grow overflow-hidden">
+          <div className="mx-auto flex h-full min-h-0 w-full max-w-[1500px] flex-col p-0 sm:p-3">
             <Suspense
               fallback={
                 <div aria-busy="true" className="flex min-h-full flex-col gap-3">

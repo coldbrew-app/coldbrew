@@ -148,14 +148,12 @@ function SharedVideoQueue() {
   const displayedStatus = videosQ.data?.status ?? status;
 
   return (
-    <main className="relative min-h-dvh overflow-hidden bg-background p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-foreground sm:p-8">
+    <main className="relative h-dvh overflow-hidden bg-background p-0 text-foreground sm:p-3">
       <div className="cosmic-starlight pointer-events-none absolute inset-0" />
-      <section className="cosmic-panel relative mx-auto w-full max-w-4xl overflow-hidden">
-        <header className="cosmic-page-scene relative flex min-h-56 flex-col justify-center gap-2 overflow-hidden p-5 text-white sm:p-8">
-          <span className="relative z-10 order-3 pt-2 text-xs text-[#e6bf96]">
-            {t("publicQueueEyebrow")}
-          </span>
-          <h1 className="relative z-10 max-w-xl sm:pr-28 font-heading text-[clamp(28px,5vw,44px)] leading-none font-semibold">
+      <section className="cosmic-panel relative mx-auto flex h-full min-h-0 w-full max-w-4xl flex-col overflow-hidden">
+        <header className="cosmic-page-scene relative flex shrink-0 flex-col justify-center gap-1 overflow-hidden px-4 py-3 text-white sm:px-5 sm:py-4">
+          <span className="sr-only text-[#e6bf96]">{t("publicQueueEyebrow")}</span>
+          <h1 className="relative z-10 max-w-xl sm:pr-28 font-heading text-xl leading-tight font-semibold">
             {t("videoQueueBy", { slug })}
           </h1>
           <p className="relative z-10 max-w-md text-xs leading-relaxed text-[#dec9bf]">
@@ -172,7 +170,7 @@ function SharedVideoQueue() {
           <>
             <nav
               aria-label={t("publicQueueTabs")}
-              className="flex gap-1 border-b border-border bg-secondary/35 p-2"
+              className="flex shrink-0 gap-1 border-b border-border bg-secondary/35 p-2"
             >
               <Link
                 aria-current={videosQ.data.status === "queue" ? "page" : undefined}
@@ -205,22 +203,36 @@ function SharedVideoQueue() {
                 </Link>
               )}
             </nav>
-            {videosQ.data.status === "queue" ? (
-              <SharedVideoGroups
-                isLastPage={
-                  videosQ.data.totalPages === 0 || videosQ.data.page === videosQ.data.totalPages
-                }
-                items={videosQ.data.items}
-                priorities={videosQ.data.priorities}
-              />
-            ) : (
-              <div className="divide-y divide-border">
-                {videosQ.data.items.map((video) => (
-                  <SharedVideoCard key={video.videoId} video={video} />
-                ))}
-              </div>
-            )}
-            {videosQ.data.items.length > 0 ? (
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+              {videosQ.data.status === "queue" ? (
+                <SharedVideoGroups
+                  isLastPage={
+                    videosQ.data.totalPages === 0 || videosQ.data.page === videosQ.data.totalPages
+                  }
+                  items={videosQ.data.items}
+                  priorities={videosQ.data.priorities}
+                />
+              ) : (
+                <div className="divide-y divide-border">
+                  {videosQ.data.items.map((video) => (
+                    <SharedVideoCard key={video.videoId} video={video} />
+                  ))}
+                </div>
+              )}
+              {videosQ.data.items.length === 0 && (
+                <EmptyState
+                  description={t(
+                    videosQ.data.status === "queue"
+                      ? "videoLinksWillAppear"
+                      : "watchedVideosWillAppear",
+                  )}
+                  headingLevel={2}
+                  icon={videosQ.data.status === "queue" ? Icons.wallet : Icons.watched}
+                  title={t(videosQ.data.status === "queue" ? "noVideosInQueue" : "noWatchedVideos")}
+                />
+              )}
+            </div>
+            {videosQ.data.items.length > 0 && (
               <PagePagination
                 isLoading={videosQ.isFetching}
                 loadingLabel={t("loadingVideoQueue")}
@@ -231,17 +243,6 @@ function SharedVideoQueue() {
                 pageSize={videosQ.data.pageSize}
                 total={videosQ.data.total}
                 totalPages={videosQ.data.totalPages}
-              />
-            ) : (
-              <EmptyState
-                description={t(
-                  videosQ.data.status === "queue"
-                    ? "videoLinksWillAppear"
-                    : "watchedVideosWillAppear",
-                )}
-                headingLevel={2}
-                icon={videosQ.data.status === "queue" ? Icons.wallet : Icons.watched}
-                title={t(videosQ.data.status === "queue" ? "noVideosInQueue" : "noWatchedVideos")}
               />
             )}
           </>

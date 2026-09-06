@@ -215,13 +215,13 @@ function ChatPage() {
 
   if (!config) {
     return (
-      <section className="flex min-h-full flex-col gap-4">
+      <section className="cosmic-panel flex h-full min-h-0 flex-col overflow-hidden">
         <CosmicPageHeader
           description={text.description}
           eyebrow={text.eyebrow}
           title={locale === "ru" ? "Мультичат" : "Multichat"}
         />
-        <div className="cosmic-panel grid min-h-64 place-items-center p-6 text-center">
+        <div className="grid min-h-0 flex-1 place-items-center overflow-y-auto p-6 text-center">
           {configQuery.isError ? (
             <div className="flex flex-col items-center gap-3">
               <p className="text-sm text-destructive">{configQuery.error?.message}</p>
@@ -242,7 +242,7 @@ function ChatPage() {
   }
 
   return (
-    <section className="flex min-h-full min-w-0 flex-1 flex-col gap-4">
+    <section className="cosmic-panel flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
       <CosmicPageHeader
         description={text.description}
         eyebrow={text.eyebrow}
@@ -271,8 +271,8 @@ function ChatPage() {
             : t(chatOauthErrorMessages[chatOauthError ?? "unknown"])}
         </div>
       )}
-      <div className="grid min-h-[680px] gap-4 xl:grid-cols-[330px_minmax(0,1fr)]">
-        <article className="cosmic-panel flex min-h-[440px] min-w-0 flex-col overflow-hidden xl:min-h-[620px]">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-3 xl:grid xl:grid-cols-[330px_minmax(0,1fr)] xl:grid-rows-[minmax(0,1fr)] xl:overflow-hidden">
+        <article className="cosmic-panel flex h-[max(24rem,55dvh)] min-h-0 min-w-0 shrink-0 flex-col overflow-hidden xl:h-auto">
           <header className="flex items-center gap-3 border-b border-border p-4">
             <div className="min-w-0 grow">
               <h2 className="font-heading text-xl font-semibold">{text.feed}</h2>
@@ -372,7 +372,7 @@ function ChatPage() {
         </article>
         <aside
           id="chat-connections"
-          className="cosmic-panel flex min-h-0 scroll-mt-4 flex-col overflow-hidden xl:order-first"
+          className="cosmic-panel flex min-h-0 shrink-0 scroll-mt-4 flex-col overflow-hidden xl:order-first"
         >
           <header className="flex flex-col gap-1 border-b border-border p-4">
             <div className="flex items-center justify-between gap-3">
