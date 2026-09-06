@@ -146,7 +146,7 @@ func (provider *YoutubeProvider) activeBroadcast(ctx context.Context, source Con
 	if source.Credentials.AccessToken == "" {
 		return "", &ProviderError{Type: "provider unauthorized", Detail: "YouTube authorization is required"}
 	}
-	query := url.Values{"part": {"snippet"}, "broadcastStatus": {"active"}, "broadcastType": {"all"}, "mine": {"true"}}
+	query := url.Values{"part": {"snippet"}, "broadcastStatus": {"active"}, "broadcastType": {"all"}}
 	var response struct {
 		Items []struct {
 			Snippet struct {
