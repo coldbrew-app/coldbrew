@@ -222,8 +222,9 @@ provider. The workflow validates this along with every required value, safely
 generates dotenv syntax, transfers it over SSH, and atomically replaces
 `/opt/coldbrew/.env` with mode `0600` on every deployment.
 
-Each optional provider credential group must be configured completely or omitted. Boosty and VK
-Video credentials are reserved for their future integrations and do not enable those providers yet.
+Each optional provider credential group must be configured completely or omitted. VK Video
+uses its OAuth credentials. Boosty connects through a per-account session token in the multichat
+UI; its reserved client ID/secret settings are unused. See [Boosty setup](boosty.md).
 
 When a service gains a required server environment variable, update the
 `Production` workflow in the same change: pass the GitHub variable or secret

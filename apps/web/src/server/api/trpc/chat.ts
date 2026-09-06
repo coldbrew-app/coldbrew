@@ -89,6 +89,43 @@ export const chatRouter = router({
       callChatService(chatService.startOauth(ctx.userId, input.provider)),
     ),
 
+  connectBoosty: authenticatedProcedure
+    .input(
+      z.object({
+        accessToken: z
+          .string()
+          .trim()
+          .min(1)
+          .max(8192)
+          .regex(/^[!-~]+$/),
+        refreshToken: z
+          .string()
+          .trim()
+          .min(1)
+          .max(8192)
+          .regex(/^[!-~]+$/)
+          .optional(),
+        deviceId: z
+          .string()
+          .trim()
+          .min(1)
+          .max(200)
+          .regex(/^[!-~]+$/)
+          .optional(),
+      }),
+    )
+    .output(z.void())
+    .mutation(async ({ ctx, input }) => {
+      await callChatService(
+        chatService.connectBoosty(
+          ctx.userId,
+          input.accessToken,
+          input.refreshToken,
+          input.deviceId,
+        ),
+      );
+    }),
+
   disconnect: authenticatedProcedure
     .input(
       z.object({

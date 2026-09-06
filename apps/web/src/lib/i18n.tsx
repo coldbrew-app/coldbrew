@@ -132,6 +132,32 @@ const en = {
   donationContent: "Donations section",
   videos: "Videos",
   chat: "Multichat",
+  boostyConnectTitle: "Connect Boosty",
+  boostyAccessToken: "Boosty access token",
+  boostyRefreshToken: "Refresh token",
+  boostyDeviceId: "Device ID (_clientId)",
+  boostyConnecting: "Connecting…",
+  boostyTokenHelp:
+    "Read-only connection through an unofficial API. Follow these steps to get your access token.",
+  devtoolsApplication: "Application",
+  devtoolsStorage: "Storage",
+  boostyTokenStepSignIn: "Sign in to your account at",
+  boostyTokenStepFind: ({ application, storage }: { application: string; storage: string }) =>
+    `On the Boosty tab, open developer tools from the browser menu → ${application} (${storage} in Firefox or Safari). Find the auth entry in Cookies or Local Storage for Boosty.`,
+  boostyTokenStepChromium: ({ shortcut, panel }: { shortcut: string; panel: string }) =>
+    `On the Boosty tab, press ${shortcut} to open developer tools, then select ${panel} (it may be in the hidden tabs menu). Find the auth entry under Cookies or Local Storage → https://boosty.to.`,
+  boostyTokenStepFirefox: ({ shortcut, panel }: { shortcut: string; panel: string }) =>
+    `On the Boosty tab, press ${shortcut} to open ${panel}. If your keyboard uses F9 for a system action, also hold Fn. Find the auth entry under Cookies or Local Storage → https://boosty.to.`,
+  boostyTokenStepSafari: ({ shortcut, panel }: { shortcut: string; panel: string }) =>
+    `In Safari → Settings → Advanced, enable “Show features for web developers”. On the Boosty tab, press ${shortcut}, then select ${panel}. Find the auth entry under Cookies or Local Storage → https://boosty.to.`,
+  boostyTokenStepMobile: ({ application, storage }: { application: string; storage: string }) =>
+    `Get the token in a desktop browser: open Boosty there, then developer tools → ${application} (${storage} in Firefox or Safari). Find the auth entry under Cookies or Local Storage for Boosty.`,
+  boostyTokenStepCopy:
+    "Copy accessToken and refreshToken from auth into the corresponding fields below. Copy the value of _clientId from the same browser’s Cookies or Local Storage into Device ID.",
+  boostyTokenStorage:
+    "Your tokens are stored encrypted. Coldbrew renews access automatically. If Boosty revokes the session, reconnect here with current credentials.",
+  boostyConnectError:
+    "Could not connect Boosty. Check that the token is current and belongs to an account with a blog, then try again. Also check the channel limit and service availability.",
   chatOauthSuccess: "Chat account connected.",
   chatOauthInvalidCallback: "The authorization response was incomplete. Try connecting again.",
   chatOauthExpired: "Authorization expired. Try connecting again.",
@@ -427,6 +453,32 @@ const ru = defineTranslations({
   donationContent: "Донаты",
   videos: "Видео",
   chat: "Мультичат",
+  boostyConnectTitle: "Подключить Boosty",
+  boostyAccessToken: "Токен доступа Boosty",
+  boostyRefreshToken: "Токен обновления (refreshToken)",
+  boostyDeviceId: "Идентификатор устройства (_clientId)",
+  boostyConnecting: "Подключаем…",
+  boostyTokenHelp:
+    "Подключение только для чтения через неофициальный API. Получите токен доступа по инструкции ниже.",
+  devtoolsApplication: "Приложение",
+  devtoolsStorage: "Хранилище",
+  boostyTokenStepSignIn: "Войдите в свой аккаунт на",
+  boostyTokenStepFind: ({ application, storage }: { application: string; storage: string }) =>
+    `На вкладке Boosty откройте инструменты разработчика через меню браузера → ${application} (${storage} в Firefox или Safari). Найдите запись auth в Cookies или Local Storage для Boosty.`,
+  boostyTokenStepChromium: ({ shortcut, panel }: { shortcut: string; panel: string }) =>
+    `На вкладке Boosty нажмите ${shortcut}, чтобы открыть инструменты разработчика, затем выберите ${panel}. Вкладка может быть в меню скрытых вкладок. Найдите запись auth в Cookies или Local Storage → https://boosty.to.`,
+  boostyTokenStepFirefox: ({ shortcut, panel }: { shortcut: string; panel: string }) =>
+    `На вкладке Boosty нажмите ${shortcut}, чтобы открыть ${panel}. Если F9 выполняет системное действие, дополнительно удерживайте Fn. Найдите запись auth в Cookies или Local Storage → https://boosty.to.`,
+  boostyTokenStepSafari: ({ shortcut, panel }: { shortcut: string; panel: string }) =>
+    `В Safari → Настройки → Дополнения включите функции для веб-разработчиков. На вкладке Boosty нажмите ${shortcut}, затем выберите ${panel}. Найдите запись auth в Cookies или Local Storage → https://boosty.to.`,
+  boostyTokenStepMobile: ({ application, storage }: { application: string; storage: string }) =>
+    `Получите токен в браузере на компьютере: откройте там Boosty, затем инструменты разработчика → ${application} (${storage} в Firefox или Safari). Найдите запись auth в Cookies или Local Storage для Boosty.`,
+  boostyTokenStepCopy:
+    "Скопируйте accessToken и refreshToken из auth в соответствующие поля ниже. В поле идентификатора устройства вставьте значение _clientId из Cookies или Local Storage того же браузера.",
+  boostyTokenStorage:
+    "Токены хранятся зашифрованными. Coldbrew автоматически обновляет доступ. Если Boosty отзовёт сессию, подключите аккаунт здесь заново с актуальными данными.",
+  boostyConnectError:
+    "Не удалось подключить Boosty. Проверьте, что токен действителен и принадлежит аккаунту с блогом, затем повторите попытку. Также проверьте лимит каналов и доступность сервиса.",
   chatOauthSuccess: "Аккаунт чата подключён.",
   chatOauthInvalidCallback: "Ответ авторизации неполный. Попробуйте подключить аккаунт снова.",
   chatOauthExpired: "Время авторизации истекло. Попробуйте подключить аккаунт снова.",

@@ -41,6 +41,29 @@ describe("chat service adapter", () => {
     expect(options?.body).toBe(JSON.stringify({ userId: 42 }));
   });
 
+  it("sends Boosty credentials only in the authenticated request body", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => Response.json(null));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      chatService.connectBoosty(42, "boosty-session-token", "boosty-refresh-token", "device-1"),
+    ).resolves.toBeNull();
+
+    const [url, options] = fetchMock.mock.calls[0]!;
+    expect(url).toMatch(/\/internal\/boosty\/connect$/);
+    expect(url).not.toContain("boosty-session-token");
+    expect(options?.method).toBe("POST");
+    expect(new Headers(options?.headers).get("Authorization")).toMatch(/^Bearer .{32,}$/);
+    expect(options?.body).toBe(
+      JSON.stringify({
+        userId: 42,
+        accessToken: "boosty-session-token",
+        refreshToken: "boosty-refresh-token",
+        deviceId: "device-1",
+      }),
+    );
+  });
+
   it("rejects an invalid response before it reaches tRPC", async () => {
     vi.stubGlobal(
       "fetch",

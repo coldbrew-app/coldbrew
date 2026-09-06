@@ -64,3 +64,17 @@ export function useChatServiceMutations(callbacks: ChatServiceMutationCallbacks)
     startOauth,
   };
 }
+
+export function useBoostyConnection(onConnected: () => void) {
+  const { trpc, queryClient } = useApi();
+  return useMutation(
+    trpc.chat.connectBoosty.mutationOptions({
+      gcTime: 0,
+      retry: false,
+      onSuccess: () => {
+        void queryClient.invalidateQueries({ queryKey: trpc.chat.config.queryKey() });
+        onConnected();
+      },
+    }),
+  );
+}

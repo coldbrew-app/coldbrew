@@ -6,6 +6,7 @@ import type {
 } from "@coldbrew/packages/chat.js";
 import { MAX_CHAT_MESSAGE_LENGTH } from "@coldbrew/packages/chat.js";
 import { createFileRoute } from "@tanstack/react-router";
+import { BoostyConnectionForm } from "@web/components/boosty-connection-form";
 import { ChatFeed } from "@web/components/chat-feed";
 import { CosmicPageHeader } from "@web/components/cosmic-page-header";
 import { Icons, PlatformIcons } from "@web/components/icons";
@@ -164,6 +165,7 @@ function ChatPage() {
   const text = copy[locale];
   const { availabilityQuery, configQuery } = useChatServiceQueries();
   const stream = useChatServiceStream();
+  const [boostyFormOpen, setBoostyFormOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [broadcastResult, setBroadcastResult] = useState<ChatBroadcastResult | null>(null);
   const [overlayUrl, setOverlayUrl] = useState<string | null>(null);
@@ -464,6 +466,7 @@ function ChatPage() {
             })}
 
             <div className="flex flex-col gap-2 pt-1">
+              {boostyFormOpen && <BoostyConnectionForm onClose={() => setBoostyFormOpen(false)} />}
               {availability.map((provider) => {
                 const meta = providerMeta[provider.provider];
                 const connectable =
@@ -471,13 +474,18 @@ function ChatPage() {
                   (provider.provider === "youtube" ||
                     provider.provider === "twitch" ||
                     provider.provider === "kick" ||
-                    provider.provider === "vk_video");
+                    provider.provider === "vk_video" ||
+                    provider.provider === "boosty");
                 return (
                   <Button
                     className="h-auto   justify-start gap-2 p-2.5"
                     disabled={!connectable || startOauth.isPending}
                     key={provider.provider}
                     onClick={() => {
+                      if (provider.provider === "boosty") {
+                        setBoostyFormOpen(true);
+                        return;
+                      }
                       if (
                         provider.provider === "youtube" ||
                         provider.provider === "twitch" ||

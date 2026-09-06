@@ -20,6 +20,7 @@ type RefreshConfig struct {
 	TokenURL     string
 	RedirectURL  string
 	UsesVKID     bool
+	UsesBoosty   bool
 }
 
 type CredentialStore interface {
@@ -43,7 +44,8 @@ func NewTokenRefresher(store CredentialStore, configs []RefreshConfig, client *h
 
 func (refresher *TokenRefresher) Refresh(ctx context.Context, source ConnectedSource) (ConnectedSource, error) {
 	expiresAt := source.Credentials.ExpiresAt
-	if expiresAt == nil || expiresAt.After(refresher.now().Add(refreshEarly)) {
+	unknownBoostyExpiry := source.Source.Provider == "boosty" && expiresAt == nil && source.Credentials.RefreshToken != ""
+	if !unknownBoostyExpiry && (expiresAt == nil || expiresAt.After(refresher.now().Add(refreshEarly))) {
 		return source, nil
 	}
 	config, configured := refresher.configs[source.Source.Provider]
@@ -55,6 +57,12 @@ func (refresher *TokenRefresher) Refresh(ctx context.Context, source ConnectedSo
 		"refresh_token": {source.Credentials.RefreshToken},
 		"client_id":     {config.ClientID},
 		"client_secret": {config.ClientSecret},
+	}
+	if config.UsesBoosty {
+		if source.Credentials.DeviceID == "" {
+			return ConnectedSource{}, &ProviderError{Type: "provider unauthorized", Detail: "Reconnect Boosty with a refresh token and device ID"}
+		}
+		values = url.Values{"grant_type": {"refresh_token"}, "refresh_token": {source.Credentials.RefreshToken}, "device_id": {source.Credentials.DeviceID}, "device_os": {"web"}}
 	}
 	tokenURL := config.TokenURL
 	state := ""
@@ -78,11 +86,17 @@ func (refresher *TokenRefresher) Refresh(ctx context.Context, source ConnectedSo
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	response, err := refresher.client.Do(request)
 	if err != nil {
+		if config.UsesBoosty {
+			return ConnectedSource{}, operationError("Could not refresh Boosty authorization", err)
+		}
 		return ConnectedSource{}, refreshProviderError("Не удалось обновить авторизацию чата", err)
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		_, _ = io.Copy(io.Discard, response.Body)
+		if config.UsesBoosty && response.StatusCode != http.StatusBadRequest && response.StatusCode != http.StatusUnauthorized && response.StatusCode != http.StatusForbidden {
+			return ConnectedSource{}, operationError("Could not refresh Boosty authorization", &ProviderHTTPError{Status: response.StatusCode})
+		}
 		return ConnectedSource{}, refreshProviderError("Не удалось обновить авторизацию чата", &ProviderHTTPError{Status: response.StatusCode})
 	}
 	var token struct {
@@ -91,11 +105,20 @@ func (refresher *TokenRefresher) Refresh(ctx context.Context, source ConnectedSo
 		ExpiresIn    *int    `json:"expires_in"`
 		State        string  `json:"state"`
 	}
-	if err := json.NewDecoder(response.Body).Decode(&token); err != nil || token.AccessToken == "" || (token.RefreshToken != nil && *token.RefreshToken == "") || (token.ExpiresIn != nil && *token.ExpiresIn <= 0) || (config.UsesVKID && token.State != state) {
+	if err := json.NewDecoder(response.Body).Decode(&token); err != nil || token.AccessToken == "" || (token.RefreshToken != nil && *token.RefreshToken == "") || (token.ExpiresIn != nil && *token.ExpiresIn <= 0) || (config.UsesVKID && token.State != state) || (config.UsesBoosty && (token.RefreshToken == nil || token.ExpiresIn == nil || *token.ExpiresIn <= 0 || *token.ExpiresIn > 31_536_000)) {
 		if err == nil {
 			err = errors.New("invalid token response")
 		}
 		return ConnectedSource{}, refreshProviderError("Не удалось обновить авторизацию чата", err)
+	}
+	if config.UsesBoosty {
+		var identity boostyUser
+		if err := NewBoostyProvider(refresher.client).request(ctx, token.AccessToken, "/v1/user/current", &identity); err != nil {
+			return ConnectedSource{}, err
+		}
+		if strings.ToLower(strings.TrimSpace(identity.BlogURL)) != source.Source.ProviderSourceID {
+			return ConnectedSource{}, &ProviderError{Type: "provider unauthorized", Detail: "Boosty refresh token belongs to a different account"}
+		}
 	}
 	refreshToken := source.Credentials.RefreshToken
 	if token.RefreshToken != nil {
@@ -141,16 +164,29 @@ func (provider *RefreshingProvider) Stream(ctx context.Context, source Connected
 		defer close(events)
 		defer close(errorsChannel)
 		refreshed, err := provider.refresher.Refresh(ctx, source)
-		if err != nil {
+		retry := 5 * time.Second
+		for err != nil {
 			sendProviderError(ctx, errorsChannel, err)
-			return
+			if source.Source.Provider != "boosty" {
+				return
+			}
+			if providerErrorType(err) == "provider unauthorized" {
+				<-ctx.Done()
+				return
+			}
+			if !waitFor(ctx, retry) {
+				return
+			}
+			retry = min(retry*2, time.Minute)
+			refreshed, err = provider.refresher.Refresh(ctx, source)
 		}
 		streamCtx, cancel := context.WithCancel(ctx)
 		defer cancel()
 		if refreshed.Credentials.ExpiresAt != nil {
 			delay := refreshed.Credentials.ExpiresAt.Sub(provider.refresher.now()) - refreshEarly
-			if delay < 0 {
-				delay = 0
+			if delay <= 0 {
+				// Short-lived tokens renew halfway through their remaining lifetime.
+				delay = max(time.Millisecond, refreshed.Credentials.ExpiresAt.Sub(provider.refresher.now())/2)
 			}
 			timer := time.AfterFunc(delay, cancel)
 			defer timer.Stop()
@@ -209,7 +245,7 @@ func TokenRefreshConfigs(youtube, twitch, kick, vkVideo *[2]string, publicURL st
 		callbackURL := strings.TrimSuffix(publicURL, "/") + "/oauth/vk_video/callback"
 		configs = append(configs, RefreshConfig{Provider: "vk_video", ClientID: vkVideo[0], ClientSecret: vkVideo[1], TokenURL: "https://id.vk.ru/oauth2/auth", RedirectURL: callbackURL, UsesVKID: true})
 	}
-	return configs
+	return append(configs, RefreshConfig{Provider: "boosty", TokenURL: "https://api.boosty.to/oauth/token/", UsesBoosty: true})
 }
 
 var _ CredentialStore = (*Store)(nil)
