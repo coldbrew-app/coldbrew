@@ -53,7 +53,7 @@ func run() error {
 	}
 	store := chat.NewStore(pool, tokenCipher)
 	httpClient := &http.Client{Timeout: 30 * time.Second}
-	oauthConfigs := chat.OauthConfigs(config.youtube, config.twitch, config.kick)
+	oauthConfigs := chat.OauthConfigs(config.youtube, config.twitch, config.kick, config.vkVideo)
 	oauth := chat.NewOauth(store, config.publicURL, oauthConfigs, httpClient)
 	baseProviders := []chat.Provider{chat.NewYoutubeProvider(httpClient)}
 	if config.twitch != nil {
@@ -62,7 +62,10 @@ func run() error {
 	if config.kick != nil {
 		baseProviders = append(baseProviders, chat.NewKickProvider(httpClient))
 	}
-	refresher := chat.NewTokenRefresher(store, chat.TokenRefreshConfigs(config.youtube, config.twitch, config.kick), httpClient)
+	if config.vkVideo != nil {
+		baseProviders = append(baseProviders, chat.NewVKVideoProvider(httpClient))
+	}
+	refresher := chat.NewTokenRefresher(store, chat.TokenRefreshConfigs(config.youtube, config.twitch, config.kick, config.vkVideo, config.publicURL), httpClient)
 	providers := make([]chat.Provider, 0, len(baseProviders))
 	for _, provider := range baseProviders {
 		providers = append(providers, chat.NewRefreshingProvider(provider, refresher))
@@ -121,6 +124,7 @@ type serviceConfig struct {
 	youtube               *[2]string
 	twitch                *[2]string
 	kick                  *[2]string
+	vkVideo               *[2]string
 	kickWebhookPublicKey  string
 }
 
@@ -177,11 +181,15 @@ func loadConfig() (serviceConfig, error) {
 	if os.Getenv("KICK_WEBHOOK_PUBLIC_KEY") == "" {
 		kick = nil
 	}
+	vkVideo, err := configuredPair("VK_VIDEO_CLIENT_ID", "VK_VIDEO_CLIENT_SECRET")
+	if err != nil {
+		return serviceConfig{}, err
+	}
 	natsServers := os.Getenv("NATS_SERVERS")
 	if natsServers == "" {
 		natsServers = "nats://localhost:4222"
 	}
-	return serviceConfig{databaseURL: databaseURL, natsServers: natsServers, port: port, publicURL: publicURL, webURL: webURL, serviceSecret: serviceSecret, tokenEncryptionSecret: tokenSecret, youtube: youtube, twitch: twitch, kick: kick, kickWebhookPublicKey: os.Getenv("KICK_WEBHOOK_PUBLIC_KEY")}, nil
+	return serviceConfig{databaseURL: databaseURL, natsServers: natsServers, port: port, publicURL: publicURL, webURL: webURL, serviceSecret: serviceSecret, tokenEncryptionSecret: tokenSecret, youtube: youtube, twitch: twitch, kick: kick, vkVideo: vkVideo, kickWebhookPublicKey: os.Getenv("KICK_WEBHOOK_PUBLIC_KEY")}, nil
 }
 
 func requiredEnvironment(name string) (string, error) {

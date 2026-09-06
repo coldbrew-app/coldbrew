@@ -26,6 +26,7 @@ type ProviderConfig struct {
 	AuthorizationURL string
 	TokenURL         string
 	Scopes           []string
+	UsesVKID         bool
 }
 
 type OauthError struct {
@@ -94,6 +95,9 @@ func (oauth *Oauth) Start(ctx context.Context, userID int, provider, returnURL s
 	parameters.Set("state", state)
 	parameters.Set("code_challenge", sha256Base64URL(verifier))
 	parameters.Set("code_challenge_method", "S256")
+	if config.UsesVKID {
+		parameters.Set("code_challenge_method", "s256")
+	}
 	if provider == "youtube" {
 		parameters.Set("access_type", "offline")
 		parameters.Set("prompt", "consent")
@@ -107,11 +111,11 @@ func (oauth *Oauth) Finish(ctx context.Context, provider, requestURL string) (st
 	if err != nil {
 		return "", &OauthError{Type: "invalid oauth callback", Detail: "OAuth callback is incomplete", Cause: err}
 	}
-	state, code := callback.Query().Get("state"), callback.Query().Get("code")
-	if state == "" || code == "" || callback.Query().Has("error") {
+	callbackValues, err := oauthCallbackValues(callback)
+	if err != nil || callbackValues.State == "" || callbackValues.Code == "" || callbackValues.Error != "" {
 		return "", &OauthError{Type: "invalid oauth callback", Detail: "OAuth callback is incomplete"}
 	}
-	attempt, err := oauth.store.ConsumeOauthAttempt(ctx, sha256Hex(state), provider)
+	attempt, err := oauth.store.ConsumeOauthAttempt(ctx, sha256Hex(callbackValues.State), provider)
 	if err != nil {
 		return "", err
 	}
@@ -122,11 +126,14 @@ func (oauth *Oauth) Finish(ctx context.Context, provider, requestURL string) (st
 	if !exists {
 		return "", &OauthError{Type: "oauth provider unavailable", Detail: "OAuth для " + provider + " не настроен", ReturnURL: attempt.ReturnURL}
 	}
-	token, err := oauth.exchangeToken(ctx, config, code, attempt.Verifier)
+	if config.UsesVKID && (callbackValues.DeviceID == "" || len([]rune(callbackValues.DeviceID)) > 200) {
+		return "", &OauthError{Type: "invalid oauth callback", Detail: "VK ID callback is incomplete", ReturnURL: attempt.ReturnURL}
+	}
+	token, err := oauth.exchangeToken(ctx, config, callbackValues, attempt.Verifier)
 	if err != nil {
 		return "", &OauthError{Type: "oauth token exchange failed", Detail: "Не удалось завершить OAuth " + provider, ReturnURL: attempt.ReturnURL, Cause: err}
 	}
-	identity, err := oauth.identity(ctx, config, token.AccessToken)
+	identity, err := oauth.identity(ctx, config, token)
 	if err != nil {
 		var oauthError *OauthError
 		if errors.As(err, &oauthError) {
@@ -156,7 +163,7 @@ func (oauth *Oauth) Finish(ctx context.Context, provider, requestURL string) (st
 		value := oauth.now().Add(time.Duration(*token.ExpiresIn) * time.Second)
 		expiresAt = &value
 	}
-	_, err = oauth.store.SaveProviderAccount(ctx, attempt.UserID, SaveConnection{Provider: provider, ProviderUserID: identity.ProviderUserID, DisplayName: identity.DisplayName, AccessToken: token.AccessToken, RefreshToken: token.RefreshToken, AccessTokenExpiresAt: expiresAt, Scopes: normalizedScopes(token.Scope, config.Scopes)}, SaveSource{Provider: provider, ProviderSourceID: identity.ProviderUserID, DisplayName: identity.DisplayName, SourceURL: identity.SourceURL})
+	_, err = oauth.store.SaveProviderAccount(ctx, attempt.UserID, SaveConnection{Provider: provider, ProviderUserID: identity.ProviderUserID, DisplayName: identity.DisplayName, AccessToken: token.AccessToken, RefreshToken: token.RefreshToken, OAuthDeviceID: callbackValues.DeviceID, AccessTokenExpiresAt: expiresAt, Scopes: normalizedScopes(token.Scope, config.Scopes)}, SaveSource{Provider: provider, ProviderSourceID: identity.ProviderUserID, DisplayName: identity.DisplayName, SourceURL: identity.SourceURL})
 	if err != nil {
 		return "", err
 	}
@@ -168,18 +175,57 @@ type oauthToken struct {
 	RefreshToken string
 	ExpiresIn    *int
 	Scope        any
+	UserID       string
 }
 
-func (oauth *Oauth) exchangeToken(ctx context.Context, config ProviderConfig, code, verifier string) (oauthToken, error) {
-	values := url.Values{"grant_type": {"authorization_code"}, "code": {code}, "client_id": {config.ClientID}, "client_secret": {config.ClientSecret}, "redirect_uri": {oauth.callbackURL(config.Provider)}, "code_verifier": {verifier}}
+type oauthCallback struct {
+	State    string `json:"state"`
+	Code     string `json:"code"`
+	DeviceID string `json:"device_id"`
+	Error    string `json:"error"`
+}
+
+func oauthCallbackValues(callback *url.URL) (oauthCallback, error) {
+	values := callback.Query()
+	if payload := values.Get("payload"); payload != "" {
+		var result oauthCallback
+		if err := json.Unmarshal([]byte(payload), &result); err != nil {
+			return oauthCallback{}, err
+		}
+		return result, nil
+	}
+	return oauthCallback{State: values.Get("state"), Code: values.Get("code"), DeviceID: values.Get("device_id"), Error: values.Get("error")}, nil
+}
+
+func (oauth *Oauth) exchangeToken(ctx context.Context, config ProviderConfig, callback oauthCallback, verifier string) (oauthToken, error) {
+	values := url.Values{"grant_type": {"authorization_code"}, "code": {callback.Code}, "client_id": {config.ClientID}, "client_secret": {config.ClientSecret}, "redirect_uri": {oauth.callbackURL(config.Provider)}, "code_verifier": {verifier}}
+	tokenURL := config.TokenURL
+	if config.UsesVKID {
+		query := url.Values{"grant_type": {"authorization_code"}, "redirect_uri": {oauth.callbackURL(config.Provider)}, "client_id": {config.ClientID}, "code_verifier": {verifier}, "state": {callback.State}, "device_id": {callback.DeviceID}}
+		tokenURL += "?" + query.Encode()
+		values = url.Values{"code": {callback.Code}}
+	}
 	var raw struct {
 		AccessToken  string          `json:"access_token"`
 		RefreshToken *string         `json:"refresh_token"`
 		ExpiresIn    *int            `json:"expires_in"`
 		Scope        json.RawMessage `json:"scope"`
+		State        string          `json:"state"`
+		UserID       stringOrNumber  `json:"user_id"`
 	}
-	if err := oauth.requestJSON(ctx, http.MethodPost, config.TokenURL, strings.NewReader(values.Encode()), "", "application/x-www-form-urlencoded", &raw); err != nil {
+	if err := oauth.requestJSON(ctx, http.MethodPost, tokenURL, strings.NewReader(values.Encode()), "", "application/x-www-form-urlencoded", &raw); err != nil {
 		return oauthToken{}, err
+	}
+	if config.UsesVKID && (raw.State != callback.State || raw.UserID == "") {
+		return oauthToken{}, errors.New("invalid VK ID token response")
+	}
+	providerUserID := string(raw.UserID)
+	if config.UsesVKID {
+		parsedUserID, err := strconv.ParseInt(providerUserID, 10, 64)
+		if err != nil || parsedUserID <= 0 {
+			return oauthToken{}, errors.New("invalid VK ID user identifier")
+		}
+		providerUserID = strconv.FormatInt(parsedUserID, 10)
 	}
 	if raw.AccessToken == "" {
 		return oauthToken{}, errors.New("missing access token")
@@ -203,7 +249,7 @@ func (oauth *Oauth) exchangeToken(ctx context.Context, config ProviderConfig, co
 	if raw.RefreshToken != nil {
 		refreshToken = *raw.RefreshToken
 	}
-	return oauthToken{AccessToken: raw.AccessToken, RefreshToken: refreshToken, ExpiresIn: raw.ExpiresIn, Scope: scope}, nil
+	return oauthToken{AccessToken: raw.AccessToken, RefreshToken: refreshToken, ExpiresIn: raw.ExpiresIn, Scope: scope, UserID: providerUserID}, nil
 }
 
 func validOauthScopes(value any) bool {
@@ -228,7 +274,8 @@ type providerIdentity struct {
 	SourceURL      string
 }
 
-func (oauth *Oauth) identity(ctx context.Context, config ProviderConfig, accessToken string) (providerIdentity, error) {
+func (oauth *Oauth) identity(ctx context.Context, config ProviderConfig, token oauthToken) (providerIdentity, error) {
+	accessToken := token.AccessToken
 	if config.Provider == "youtube" {
 		var payload struct {
 			Items []struct {
@@ -258,6 +305,37 @@ func (oauth *Oauth) identity(ctx context.Context, config ProviderConfig, accessT
 		channel := payload.Data[0]
 		login := strings.ToLower(channel.Login)
 		return providerIdentity{ProviderUserID: channel.ID, DisplayName: login, SourceURL: "https://www.twitch.tv/" + login}, nil
+	}
+	if config.Provider == "vk_video" {
+		var payload struct {
+			Response []struct {
+				ID         stringOrNumber `json:"id"`
+				FirstName  string         `json:"first_name"`
+				LastName   string         `json:"last_name"`
+				ScreenName string         `json:"screen_name"`
+			} `json:"response"`
+			Error *struct {
+				Code int `json:"error_code"`
+			} `json:"error"`
+		}
+		profileQuery := url.Values{"v": {vkAPIVersion}, "fields": {"screen_name"}, "user_ids": {token.UserID}, "access_token": {accessToken}}
+		profileURL := "https://api.vk.ru/method/users.get?" + profileQuery.Encode()
+		if err := oauth.requestJSON(ctx, http.MethodGet, profileURL, nil, "", "", &payload); err != nil || payload.Error != nil || len(payload.Response) == 0 || string(payload.Response[0].ID) != token.UserID {
+			return providerIdentity{}, &OauthError{Type: "oauth profile failed", Detail: "Не удалось получить канал VK Video", Cause: err}
+		}
+		profile := payload.Response[0]
+		displayName := strings.TrimSpace(profile.FirstName + " " + profile.LastName)
+		if displayName == "" {
+			displayName = profile.ScreenName
+		}
+		if displayName == "" {
+			return providerIdentity{}, &OauthError{Type: "oauth profile failed", Detail: "VK Video вернул пустое имя канала"}
+		}
+		slug := profile.ScreenName
+		if slug == "" {
+			slug = "id" + string(profile.ID)
+		}
+		return providerIdentity{ProviderUserID: string(profile.ID), DisplayName: displayName, SourceURL: "https://vk.ru/" + slug}, nil
 	}
 	var payload struct {
 		Data []struct {
@@ -345,8 +423,8 @@ func normalizedScopes(value any, fallback []string) []string {
 	}
 }
 
-func OauthConfigs(youtube, twitch, kick *[2]string) []ProviderConfig {
-	configs := make([]ProviderConfig, 0, 3)
+func OauthConfigs(youtube, twitch, kick, vkVideo *[2]string) []ProviderConfig {
+	configs := make([]ProviderConfig, 0, 4)
 	if youtube != nil {
 		configs = append(configs, ProviderConfig{Provider: "youtube", ClientID: youtube[0], ClientSecret: youtube[1], AuthorizationURL: "https://accounts.google.com/o/oauth2/v2/auth", TokenURL: "https://oauth2.googleapis.com/token", Scopes: []string{"https://www.googleapis.com/auth/youtube.force-ssl"}})
 	}
@@ -355,6 +433,9 @@ func OauthConfigs(youtube, twitch, kick *[2]string) []ProviderConfig {
 	}
 	if kick != nil {
 		configs = append(configs, ProviderConfig{Provider: "kick", ClientID: kick[0], ClientSecret: kick[1], AuthorizationURL: "https://id.kick.com/oauth/authorize", TokenURL: "https://id.kick.com/oauth/token", Scopes: []string{"user:read", "channel:read", "events:subscribe", "chat:write", "moderation:chat_message:manage", "moderation:ban"}})
+	}
+	if vkVideo != nil {
+		configs = append(configs, ProviderConfig{Provider: "vk_video", ClientID: vkVideo[0], ClientSecret: vkVideo[1], AuthorizationURL: "https://id.vk.ru/authorize", TokenURL: "https://id.vk.ru/oauth2/auth", Scopes: []string{"video"}, UsesVKID: true})
 	}
 	return configs
 }

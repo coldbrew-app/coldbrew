@@ -18,6 +18,8 @@ type RefreshConfig struct {
 	ClientID     string
 	ClientSecret string
 	TokenURL     string
+	RedirectURL  string
+	UsesVKID     bool
 }
 
 type CredentialStore interface {
@@ -54,7 +56,22 @@ func (refresher *TokenRefresher) Refresh(ctx context.Context, source ConnectedSo
 		"client_id":     {config.ClientID},
 		"client_secret": {config.ClientSecret},
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, config.TokenURL, strings.NewReader(values.Encode()))
+	tokenURL := config.TokenURL
+	state := ""
+	if config.UsesVKID {
+		if source.Credentials.DeviceID == "" {
+			return ConnectedSource{}, &ProviderError{Type: "provider unauthorized", Detail: "Подключение VK Video нужно авторизовать заново"}
+		}
+		generatedState, randomErr := randomBase64URL(32)
+		if randomErr != nil {
+			return ConnectedSource{}, refreshProviderError("Не удалось обновить авторизацию чата", randomErr)
+		}
+		state = generatedState
+		query := url.Values{"grant_type": {"refresh_token"}, "redirect_uri": {config.RedirectURL}, "client_id": {config.ClientID}, "device_id": {source.Credentials.DeviceID}, "state": {state}}
+		tokenURL += "?" + query.Encode()
+		values = url.Values{"refresh_token": {source.Credentials.RefreshToken}}
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, strings.NewReader(values.Encode()))
 	if err != nil {
 		return ConnectedSource{}, refreshProviderError("Не удалось обновить авторизацию чата", err)
 	}
@@ -72,8 +89,9 @@ func (refresher *TokenRefresher) Refresh(ctx context.Context, source ConnectedSo
 		AccessToken  string  `json:"access_token"`
 		RefreshToken *string `json:"refresh_token"`
 		ExpiresIn    *int    `json:"expires_in"`
+		State        string  `json:"state"`
 	}
-	if err := json.NewDecoder(response.Body).Decode(&token); err != nil || token.AccessToken == "" || (token.RefreshToken != nil && *token.RefreshToken == "") || (token.ExpiresIn != nil && *token.ExpiresIn <= 0) {
+	if err := json.NewDecoder(response.Body).Decode(&token); err != nil || token.AccessToken == "" || (token.RefreshToken != nil && *token.RefreshToken == "") || (token.ExpiresIn != nil && *token.ExpiresIn <= 0) || (config.UsesVKID && token.State != state) {
 		if err == nil {
 			err = errors.New("invalid token response")
 		}
@@ -96,7 +114,7 @@ func (refresher *TokenRefresher) Refresh(ctx context.Context, source ConnectedSo
 		return ConnectedSource{}, &ProviderError{Type: "provider unavailable", Detail: "Авторизация чата уже обновляется другим экземпляром сервиса"}
 	}
 	next := source
-	next.Credentials = ProviderCredentials{AccessToken: token.AccessToken, RefreshToken: refreshToken, ExpiresAt: nextExpiry, Scopes: append([]string(nil), source.Credentials.Scopes...), TokenVersion: *nextVersion}
+	next.Credentials = ProviderCredentials{AccessToken: token.AccessToken, RefreshToken: refreshToken, DeviceID: source.Credentials.DeviceID, ExpiresAt: nextExpiry, Scopes: append([]string(nil), source.Credentials.Scopes...), TokenVersion: *nextVersion}
 	return next, nil
 }
 
@@ -176,8 +194,8 @@ func (provider *RefreshingProvider) Moderate(ctx context.Context, source Connect
 	return provider.delegate.Moderate(ctx, refreshed, command, providerBanID)
 }
 
-func TokenRefreshConfigs(youtube, twitch, kick *[2]string) []RefreshConfig {
-	configs := make([]RefreshConfig, 0, 3)
+func TokenRefreshConfigs(youtube, twitch, kick, vkVideo *[2]string, publicURL string) []RefreshConfig {
+	configs := make([]RefreshConfig, 0, 4)
 	if youtube != nil {
 		configs = append(configs, RefreshConfig{Provider: "youtube", ClientID: youtube[0], ClientSecret: youtube[1], TokenURL: "https://oauth2.googleapis.com/token"})
 	}
@@ -186,6 +204,10 @@ func TokenRefreshConfigs(youtube, twitch, kick *[2]string) []RefreshConfig {
 	}
 	if kick != nil {
 		configs = append(configs, RefreshConfig{Provider: "kick", ClientID: kick[0], ClientSecret: kick[1], TokenURL: "https://id.kick.com/oauth/token"})
+	}
+	if vkVideo != nil {
+		callbackURL := strings.TrimSuffix(publicURL, "/") + "/oauth/vk_video/callback"
+		configs = append(configs, RefreshConfig{Provider: "vk_video", ClientID: vkVideo[0], ClientSecret: vkVideo[1], TokenURL: "https://id.vk.ru/oauth2/auth", RedirectURL: callbackURL, UsesVKID: true})
 	}
 	return configs
 }

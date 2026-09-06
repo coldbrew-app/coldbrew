@@ -78,7 +78,10 @@ export const chatService = {
     return request("/internal/provider-availability", z.array(ChatProviderAvailabilitySchema));
   },
 
-  startOauth(userId: number, provider: Extract<ChatProvider, "youtube" | "twitch" | "kick">) {
+  startOauth(
+    userId: number,
+    provider: Extract<ChatProvider, "youtube" | "twitch" | "kick" | "vk_video">,
+  ) {
     return request("/internal/oauth/start", AuthorizationUrlSchema, { provider, userId });
   },
 

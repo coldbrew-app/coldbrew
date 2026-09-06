@@ -50,6 +50,7 @@ type Source struct {
 type ProviderCredentials struct {
 	AccessToken  string
 	RefreshToken string
+	DeviceID     string
 	ExpiresAt    *time.Time
 	Scopes       []string
 	TokenVersion int

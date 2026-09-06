@@ -89,8 +89,8 @@ The GitHub Variables and Secrets described below provide:
 - optionally, `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET` for multichat OAuth;
 - optionally, `KICK_CLIENT_ID`, `KICK_CLIENT_SECRET`, and `KICK_WEBHOOK_PUBLIC_KEY` for
   multichat OAuth and signed webhook verification;
-- optionally, the reserved `BOOSTY_CLIENT_ID` / `BOOSTY_CLIENT_SECRET` and
-  `VK_VIDEO_CLIENT_ID` / `VK_VIDEO_CLIENT_SECRET` pairs;
+- optionally, `VK_VIDEO_CLIENT_ID` and `VK_VIDEO_CLIENT_SECRET` for read-only VK Video multichat;
+- optionally, the reserved `BOOSTY_CLIENT_ID` / `BOOSTY_CLIENT_SECRET` pair;
 - `DONATION_ALERTS_CLIENT_ID` and `DONATION_ALERTS_CLIENT_SECRET`;
 - `DONATIONS_SERVICE_SECRET`, shared only by web and donations;
 - `AXIOM_TOKEN`, an ingest-only API token scoped to the `coldbrew-logs` dataset;
@@ -149,6 +149,9 @@ OAuth callback URLs:
 - `https://<domain>/api/auth/callback/google`
 - `https://<domain>/api/integration/donationalerts/callback`
 - `https://<domain>/api/chat/oauth/youtube/callback`
+- `https://<domain>/api/chat/oauth/twitch/callback`
+- `https://<domain>/api/chat/oauth/kick/callback`
+- `https://<domain>/api/chat/oauth/vk_video/callback`
 
 PostgreSQL 18 keeps the cluster in a version-specific subdirectory under
 `/var/lib/postgresql`; `compose.yaml` therefore mounts the volume at that

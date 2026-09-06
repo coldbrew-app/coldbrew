@@ -42,7 +42,7 @@ func (function oauthRoundTripFunc) RoundTrip(request *http.Request) (*http.Respo
 
 func TestOauthUsesPublicChatURLForCallback(t *testing.T) {
 	store := &oauthTestStore{}
-	oauth := NewOauth(store, "http://localhost:5173/api/chat", OauthConfigs(&[2]string{"client-id", "client-secret"}, nil, nil), http.DefaultClient)
+	oauth := NewOauth(store, "http://localhost:5173/api/chat", OauthConfigs(&[2]string{"client-id", "client-secret"}, nil, nil, nil), http.DefaultClient)
 	authorizationURL, err := oauth.Start(context.Background(), 42, "youtube", "http://localhost:5173/chat")
 	if err != nil {
 		t.Fatal(err)
@@ -84,7 +84,7 @@ func TestOauthSubscribesToKickChatWebhook(t *testing.T) {
 			return nil, nil
 		}
 	})}
-	oauth := NewOauth(store, "http://localhost:5173/api/chat", OauthConfigs(nil, nil, &[2]string{"client-id", "client-secret"}), client)
+	oauth := NewOauth(store, "http://localhost:5173/api/chat", OauthConfigs(nil, nil, &[2]string{"client-id", "client-secret"}, nil), client)
 	returnURL, err := oauth.Finish(context.Background(), "kick", "http://localhost:5173/api/chat/oauth/kick/callback?state=state&code=code")
 	if err != nil {
 		t.Fatal(err)
@@ -104,6 +104,56 @@ func TestOauthSubscribesToKickChatWebhook(t *testing.T) {
 	}
 }
 
+func TestOauthConnectsVKVideoWithVKIDDevice(t *testing.T) {
+	store := &oauthTestStore{attempt: &OauthAttempt{UserID: 42, Provider: "vk_video", Verifier: "verifier", ReturnURL: "http://localhost:5173/chat"}}
+	requestNumber := 0
+	client := &http.Client{Transport: oauthRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		requestNumber++
+		switch requestNumber {
+		case 1:
+			body, _ := io.ReadAll(request.Body)
+			values, _ := url.ParseQuery(string(body))
+			query := request.URL.Query()
+			if values.Get("code") != "code" || values.Has("client_secret") || query.Get("device_id") != "device-1" || query.Get("code_verifier") != "verifier" || query.Get("state") != "state" {
+				t.Fatalf("token request URL=%s body=%s", request.URL, body)
+			}
+			return oauthResponse(`{"access_token":"token","refresh_token":"refresh","expires_in":3600,"scope":"video","state":"state","user_id":123}`), nil
+		case 2:
+			if request.URL.Query().Get("access_token") != "token" || request.URL.Host != "api.vk.ru" {
+				t.Fatalf("profile request = %s headers=%v", request.URL, request.Header)
+			}
+			return oauthResponse(`{"response":[{"id":123,"first_name":"Иван","last_name":"Иванов","screen_name":"streamer"}]}`), nil
+		default:
+			t.Fatalf("unexpected request %d: %s", requestNumber, request.URL)
+			return nil, nil
+		}
+	})}
+	oauth := NewOauth(store, "http://localhost:5173/api/chat", OauthConfigs(nil, nil, nil, &[2]string{"client-id", "client-secret"}), client)
+	callbackPayload := url.QueryEscape(`{"code":"code","state":"state","device_id":"device-1"}`)
+	returnURL, err := oauth.Finish(context.Background(), "vk_video", "http://localhost:5173/api/chat/oauth/vk_video/callback?payload="+callbackPayload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if returnURL != "http://localhost:5173/chat" || requestNumber != 2 || store.savedConnection.OAuthDeviceID != "device-1" || store.savedConnection.ProviderUserID != "123" || store.savedSource.SourceURL != "https://vk.ru/streamer" {
+		t.Fatalf("returnURL=%q requests=%d connection=%#v source=%#v", returnURL, requestNumber, store.savedConnection, store.savedSource)
+	}
+}
+
+func TestOauthStartsVKIDWithLowercaseChallengeMethod(t *testing.T) {
+	oauth := NewOauth(&oauthTestStore{}, "https://coldbrew.example/api/chat", OauthConfigs(nil, nil, nil, &[2]string{"client-id", "client-secret"}), http.DefaultClient)
+	authorizationURL, err := oauth.Start(context.Background(), 42, "vk_video", "https://coldbrew.example/chat")
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := url.Parse(authorizationURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parsed.Host != "id.vk.ru" || parsed.Query().Get("code_challenge_method") != "s256" || parsed.Query().Get("scope") != "video" {
+		t.Fatalf("authorization URL = %s", parsed)
+	}
+}
+
 func TestOauthRejectsTokenResponsesOutsideOriginalSchema(t *testing.T) {
 	responses := []string{
 		`{"access_token":"token","refresh_token":""}`,
@@ -115,7 +165,7 @@ func TestOauthRejectsTokenResponsesOutsideOriginalSchema(t *testing.T) {
 		oauth := NewOauth(&oauthTestStore{}, "https://chat.example/api/chat", nil, &http.Client{Transport: oauthRoundTripFunc(func(*http.Request) (*http.Response, error) {
 			return oauthResponse(body), nil
 		})})
-		_, err := oauth.exchangeToken(context.Background(), ProviderConfig{Provider: "youtube", ClientID: "client", ClientSecret: "secret", TokenURL: "https://oauth.example/token"}, "code", "verifier")
+		_, err := oauth.exchangeToken(context.Background(), ProviderConfig{Provider: "youtube", ClientID: "client", ClientSecret: "secret", TokenURL: "https://oauth.example/token"}, oauthCallback{Code: "code"}, "verifier")
 		if err == nil {
 			t.Fatalf("accepted invalid token response: %s", body)
 		}

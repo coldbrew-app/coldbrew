@@ -42,26 +42,25 @@ PostgreSQL stores command audit rows without message text: provider, source, act
 message/user ID, duration, status, safe detail, and timestamp. Disconnecting an account does not
 delete those audit rows.
 
-YouTube performs active-broadcast discovery once when its collector starts. If the channel is
-offline or the broadcast ends, discovery remains idle until the streamer selects **Check stream**
-for that source. The command is distributed through NATS so it reaches the replica that owns the
-collector lease. Transport failures during an active operation still reconnect automatically with
-bounded exponential backoff.
+YouTube and VK Video perform active-broadcast discovery once when their collectors start. If a
+channel is offline or the broadcast ends, discovery remains idle until the streamer selects
+**Check stream** for that source. The command is distributed through NATS so it reaches the replica
+that owns the collector lease. Transport failures during an active operation still reconnect
+automatically with bounded exponential backoff.
 
 ## Provider capabilities
 
-| Provider | Read          | Send | Delete | Timeout / ban / unban | Collection                                                                       |
-| -------- | ------------- | ---- | ------ | --------------------- | -------------------------------------------------------------------------------- |
-| YouTube  | yes           | yes  | yes    | yes                   | manual active-broadcast discovery + server-streaming live chat                   |
-| Twitch   | yes           | yes  | yes    | yes                   | EventSub WebSocket                                                               |
-| Kick     | yes           | yes  | yes    | yes                   | signed `chat.message.sent` webhook                                               |
-| Boosty   | release-gated | no   | no     | no                    | read-only target; no stable public official chat API                             |
-| VK Video | release-gated | no   | no     | no                    | read-only target; requires a registered VK application and verified API contract |
+| Provider | Read          | Send | Delete | Timeout / ban / unban | Collection                                                     |
+| -------- | ------------- | ---- | ------ | --------------------- | -------------------------------------------------------------- |
+| YouTube  | yes           | yes  | yes    | yes                   | manual active-broadcast discovery + server-streaming live chat |
+| Twitch   | yes           | yes  | yes    | yes                   | EventSub WebSocket                                             |
+| Kick     | yes           | yes  | yes    | yes                   | signed `chat.message.sent` webhook                             |
+| Boosty   | release-gated | no   | no     | no                    | read-only target; no stable public official chat API           |
+| VK Video | yes           | no   | no     | no                    | active-broadcast discovery + video Long Poll                   |
 
-Boosty and VK Video already exist in the shared provider/capability model and UI availability
-response, but their connect buttons remain disabled until an official read contract can be
-implemented without scraping or user cookies. This is an intentional product limitation, not a
-fallback to arbitrary URLs.
+VK Video uses the official VK API `video.get` and `video.getLongPollServer` methods. It is read-only,
+uses the streamer's VK profile as its chat source, and never uses scraping or user cookies. Boosty
+remains release-gated because it has no stable public official chat API.
 
 ## OAuth and credentials
 
@@ -91,6 +90,7 @@ Provider settings are enabled as complete groups:
 YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET
 TWITCH_CLIENT_ID / TWITCH_CLIENT_SECRET
 KICK_CLIENT_ID / KICK_CLIENT_SECRET / KICK_WEBHOOK_PUBLIC_KEY
+VK_VIDEO_CLIENT_ID / VK_VIDEO_CLIENT_SECRET
 ```
 
 `CHAT_SERVICE_SECRET` must have the same value in `apps/web` and `apps/chat`. It authenticates the
@@ -111,6 +111,12 @@ requests chat read/write and moderation scopes. Kick
 requests user/channel read, event subscription, chat write, message moderation, and ban scopes.
 Kick webhook signatures are verified over `message-id.timestamp.raw-body` with RSA-SHA256, stale
 timestamps are rejected, and `Kick-Event-Message-Id` is the JetStream idempotency key.
+
+VK Video uses VK ID OAuth 2.1 with PKCE-S256. Register a web application in VK ID and add the exact
+callback `${CHAT_PUBLIC_URL}/oauth/vk_video/callback`. The integration requests the `video` scope,
+stores the returned `device_id` with the encrypted tokens for refresh, discovers a live video on
+the connected VK profile, and consumes its official video Long Poll URL. The registered redirect
+URI must exactly match the public callback, including scheme and path.
 
 ## Moderation and broadcast
 

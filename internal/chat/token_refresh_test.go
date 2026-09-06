@@ -88,6 +88,34 @@ func TestTokenRefresherRejectsConcurrentRotation(t *testing.T) {
 	}
 }
 
+func TestTokenRefresherUsesVKIDDeviceAndState(t *testing.T) {
+	nextVersion := 2
+	store := &refreshStore{version: &nextVersion}
+	client := &http.Client{Transport: oauthRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		body, _ := io.ReadAll(request.Body)
+		values, _ := url.ParseQuery(string(body))
+		query := request.URL.Query()
+		if values.Get("refresh_token") != "refresh-token" || values.Has("client_secret") || query.Get("device_id") != "device-1" || query.Get("redirect_uri") != "https://chat.example/oauth/vk_video/callback" || query.Get("state") == "" {
+			t.Fatalf("URL=%s body=%s", request.URL, body)
+		}
+		return youtubeResponse(http.StatusOK, `{"access_token":"next-access","refresh_token":"next-refresh","expires_in":3600,"state":"`+query.Get("state")+`"}`), nil
+	})}
+	refresher := NewTokenRefresher(store, []RefreshConfig{{Provider: "vk_video", ClientID: "client", TokenURL: "https://id.vk.ru/oauth2/auth", RedirectURL: "https://chat.example/oauth/vk_video/callback", UsesVKID: true}}, client)
+	now := time.Date(2026, 9, 6, 10, 0, 0, 0, time.UTC)
+	refresher.now = func() time.Time { return now }
+	source := youtubeTestSource()
+	source.Source.Provider = "vk_video"
+	source.Credentials.DeviceID = "device-1"
+	source.Credentials.ExpiresAt = &now
+	actual, err := refresher.Refresh(context.Background(), source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if actual.Credentials.AccessToken != "next-access" || actual.Credentials.RefreshToken != "next-refresh" || actual.Credentials.DeviceID != "device-1" {
+		t.Fatalf("credentials = %#v", actual.Credentials)
+	}
+}
+
 func TestTokenRefresherRejectsExplicitInvalidOptionalFields(t *testing.T) {
 	responses := []string{
 		`{"access_token":"next-access","refresh_token":""}`,
@@ -115,8 +143,8 @@ func TestTokenRefresherRejectsExplicitInvalidOptionalFields(t *testing.T) {
 
 func TestTokenRefreshConfigs(t *testing.T) {
 	credentials := &[2]string{"client", "secret"}
-	configs := TokenRefreshConfigs(credentials, credentials, credentials)
-	if len(configs) != 3 || !strings.Contains(configs[0].TokenURL, "googleapis") || !strings.Contains(configs[1].TokenURL, "twitch") || !strings.Contains(configs[2].TokenURL, "kick") {
+	configs := TokenRefreshConfigs(credentials, credentials, credentials, credentials, "https://chat.example/api/chat")
+	if len(configs) != 4 || !strings.Contains(configs[0].TokenURL, "googleapis") || !strings.Contains(configs[1].TokenURL, "twitch") || !strings.Contains(configs[2].TokenURL, "kick") || !configs[3].UsesVKID {
 		t.Fatalf("configs = %#v", configs)
 	}
 }

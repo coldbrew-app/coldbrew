@@ -109,6 +109,8 @@ CREATE TABLE chat_provider_connection (
                                                                CHECK (char_length(display_name) BETWEEN 1 AND 200),
   access_token_ciphertext     bytea                               NULL,
   refresh_token_ciphertext    bytea                               NULL,
+  oauth_device_id            text                                NULL
+                                                               CHECK (char_length(oauth_device_id) BETWEEN 1 AND 200),
   access_token_expires_at     js_date                             NULL,
   scopes                      text[]                          NOT NULL DEFAULT '{}',
   status                      chat_provider_connection_status NOT NULL DEFAULT 'connected',

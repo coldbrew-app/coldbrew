@@ -21,6 +21,7 @@ type SaveConnection struct {
 	DisplayName          string
 	AccessToken          string
 	RefreshToken         string
+	OAuthDeviceID        string
 	AccessTokenExpiresAt *time.Time
 	Scopes               []string
 }
@@ -179,6 +180,7 @@ func (store *Store) loadConnectedSources(ctx context.Context, userID int, source
 			source.enabled,
 			connection.access_token_ciphertext,
 			connection.refresh_token_ciphertext,
+			connection.oauth_device_id,
 			connection.access_token_expires_at,
 			connection.scopes,
 			connection.token_version
@@ -214,7 +216,7 @@ func (store *Store) scanConnectedSource(row rowScanner) (ConnectedSource, error)
 	var accessCiphertext, refreshCiphertext []byte
 	var expiresAt *time.Time
 	var scopes []string
-	if err := row.Scan(&result.Source.SourceID, &result.Source.ConnectionID, &result.Source.Provider, &result.Source.ProviderSourceID, &result.Source.DisplayName, &result.Source.SourceURL, &result.Source.Position, &result.Source.Enabled, &accessCiphertext, &refreshCiphertext, &expiresAt, &scopes, &result.Credentials.TokenVersion); err != nil {
+	if err := row.Scan(&result.Source.SourceID, &result.Source.ConnectionID, &result.Source.Provider, &result.Source.ProviderSourceID, &result.Source.DisplayName, &result.Source.SourceURL, &result.Source.Position, &result.Source.Enabled, &accessCiphertext, &refreshCiphertext, &result.Credentials.DeviceID, &expiresAt, &scopes, &result.Credentials.TokenVersion); err != nil {
 		return ConnectedSource{}, err
 	}
 	if accessCiphertext != nil {
@@ -251,6 +253,7 @@ func (store *Store) GetAllEnabledSources(ctx context.Context) ([]OwnedConnectedS
 			source.enabled,
 			connection.access_token_ciphertext,
 			connection.refresh_token_ciphertext,
+			connection.oauth_device_id,
 			connection.access_token_expires_at,
 			connection.scopes,
 			connection.token_version
@@ -301,6 +304,7 @@ func (store *Store) GetEnabledSourceByProviderID(ctx context.Context, provider, 
 			source.enabled,
 			connection.access_token_ciphertext,
 			connection.refresh_token_ciphertext,
+			connection.oauth_device_id,
 			connection.access_token_expires_at,
 			connection.scopes,
 			connection.token_version
@@ -376,14 +380,15 @@ func (store *Store) saveConnection(ctx context.Context, tx pgx.Tx, userID int, c
 	err = tx.QueryRow(ctx, `
 		INSERT INTO chat_provider_connection (
 			user_id, provider, provider_user_id, display_name, access_token_ciphertext,
-			refresh_token_ciphertext, access_token_expires_at, scopes
+			refresh_token_ciphertext, oauth_device_id, access_token_expires_at, scopes
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		ON CONFLICT (provider, provider_user_id) DO UPDATE
 		SET
 			display_name = EXCLUDED.display_name,
 			access_token_ciphertext = EXCLUDED.access_token_ciphertext,
 			refresh_token_ciphertext = COALESCE(EXCLUDED.refresh_token_ciphertext, chat_provider_connection.refresh_token_ciphertext),
+			oauth_device_id = COALESCE(EXCLUDED.oauth_device_id, chat_provider_connection.oauth_device_id),
 			access_token_expires_at = EXCLUDED.access_token_expires_at,
 			scopes = EXCLUDED.scopes,
 			status = 'connected',
@@ -391,7 +396,7 @@ func (store *Store) saveConnection(ctx context.Context, tx pgx.Tx, userID int, c
 			updated_at = now()
 		WHERE chat_provider_connection.user_id = EXCLUDED.user_id
 		RETURNING chat_provider_connection_id::text
-	`, userID, connection.Provider, connection.ProviderUserID, connection.DisplayName, accessCiphertext, refreshCiphertext, connection.AccessTokenExpiresAt, connection.Scopes).Scan(&connectionID)
+	`, userID, connection.Provider, connection.ProviderUserID, connection.DisplayName, accessCiphertext, refreshCiphertext, connection.OAuthDeviceID, connection.AccessTokenExpiresAt, connection.Scopes).Scan(&connectionID)
 	return connectionID, err
 }
 

@@ -32,9 +32,9 @@ application path reads or writes it.
 Broadcast messages are parallel best-effort operations. Each writable source returns its own
 success or failure, and successful sends are not rolled back when another provider fails.
 
-Boosty and VK Video are modelled as read-only targets, but stay release-gated until stable official
-read contracts and application credentials are available. Arbitrary URL or cookie-based scraping
-is not a fallback.
+VK Video is a read-only provider implemented through VK ID OAuth and the official video Long Poll
+API. Boosty stays release-gated until a stable official read contract is available. Arbitrary URL
+or cookie-based scraping is not a fallback.
 
 ## Consequences
 

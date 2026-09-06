@@ -4,7 +4,8 @@ import { env } from "@web/server/env";
 
 function isAllowedRequest(method: string, pathname: string) {
   return (
-    (method === "GET" && /^\/api\/chat\/oauth\/(youtube|twitch|kick)\/callback$/.test(pathname)) ||
+    (method === "GET" &&
+      /^\/api\/chat\/oauth\/(youtube|twitch|kick|vk_video)\/callback$/.test(pathname)) ||
     (method === "POST" && pathname === "/api/chat/webhooks/kick")
   );
 }
