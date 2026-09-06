@@ -33,8 +33,10 @@ Broadcast messages are parallel best-effort operations. Each writable source ret
 success or failure, and successful sends are not rolled back when another provider fails.
 
 VK Video is a read-only provider implemented through VK ID OAuth and the official video Long Poll
-API. Boosty stays release-gated until a stable official read contract is available. Arbitrary URL
-or cookie-based scraping is not a fallback.
+API. Boosty uses an unofficial read-only HTTP client and a manually supplied session token
+as an explicitly accepted exception (2026-09-06). The token resolves the owning account;
+arbitrary channel URLs are not accepted. See [Boosty integration](../boosty.md) for the
+protocol evidence and operational limitations.
 
 ## Consequences
 
@@ -43,5 +45,5 @@ or cookie-based scraping is not a fallback.
   users who watch the same provider channel.
 - The deployment gains NATS and a separately scalable chat process.
 - Cross-provider commands are explicitly non-transactional and require partial-result UI.
-- OAuth configuration and provider contract tests become prerequisites for enabling a provider.
+- Provider authentication configuration and contract tests become prerequisites for enabling a provider.
 - YouTube offline discovery is user-triggered instead of consuming project quota continuously.

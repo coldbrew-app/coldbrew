@@ -55,7 +55,8 @@ func run() error {
 	httpClient := &http.Client{Timeout: 30 * time.Second}
 	oauthConfigs := chat.OauthConfigs(config.youtube, config.twitch, config.kick, config.vkVideo)
 	oauth := chat.NewOauth(store, config.publicURL, oauthConfigs, httpClient)
-	baseProviders := []chat.Provider{chat.NewYoutubeProvider(httpClient)}
+	boosty := chat.NewBoostyProvider(httpClient)
+	baseProviders := []chat.Provider{chat.NewYoutubeProvider(httpClient), boosty}
 	if config.twitch != nil {
 		baseProviders = append(baseProviders, chat.NewTwitchProvider(config.twitch[0], config.twitch[1], httpClient))
 	}
@@ -79,7 +80,7 @@ func run() error {
 			return fmt.Errorf("configure Kick webhook: %w", err)
 		}
 	}
-	handler := chat.NewHTTPHandler(application, oauth, store, config.serviceSecret, config.webURL, kickWebhook)
+	handler := chat.NewHTTPHandler(application, oauth, store, config.serviceSecret, config.webURL, kickWebhook, chat.NewBoostyConnector(boosty, store))
 	server := &http.Server{Addr: ":" + strconv.Itoa(config.port), Handler: handler, ReadHeaderTimeout: 10 * time.Second}
 	collectorErrors := make(chan error, 1)
 	go func() {

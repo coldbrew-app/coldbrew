@@ -5,7 +5,8 @@ the Coldbrew user, validates chat inputs and outputs with Zod, and relays comman
 The browser uses the same `/api/trpc` client as the rest of the application and never connects to
 `apps/chat` directly.
 
-The product accepts only provider accounts owned by the streamer and connected through OAuth.
+The product accepts only provider accounts owned by the streamer. Providers use OAuth, except
+Boosty, which uses manually supplied access/refresh tokens and a device ID through its unofficial API.
 Multiple accounts from the same provider are supported. The old arbitrary live-stream URL editor
 is no longer used. Its legacy PostgreSQL table remains during the non-destructive rollout, but no
 application path reads or writes it.
@@ -50,17 +51,17 @@ automatically with bounded exponential backoff.
 
 ## Provider capabilities
 
-| Provider | Read          | Send | Delete | Timeout / ban / unban | Collection                                                     |
-| -------- | ------------- | ---- | ------ | --------------------- | -------------------------------------------------------------- |
-| YouTube  | yes           | yes  | yes    | yes                   | manual active-broadcast discovery + server-streaming live chat |
-| Twitch   | yes           | yes  | yes    | yes                   | EventSub WebSocket                                             |
-| Kick     | yes           | yes  | yes    | yes                   | signed `chat.message.sent` webhook                             |
-| Boosty   | release-gated | no   | no     | no                    | read-only target; no stable public official chat API           |
-| VK Video | yes           | no   | no     | no                    | active-broadcast discovery + video Long Poll                   |
+| Provider | Read | Send | Delete | Timeout / ban / unban | Collection                                                     |
+| -------- | ---- | ---- | ------ | --------------------- | -------------------------------------------------------------- |
+| YouTube  | yes  | yes  | yes    | yes                   | manual active-broadcast discovery + server-streaming live chat |
+| Twitch   | yes  | yes  | yes    | yes                   | EventSub WebSocket                                             |
+| Kick     | yes  | yes  | yes    | yes                   | signed `chat.message.sent` webhook                             |
+| Boosty   | yes  | no   | no     | no                    | unofficial web API, HTTP polling                               |
+| VK Video | yes  | no   | no     | no                    | active-broadcast discovery + video Long Poll                   |
 
 VK Video uses the official VK API `video.get` and `video.getLongPollServer` methods. It is read-only,
 uses the streamer's VK profile as its chat source, and never uses scraping or user cookies. Boosty
-remains release-gated because it has no stable public official chat API.
+uses a separate token connection flow; see [setup, protocol evidence, and limitations](boosty.md).
 
 ## OAuth and credentials
 

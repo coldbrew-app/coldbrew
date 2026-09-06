@@ -56,7 +56,7 @@ func (*httpTestStore) Disconnect(context.Context, int, string) error { return ni
 
 func newHTTPTestHandler(application *httpTestApplication) (*HTTPHandler, *httpTestOauth) {
 	oauth := &httpTestOauth{available: map[string]bool{"youtube": true}, returnURL: "https://web.example/chat"}
-	return NewHTTPHandler(application, oauth, &httpTestStore{}, httpTestSecret, "https://web.example", nil), oauth
+	return NewHTTPHandler(application, oauth, &httpTestStore{}, httpTestSecret, "https://web.example", nil, nil), oauth
 }
 
 func authorizedRequest(method, target, body string) *http.Request {

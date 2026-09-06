@@ -39,10 +39,11 @@ type HTTPHandler struct {
 	serviceSecret string
 	webURL        string
 	kickWebhook   *KickWebhookHandler
+	boosty        *BoostyConnector
 }
 
-func NewHTTPHandler(application ChatAPI, oauth HTTPOauth, store HTTPStore, serviceSecret, webURL string, kickWebhook *KickWebhookHandler) *HTTPHandler {
-	return &HTTPHandler{application: application, oauth: oauth, store: store, serviceSecret: serviceSecret, webURL: webURL, kickWebhook: kickWebhook}
+func NewHTTPHandler(application ChatAPI, oauth HTTPOauth, store HTTPStore, serviceSecret, webURL string, kickWebhook *KickWebhookHandler, boosty *BoostyConnector) *HTTPHandler {
+	return &HTTPHandler{application: application, oauth: oauth, store: store, serviceSecret: serviceSecret, webURL: webURL, kickWebhook: kickWebhook, boosty: boosty}
 }
 
 func (handler *HTTPHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
@@ -64,6 +65,8 @@ func (handler *HTTPHandler) ServeHTTP(response http.ResponseWriter, request *htt
 		handler.handleConfig(response, request)
 	case request.URL.Path == "/internal/provider-availability" && request.Method == http.MethodGet:
 		writeJSON(response, http.StatusOK, handler.providerAvailability())
+	case request.URL.Path == "/internal/boosty/connect" && request.Method == http.MethodPost:
+		handler.handleConnectBoosty(response, request)
 	case request.URL.Path == "/internal/oauth/start" && request.Method == http.MethodPost:
 		handler.handleStartOauth(response, request)
 	case request.URL.Path == "/internal/connections/disconnect" && request.Method == http.MethodPost:
@@ -120,6 +123,27 @@ func (handler *HTTPHandler) handleConfig(response http.ResponseWriter, request *
 	}
 	value, err := handler.application.Config(request.Context(), input.UserID)
 	writeResult(response, value, err)
+}
+
+func (handler *HTTPHandler) handleConnectBoosty(response http.ResponseWriter, request *http.Request) {
+	var input struct {
+		UserID int `json:"userId"`
+		BoostyCredentials
+	}
+	if !decodeInput(response, request, &input) || !validUserID(response, input.UserID) {
+		return
+	}
+	if handler.boosty == nil {
+		writeError(response, http.StatusServiceUnavailable, "Boosty unavailable")
+		return
+	}
+	err := handler.boosty.Connect(request.Context(), input.UserID, input.BoostyCredentials)
+	var providerError *ProviderError
+	if errors.As(err, &providerError) {
+		writeError(response, http.StatusBadRequest, providerError.Detail)
+		return
+	}
+	writeResult(response, nil, err)
 }
 
 func (handler *HTTPHandler) handleStartOauth(response http.ResponseWriter, request *http.Request) {
@@ -327,7 +351,7 @@ func (handler *HTTPHandler) providerAvailability() []map[string]string {
 		result = append(result, item)
 	}
 	return append(result,
-		map[string]string{"provider": "boosty", "access": "unavailable", "detail": "У Boosty пока нет публичного официального API чата"},
+		map[string]string{"provider": "boosty", "access": "read_only", "detail": "Unofficial Boosty chat integration"},
 	)
 }
 
