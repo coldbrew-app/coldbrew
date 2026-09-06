@@ -320,25 +320,26 @@ function ChatPage() {
                       </span>
                     )}
                     <div className="flex grow justify-end gap-1">
-                      {connection.provider === "youtube" && source && (
-                        <Button
-                          disabled={
-                            refreshSource.isPending ||
-                            sourceState === "live" ||
-                            sourceState === "connecting"
-                          }
-                          onClick={() => refreshSource.mutate({ sourceId: source.sourceId })}
-                          size="xs"
-                          variant="ghost"
-                        >
-                          {isRefreshing ? (
-                            <Icons.loader aria-hidden="true" className="animate-spin" />
-                          ) : (
-                            <Icons.retry aria-hidden="true" />
-                          )}
-                          {isRefreshing ? text.checkingStream : text.checkStream}
-                        </Button>
-                      )}
+                      {(connection.provider === "youtube" || connection.provider === "vk_video") &&
+                        source && (
+                          <Button
+                            disabled={
+                              refreshSource.isPending ||
+                              sourceState === "live" ||
+                              sourceState === "connecting"
+                            }
+                            onClick={() => refreshSource.mutate({ sourceId: source.sourceId })}
+                            size="xs"
+                            variant="ghost"
+                          >
+                            {isRefreshing ? (
+                              <Icons.loader aria-hidden="true" className="animate-spin" />
+                            ) : (
+                              <Icons.retry aria-hidden="true" />
+                            )}
+                            {isRefreshing ? text.checkingStream : text.checkStream}
+                          </Button>
+                        )}
                       <Button
                         disabled={disconnect.isPending}
                         onClick={() => disconnect.mutate({ connectionId: connection.connectionId })}
@@ -365,7 +366,8 @@ function ChatPage() {
                   provider.access !== "unavailable" &&
                   (provider.provider === "youtube" ||
                     provider.provider === "twitch" ||
-                    provider.provider === "kick");
+                    provider.provider === "kick" ||
+                    provider.provider === "vk_video");
                 return (
                   <Button
                     className="h-auto   justify-start gap-2 p-2.5"
@@ -375,7 +377,8 @@ function ChatPage() {
                       if (
                         provider.provider === "youtube" ||
                         provider.provider === "twitch" ||
-                        provider.provider === "kick"
+                        provider.provider === "kick" ||
+                        provider.provider === "vk_video"
                       ) {
                         startOauth.mutate({ provider: provider.provider });
                       }

@@ -18,7 +18,7 @@ func TestConfiguredPairRequiresBothValues(t *testing.T) {
 }
 
 func TestLoadConfigUsesDocumentedDefaults(t *testing.T) {
-	for _, name := range []string{"CHAT_TOKEN_ENCRYPTION_SECRET", "CHAT_PUBLIC_URL", "CHAT_WEB_URL", "YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "TWITCH_CLIENT_ID", "TWITCH_CLIENT_SECRET", "KICK_CLIENT_ID", "KICK_CLIENT_SECRET", "KICK_WEBHOOK_PUBLIC_KEY"} {
+	for _, name := range []string{"CHAT_TOKEN_ENCRYPTION_SECRET", "CHAT_PUBLIC_URL", "CHAT_WEB_URL", "YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "TWITCH_CLIENT_ID", "TWITCH_CLIENT_SECRET", "KICK_CLIENT_ID", "KICK_CLIENT_SECRET", "KICK_WEBHOOK_PUBLIC_KEY", "VK_VIDEO_CLIENT_ID", "VK_VIDEO_CLIENT_SECRET"} {
 		t.Setenv(name, "")
 	}
 	t.Setenv("DATABASE_URL", "postgresql://localhost/coldbrew")

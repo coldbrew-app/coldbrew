@@ -130,7 +130,7 @@ func (handler *HTTPHandler) handleStartOauth(response http.ResponseWriter, reque
 	if !decodeInput(response, request, &input) || !validUserID(response, input.UserID) {
 		return
 	}
-	if input.Provider != "youtube" && input.Provider != "twitch" && input.Provider != "kick" {
+	if input.Provider != "youtube" && input.Provider != "twitch" && input.Provider != "kick" && input.Provider != "vk_video" {
 		writeError(response, http.StatusBadRequest, "invalid OAuth provider")
 		return
 	}
@@ -256,7 +256,7 @@ func (handler *HTTPHandler) handleKickWebhook(response http.ResponseWriter, requ
 
 func (handler *HTTPHandler) handleOauthCallback(response http.ResponseWriter, request *http.Request) {
 	provider := strings.TrimSuffix(strings.TrimPrefix(request.URL.Path, "/oauth/"), "/callback")
-	if provider != "youtube" && provider != "twitch" && provider != "kick" {
+	if provider != "youtube" && provider != "twitch" && provider != "kick" && provider != "vk_video" {
 		http.NotFound(response, request)
 		return
 	}
@@ -314,8 +314,12 @@ func absoluteRequestURL(request *http.Request) string {
 
 func (handler *HTTPHandler) providerAvailability() []map[string]string {
 	result := make([]map[string]string, 0, 5)
-	for _, provider := range []string{"youtube", "twitch", "kick"} {
-		item := map[string]string{"provider": provider, "access": "full"}
+	for _, provider := range []string{"youtube", "twitch", "kick", "vk_video"} {
+		access := "full"
+		if provider == "vk_video" {
+			access = "read_only"
+		}
+		item := map[string]string{"provider": provider, "access": access}
 		if !handler.oauth.Available(provider) {
 			item["access"] = "unavailable"
 			item["detail"] = "OAuth " + providerDisplayName(provider) + " не настроен"
@@ -324,7 +328,6 @@ func (handler *HTTPHandler) providerAvailability() []map[string]string {
 	}
 	return append(result,
 		map[string]string{"provider": "boosty", "access": "unavailable", "detail": "У Boosty пока нет публичного официального API чата"},
-		map[string]string{"provider": "vk_video", "access": "unavailable", "detail": "Read-only подключение появится после регистрации VK-приложения"},
 	)
 }
 
@@ -334,6 +337,9 @@ func providerDisplayName(provider string) string {
 	}
 	if provider == "twitch" {
 		return "Twitch"
+	}
+	if provider == "vk_video" {
+		return "VK Video"
 	}
 	return "Kick"
 }

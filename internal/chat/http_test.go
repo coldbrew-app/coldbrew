@@ -37,10 +37,12 @@ type httpTestOauth struct {
 	callbackURL   string
 	callbackError error
 	returnURL     string
+	started       string
 }
 
 func (oauth *httpTestOauth) Available(provider string) bool { return oauth.available[provider] }
-func (*httpTestOauth) Start(context.Context, int, string, string) (string, error) {
+func (oauth *httpTestOauth) Start(_ context.Context, _ int, provider, _ string) (string, error) {
+	oauth.started = provider
 	return "https://oauth.example/authorize", nil
 }
 func (oauth *httpTestOauth) Finish(_ context.Context, _, callbackURL string) (string, error) {
@@ -146,6 +148,25 @@ func TestHTTPHandlerOauthCallbackReportsSafeErrorType(t *testing.T) {
 	}
 	if response.Code != http.StatusFound || location.Query().Get("chat_oauth") != "error" || location.Query().Get("chat_oauth_error") != "oauth token exchange failed" || strings.Contains(location.String(), "secret") {
 		t.Fatalf("status=%d location=%s", response.Code, location)
+	}
+}
+
+func TestHTTPHandlerExposesConfiguredVKVideoAsReadOnly(t *testing.T) {
+	handler, oauth := newHTTPTestHandler(&httpTestApplication{})
+	oauth.available["vk_video"] = true
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, authorizedRequest(http.MethodGet, "/internal/provider-availability", ""))
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `{"access":"read_only","provider":"vk_video"}`) {
+		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
+	}
+}
+
+func TestHTTPHandlerStartsVKVideoOauth(t *testing.T) {
+	handler, oauth := newHTTPTestHandler(&httpTestApplication{})
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, authorizedRequest(http.MethodPost, "/internal/oauth/start", `{"userId":42,"provider":"vk_video"}`))
+	if response.Code != http.StatusOK || oauth.started != "vk_video" {
+		t.Fatalf("status=%d provider=%q body=%s", response.Code, oauth.started, response.Body.String())
 	}
 }
 

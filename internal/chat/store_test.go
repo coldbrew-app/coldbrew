@@ -17,7 +17,7 @@ func TestCapabilitiesFor(t *testing.T) {
 		{name: "twitch partial", provider: "twitch", scopes: []string{"user:read:chat", "moderator:manage:banned_users"}, expected: []Capability{CapabilityRead, CapabilityTimeoutUser, CapabilityBanUser, CapabilityUnbanUser}},
 		{name: "kick full", provider: "kick", scopes: []string{"events:subscribe", "chat:write", "moderation:chat_message:manage", "moderation:ban"}, expected: []Capability{CapabilityRead, CapabilitySendMessage, CapabilityDeleteMessage, CapabilityTimeoutUser, CapabilityBanUser, CapabilityUnbanUser}},
 		{name: "boosty release gated", provider: "boosty", expected: []Capability{CapabilityRead}},
-		{name: "vk video release gated", provider: "vk_video", expected: []Capability{CapabilityRead}},
+		{name: "vk video read only", provider: "vk_video", expected: []Capability{CapabilityRead}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

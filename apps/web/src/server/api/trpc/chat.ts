@@ -77,7 +77,7 @@ export const chatRouter = router({
   startOauth: authenticatedProcedure
     .input(
       z.object({
-        provider: z.enum(["youtube", "twitch", "kick"]),
+        provider: z.enum(["youtube", "twitch", "kick", "vk_video"]),
       }),
     )
     .output(
