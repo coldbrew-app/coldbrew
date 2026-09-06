@@ -37,9 +37,9 @@ import PageLoadingSkeleton from "./-components/page-loading-skeleton";
 import appCss from "../../styles.css?url";
 
 const navItem =
-  "group flex min-h-11 items-center gap-3 rounded-xl border border-transparent px-3 text-sm font-medium text-sidebar-foreground/65 transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground";
+  "group flex min-h-12 items-center gap-3 rounded-xl border border-transparent px-3 text-sm font-medium text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground [&_svg]:size-[18px]";
 const activeNavItem =
-  "border-sidebar-primary/25 bg-sidebar-accent font-bold text-sidebar-primary shadow-sm shadow-black/15 [&_svg]:text-sidebar-primary";
+  "border-sidebar-primary/25 bg-sidebar-primary/10 font-semibold text-sidebar-primary [&_svg]:text-sidebar-primary";
 const localeFlags: Record<Locale, string> = { en: "🇬🇧", ru: "🇷🇺" };
 const themeCookieMaxAge = 60 * 60 * 24 * 365;
 
@@ -183,7 +183,7 @@ function AuthenticatedApplicationContent() {
   return (
     <main className="flex h-dvh w-full min-w-0 bg-background font-sans text-foreground transition-colors duration-300">
       <Sidebar>
-        <aside className="relative flex size-full flex-col overflow-hidden border-r border-sidebar-border bg-sidebar px-4 pt-7 pb-5 transition-colors duration-300">
+        <aside className="coffee-sidebar relative flex size-full flex-col overflow-hidden border-r border-sidebar-border bg-sidebar px-4 pt-7 pb-5 transition-colors duration-300">
           <div className="relative z-10 flex items-center gap-3">
             <Link
               to="/"
@@ -194,10 +194,9 @@ function AuthenticatedApplicationContent() {
             </Link>
           </div>
           <div className="relative z-10 flex flex-col gap-1 px-1 pt-4">
-            <span className="text-[10px] font-bold tracking-[0.18em] text-sidebar-primary uppercase">
-              stream control
+            <span className="max-w-40 text-xs leading-5 text-sidebar-foreground/65">
+              {t("sidebarStory")}
             </span>
-            <span className="text-[11px] text-sidebar-foreground/45">coffee in, moments out</span>
           </div>
           <nav className="relative z-10 grid gap-1.5 pt-8" aria-label={t("overview")}>
             <Link
@@ -256,7 +255,9 @@ function AuthenticatedApplicationContent() {
               <Icons.alerts aria-hidden="true" />
               {t("alerts")}
               <Tooltip>
-                <TooltipTrigger>🚧</TooltipTrigger>
+                <TooltipTrigger aria-label={t("underConstruction")}>
+                  <Icons.warn aria-hidden="true" className="size-3.5" />
+                </TooltipTrigger>
                 <TooltipContent>{t("underConstruction")}</TooltipContent>
               </Tooltip>
             </Link>
@@ -340,18 +341,12 @@ function AuthenticatedApplicationContent() {
               </div>
             </div>
             <div className="flex items-center gap-2.5 border-t border-sidebar-border px-2 pt-5">
-              {user.image !== null ? (
-                <img alt="" className="size-8 rounded-lg object-cover" src={user.image} />
-              ) : (
-                <div className="grid size-8 place-items-center rounded-lg bg-linear-to-br from-[#d8a168] to-[#8a5939] text-[11px] font-bold text-white">
-                  {user.name.slice(0, 2).toUpperCase()}
-                </div>
-              )}
+              <AccountAvatar key={user.image} image={user.image} name={user.name} />
               <div className="min-w-0 grow">
                 <strong className="block truncate text-xs text-sidebar-foreground">
                   {user.name}
                 </strong>
-                <small className="mt-0.5 block truncate text-[10px] text-sidebar-foreground/50">
+                <small className="mt-0.5 block truncate text-[10px] text-sidebar-foreground/65">
                   {userInfo.slug}
                 </small>
               </div>
@@ -407,7 +402,7 @@ function AuthenticatedApplicationContent() {
             </Button>
           </div>
         )}
-        <div className="min-h-0 min-w-0 grow overflow-y-auto overscroll-contain">
+        <div id="app-content" className="min-h-0 min-w-0 grow overflow-y-auto overscroll-contain">
           <div className="mx-auto min-h-full w-full max-w-[1500px] px-3 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-6 lg:px-8">
             <Suspense
               fallback={
@@ -424,5 +419,33 @@ function AuthenticatedApplicationContent() {
         </div>
       </div>
     </main>
+  );
+}
+
+function AccountAvatar({ image, name }: { image: string | null; name: string }) {
+  const [failed, setFailed] = useState(false);
+
+  return image && !failed ? (
+    <img
+      alt=""
+      className="size-8 shrink-0 rounded-lg object-cover"
+      src={image}
+      ref={(element) => {
+        if (element?.complete && element.naturalWidth === 0) setFailed(true);
+      }}
+      onError={() => setFailed(true)}
+    />
+  ) : (
+    <span
+      aria-hidden="true"
+      className="grid size-8 shrink-0 place-items-center rounded-lg bg-sidebar-accent text-[11px] font-semibold text-sidebar-primary"
+    >
+      {name
+        .split(/\s+/)
+        .map((part) => part.charAt(0))
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()}
+    </span>
   );
 }

@@ -43,10 +43,10 @@ export default function SignIn() {
   ] as const;
 
   return (
-    <main className="relative flex min-h-dvh flex-col items-center overflow-hidden bg-background px-4 text-foreground sm:px-6">
-      <div className="cosmic-grid pointer-events-none absolute inset-0 opacity-30" />
+    <main className="landing-world relative flex min-h-dvh flex-col items-center overflow-hidden px-5 text-foreground sm:px-8">
+      <div className="cosmic-starlight pointer-events-none absolute inset-0" />
 
-      <header className="relative z-10 flex w-full max-w-6xl items-center justify-between gap-4 py-5 sm:py-7">
+      <header className="relative z-10 flex w-full max-w-6xl items-center justify-between gap-4 border-b border-border/60 py-5 sm:py-7">
         <div className="flex items-center gap-2.5 font-heading text-xl font-semibold tracking-tight sm:text-2xl">
           <img alt="" className="size-10 object-contain sm:size-12" src={productMark} />
           Coldbrew
@@ -62,24 +62,21 @@ export default function SignIn() {
         </Button>
       </header>
 
-      <div className="relative z-10 flex w-full max-w-6xl flex-col gap-16 pb-8 sm:gap-20 sm:pb-12">
-        <section className="grid overflow-hidden rounded-[2rem] border border-primary/20 bg-card shadow-2xl shadow-primary/15 lg:grid-cols-[1.08fr_.92fr]">
-          <div className="flex flex-col justify-center gap-6 p-7 sm:p-10 lg:p-14">
+      <div className="relative z-10 flex w-full max-w-6xl flex-col gap-20 pb-8 sm:gap-28 sm:pb-12">
+        <section className="landing-intro grid items-center gap-6 pt-10 lg:min-h-[680px] lg:grid-cols-[1fr_1fr] lg:gap-0 lg:pt-0">
+          <div className="relative z-10 flex flex-col justify-center gap-7 py-5 lg:py-16 lg:pr-7">
             <div className="flex max-w-2xl flex-col gap-4">
-              <span className="text-xs font-bold tracking-[0.18em] text-primary uppercase">
-                {t("signInEyebrow")}
-              </span>
-              <h1 className="font-heading text-[clamp(2.6rem,7vw,5.25rem)] leading-[0.96] font-semibold tracking-[-0.035em]">
+              <h1 className="font-heading text-[clamp(2.75rem,5.4vw,4.75rem)] leading-[1.06] font-medium tracking-[-0.035em] text-balance">
                 {t("landingHeadline")}
               </h1>
               <p className="max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">
                 {t("landingDescription")}
               </p>
             </div>
-            <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+            <div className="flex flex-col items-start gap-3">
               <Button
                 aria-busy={isSigningIn}
-                className="h-11 rounded-xl px-5 shadow-lg shadow-primary/20"
+                className="h-12 rounded-xl px-6 text-sm shadow-lg shadow-primary/15"
                 disabled={isSigningIn}
                 onClick={() => void handleSignIn()}
                 size="lg"
@@ -91,31 +88,22 @@ export default function SignIn() {
               </span>
             </div>
           </div>
-          <div className="cosmic-hero relative flex min-h-[420px] flex-col justify-between overflow-hidden p-7 text-white sm:min-h-[500px] sm:p-10 lg:min-h-[620px]">
+          <div className="coffee-observatory relative flex min-h-[560px] flex-col justify-between overflow-hidden px-7 pt-28 pb-8 text-[#fff8ed] sm:min-h-[620px] sm:px-10 sm:pb-10">
             <div className="relative z-10 flex max-w-sm flex-col gap-3">
-              <span className="text-[10px] font-bold tracking-[0.18em] text-[#ffcf69] uppercase">
-                {t("landingSignalEyebrow")}
-              </span>
-              <h2 className="font-heading text-3xl leading-tight font-semibold sm:text-4xl">
+              <h2 className="max-w-72 font-heading text-2xl leading-tight font-medium sm:text-3xl">
                 {t("orbitCaption")}
               </h2>
-              <p className="text-sm leading-6 text-white/70">{t("signInStory")}</p>
+              <p className="max-w-64 text-sm leading-6 text-[#e3c8b6]">{t("signInStory")}</p>
             </div>
-            <div className="relative z-10 flex flex-col gap-2 self-start rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
-              <span className="text-[10px] font-bold tracking-[0.16em] text-[#ffcf69] uppercase">
-                {t("landingWorkflowEyebrow")}
-              </span>
+            <div className="relative z-10 flex flex-col gap-2 self-start border-t border-[#e4b88b]/35 pt-4">
               <span className="text-sm font-medium text-white/90">{t("landingWorkflow")}</span>
             </div>
-            <CosmicArt className="pointer-events-none absolute right-[-38px] bottom-[-34px] w-[360px] sm:w-[430px]" />
+            <CosmicArt className="pointer-events-none absolute -right-12 bottom-10 w-[360px] sm:-right-14 sm:bottom-9 sm:w-[450px]" />
           </div>
         </section>
 
         <section aria-labelledby="landing-features" className="flex flex-col gap-7">
           <div className="flex max-w-2xl flex-col gap-3">
-            <span className="text-xs font-bold tracking-[0.18em] text-primary uppercase">
-              {t("landingFeaturesEyebrow")}
-            </span>
             <h2
               className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl"
               id="landing-features"
@@ -124,15 +112,15 @@ export default function SignIn() {
             </h2>
             <p className="leading-7 text-muted-foreground">{t("landingFeaturesDescription")}</p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-x-12 gap-y-0 sm:grid-cols-2">
             {features.map((feature) => {
               const Icon = feature.icon;
               return (
                 <article
-                  className="cosmic-panel flex min-w-0 flex-col gap-4 p-6 sm:p-7"
+                  className="flex min-w-0 items-start gap-5 border-t border-border py-7"
                   key={feature.title}
                 >
-                  <div className="grid size-10 place-items-center rounded-xl bg-secondary text-primary">
+                  <div className="grid size-10 shrink-0 place-items-center rounded-full bg-secondary text-primary">
                     <Icon aria-hidden="true" className="size-5" />
                   </div>
                   <div className="flex flex-col gap-2">
@@ -145,19 +133,16 @@ export default function SignIn() {
           </div>
         </section>
 
-        <section className="grid overflow-hidden rounded-[2rem] border border-border bg-card shadow-sm lg:grid-cols-[.75fr_1.25fr]">
-          <div className="cosmic-hero relative min-h-56 overflow-hidden p-7 text-white sm:p-9">
-            <Icons.secure aria-hidden="true" className="relative z-10 size-9 text-[#ffcf69]" />
+        <section className="grid gap-6 border-t border-border pt-10 lg:grid-cols-[.45fr_1.55fr]">
+          <div className="relative hidden min-h-56 overflow-hidden rounded-t-full bg-secondary p-9 text-primary lg:block">
+            <Icons.secure aria-hidden="true" className="relative z-10 size-9 text-primary" />
             <CosmicArt
               className="pointer-events-none absolute right-[-64px] bottom-[-76px] w-72 opacity-75"
               variant="orbit"
             />
           </div>
-          <div className="flex flex-col gap-5 p-7 sm:p-10">
+          <div className="flex flex-col gap-5 lg:pl-8">
             <div className="flex flex-col gap-3">
-              <span className="text-xs font-bold tracking-[0.18em] text-primary uppercase">
-                {t("googleDataEyebrow")}
-              </span>
               <h2 className="font-heading text-3xl font-semibold tracking-tight">
                 {t("googleDataTitle")}
               </h2>

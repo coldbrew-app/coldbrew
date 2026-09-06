@@ -11,7 +11,7 @@ import { Icons } from "@web/components/icons";
 import { DashboardSkeleton } from "@web/components/loading-skeletons";
 import MockChart from "@web/components/mock-chart";
 import QueryErrorState from "@web/components/query-error-state";
-import { Button } from "@web/components/ui/button";
+import { Button, buttonVariants } from "@web/components/ui/button";
 import { fmtRubles } from "@web/lib/fmt";
 import { createTranslator, useI18n } from "@web/lib/i18n";
 import { preloadRouteQuery } from "@web/lib/trpc";
@@ -47,6 +47,7 @@ export const Route = createFileRoute("/_authenticated/")({
 const panel = "cosmic-panel overflow-hidden";
 
 function Overview() {
+  const { viewer } = Route.useRouteContext();
   const userInfo = useUserInfoSafe();
   const authUrlQ = useAuthUrlQ();
   const donationOverviewQ = useDonationOverviewQ();
@@ -67,31 +68,27 @@ function Overview() {
   return (
     <section className="flex min-w-0 flex-1 flex-col gap-4" id="top">
       <div className="flex w-full flex-col gap-4">
-        <header className="cosmic-hero relative grid min-h-[250px] overflow-hidden rounded-3xl p-6 text-white shadow-xl shadow-primary/15 sm:grid-cols-[1fr_280px] sm:p-8">
+        <header className="cosmic-hero relative grid min-h-[270px] overflow-hidden rounded-2xl p-6 text-[#fff8ed] sm:grid-cols-[1fr_280px] sm:p-8">
           <div className="relative z-10 flex max-w-xl flex-col items-start justify-center gap-4">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-bold tracking-[0.16em] text-[#ffdd82] uppercase backdrop-blur-sm">
-              <span className="size-1.5 rounded-full bg-[#54cfa5] shadow-[0_0_12px_#54cfa5]" />
+            <span className="order-3 inline-flex items-center gap-2 text-xs font-medium text-[#e9c6a5]">
+              <span className="size-1.5 rounded-full bg-[#54cfa5]" />
               {t("brewStatus")}
             </span>
             <div className="flex flex-col gap-2">
               <h1 className="font-heading text-[clamp(34px,5vw,56px)] leading-[0.98] font-semibold tracking-[-0.035em]">
-                {t("greeting", { name: "Nikita" })}
+                {t("greeting", { name: viewer?.user.name ?? t("anonymous") })}
               </h1>
-              <p className="max-w-md text-sm leading-relaxed text-white/70">{t("streamUpdate")}</p>
+              <p className="max-w-md text-sm leading-relaxed text-[#dec9bf]">{t("streamUpdate")}</p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <Button
-                className="h-auto border-white/15 bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20"
-                type="button"
-                variant="outline"
-              >
-                {t("last30Days")} <Icons.dateRange aria-hidden="true" size={16} />
-              </Button>
-              <span className="text-xs font-semibold text-white/60">{t("orbitCaption")}</span>
+              <span className="inline-flex items-center gap-2 text-xs font-medium text-[#dec9bf]">
+                <Icons.dateRange aria-hidden="true" size={16} /> {t("allTime")}
+              </span>
+              <span className="text-xs font-semibold text-[#dec9bf]">{t("orbitCaption")}</span>
             </div>
           </div>
-          <CosmicArt className="pointer-events-none absolute right-[-36px] bottom-[-20px] w-[230px] sm:right-[-8px] sm:bottom-[-18px] sm:w-[330px]" />
-          <div className="cosmic-grid pointer-events-none absolute inset-0 opacity-[0.16]" />
+          <CosmicArt className="pointer-events-none absolute right-[-60px] bottom-[-50px] w-[220px] opacity-30 sm:right-[-8px] sm:bottom-[-18px] sm:w-[330px] sm:opacity-100" />
+          <div className="cosmic-starlight pointer-events-none absolute inset-0 opacity-[0.16]" />
         </header>
         <div className="sr-only">
           <Icons.greetingAccent aria-hidden="true" />
@@ -117,16 +114,14 @@ function Overview() {
               <Metric
                 title={t("totalReceived")}
                 value={fmtRubles(total, locale)}
-                note="↗ 18.2%"
-                subnote={t("versusPreviousPeriod")}
+                note={t("allTime")}
                 icon={Icons.wallet}
                 iconClass="bg-[#ffbd3e]/20 text-[#a65b00] dark:text-[#ffcf69]"
               />
               <Metric
                 title={t("donations")}
                 value={String(donationsLength)}
-                note="↗ 12.5%"
-                subnote={t("versusPreviousPeriod")}
+                note={t("allTime")}
                 icon={Icons.donations}
                 iconClass="bg-[#ff647c]/15 text-[#d83d63] dark:text-[#ff8da0]"
               />
@@ -170,16 +165,13 @@ function Overview() {
                     <h2 className="font-heading text-lg font-semibold text-card-foreground">
                       {t("donationTrends")}
                     </h2>
-                    <p className="mt-1.5 text-xs text-muted-foreground">{t("earningsOverTime")}</p>
+                    <p className="mt-1.5 max-w-sm text-xs leading-relaxed text-muted-foreground">
+                      {t("sampleChartDescription")}
+                    </p>
                   </div>
-                  <Button
-                    className="h-auto rounded-md bg-card px-2 py-1.5 text-[11px] font-semibold"
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  >
-                    {t("revenue")} <Icons.chevronRight aria-hidden="true" size={15} />
-                  </Button>
+                  <span className="shrink-0 rounded-md bg-muted px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                    {t("sampleChart")}
+                  </span>
                 </div>
                 <div className="relative h-52 px-4 pt-3 pb-2 pl-10">
                   <div className="absolute bottom-9 left-2 flex h-[164px] flex-col justify-between text-[10px] text-muted-foreground">
@@ -239,7 +231,7 @@ function Overview() {
                   </Button>
                 )}
               </article>
-              <article className="relative flex min-h-[120px] flex-wrap items-center gap-3 overflow-hidden rounded-3xl bg-linear-to-r from-[#4056e8] via-[#6756dc] to-[#ff647c] p-5 text-white shadow-lg shadow-primary/15">
+              <article className="relative flex min-h-[120px] flex-wrap items-center gap-3 overflow-hidden rounded-2xl bg-[#51405e] p-5 text-[#fff8ed]">
                 <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/15">
                   <Icons.copy aria-hidden="true" />
                 </div>
@@ -249,12 +241,15 @@ function Overview() {
                     {t("overlayDescription")}
                   </p>
                 </div>
-                <Button
-                  className="z-10 ml-auto h-auto bg-white px-2.5 py-2 text-[11px] font-bold text-[#293bba] hover:bg-white/90"
-                  type="button"
+                <Link
+                  className={buttonVariants({
+                    className:
+                      "z-10 ml-auto h-auto bg-white px-2.5 py-2 text-[11px] font-bold text-[#51405e] hover:bg-white/90",
+                  })}
+                  to="/chat"
                 >
                   {t("createOverlay")} <Icons.chevronRight aria-hidden="true" size={17} />
-                </Button>
+                </Link>
                 <CosmicArt
                   className="pointer-events-none absolute -right-4 -bottom-9 w-40 text-white/30 opacity-35"
                   variant="orbit"

@@ -7,6 +7,7 @@ import { cn } from "@web/lib/utils";
 import { useEffect, useRef, useState } from "react";
 
 import { useTextWithLinks } from "../hooks/use-text-with-links";
+import { CosmicArt } from "./cosmic-art";
 import { Icons, PlatformIcons } from "./icons";
 import { Button } from "./ui/button";
 
@@ -186,7 +187,12 @@ export function ChatFeed({
               overlay ? "text-white/70" : "text-muted-foreground",
             )}
           >
-            {emptyLabel}
+            <div className="flex max-w-sm flex-col items-center gap-3 text-center">
+              {!overlay && (
+                <CosmicArt variant="orbit" className="w-36 text-primary/40 opacity-65" />
+              )}
+              <p className="leading-relaxed">{emptyLabel}</p>
+            </div>
           </div>
         ) : (
           messages.map((message) => (

@@ -244,7 +244,15 @@ function ChatPage() {
       <CosmicPageHeader
         description={text.description}
         eyebrow={text.eyebrow}
-        title={locale === "ru" ? "Мультичат" : "Multichat"}
+        title={t("chat")}
+        actions={
+          <a
+            href="#chat-connections"
+            className="rounded-lg border border-white/20 px-3 py-2 text-xs text-[#fff8ed] hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white xl:hidden"
+          >
+            {text.connections}
+          </a>
+        }
       />
       {chatOauth && (
         <div
@@ -262,7 +270,108 @@ function ChatPage() {
         </div>
       )}
       <div className="grid min-h-[680px] gap-4 xl:grid-cols-[330px_minmax(0,1fr)]">
-        <aside className="cosmic-panel flex min-h-0 flex-col overflow-hidden">
+        <article className="cosmic-panel flex min-h-[440px] min-w-0 flex-col overflow-hidden xl:min-h-[620px]">
+          <header className="flex items-center gap-3 border-b border-border p-4">
+            <div className="min-w-0 grow">
+              <h2 className="font-heading text-xl font-semibold">{text.feed}</h2>
+              <p className="text-xs text-muted-foreground">
+                {t("chatFeedCounts", {
+                  sources: config.sources.length,
+                  messages: stream.messages.length,
+                })}
+              </p>
+            </div>
+            <div className="flex h-7 items-end gap-1" aria-hidden="true">
+              {config.sources.slice(0, 8).map((source, index) => (
+                <span
+                  className="w-1 rounded-full"
+                  key={source.sourceId}
+                  style={{
+                    backgroundColor: providerMeta[source.provider].color,
+                    height: `${12 + (index % 3) * 6}px`,
+                  }}
+                />
+              ))}
+            </div>
+          </header>
+          <ChatFeed
+            capabilitiesForSource={capabilitiesForSource}
+            emptyLabel={stream.connectionError?.detail ?? text.empty}
+            messages={stream.messages}
+            onModerate={(command) => moderate.mutate(command)}
+          />
+          <form
+            className="flex flex-col gap-2 border-t border-border bg-background/85 p-3 backdrop-blur"
+            onSubmit={submit}
+          >
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <span className="font-semibold uppercase tracking-[0.12em]">{text.composer}</span>
+              <span className="h-px grow bg-border" />
+              {config.connections
+                .filter(({ capabilities }) => capabilities.includes("send_message"))
+                .map(({ connectionId, provider }) => (
+                  <span
+                    aria-hidden="true"
+                    className="size-1.5 rounded-full"
+                    key={connectionId}
+                    style={{ backgroundColor: providerMeta[provider].color }}
+                  />
+                ))}
+            </div>
+            <div className="flex gap-2">
+              <Input
+                maxLength={MAX_CHAT_MESSAGE_LENGTH}
+                onChange={(event) => setMessage(event.target.value)}
+                placeholder={text.placeholder}
+                value={message}
+              />
+              <Button
+                aria-label={text.send}
+                disabled={!message.trim() || broadcast.isPending || writableConnectionCount === 0}
+                type="submit"
+              >
+                {broadcast.isPending ? (
+                  <Icons.loader aria-hidden="true" className="animate-spin" />
+                ) : (
+                  <Icons.send aria-hidden="true" />
+                )}
+                <span className="hidden sm:inline">{text.send}</span>
+              </Button>
+            </div>
+            {broadcastResult && (
+              <div className="flex flex-wrap gap-1.5">
+                {broadcastResult.results.map((result) => {
+                  const source = sourceById.get(result.sourceId);
+                  return (
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-[10px]",
+                        result.status === "succeeded"
+                          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                          : result.status === "unsupported"
+                            ? "bg-muted text-muted-foreground"
+                            : "bg-destructive/10 text-destructive",
+                      )}
+                      key={result.sourceId}
+                      title={result.detail}
+                    >
+                      {source?.displayName ?? result.sourceId}: {result.status}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+            {(broadcast.error || moderate.error || startOauth.error) && (
+              <p className="text-xs text-destructive">
+                {broadcast.error?.message ?? moderate.error?.message ?? startOauth.error?.message}
+              </p>
+            )}
+          </form>
+        </article>
+        <aside
+          id="chat-connections"
+          className="cosmic-panel flex min-h-0 scroll-mt-4 flex-col overflow-hidden xl:order-first"
+        >
           <header className="flex flex-col gap-1 border-b border-border p-4">
             <div className="flex items-center justify-between gap-3">
               <h2 className="font-heading text-xl font-semibold">{text.connections}</h2>
@@ -291,11 +400,6 @@ function ChatPage() {
                   className="relative flex flex-col gap-2 overflow-hidden rounded-xl border border-border bg-muted/30 p-3"
                   key={connection.connectionId}
                 >
-                  <span
-                    aria-hidden="true"
-                    className="absolute inset-y-0 left-0 w-0.5"
-                    style={{ backgroundColor: providerMeta[connection.provider].color }}
-                  />
                   <div className="flex items-center gap-2">
                     <ProviderMark provider={connection.provider} />
                     <div className="min-w-0 grow">
@@ -432,101 +536,6 @@ function ChatPage() {
             )}
           </footer>
         </aside>
-
-        <article className="cosmic-panel flex min-h-[620px] min-w-0 flex-col overflow-hidden">
-          <header className="flex items-center gap-3 border-b border-border p-4">
-            <div className="min-w-0 grow">
-              <h2 className="font-heading text-xl font-semibold">{text.feed}</h2>
-              <p className="text-xs text-muted-foreground">
-                {config.sources.length} sources · {stream.messages.length} messages
-              </p>
-            </div>
-            <div className="flex h-7 items-end gap-1" aria-hidden="true">
-              {config.sources.slice(0, 8).map((source, index) => (
-                <span
-                  className="w-1 rounded-full"
-                  key={source.sourceId}
-                  style={{
-                    backgroundColor: providerMeta[source.provider].color,
-                    height: `${12 + (index % 3) * 6}px`,
-                  }}
-                />
-              ))}
-            </div>
-          </header>
-          <ChatFeed
-            capabilitiesForSource={capabilitiesForSource}
-            emptyLabel={stream.connectionError?.detail ?? text.empty}
-            messages={stream.messages}
-            onModerate={(command) => moderate.mutate(command)}
-          />
-          <form
-            className="flex flex-col gap-2 border-t border-border bg-background/85 p-3 backdrop-blur"
-            onSubmit={submit}
-          >
-            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-              <span className="font-semibold uppercase tracking-[0.12em]">{text.composer}</span>
-              <span className="h-px grow bg-border" />
-              {config.connections
-                .filter(({ capabilities }) => capabilities.includes("send_message"))
-                .map(({ connectionId, provider }) => (
-                  <span
-                    aria-hidden="true"
-                    className="size-1.5 rounded-full"
-                    key={connectionId}
-                    style={{ backgroundColor: providerMeta[provider].color }}
-                  />
-                ))}
-            </div>
-            <div className="flex gap-2">
-              <Input
-                maxLength={MAX_CHAT_MESSAGE_LENGTH}
-                onChange={(event) => setMessage(event.target.value)}
-                placeholder={text.placeholder}
-                value={message}
-              />
-              <Button
-                disabled={!message.trim() || broadcast.isPending || writableConnectionCount === 0}
-                type="submit"
-              >
-                {broadcast.isPending ? (
-                  <Icons.loader aria-hidden="true" className="animate-spin" />
-                ) : (
-                  <Icons.send aria-hidden="true" />
-                )}
-                <span className="hidden sm:inline">{text.send}</span>
-              </Button>
-            </div>
-            {broadcastResult && (
-              <div className="flex flex-wrap gap-1.5">
-                {broadcastResult.results.map((result) => {
-                  const source = sourceById.get(result.sourceId);
-                  return (
-                    <span
-                      className={cn(
-                        "rounded-full px-2 py-0.5 text-[10px]",
-                        result.status === "succeeded"
-                          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                          : result.status === "unsupported"
-                            ? "bg-muted text-muted-foreground"
-                            : "bg-destructive/10 text-destructive",
-                      )}
-                      key={result.sourceId}
-                      title={result.detail}
-                    >
-                      {source?.displayName ?? result.sourceId}: {result.status}
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-            {(broadcast.error || moderate.error || startOauth.error) && (
-              <p className="text-xs text-destructive">
-                {broadcast.error?.message ?? moderate.error?.message ?? startOauth.error?.message}
-              </p>
-            )}
-          </form>
-        </article>
       </div>
     </section>
   );

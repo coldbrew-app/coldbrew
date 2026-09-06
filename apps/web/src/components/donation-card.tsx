@@ -28,19 +28,19 @@ export default function DonationCard({ donation, ...props }: Props) {
   return (
     <div
       className={clsx(
-        "group relative flex min-w-0 overflow-hidden gap-3 px-4 py-4 transition-colors hover:bg-secondary/35 sm:items-center sm:px-5",
+        "group relative grid min-w-0 grid-cols-[36px_minmax(0,1fr)_auto] items-start gap-3 overflow-hidden px-4 py-4 transition-colors hover:bg-secondary/35 sm:px-5",
         props.className,
       )}
     >
-      <div className="relative grid size-9 shrink-0 place-items-center rounded-xl border border-primary/10 bg-secondary text-[10px] font-bold text-secondary-foreground transition-transform group-hover:-rotate-3 group-hover:scale-105">
+      <div className="relative grid size-9 shrink-0 place-items-center rounded-full border border-primary/15 bg-secondary text-[10px] font-bold text-secondary-foreground transition-transform group-hover:-rotate-3 group-hover:scale-105">
         {getInitials(author)}
       </div>
-      <div className="min-w-0 grow">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <strong className="text-[13px] text-card-foreground">{author}</strong>
           <DonationAlertsSourceBadge className="text-[9px]" />
         </div>
-        <p className="mt-1 truncate text-xs text-muted-foreground">
+        <p className="line-clamp-3 text-sm leading-6 break-words text-muted-foreground [overflow-wrap:anywhere]">
           {messageChunks.map((chunk, index) =>
             chunk.type === "string" ? (
               <span key={index}>{chunk.value}</span>
@@ -58,7 +58,7 @@ export default function DonationCard({ donation, ...props }: Props) {
         </p>
       </div>
       <div className="shrink-0 text-right">
-        <strong className="block text-[13px] text-card-foreground">
+        <strong className="block text-sm font-semibold tabular-nums text-card-foreground">
           {fmtAmount(donation.amount, donation.currency, locale)}
         </strong>
         <time

@@ -149,20 +149,20 @@ function SharedVideoQueue() {
 
   return (
     <main className="relative min-h-dvh overflow-hidden bg-background p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-foreground sm:p-8">
-      <div className="cosmic-grid pointer-events-none absolute inset-0 opacity-35" />
+      <div className="cosmic-starlight pointer-events-none absolute inset-0" />
       <section className="cosmic-panel relative mx-auto w-full max-w-4xl overflow-hidden">
-        <header className="cosmic-hero relative flex min-h-48 flex-col justify-center gap-2 overflow-hidden p-5 text-white sm:p-8">
-          <span className="relative z-10 text-[10px] font-bold tracking-[0.18em] text-[#ffcf69] uppercase">
+        <header className="cosmic-page-scene relative flex min-h-56 flex-col justify-center gap-2 overflow-hidden p-5 text-white sm:p-8">
+          <span className="relative z-10 order-3 pt-2 text-xs text-[#e6bf96]">
             {t("publicQueueEyebrow")}
           </span>
-          <h1 className="relative z-10 max-w-xl font-heading text-[clamp(28px,5vw,44px)] leading-none font-semibold">
+          <h1 className="relative z-10 max-w-xl sm:pr-28 font-heading text-[clamp(28px,5vw,44px)] leading-none font-semibold">
             {t("videoQueueBy", { slug })}
           </h1>
-          <p className="relative z-10 max-w-md text-xs leading-relaxed text-white/70">
+          <p className="relative z-10 max-w-md text-xs leading-relaxed text-[#dec9bf]">
             {t("videosSharedBySupporters")}
           </p>
           <CosmicArt
-            className="pointer-events-none absolute -right-6 -bottom-12 w-72"
+            className="pointer-events-none absolute -right-8 -bottom-14 w-48 opacity-30 sm:w-72 sm:opacity-80"
             variant="orbit"
           />
         </header>
