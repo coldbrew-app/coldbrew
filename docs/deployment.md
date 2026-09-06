@@ -85,9 +85,12 @@ The GitHub Variables and Secrets described below provide:
 - `PGDATABASE`, `PGHOST`, `PGUSER`, `PGPASSWORD`, and optionally `PGPORT` for the
   external PostgreSQL binding (defaults to `5432`);
 - `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET`;
-- `YOUTUBE_CLIENT_ID` and `YOUTUBE_CLIENT_SECRET` for multichat OAuth;
-- `KICK_CLIENT_ID`, `KICK_CLIENT_SECRET`, and `KICK_WEBHOOK_PUBLIC_KEY` for
+- optionally, `YOUTUBE_CLIENT_ID` and `YOUTUBE_CLIENT_SECRET` for multichat OAuth;
+- optionally, `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET` for multichat OAuth;
+- optionally, `KICK_CLIENT_ID`, `KICK_CLIENT_SECRET`, and `KICK_WEBHOOK_PUBLIC_KEY` for
   multichat OAuth and signed webhook verification;
+- optionally, the reserved `BOOSTY_CLIENT_ID` / `BOOSTY_CLIENT_SECRET` and
+  `VK_VIDEO_CLIENT_ID` / `VK_VIDEO_CLIENT_SECRET` pairs;
 - `DONATION_ALERTS_CLIENT_ID` and `DONATION_ALERTS_CLIENT_SECRET`;
 - `DONATIONS_SERVICE_SECRET`, shared only by web and donations;
 - `AXIOM_TOKEN`, an ingest-only API token scoped to the `coldbrew-logs` dataset;
@@ -166,11 +169,14 @@ Add these environment variables:
 | `APP_DOMAIN`                   | `https://coldbrew.example.com`     | yes      |
 | `AWS_ENDPOINT`                 | `https://s3.example.com`           | no       |
 | `AWS_REGION`                   | `eu-central-1`                     | yes      |
+| `BOOSTY_CLIENT_ID`             | Boosty OAuth client ID             | no       |
 | `DONATION_ALERTS_CLIENT_ID`    | `12345`                            | yes      |
 | `GOOGLE_CLIENT_ID`             | OAuth client ID                    | yes      |
-| `KICK_CLIENT_ID`               | Kick OAuth client ID               | yes      |
-| `KICK_WEBHOOK_PUBLIC_KEY`      | Kick webhook RSA public key        | yes      |
-| `YOUTUBE_CLIENT_ID`            | YouTube chat OAuth client ID       | yes      |
+| `KICK_CLIENT_ID`               | Kick OAuth client ID               | no       |
+| `KICK_WEBHOOK_PUBLIC_KEY`      | Kick webhook RSA public key        | no       |
+| `TWITCH_CLIENT_ID`             | Twitch OAuth client ID             | no       |
+| `VK_VIDEO_CLIENT_ID`           | VK Video OAuth client ID           | no       |
+| `YOUTUBE_CLIENT_ID`            | YouTube chat OAuth client ID       | no       |
 | `PGDATABASE`                   | `coldbrew`                         | yes      |
 | `PGHOST`                       | `postgres`                         | yes      |
 | `PGPORT`                       | `5432`                             | no       |
@@ -193,13 +199,16 @@ Add these environment secrets:
 | `AWS_SESSION_TOKEN`             | Temporary AWS session token                  | no       |
 | `AXIOM_TOKEN`                   | Axiom ingest-only API token                  | yes      |
 | `BETTER_AUTH_SECRET`            | At least 32 random characters                | yes      |
+| `BOOSTY_CLIENT_SECRET`          | Boosty OAuth client secret                   | no       |
 | `CHAT_SERVICE_SECRET`           | At least 32 random characters                | yes      |
 | `CHAT_TOKEN_ENCRYPTION_SECRET`  | At least 32 random characters                | yes      |
 | `DONATIONS_SERVICE_SECRET`      | At least 32 random characters                | yes      |
 | `DONATION_ALERTS_CLIENT_SECRET` | DonationAlerts OAuth client secret           | yes      |
 | `GOOGLE_CLIENT_SECRET`          | Google OAuth client secret                   | yes      |
-| `KICK_CLIENT_SECRET`            | Kick OAuth client secret                     | yes      |
-| `YOUTUBE_CLIENT_SECRET`         | YouTube chat OAuth client secret             | yes      |
+| `KICK_CLIENT_SECRET`            | Kick OAuth client secret                     | no       |
+| `TWITCH_CLIENT_SECRET`          | Twitch OAuth client secret                   | no       |
+| `VK_VIDEO_CLIENT_SECRET`        | VK Video OAuth client secret                 | no       |
+| `YOUTUBE_CLIENT_SECRET`         | YouTube chat OAuth client secret             | no       |
 | `PGPASSWORD`                    | PostgreSQL password                          | yes      |
 | `SSH_KNOWN_HOSTS`               | Verified `known_hosts` line for the VPS      | yes      |
 | `SSH_PRIVATE_KEY`               | Private half of the dedicated deployment key | yes      |
@@ -209,6 +218,9 @@ be omitted when the VPS uses an IAM role or another supported credential
 provider. The workflow validates this along with every required value, safely
 generates dotenv syntax, transfers it over SSH, and atomically replaces
 `/opt/coldbrew/.env` with mode `0600` on every deployment.
+
+Each optional provider credential group must be configured completely or omitted. Boosty and VK
+Video credentials are reserved for their future integrations and do not enable those providers yet.
 
 When a service gains a required server environment variable, update the
 `Production` workflow in the same change: pass the GitHub variable or secret
