@@ -27,6 +27,7 @@ export function getRouter() {
   const api = createApi();
   const router = createRouter({
     routeTree,
+    pathParamsAllowedCharacters: ["@"],
     context: { locale, theme, viewer: null, ...api },
     defaultPreload: "intent",
     defaultPreloadStaleTime: 0,

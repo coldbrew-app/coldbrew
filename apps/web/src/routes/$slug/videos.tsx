@@ -1,4 +1,3 @@
-import { SlugSchema } from "@coldbrew/packages/schemas.js";
 import { getRoundedWatchDurationParts } from "@coldbrew/packages/video-timing.js";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { CosmicArt } from "@web/components/cosmic-art";
@@ -8,13 +7,13 @@ import { VideoListSkeleton } from "@web/components/loading-skeletons";
 import { PagePagination } from "@web/components/page-pagination";
 import { SharedVideoCard } from "@web/components/shared-video-card";
 import { buttonVariants } from "@web/components/ui/button";
+import { useSharedVideoPageQ } from "@web/hooks/api";
 import { groupVideosByPriority } from "@web/lib/group-videos-by-priority";
+import { createTranslator, useI18n } from "@web/lib/i18n";
+import { slugParams } from "@web/lib/slug-params";
 import type { SharedVideo } from "@web/server/exports";
 import { useEffect } from "react";
 import { z } from "zod";
-
-import { useSharedVideoPageQ } from "../hooks/api";
-import { createTranslator, useI18n } from "../lib/i18n";
 
 const SharedVideoPageDepsSchema = z.object({
   page: z.int().positive(),
@@ -99,18 +98,16 @@ function SharedVideoGroups({
   );
 }
 
-export const Route = createFileRoute("/videos/$slug")({
+export const Route = createFileRoute("/$slug/videos")({
   component: SharedVideoQueue,
   head: ({ match, params }) => ({
     meta: [
       {
-        title: `${createTranslator(match.context.locale)("videoQueueBy", { slug: params.slug })} · Coldbrew`,
+        title: `${createTranslator(match.context.locale)("videoQueueBy", { slug: `@${params.slug}` })} · Coldbrew`,
       },
     ],
   }),
-  params: z.object({
-    slug: SlugSchema,
-  }),
+  params: slugParams,
   validateSearch: z.object({
     page: z.coerce.number().int().positive().default(1).catch(1),
     status: z.enum(["queue", "watched"]).default("queue").catch("queue"),
@@ -154,7 +151,7 @@ function SharedVideoQueue() {
         <header className="cosmic-page-scene relative flex shrink-0 flex-col justify-center gap-1 overflow-hidden px-4 py-3 text-white sm:px-5 sm:py-4">
           <span className="sr-only text-[#e6bf96]">{t("publicQueueEyebrow")}</span>
           <h1 className="relative z-10 max-w-xl sm:pr-28 font-heading text-xl leading-tight font-semibold">
-            {t("videoQueueBy", { slug })}
+            {t("videoQueueBy", { slug: `@${slug}` })}
           </h1>
           <p className="relative z-10 max-w-md text-xs leading-relaxed text-[#dec9bf]">
             {t("videosSharedBySupporters")}
@@ -181,7 +178,7 @@ function SharedVideoQueue() {
                 })}
                 params={{ slug }}
                 search={{ page: 1, status: "queue" }}
-                to="/videos/$slug"
+                to="/$slug/videos"
               >
                 <Icons.list aria-hidden="true" size={15} />
                 {t("currentQueue")}
@@ -196,7 +193,7 @@ function SharedVideoQueue() {
                   })}
                   params={{ slug }}
                   search={{ page: 1, status: "watched" }}
-                  to="/videos/$slug"
+                  to="/$slug/videos"
                 >
                   <Icons.watched aria-hidden="true" size={15} />
                   {t("watched")}

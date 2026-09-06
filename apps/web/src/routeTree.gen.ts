@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as SlugVideosRouteImport } from './routes/$slug/videos'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedAlertsRouteImport } from './routes/_authenticated/alerts'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
@@ -21,7 +22,6 @@ import { Route as AuthenticatedVideosRouteImport } from './routes/_authenticated
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as DocsPrivacyRouteImport } from './routes/docs/privacy'
 import { Route as DocsTosRouteImport } from './routes/docs/tos'
-import { Route as VideosSlugRouteImport } from './routes/videos.$slug'
 import { Route as AuthenticatedDonationsIndexRouteImport } from './routes/_authenticated/donations.index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiChatSplatRouteImport } from './routes/api/chat/$'
@@ -36,6 +36,11 @@ const SplatRoute = SplatRouteImport.update({
 } as any)
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SlugVideosRoute = SlugVideosRouteImport.update({
+  id: '/$slug/videos',
+  path: '/$slug/videos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
@@ -89,11 +94,6 @@ const DocsTosRoute = DocsTosRouteImport.update({
   path: '/docs/tos',
   getParentRoute: () => rootRouteImport,
 } as any)
-const VideosSlugRoute = VideosSlugRouteImport.update({
-  id: '/videos/$slug',
-  path: '/videos/$slug',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthenticatedDonationsIndexRoute =
   AuthenticatedDonationsIndexRouteImport.update({
     id: '/',
@@ -130,6 +130,7 @@ const ApiIntegrationDonationalertsCallbackRoute =
 export interface FileRoutesByFullPath {
   '/$': typeof SplatRoute
   '/': typeof AuthenticatedIndexRoute
+  '/$slug/videos': typeof SlugVideosRoute
   '/alerts': typeof AuthenticatedAlertsRoute
   '/chat': typeof AuthenticatedChatRoute
   '/donations': typeof AuthenticatedDonationsRouteWithChildren
@@ -139,7 +140,6 @@ export interface FileRoutesByFullPath {
   '/api/health': typeof ApiHealthRoute
   '/docs/privacy': typeof DocsPrivacyRoute
   '/docs/tos': typeof DocsTosRoute
-  '/videos/$slug': typeof VideosSlugRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/$': typeof ApiChatSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
@@ -149,6 +149,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/$': typeof SplatRoute
+  '/$slug/videos': typeof SlugVideosRoute
   '/alerts': typeof AuthenticatedAlertsRoute
   '/chat': typeof AuthenticatedChatRoute
   '/integrations': typeof AuthenticatedIntegrationsRoute
@@ -157,7 +158,6 @@ export interface FileRoutesByTo {
   '/api/health': typeof ApiHealthRoute
   '/docs/privacy': typeof DocsPrivacyRoute
   '/docs/tos': typeof DocsTosRoute
-  '/videos/$slug': typeof VideosSlugRoute
   '/': typeof AuthenticatedIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/$': typeof ApiChatSplatRoute
@@ -170,6 +170,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/$': typeof SplatRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/$slug/videos': typeof SlugVideosRoute
   '/_authenticated/alerts': typeof AuthenticatedAlertsRoute
   '/_authenticated/chat': typeof AuthenticatedChatRoute
   '/_authenticated/donations': typeof AuthenticatedDonationsRouteWithChildren
@@ -179,7 +180,6 @@ export interface FileRoutesById {
   '/api/health': typeof ApiHealthRoute
   '/docs/privacy': typeof DocsPrivacyRoute
   '/docs/tos': typeof DocsTosRoute
-  '/videos/$slug': typeof VideosSlugRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/$': typeof ApiChatSplatRoute
@@ -193,6 +193,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/$'
     | '/'
+    | '/$slug/videos'
     | '/alerts'
     | '/chat'
     | '/donations'
@@ -202,7 +203,6 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/docs/privacy'
     | '/docs/tos'
-    | '/videos/$slug'
     | '/api/auth/$'
     | '/api/chat/$'
     | '/api/trpc/$'
@@ -212,6 +212,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/$'
+    | '/$slug/videos'
     | '/alerts'
     | '/chat'
     | '/integrations'
@@ -220,7 +221,6 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/docs/privacy'
     | '/docs/tos'
-    | '/videos/$slug'
     | '/'
     | '/api/auth/$'
     | '/api/chat/$'
@@ -232,6 +232,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/$'
     | '/_authenticated'
+    | '/$slug/videos'
     | '/_authenticated/alerts'
     | '/_authenticated/chat'
     | '/_authenticated/donations'
@@ -241,7 +242,6 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/docs/privacy'
     | '/docs/tos'
-    | '/videos/$slug'
     | '/_authenticated/'
     | '/api/auth/$'
     | '/api/chat/$'
@@ -254,10 +254,10 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   SplatRoute: typeof SplatRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  SlugVideosRoute: typeof SlugVideosRoute
   ApiHealthRoute: typeof ApiHealthRoute
   DocsPrivacyRoute: typeof DocsPrivacyRoute
   DocsTosRoute: typeof DocsTosRoute
-  VideosSlugRoute: typeof VideosSlugRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiChatSplatRoute: typeof ApiChatSplatRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
@@ -279,6 +279,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/$slug/videos': {
+      id: '/$slug/videos'
+      path: '/$slug/videos'
+      fullPath: '/$slug/videos'
+      preLoaderRoute: typeof SlugVideosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/': {
@@ -349,13 +356,6 @@ declare module '@tanstack/react-router' {
       path: '/docs/tos'
       fullPath: '/docs/tos'
       preLoaderRoute: typeof DocsTosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/videos/$slug': {
-      id: '/videos/$slug'
-      path: '/videos/$slug'
-      fullPath: '/videos/$slug'
-      preLoaderRoute: typeof VideosSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/donations/': {
@@ -444,10 +444,10 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   SplatRoute: SplatRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  SlugVideosRoute: SlugVideosRoute,
   ApiHealthRoute: ApiHealthRoute,
   DocsPrivacyRoute: DocsPrivacyRoute,
   DocsTosRoute: DocsTosRoute,
-  VideosSlugRoute: VideosSlugRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiChatSplatRoute: ApiChatSplatRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,

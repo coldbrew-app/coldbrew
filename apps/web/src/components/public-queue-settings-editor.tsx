@@ -136,7 +136,7 @@ export function PublicQueueSettingsEditor() {
         <footer className="flex flex-col gap-2 border-t border-border bg-secondary/35 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <a
             className={buttonVariants({ size: "sm", variant: "ghost" })}
-            href={`/videos/${userInfo.slug}`}
+            href={`/@${userInfo.slug}/videos`}
             rel="noreferrer"
             target="_blank"
           >

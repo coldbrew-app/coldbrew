@@ -347,7 +347,7 @@ function AuthenticatedApplicationContent() {
                   {user.name}
                 </strong>
                 <small className="mt-0.5 block truncate text-[10px] text-sidebar-foreground/65">
-                  {userInfo.slug}
+                  @{userInfo.slug}
                 </small>
               </div>
               <Tooltip>
