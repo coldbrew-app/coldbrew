@@ -42,7 +42,7 @@ export function SlugEditor({ className }: Props) {
 
   const copyShareUrl = async () => {
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}/videos/${slug}`);
+      await navigator.clipboard.writeText(`${window.location.origin}/@${slug}/videos`);
       setCopied(true);
     } catch {
       setCopied(false);
@@ -65,7 +65,7 @@ export function SlugEditor({ className }: Props) {
             </FieldDescription>
             <div className="flex min-w-0 rounded-lg border border-input bg-background/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/20 has-[input[aria-invalid=true]]:border-destructive">
               <span className="shrink-0 border-r border-input px-2.5 py-1.5 text-sm text-muted-foreground">
-                {origin}/videos/
+                {origin}/@
               </span>
               <Input
                 autoComplete="off"
@@ -88,6 +88,9 @@ export function SlugEditor({ className }: Props) {
                   validate: (value) => SlugSchema.safeParse(value).success || t("slugInvalid"),
                 })}
               />
+              <span className="shrink-0 border-l border-input px-2.5 py-1.5 text-sm text-muted-foreground">
+                /videos
+              </span>
             </div>
             <FieldError errors={[formState.errors.slug]} id="slug-error" />
           </Field>
