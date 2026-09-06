@@ -62,7 +62,7 @@ export function PublicQueueSettingsEditor() {
   };
 
   return (
-    <article className="cosmic-panel overflow-hidden">
+    <article className="cosmic-panel shrink-0 overflow-hidden">
       <header className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
         <div className="flex min-w-0 items-start gap-3">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-primary">

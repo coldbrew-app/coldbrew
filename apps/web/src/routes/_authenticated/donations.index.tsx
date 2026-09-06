@@ -64,7 +64,7 @@ function DonationsIndex() {
 
   return (
     <>
-      <div className="flex flex-col gap-2 border-b border-border p-4 sm:flex-row sm:p-5">
+      <div className="flex shrink-0 flex-col gap-2 border-b border-border p-4 sm:flex-row sm:p-5">
         <label className="relative min-w-0 grow">
           <Icons.search
             aria-hidden="true"
@@ -106,34 +106,34 @@ function DonationsIndex() {
         </label>
       </div>
 
-      {donationsQ.isLoading ? (
-        <DonationListSkeleton aria-busy="true" aria-label={t("loadingDonations")} />
-      ) : donationsQ.isError ? (
-        <QueryErrorState
-          isRetrying={donationsQ.isFetching}
-          onRetry={() => void donationsQ.refetch()}
-        />
-      ) : donationsQ.data?.items.length ? (
-        <>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        {donationsQ.isLoading ? (
+          <DonationListSkeleton aria-busy="true" aria-label={t("loadingDonations")} />
+        ) : donationsQ.isError ? (
+          <QueryErrorState
+            isRetrying={donationsQ.isFetching}
+            onRetry={() => void donationsQ.refetch()}
+          />
+        ) : donationsQ.data?.items.length ? (
           <div className="divide-y divide-border">
             {donationsQ.data.items.map((donation) => (
               <DonationCard key={donation.donationId} donation={donation} />
             ))}
           </div>
-          <PagePagination
-            isLoading={donationsQ.isFetching}
-            loadingLabel={t("loadingDonations")}
-            onPageChange={(page) =>
-              void navigate({ search: (previous) => ({ ...previous, page }) })
-            }
-            page={donationsQ.data.page}
-            pageSize={donationsQ.data.pageSize}
-            total={donationsQ.data.total}
-            totalPages={donationsQ.data.totalPages}
-          />
-        </>
-      ) : (
-        <EmptyDonations query={search.query} />
+        ) : (
+          <EmptyDonations query={search.query} />
+        )}
+      </div>
+      {donationsQ.data && !donationsQ.isError && donationsQ.data.items.length > 0 && (
+        <PagePagination
+          isLoading={donationsQ.isFetching}
+          loadingLabel={t("loadingDonations")}
+          onPageChange={(page) => void navigate({ search: (previous) => ({ ...previous, page }) })}
+          page={donationsQ.data.page}
+          pageSize={donationsQ.data.pageSize}
+          total={donationsQ.data.total}
+          totalPages={donationsQ.data.totalPages}
+        />
       )}
     </>
   );

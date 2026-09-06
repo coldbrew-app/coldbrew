@@ -34,15 +34,15 @@ function RouteComponent() {
   const { t } = useI18n();
 
   return (
-    <section className="flex min-w-0 flex-1 flex-col gap-4">
+    <section className="cosmic-panel flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
       <CosmicPageHeader
         description={t("integrationsDescription")}
         eyebrow={t("integrationsEyebrow")}
         title={t("integrations")}
         variant="beans"
       />
-      <div className="flex w-full flex-col gap-4">
-        <article className="cosmic-panel overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-4 sm:p-5">
+        <article className="cosmic-panel shrink-0 overflow-hidden">
           <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-6">
             <DonationAlertsMark size="lg" />
             <div className="min-w-0 grow">

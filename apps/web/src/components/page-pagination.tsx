@@ -52,7 +52,7 @@ export function PagePagination({
   return (
     <nav
       aria-label={t("pagination")}
-      className="flex flex-col gap-3 border-t border-border px-4 py-3 sm:grid sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center sm:px-5"
+      className="flex shrink-0 flex-col gap-3 border-t border-border px-4 py-3 sm:grid sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center sm:px-5"
     >
       <div className="flex min-w-0 items-center justify-between gap-3 sm:contents">
         <span className="truncate text-[11px] text-muted-foreground sm:col-start-1">

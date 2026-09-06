@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { CosmicArt } from "@web/components/cosmic-art";
+import { CosmicPageHeader } from "@web/components/cosmic-page-header";
 import { Metric } from "@web/components/dashboard/metric";
 import {
   DONATION_ALERTS_NAME,
@@ -15,6 +16,7 @@ import { Button, buttonVariants } from "@web/components/ui/button";
 import { fmtRubles } from "@web/lib/fmt";
 import { createTranslator, useI18n } from "@web/lib/i18n";
 import { preloadRouteQuery } from "@web/lib/trpc";
+import { cn } from "@web/lib/utils";
 import { z } from "zod";
 
 import { useAuthUrlQ, useDonationOverviewQ, useUserInfoSafe } from "../../hooks/api";
@@ -66,198 +68,182 @@ function Overview() {
   );
 
   return (
-    <section className="flex min-w-0 flex-1 flex-col gap-4" id="top">
-      <div className="flex w-full flex-col gap-4">
-        <header className="cosmic-hero relative grid min-h-[270px] overflow-hidden rounded-2xl p-6 text-[#fff8ed] sm:grid-cols-[1fr_280px] sm:p-8">
-          <div className="relative z-10 flex max-w-xl flex-col items-start justify-center gap-4">
-            <span className="order-3 inline-flex items-center gap-2 text-xs font-medium text-[#e9c6a5]">
-              <span className="size-1.5 rounded-full bg-[#54cfa5]" />
-              {t("brewStatus")}
-            </span>
-            <div className="flex flex-col gap-2">
-              <h1 className="font-heading text-[clamp(34px,5vw,56px)] leading-[0.98] font-semibold tracking-[-0.035em]">
-                {t("greeting", { name: viewer?.user.name ?? t("anonymous") })}
-              </h1>
-              <p className="max-w-md text-sm leading-relaxed text-[#dec9bf]">{t("streamUpdate")}</p>
+    <section className="cosmic-panel flex h-full min-h-0 min-w-0 flex-col overflow-hidden" id="top">
+      <CosmicPageHeader
+        title={t("greeting", { name: viewer?.user.name ?? t("anonymous") })}
+        description={t("streamUpdate")}
+      />
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="flex flex-col gap-4 p-4 sm:p-5">
+          {success !== undefined && (
+            <div
+              className={`rounded-xl border px-3.5 py-3 text-[13px] ${success ? "border-emerald-300/50 bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300" : "border-red-300/50 bg-red-50 text-red-700 dark:bg-red-400/10 dark:text-red-300"}`}
+            >
+              {success ? t("connected") : t("notConnected")}
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="inline-flex items-center gap-2 text-xs font-medium text-[#dec9bf]">
-                <Icons.dateRange aria-hidden="true" size={16} /> {t("allTime")}
-              </span>
-              <span className="text-xs font-semibold text-[#dec9bf]">{t("orbitCaption")}</span>
-            </div>
-          </div>
-          <CosmicArt className="pointer-events-none absolute right-[-60px] bottom-[-50px] w-[220px] opacity-30 sm:right-[-8px] sm:bottom-[-18px] sm:w-[330px] sm:opacity-100" />
-          <div className="cosmic-starlight pointer-events-none absolute inset-0 opacity-[0.16]" />
-        </header>
-        <div className="sr-only">
-          <Icons.greetingAccent aria-hidden="true" />
-        </div>
-        {success !== undefined && (
-          <div
-            className={`rounded-xl border px-3.5 py-3 text-[13px] ${success ? "border-emerald-300/50 bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300" : "border-red-300/50 bg-red-50 text-red-700 dark:bg-red-400/10 dark:text-red-300"}`}
-          >
-            {success ? t("connected") : t("notConnected")}
-          </div>
-        )}
-        {donationOverviewQ.isLoading ? (
-          <DashboardSkeleton aria-busy="true" aria-label={t("loadingDonations")} />
-        ) : donationOverviewQ.isError ? (
-          <QueryErrorState
-            className="mt-7 rounded-2xl border border-border bg-card sm:mt-9"
-            isRetrying={donationOverviewQ.isFetching}
-            onRetry={() => void donationOverviewQ.refetch()}
-          />
-        ) : (
-          <>
-            <section className="grid gap-4 md:grid-cols-3" aria-label={t("streamStatistics")}>
-              <Metric
-                title={t("totalReceived")}
-                value={fmtRubles(total, locale)}
-                note={t("allTime")}
-                icon={Icons.wallet}
-                iconClass="bg-[#ffbd3e]/20 text-[#a65b00] dark:text-[#ffcf69]"
-              />
-              <Metric
-                title={t("donations")}
-                value={String(donationsLength)}
-                note={t("allTime")}
-                icon={Icons.donations}
-                iconClass="bg-[#ff647c]/15 text-[#d83d63] dark:text-[#ff8da0]"
-              />
-              <Metric
-                title={t("averageDonation")}
-                value={fmtRubles(donationsLength ? Math.round(total / donationsLength) : 0, locale)}
-                note={t("acrossPlatforms")}
-                icon={Icons.platform}
-                iconClass="bg-[#54cfa5]/18 text-[#188965] dark:text-[#67dfb8]"
-              />
-            </section>
-            <section className="grid gap-4 xl:grid-cols-[1.03fr_.97fr]">
-              <article className={panel} id="donations">
-                <div className="flex items-start justify-between p-5">
+          )}
+          {donationOverviewQ.isLoading ? (
+            <DashboardSkeleton aria-busy="true" aria-label={t("loadingDonations")} />
+          ) : donationOverviewQ.isError ? (
+            <QueryErrorState
+              className="mt-7 rounded-2xl border border-border bg-card sm:mt-9"
+              isRetrying={donationOverviewQ.isFetching}
+              onRetry={() => void donationOverviewQ.refetch()}
+            />
+          ) : (
+            <>
+              <section className="grid gap-4 md:grid-cols-3" aria-label={t("streamStatistics")}>
+                <Metric
+                  title={t("totalReceived")}
+                  value={fmtRubles(total, locale)}
+                  note={t("allTime")}
+                  icon={Icons.wallet}
+                  iconClass="bg-[#ffbd3e]/20 text-[#a65b00] dark:text-[#ffcf69]"
+                />
+                <Metric
+                  title={t("donations")}
+                  value={String(donationsLength)}
+                  note={t("allTime")}
+                  icon={Icons.donations}
+                  iconClass="bg-[#ff647c]/15 text-[#d83d63] dark:text-[#ff8da0]"
+                />
+                <Metric
+                  title={t("averageDonation")}
+                  value={fmtRubles(
+                    donationsLength ? Math.round(total / donationsLength) : 0,
+                    locale,
+                  )}
+                  note={t("acrossPlatforms")}
+                  icon={Icons.platform}
+                  iconClass="bg-[#54cfa5]/18 text-[#188965] dark:text-[#67dfb8]"
+                />
+              </section>
+              <section className="grid gap-4 xl:grid-cols-[1.03fr_.97fr]">
+                <article className={panel} id="donations">
+                  <div className="flex items-start justify-between p-5">
+                    <div>
+                      <h2 className="font-heading text-lg font-semibold text-card-foreground">
+                        {t("recentActivity")}
+                      </h2>
+                      <p className="mt-1.5 text-xs text-muted-foreground">{t("everyDonation")}</p>
+                    </div>
+                    <Link
+                      to="/donations"
+                      className="flex items-center text-xs font-bold text-primary hover:text-primary/75"
+                    >
+                      {t("viewAll")} <Icons.chevronRight aria-hidden="true" size={16} />
+                    </Link>
+                  </div>
                   <div>
-                    <h2 className="font-heading text-lg font-semibold text-card-foreground">
-                      {t("recentActivity")}
-                    </h2>
-                    <p className="mt-1.5 text-xs text-muted-foreground">{t("everyDonation")}</p>
-                  </div>
-                  <Link
-                    to="/donations"
-                    className="flex items-center text-xs font-bold text-primary hover:text-primary/75"
-                  >
-                    {t("viewAll")} <Icons.chevronRight aria-hidden="true" size={16} />
-                  </Link>
-                </div>
-                <div>
-                  {donationOverviewQ.data?.recentDonations.map((donation) => (
-                    <DonationCard
-                      key={donation.donationId}
-                      className="border-t border-border"
-                      donation={donation}
-                    />
-                  ))}
-                </div>
-              </article>
-              <article className={`${panel} min-h-[290px] overflow-hidden`}>
-                <div className="flex items-start justify-between p-5 pb-1">
-                  <div>
-                    <h2 className="font-heading text-lg font-semibold text-card-foreground">
-                      {t("donationTrends")}
-                    </h2>
-                    <p className="mt-1.5 max-w-sm text-xs leading-relaxed text-muted-foreground">
-                      {t("sampleChartDescription")}
-                    </p>
-                  </div>
-                  <span className="shrink-0 rounded-md bg-muted px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
-                    {t("sampleChart")}
-                  </span>
-                </div>
-                <div className="relative h-52 px-4 pt-3 pb-2 pl-10">
-                  <div className="absolute bottom-9 left-2 flex h-[164px] flex-col justify-between text-[10px] text-muted-foreground">
-                    <span>6k</span>
-                    <span>4k</span>
-                    <span>2k</span>
-                    <span>0</span>
-                  </div>
-                  <MockChart className="h-[164px] w-full" />
-                  <div className="flex justify-between text-[10px] text-muted-foreground">
-                    {chartDates.map((date) => (
-                      <span key={date}>{date}</span>
+                    {donationOverviewQ.data?.recentDonations.map((donation) => (
+                      <DonationCard
+                        key={donation.donationId}
+                        className="border-t border-border"
+                        donation={donation}
+                      />
                     ))}
                   </div>
-                </div>
-              </article>
-            </section>
-            <section className="grid gap-4 xl:grid-cols-2">
-              <article
-                className={`${panel} flex min-h-[120px] flex-wrap items-center gap-3 p-5`}
-                id="integrations"
-              >
-                <DonationAlertsMark />
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-[13px] font-semibold text-card-foreground">
-                      {DONATION_ALERTS_NAME}
-                    </h2>
-                    <DonationAlertsConnectionStatus connected={donationAlertsConnected} />
+                </article>
+                <article className={`${panel} min-h-[290px] overflow-hidden`}>
+                  <div className="flex items-start justify-between p-5 pb-1">
+                    <div>
+                      <h2 className="font-heading text-lg font-semibold text-card-foreground">
+                        {t("donationTrends")}
+                      </h2>
+                      <p className="mt-1.5 max-w-sm text-xs leading-relaxed text-muted-foreground">
+                        {t("sampleChartDescription")}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-md bg-muted px-2 py-1.5 text-[11px] font-medium text-muted-foreground">
+                      {t("sampleChart")}
+                    </span>
                   </div>
-                  <p className="mt-1.5 text-xs text-muted-foreground">
-                    {donationAlertsConnected ? t("automaticSync") : t("connectAllDonations")}
-                  </p>
-                </div>
-                {authUrlQ.data ? (
-                  <a
-                    className="ml-auto flex items-center gap-1 rounded-lg border border-border px-2.5 py-2 text-[11px] font-bold text-foreground transition hover:bg-muted"
-                    href={authUrlQ.data.donationAlerts}
-                  >
-                    {t("manage")} <Icons.chevronRight aria-hidden="true" size={16} />
-                  </a>
-                ) : (
-                  <Button
-                    className="ml-auto h-auto px-2.5 py-2 text-[11px] font-bold"
-                    disabled={authUrlQ.isLoading}
-                    onClick={() => void authUrlQ.refetch()}
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  >
-                    {authUrlQ.isLoading ? (
-                      <Icons.loader aria-hidden="true" className="animate-spin" />
-                    ) : (
-                      <Icons.retry aria-hidden="true" />
-                    )}
-                    {t(authUrlQ.isLoading ? "loadingAuthorization" : "authorizationUnavailable")}
-                  </Button>
-                )}
-              </article>
-              <article className="relative flex min-h-[120px] flex-wrap items-center gap-3 overflow-hidden rounded-2xl bg-[#51405e] p-5 text-[#fff8ed]">
-                <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/15">
-                  <Icons.copy aria-hidden="true" />
-                </div>
-                <div>
-                  <h2 className="font-heading text-base font-semibold">{t("readyForOverlay")}</h2>
-                  <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-white/75">
-                    {t("overlayDescription")}
-                  </p>
-                </div>
-                <Link
-                  className={buttonVariants({
-                    className:
-                      "z-10 ml-auto h-auto bg-white px-2.5 py-2 text-[11px] font-bold text-[#51405e] hover:bg-white/90",
-                  })}
-                  to="/chat"
+                  <div className="relative h-52 px-4 pt-3 pb-2 pl-10">
+                    <div className="absolute bottom-9 left-2 flex h-[164px] flex-col justify-between text-[10px] text-muted-foreground">
+                      <span>6k</span>
+                      <span>4k</span>
+                      <span>2k</span>
+                      <span>0</span>
+                    </div>
+                    <MockChart className="h-[164px] w-full" />
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                      {chartDates.map((date) => (
+                        <span key={date}>{date}</span>
+                      ))}
+                    </div>
+                  </div>
+                </article>
+              </section>
+              <section className="grid gap-4 xl:grid-cols-2">
+                <article
+                  className={`${panel} flex min-h-[120px] flex-wrap items-center gap-3 p-5`}
+                  id="integrations"
                 >
-                  {t("createOverlay")} <Icons.chevronRight aria-hidden="true" size={17} />
-                </Link>
-                <CosmicArt
-                  className="pointer-events-none absolute -right-4 -bottom-9 w-40 text-white/30 opacity-35"
-                  variant="orbit"
-                />
-              </article>
-            </section>
-          </>
-        )}
+                  <DonationAlertsMark />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-[13px] font-semibold text-card-foreground">
+                        {DONATION_ALERTS_NAME}
+                      </h2>
+                      <DonationAlertsConnectionStatus connected={donationAlertsConnected} />
+                    </div>
+                    <p className="mt-1.5 text-xs text-muted-foreground">
+                      {donationAlertsConnected ? t("automaticSync") : t("connectAllDonations")}
+                    </p>
+                  </div>
+                  {authUrlQ.data ? (
+                    <a
+                      className="ml-auto flex items-center gap-1 rounded-lg border border-border px-2.5 py-2 text-[11px] font-bold text-foreground transition hover:bg-muted"
+                      href={authUrlQ.data.donationAlerts}
+                    >
+                      {t("manage")} <Icons.chevronRight aria-hidden="true" size={16} />
+                    </a>
+                  ) : (
+                    <Button
+                      className="ml-auto h-auto px-2.5 py-2 text-[11px] font-bold"
+                      disabled={authUrlQ.isLoading}
+                      onClick={() => void authUrlQ.refetch()}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      {authUrlQ.isLoading ? (
+                        <Icons.loader aria-hidden="true" className="animate-spin" />
+                      ) : (
+                        <Icons.retry aria-hidden="true" />
+                      )}
+                      {t(authUrlQ.isLoading ? "loadingAuthorization" : "authorizationUnavailable")}
+                    </Button>
+                  )}
+                </article>
+                <article className="relative flex min-h-[120px] flex-wrap items-center gap-3 overflow-hidden rounded-2xl bg-[#51405e] p-5 text-[#fff8ed]">
+                  <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/15">
+                    <Icons.copy aria-hidden="true" />
+                  </div>
+                  <div>
+                    <h2 className="font-heading text-base font-semibold">{t("readyForOverlay")}</h2>
+                    <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-white/75">
+                      {t("overlayDescription")}
+                    </p>
+                  </div>
+                  <Link
+                    className={cn(
+                      buttonVariants(),
+                      "z-10 ml-auto h-auto bg-white px-2.5 py-2 text-[11px] font-bold text-[#51405e] hover:bg-white/90",
+                    )}
+                    to="/chat"
+                  >
+                    {t("createOverlay")} <Icons.chevronRight aria-hidden="true" size={17} />
+                  </Link>
+                  <CosmicArt
+                    className="pointer-events-none absolute -right-4 -bottom-9 w-40 text-white/30 opacity-35"
+                    variant="orbit"
+                  />
+                </article>
+              </section>
+            </>
+          )}
+        </div>
       </div>
     </section>
   );

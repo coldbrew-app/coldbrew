@@ -119,8 +119,7 @@ titles, and prominent values. Use **Geist Variable** (`font-sans`) for navigatio
 controls, body copy, lists, forms, and numbers. Both Latin and Cyrillic headings
 must use the intended font.
 
-The landing display uses the fluid frontmatter scale. Shared page headings use
-the smaller fluid headline scale; landing section headings use 30–36 px. Body
+The landing display uses the fluid frontmatter scale. Authenticated panel headings use compact 20 px type; landing section headings use 30–36 px. Body
 copy is generally 14–18 px with generous leading, while compact controls use
 14 px. Keep tight tracking and leading with display text. Inputs and times use
 tabular numerals. Headings balance their wrapping. Use `Coldbrew` with an initial
@@ -142,6 +141,17 @@ Keep long content shrinkable and wrapping; illustrations need safe space around
 copy and interactive controls at every breakpoint.
 
 The authenticated shell places quiet working panels alongside a coffee sidebar.
+Working panels have no outer padding below `sm`; at `sm` and above, use 12 px
+on every side. Working pages fill the available viewport height below navigation and the development
+notice, including empty and loading states. Keep the shell and panel boundaries fixed
+with `h-full`, `min-h-0`, and clipped overflow; scroll long content inside each panel. Keep list filters and pagination outside
+the list scroller as non-shrinking siblings so both remain visible. Video priority
+filters use their own bounded scroller when needed; public queues follow the same
+fixed tabs, scrolling list, and pagination layout.
+Do not add a separate large page banner above a panel heading. Compact integrated
+headers retain the plum scene, cream Bitter title, and subdued orbital artwork.
+On desktop, multichat feed and connection columns scroll independently; on narrow
+screens the panel body scrolls through the feed and connections.
 On mobile, video sharing and video priority configuration sit behind a disclosure
 button; video status filters remain visible in two columns. Desktop retains
 the visible configuration and a right-hand filter column. Multichat puts its feed
@@ -149,8 +159,7 @@ before connection management on narrow screens, while desktop uses a connection
 column beside the feed. Channel cards use a neutral border and muted surface.
 
 The public video queue uses a centered `max-w-4xl` panel, a plum scene header,
-restrained cup artwork, and compact video priority group dividers. Mobile padding
-is 12 px with safe-area accommodation; larger screens use 32 px.
+restrained cup artwork, and compact video priority group dividers. There is no outer padding on mobile; larger screens use 12 px.
 
 ### Reading surfaces
 
@@ -197,8 +206,11 @@ geometric stars connect artwork across surfaces.
 - **Configuration disclosures:** mobile video configuration uses a full-width
   ghost button with `aria-expanded` and `aria-controls`. Keep frequent status
   filters outside the collapsed region.
-- **Page headers:** `CosmicPageHeader` places cream Bitter titles and warm muted
-  descriptions on `cosmic-page-scene`, with restrained orbit or bean art.
+- **Panel headers:** `CosmicPageHeader` is the compact, non-shrinking header inside
+  a full-height working panel. It places a 20 px cream Bitter title and a 12 px warm
+  description on `cosmic-page-scene`, with restrained orbit or bean art and optional
+  actions. Use 12–16 px vertical padding, without a minimum banner height. The outer
+  panel owns rounded corners and clips its internal scrollbar.
 - **Landing artwork:** `CosmicArt` combines the existing `cosmic-cup.png` and
   `cosmic-cup@2x.png` rasters with geometric SVG orbits. Reuse this composition;
   it is distinct from the product mark in `assets/logo.png`.

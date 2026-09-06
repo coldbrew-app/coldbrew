@@ -13,14 +13,14 @@ export const Route = createFileRoute("/_authenticated/alerts")({
 function RouteComponent() {
   const { t } = useI18n();
   return (
-    <section className="flex min-w-0 flex-1 flex-col gap-4">
+    <section className="cosmic-panel flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
       <CosmicPageHeader
         description={t("activeDevelopment")}
         eyebrow={t("alertsEyebrow")}
         title={t("alerts")}
         variant="beans"
       />
-      <div className="cosmic-panel grid min-h-52 place-items-center p-6 text-sm text-muted-foreground">
+      <div className="grid min-h-0 flex-1 place-items-center overflow-y-auto overscroll-contain p-6 text-sm text-muted-foreground">
         {t("underConstruction")}
       </div>
     </section>

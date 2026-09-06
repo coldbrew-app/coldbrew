@@ -16,31 +16,19 @@ function DonationsLayout() {
   const { t } = useI18n();
 
   return (
-    <section className="flex min-w-0 flex-1 flex-col gap-4">
+    <section className="cosmic-panel flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
       <CosmicPageHeader
         description={t("browseDonations")}
-        eyebrow={t("donationOrbit")}
-        title={t("donations")}
-      />
-      <div className="w-full">
-        <article className="cosmic-panel overflow-hidden">
-          <div className="flex flex-col gap-4 border-b border-border p-4 sm:p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="font-heading text-lg font-semibold text-card-foreground">
-                  {t("allDonations")}
-                </h2>
-                <p className="mt-1 text-xs text-muted-foreground">{t("browseDonations")}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Icons.filter aria-hidden="true" size={15} className="text-primary" />
-                <DonationAlertsSourceBadge />
-              </div>
-            </div>
+        title={t("allDonations")}
+        actions={
+          <div className="flex items-center gap-2">
+            <Icons.filter aria-hidden="true" size={15} />
+            <DonationAlertsSourceBadge />
           </div>
-
-          <Outlet />
-        </article>
+        }
+      />
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <Outlet />
       </div>
     </section>
   );
