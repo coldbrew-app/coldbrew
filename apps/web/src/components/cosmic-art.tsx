@@ -20,7 +20,10 @@ export function CosmicArt({ className, variant = "portal" }: Props) {
   }
 
   return (
-    <div aria-hidden="true" className={cn("relative aspect-[320/230] overflow-visible", className)}>
+    <div
+      aria-hidden="true"
+      className={cn("pointer-events-none relative aspect-[320/230] overflow-visible", className)}
+    >
       <img
         alt=""
         className="absolute top-[20.4348%] left-[14.0625%] h-[69.5652%] w-3/4 object-contain"
@@ -65,7 +68,12 @@ export function CosmicArt({ className, variant = "portal" }: Props) {
 
 function OrbitArt({ className }: Pick<Props, "className">) {
   return (
-    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 260 150">
+    <svg
+      aria-hidden="true"
+      className={cn("pointer-events-none", className)}
+      fill="none"
+      viewBox="0 0 260 150"
+    >
       <path
         d="M18 104C54 36 183 13 242 67"
         stroke="currentColor"
@@ -90,7 +98,12 @@ function OrbitArt({ className }: Pick<Props, "className">) {
 
 function BeanComets({ className }: Pick<Props, "className">) {
   return (
-    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 180 110">
+    <svg
+      aria-hidden="true"
+      className={cn("pointer-events-none", className)}
+      fill="none"
+      viewBox="0 0 180 110"
+    >
       <path
         d="M13 24c39 4 63 16 83 40"
         stroke="currentColor"

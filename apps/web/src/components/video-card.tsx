@@ -133,11 +133,11 @@ export default function VideoCard({
   };
 
   return (
-    <article className="group relative flex flex-col gap-3 px-4 py-4 transition-colors hover:bg-secondary/25 sm:px-5">
+    <article className="group relative flex min-w-0 flex-col gap-4 px-4 py-5 transition-colors hover:bg-secondary/25 sm:px-5">
       <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-start">
         <div className="flex flex-col gap-3 sm:shrink-0">
           {embedUrl !== null && (
-            <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-muted sm:w-60">
+            <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-muted sm:w-60">
               <iframe
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
@@ -163,7 +163,7 @@ export default function VideoCard({
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="flex min-w-0 grow items-center gap-3">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <strong className="text-[13px] text-card-foreground">{author}</strong>
+                <strong className="text-sm text-card-foreground">{author}</strong>
                 {showSource && (
                   <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background/70 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
                     <SourceIcon aria-hidden="true" size={12} />
@@ -177,7 +177,7 @@ export default function VideoCard({
                 )}
               </div>
               <time
-                className="block text-[10px] text-muted-foreground"
+                className="block text-xs text-muted-foreground"
                 dateTime={video.createdAt.toISOString()}
                 title={fmtDate(video.createdAt, locale)}
               >
@@ -187,7 +187,7 @@ export default function VideoCard({
 
             <div className="flex shrink-0 items-start gap-2">
               <div className="flex flex-col items-end gap-0.5">
-                <strong className="block text-[13px] text-card-foreground">
+                <strong className="block text-sm text-card-foreground">
                   {fmtAmount(displayedAmount, displayedCurrency, locale)}
                 </strong>
                 {!isEditing && (
@@ -331,7 +331,7 @@ export default function VideoCard({
             )}
 
             {(video.watchedAt || video.bookmarkedAt) && (
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                 {video.watchedAt && (
                   <time
                     dateTime={video.watchedAt.toISOString()}

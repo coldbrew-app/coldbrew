@@ -168,9 +168,9 @@ function QueueCurrencyHeading() {
 
   return (
     <div className="flex items-center gap-1.5">
-      <h1 className="font-heading text-lg font-semibold text-card-foreground">
+      <h2 className="font-heading text-lg font-semibold text-card-foreground">
         {t("queueCurrency")}
-      </h1>
+      </h2>
       <Tooltip>
         <TooltipTrigger
           aria-label={t("queueCurrencyDescription")}

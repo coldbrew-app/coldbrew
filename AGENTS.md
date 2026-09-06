@@ -95,8 +95,8 @@ Before editing TS and TSX files for a substantial task:
 
 ### Frontend styling
 
-- Follow the [Coldbrew UI Style Guide](docs/ui-style-guide.md) for visual direction, semantic colors, typography, components, and responsive behavior.
-- Follow the icon section of the [Coldbrew UI Style Guide](docs/ui-style-guide.md#interface-icons) when choosing or adding UI icons.
+- Follow the [Coldbrew UI Style Guide](DESIGN.md) for visual direction, semantic colors, typography, components, and responsive behavior.
+- Follow the icon section of the [Coldbrew UI Style Guide](DESIGN.md#interface-icons) when choosing or adding UI icons.
 - Use `tailwindcss` for styling.
 - Use `flex`, `gap` and `padding` instead of margins wherever possible.
 - Pass external positioning (`margin`, `width`, `grow` etc.) of the root element of components via `className` instead of hardcoding it inside the component. It is similar to modifiers in BEM methodology.

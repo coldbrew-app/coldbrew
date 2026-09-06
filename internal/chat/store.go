@@ -214,10 +214,14 @@ type rowScanner interface{ Scan(...any) error }
 func (store *Store) scanConnectedSource(row rowScanner) (ConnectedSource, error) {
 	var result ConnectedSource
 	var accessCiphertext, refreshCiphertext []byte
+	var deviceID *string
 	var expiresAt *time.Time
 	var scopes []string
-	if err := row.Scan(&result.Source.SourceID, &result.Source.ConnectionID, &result.Source.Provider, &result.Source.ProviderSourceID, &result.Source.DisplayName, &result.Source.SourceURL, &result.Source.Position, &result.Source.Enabled, &accessCiphertext, &refreshCiphertext, &result.Credentials.DeviceID, &expiresAt, &scopes, &result.Credentials.TokenVersion); err != nil {
+	if err := row.Scan(&result.Source.SourceID, &result.Source.ConnectionID, &result.Source.Provider, &result.Source.ProviderSourceID, &result.Source.DisplayName, &result.Source.SourceURL, &result.Source.Position, &result.Source.Enabled, &accessCiphertext, &refreshCiphertext, &deviceID, &expiresAt, &scopes, &result.Credentials.TokenVersion); err != nil {
 		return ConnectedSource{}, err
+	}
+	if deviceID != nil {
+		result.Credentials.DeviceID = *deviceID
 	}
 	if accessCiphertext != nil {
 		accessToken, err := store.tokenCipher.Decrypt(accessCiphertext)

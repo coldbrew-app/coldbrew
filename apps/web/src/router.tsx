@@ -31,6 +31,7 @@ export function getRouter() {
     defaultPreload: "intent",
     defaultPreloadStaleTime: 0,
     scrollRestoration: true,
+    scrollToTopSelectors: ["#app-content"],
   });
 
   setupRouterSsrQueryIntegration({ router, queryClient: api.queryClient });

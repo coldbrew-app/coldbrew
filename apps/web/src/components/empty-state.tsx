@@ -25,19 +25,24 @@ export function EmptyState({
   const Heading = headingLevel === 2 ? "h2" : "h3";
 
   return (
-    <div className={cn("grid min-h-64 place-items-center px-5 text-center", className)} {...props}>
-      <div className="relative flex max-w-xs flex-col items-center gap-2 overflow-hidden">
+    <div
+      className={cn("grid min-h-72 place-items-center px-5 py-10 text-center", className)}
+      {...props}
+    >
+      <div className="relative flex max-w-sm flex-col items-center gap-3">
         {art !== false && (
           <CosmicArt
-            className="pointer-events-none absolute -top-12 -right-24 w-40 text-primary/20 opacity-25"
+            className="pointer-events-none absolute -top-12 -right-4 w-44 text-primary/30 opacity-35"
             variant={art}
           />
         )}
-        <div className="grid size-11 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+        <div className="relative grid size-14 place-items-center rounded-full border border-primary/15 bg-secondary text-secondary-foreground">
           <Icon aria-hidden="true" size={20} />
         </div>
-        <Heading className="pt-2 text-sm font-semibold text-card-foreground">{title}</Heading>
-        <p className="text-xs leading-relaxed text-muted-foreground">{description}</p>
+        <Heading className="pt-2 font-heading text-xl font-medium text-card-foreground">
+          {title}
+        </Heading>
+        <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
         {children}
       </div>
     </div>

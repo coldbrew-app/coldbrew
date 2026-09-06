@@ -58,6 +58,7 @@ export const Route = createFileRoute("/_authenticated/videos")({
 
 function VideoQueue() {
   const [isAddingVideo, setIsAddingVideo] = useState(false);
+  const [isQueueSettingsOpen, setIsQueueSettingsOpen] = useState(false);
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const updateVideoStatusM = useUpdateVideoStatusM();
@@ -125,9 +126,9 @@ function VideoQueue() {
         <article className="cosmic-panel overflow-hidden">
           <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
             <div className="flex flex-col gap-1">
-              <h1 className="font-heading text-lg font-semibold text-card-foreground">
+              <h2 className="font-heading text-lg font-semibold text-card-foreground">
                 {t("videoQueue")}
-              </h1>
+              </h2>
               <p className="text-xs text-muted-foreground">{t("videosForStream")}</p>
             </div>
             <Button
@@ -143,7 +144,21 @@ function VideoQueue() {
             </Button>
           </div>
           {isAddingVideo && <AddVideoForm onCancel={() => setIsAddingVideo(false)} />}
-          <SlugEditor />
+          <div className="border-b border-border px-4 py-2 lg:hidden">
+            <Button
+              aria-controls="queue-sharing queue-priorities"
+              aria-expanded={isQueueSettingsOpen}
+              className="w-full justify-start"
+              onClick={() => setIsQueueSettingsOpen((isOpen) => !isOpen)}
+              variant="ghost"
+            >
+              <Icons.settings aria-hidden="true" />
+              {t("queueConfiguration")}
+            </Button>
+          </div>
+          <div className={isQueueSettingsOpen ? "block" : "hidden lg:block"} id="queue-sharing">
+            <SlugEditor />
+          </div>
           <div className="flex flex-col lg:flex-row">
             <div className="order-2 min-w-0 grow lg:order-1">
               {videosQ.isLoading ? (
@@ -211,8 +226,11 @@ function VideoQueue() {
               )}
             </div>
 
-            <aside className="relative order-1 overflow-hidden border-b border-border bg-secondary/45 p-3 lg:order-2 lg:w-72 lg:shrink-0 lg:border-b-0 lg:border-l">
-              <nav className="flex flex-col gap-1" aria-label={t("videoStatusFilters")}>
+            <aside className="relative order-1 overflow-hidden border-b border-border bg-muted/40 p-3 lg:order-2 lg:w-72 lg:shrink-0 lg:border-b-0 lg:border-l">
+              <nav
+                className="grid grid-cols-2 gap-1 lg:grid-cols-1"
+                aria-label={t("videoStatusFilters")}
+              >
                 {tabs.map(({ id, label, count, icon: Icon }) => {
                   const isActive = id === activeTab;
                   return (
@@ -237,11 +255,16 @@ function VideoQueue() {
                   );
                 })}
               </nav>
-              <VideoPriorities
-                remainingSecondsByPriorityId={videosQ.data?.remainingSecondsByPriorityId ?? {}}
-                selectedVideoPriorityId={selectedVideoPriorityId}
-                videoCountByPriorityId={videosQ.data?.priorityCounts ?? {}}
-              />
+              <div
+                className={isQueueSettingsOpen ? "block" : "hidden lg:block"}
+                id="queue-priorities"
+              >
+                <VideoPriorities
+                  remainingSecondsByPriorityId={videosQ.data?.remainingSecondsByPriorityId ?? {}}
+                  selectedVideoPriorityId={selectedVideoPriorityId}
+                  videoCountByPriorityId={videosQ.data?.priorityCounts ?? {}}
+                />
+              </div>
             </aside>
           </div>
         </article>

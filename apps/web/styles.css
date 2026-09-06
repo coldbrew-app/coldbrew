@@ -66,33 +66,33 @@
 
 :root {
   /* A bright coffee galaxy: milky paper around a calm, readable work surface. */
-  --background: #fff8ed;
+  --background: #f6efe4;
   --foreground: #251820;
   --card: #fffdf8;
   --card-foreground: #251820;
   --popover: #fffdf8;
   --popover-foreground: #251820;
-  --primary: #4056e8;
+  --primary: #5844b8;
   --primary-foreground: #ffffff;
-  --secondary: #eef0ff;
-  --secondary-foreground: #293bba;
+  --secondary: #eee5f3;
+  --secondary-foreground: #57418a;
   --muted: #f4eee9;
-  --muted-foreground: #766b72;
+  --muted-foreground: #70616a;
   --accent: #ffe0e5;
   --accent-foreground: #a82f53;
   --destructive: #d84557;
   --border: #e7dcd8;
   --input: #d8cbc8;
-  --ring: #4056e8;
+  --ring: #7962cd;
   --chart-1: #4056e8;
   --chart-2: #ff647c;
   --chart-3: #ffbd3e;
   --chart-4: #54cfa5;
   --chart-5: #8b5cf6;
   --radius: 1rem;
-  --sidebar: #251820;
+  --sidebar: #251c20;
   --sidebar-foreground: #fff8ed;
-  --sidebar-primary: #ffbd3e;
+  --sidebar-primary: #edbf88;
   --sidebar-primary-foreground: #251820;
   --sidebar-accent: #3d2938;
   --sidebar-accent-foreground: #ffffff;
@@ -107,22 +107,22 @@
 }
 
 .dark {
-  --background: #171018;
+  --background: #191418;
   --foreground: #fff8ed;
-  --card: #211721;
+  --card: #241d23;
   --card-foreground: #fff8ed;
   --popover: #2a1d29;
   --popover-foreground: #fff8ed;
-  --primary: #7f8cff;
+  --primary: #bcabf2;
   --primary-foreground: #171018;
-  --secondary: #2d2d55;
+  --secondary: #393044;
   --secondary-foreground: #dfe3ff;
   --muted: #30232d;
   --muted-foreground: #bcaeb8;
   --accent: #512b3d;
   --accent-foreground: #ffc8d3;
   --destructive: #ff7a88;
-  --border: #493645;
+  --border: #493d46;
   --input: #5b4657;
   --ring: #8c98ff;
   --chart-1: #8c98ff;
@@ -171,13 +171,32 @@
   }
   html {
     @apply font-sans;
+    scrollbar-color: var(--input) var(--background);
+    scrollbar-width: thin;
+    text-underline-offset: 0.2em;
+    caret-color: var(--primary);
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  ::selection {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+  h1,
+  h2 {
+    text-wrap: balance;
+  }
+  input,
+  time {
+    font-variant-numeric: tabular-nums;
   }
 }
 
 @layer components {
   .cosmic-panel {
-    @apply rounded-3xl border border-border bg-card shadow-sm;
-    box-shadow: 0 16px 42px color-mix(in srgb, var(--cosmic-blue) 8%, transparent);
+    @apply rounded-2xl border border-border bg-card;
   }
 
   .cosmic-grid {
@@ -191,12 +210,78 @@
 
   .cosmic-hero {
     background:
-      radial-gradient(
-        circle at 78% 32%,
-        color-mix(in srgb, var(--solar-mango) 28%, transparent),
-        transparent 20%
-      ),
-      linear-gradient(135deg, var(--espresso-void), #38233d 56%, #4056e8);
+      radial-gradient(ellipse at 86% 90%, #78508a 0, transparent 52%),
+      radial-gradient(ellipse at 65% 15%, #765047 0, transparent 65%), #251c27;
+  }
+
+  .cosmic-page-scene {
+    background:
+      radial-gradient(ellipse at 100% 110%, #78608e 0, transparent 48%),
+      linear-gradient(110deg, #30222b, #483139);
+  }
+
+  .coffee-sidebar {
+    background-image:
+      radial-gradient(ellipse at 0% 0%, #b9875729, transparent 50%),
+      radial-gradient(ellipse at 100% 85%, #9271bc1a, transparent 45%);
+  }
+
+  .landing-world {
+    background: var(--background);
+  }
+
+  .cosmic-starlight {
+    background-image:
+      radial-gradient(circle at 14% 23%, #bd9864 0 1px, transparent 1.6px),
+      radial-gradient(circle at 81% 11%, #a899b7 0 1px, transparent 1.6px),
+      radial-gradient(circle at 45% 77%, #b39369 0 1px, transparent 1.6px);
+    background-size:
+      271px 367px,
+      379px 421px,
+      487px 311px;
+    opacity: 0.35;
+    mask-image: linear-gradient(#000, transparent 85%);
+  }
+
+  .coffee-observatory {
+    isolation: isolate;
+    border-radius: 48% 48% 1rem 1rem / 28% 28% 1rem 1rem;
+    background:
+      radial-gradient(ellipse at 72% 66%, #8b657c 0, transparent 48%),
+      radial-gradient(ellipse at 18% 6%, #785849 0, transparent 55%), #261e2c;
+    box-shadow: 0 28px 60px #39212c1a;
+  }
+
+  .coffee-observatory::before,
+  .coffee-observatory::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    pointer-events: none;
+    border: 1px solid #edd0a238;
+    border-radius: 50%;
+    width: 130%;
+    height: 60%;
+    right: -32%;
+    top: 31%;
+    transform: rotate(-32deg);
+  }
+
+  .coffee-observatory::after {
+    width: 145%;
+    height: 72%;
+    right: -42%;
+    top: 25%;
+    border-color: #edd0a21c;
+  }
+
+  @media (min-width: 1024px) {
+    .coffee-observatory {
+      transform: rotate(3deg);
+    }
+    .coffee-observatory > * {
+      transform: rotate(-3deg);
+    }
   }
 }
 
