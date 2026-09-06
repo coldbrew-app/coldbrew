@@ -27,8 +27,9 @@ func TestYoutubeStreamStaysOfflineUntilCancelled(t *testing.T) {
 	var requests int
 	client := &http.Client{Transport: oauthRoundTripFunc(func(request *http.Request) (*http.Response, error) {
 		requests++
-		if request.URL.Query().Get("broadcastType") != "all" {
-			t.Fatalf("broadcastType = %q", request.URL.Query().Get("broadcastType"))
+		query := request.URL.Query()
+		if query.Get("broadcastStatus") != "active" || query.Get("broadcastType") != "all" || query.Has("mine") {
+			t.Fatalf("query = %q", query.Encode())
 		}
 		return youtubeResponse(http.StatusOK, `{"items":[]}`), nil
 	})}
