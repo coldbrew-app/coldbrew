@@ -8,7 +8,6 @@ import { MAX_CHAT_MESSAGE_LENGTH } from "@coldbrew/packages/chat.js";
 import { createFileRoute } from "@tanstack/react-router";
 import { BoostyConnectionForm } from "@web/components/boosty-connection-form";
 import { ChatFeed } from "@web/components/chat-feed";
-import { CosmicPageHeader } from "@web/components/cosmic-page-header";
 import { Icons, PlatformIcons } from "@web/components/icons";
 import { Button } from "@web/components/ui/button";
 import { Input } from "@web/components/ui/input";
@@ -60,14 +59,10 @@ const providerMeta = {
 
 const copy = {
   ru: {
-    eyebrow: "Единый эфир · полный контроль",
-    description:
-      "Подключите собственные каналы, следите за общей лентой и отвечайте во все доступные чаты одной отправкой.",
     connections: "Каналы",
     connectHelp: "Можно подключить несколько аккаунтов каждого сервиса.",
     feed: "Чат",
     empty: "Сообщения появятся здесь, когда подключённый канал выйдет в эфир.",
-    composer: "Во все доступные чаты",
     placeholder: "Написать одновременно в YouTube, Twitch и Kick…",
     send: "Отправить всем",
     noConnections: "Пока нет подключённых каналов",
@@ -89,14 +84,10 @@ const copy = {
     loading: "Подключаем центр управления чатами…",
   },
   en: {
-    eyebrow: "One signal · full control",
-    description:
-      "Connect your own channels, watch one feed, and send one message to every writable chat.",
     connections: "Channels",
     connectHelp: "You can connect multiple accounts from each provider.",
     feed: "Chat",
     empty: "Messages will appear when a connected channel goes live.",
-    composer: "To every available chat",
     placeholder: "Send to YouTube, Twitch, and Kick at once…",
     send: "Send to all",
     noConnections: "No connected channels yet",
@@ -216,47 +207,27 @@ function ChatPage() {
 
   if (!config) {
     return (
-      <section className="cosmic-panel flex h-full min-h-0 flex-col overflow-hidden">
-        <CosmicPageHeader
-          description={text.description}
-          eyebrow={text.eyebrow}
-          title={locale === "ru" ? "Мультичат" : "Multichat"}
-        />
-        <div className="grid min-h-0 flex-1 place-items-center overflow-y-auto p-6 text-center">
-          {configQuery.isError ? (
-            <div className="flex flex-col items-center gap-3">
-              <p className="text-sm text-destructive">{configQuery.error?.message}</p>
-              <Button onClick={() => void configQuery.refetch()} variant="outline">
-                <Icons.retry aria-hidden="true" />
-                Retry
-              </Button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Icons.loader className="animate-spin text-primary" />
-              {text.loading}
-            </div>
-          )}
-        </div>
+      <section className="cosmic-panel grid h-full min-h-0 place-items-center overflow-hidden p-6 text-center">
+        {configQuery.isError ? (
+          <div className="flex flex-col items-center gap-3">
+            <p className="text-sm text-destructive">{configQuery.error?.message}</p>
+            <Button onClick={() => void configQuery.refetch()} variant="outline">
+              <Icons.retry aria-hidden="true" />
+              Retry
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Icons.loader className="animate-spin text-primary" />
+            {text.loading}
+          </div>
+        )}
       </section>
     );
   }
 
   return (
-    <section className="cosmic-panel flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
-      <CosmicPageHeader
-        description={text.description}
-        eyebrow={text.eyebrow}
-        title={t("chat")}
-        actions={
-          <a
-            href="#chat-connections"
-            className="rounded-lg border border-white/20 px-3 py-2 text-xs text-[#fff8ed] hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white xl:hidden"
-          >
-            {text.connections}
-          </a>
-        }
-      />
+    <section className="flex h-full min-h-0 min-w-0 flex-col gap-3">
       {chatOauth && (
         <div
           className={cn(
@@ -293,8 +264,8 @@ function ChatPage() {
           </Button>
         </div>
       )}
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-3 xl:grid xl:grid-cols-[330px_minmax(0,1fr)] xl:grid-rows-[minmax(0,1fr)] xl:overflow-hidden">
-        <article className="cosmic-panel flex h-[max(24rem,55dvh)] min-h-0 min-w-0 shrink-0 flex-col overflow-hidden xl:h-auto">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain xl:grid xl:grid-cols-[330px_minmax(0,1fr)] xl:grid-rows-[minmax(0,1fr)] xl:overflow-hidden">
+        <article className="cosmic-panel isolate flex h-[max(24rem,55dvh)] min-h-0 min-w-0 shrink-0 flex-col overflow-hidden xl:h-auto">
           <header className="flex items-center gap-3 border-b border-border p-4">
             <div className="min-w-0 grow">
               <h2 className="font-heading text-xl font-semibold">{text.feed}</h2>
@@ -317,6 +288,12 @@ function ChatPage() {
                 />
               ))}
             </div>
+            <a
+              href="#chat-connections"
+              className="rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring xl:hidden"
+            >
+              {text.connections}
+            </a>
           </header>
           <ChatFeed
             capabilitiesForSource={capabilitiesForSource}
@@ -325,23 +302,9 @@ function ChatPage() {
             onModerate={(command) => moderate.mutate(command)}
           />
           <form
-            className="flex flex-col gap-2 border-t border-border bg-background/85 p-3 backdrop-blur"
+            className="flex shrink-0 flex-col gap-2 border-t border-border bg-card p-3"
             onSubmit={submit}
           >
-            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-              <span className="font-semibold uppercase tracking-[0.12em]">{text.composer}</span>
-              <span className="h-px grow bg-border" />
-              {config.connections
-                .filter(({ capabilities }) => capabilities.includes("send_message"))
-                .map(({ connectionId, provider }) => (
-                  <span
-                    aria-hidden="true"
-                    className="size-1.5 rounded-full"
-                    key={connectionId}
-                    style={{ backgroundColor: providerMeta[provider].color }}
-                  />
-                ))}
-            </div>
             <div className="flex gap-2">
               <Input
                 maxLength={MAX_CHAT_MESSAGE_LENGTH}
