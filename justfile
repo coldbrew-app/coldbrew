@@ -10,13 +10,42 @@ env-init source-env=".env.dev":
   #!/usr/bin/env bash
   set -euo pipefail
 
-  app_port="$(wt step eval '{{{{ (repo ~ "-app-" ~ branch) | hash_port }}')"
-  db_port="$(wt step eval '{{{{ (repo ~ "-db-" ~ branch) | hash_port }}')"
-  chat_port="$(wt step eval '{{{{ (repo ~ "-chat-" ~ branch) | hash_port }}')"
-  donations_port="$(wt step eval '{{{{ (repo ~ "-donations-" ~ branch) | hash_port }}')"
-  nats_port="$(wt step eval '{{{{ (repo ~ "-nats-" ~ branch) | hash_port }}')"
-  db_name="coldbrew_$(wt step eval '{{{{ branch | sanitize_db }}')"
-  compose_project="$(wt step eval '{{{{ (repo ~ "_" ~ branch) | sanitize_db }}')"
+  hash_value() {
+    printf '%s' "$1" | git hash-object --stdin
+  }
+
+  hash_port() {
+    local hash
+    hash="$(hash_value "$1")"
+    printf '%d\n' "$((10000 + 0x${hash:0:8} % 40000))"
+  }
+
+  sanitize_name() {
+    printf '%s' "$1" \
+      | tr '[:upper:]' '[:lower:]' \
+      | sed -E 's/[^a-z0-9]+/_/g; s/^_+//; s/_+$//'
+  }
+
+  repository_root="$(git rev-parse --show-toplevel)"
+  repository_id="$(cd "$(git rev-parse --git-common-dir)" && pwd -P)"
+  repository_name="$(sanitize_name "$(basename "$repository_root")")"
+  branch="$(git branch --show-current)"
+  if [[ -z "$branch" ]]; then
+    branch="detached_$(git rev-parse --short HEAD)"
+  fi
+  branch_name="$(sanitize_name "$branch")"
+  repository_hash="$(hash_value "$repository_id" | cut -c1-8)"
+  branch_hash="$(hash_value "$repository_id:$branch" | cut -c1-8)"
+  name_suffix="${branch_name:0:40}_$branch_hash"
+
+  app_port="$(hash_port "$repository_id:$branch:app")"
+  db_port="$(hash_port "$repository_id:db")"
+  chat_port="$(hash_port "$repository_id:$branch:chat")"
+  donations_port="$(hash_port "$repository_id:$branch:donations")"
+  nats_port="$(hash_port "$repository_id:nats")"
+  db_name="coldbrew_$name_suffix"
+  compose_project="${repository_name:0:32}_dev_$repository_hash"
+  nats_namespace="wt_$branch_hash"
 
   bunx dotenvx decrypt -f "{{source-env}}" -fk .env.keys --stdout > .env
   bunx dotenvx set -f .env --plain APP_PORT "$app_port"
@@ -29,6 +58,7 @@ env-init source-env=".env.dev":
   bunx dotenvx set -f .env --plain DONATIONS_SERVICE_URL "http://127.0.0.1:$donations_port"
   bunx dotenvx set -f .env --plain NATS_PORT "$nats_port"
   bunx dotenvx set -f .env --plain NATS_SERVERS "nats://127.0.0.1:$nats_port"
+  bunx dotenvx set -f .env --plain NATS_NAMESPACE "$nats_namespace"
   bunx dotenvx set -f .env --plain PGHOST 127.0.0.1
   bunx dotenvx set -f .env --plain PGPORT "$db_port"
   bunx dotenvx set -f .env --plain PGDATABASE "$db_name"
@@ -37,6 +67,23 @@ env-init source-env=".env.dev":
   bunx dotenvx run -f .env --overload -- bash -c 'bunx dotenvx set -f .env --plain DATABASE_URL "postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"'
 
   chmod 600 .env
+
+# Prepare a new T3 Code worktree from the project's primary checkout.
+t3-worktree-init $source_worktree:
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  if [[ ! -f "$source_worktree/.env.keys" ]]; then
+    echo "Source worktree has no .env.keys file: $source_worktree" >&2
+    exit 1
+  fi
+
+  cp -p "$source_worktree/.env.keys" .env.keys
+  just env-init
+  bun install
+  just dev-db-up
+  just dev-db-copy "$source_worktree"
+  just schema-apply
 
 dev-donations:
   bunx dotenvx run -f .env --overload -- go run ./apps/donations
@@ -168,8 +215,13 @@ compose-db-up:
 compose-down:
   docker compose down
 
-dev-db-up:
+# Start the repository-wide PostgreSQL and NATS development infrastructure.
+dev-infra-up:
   bunx dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml up -d --wait
+
+# Create the current worktree's logical database in the shared PostgreSQL server.
+dev-db-up: dev-infra-up
+  bunx dotenvx run -f .env --overload -- bash -eu -o pipefail -c 'case "$PGDATABASE" in ""|*[!a-z0-9_]*) echo "Invalid development database name: $PGDATABASE" >&2; exit 1;; esac; if ! docker compose -f compose.dev.yaml exec -T postgres psql --username="$PGUSER" --dbname=postgres --tuples-only --no-align --command="SELECT 1 FROM pg_database WHERE datname = '\''$PGDATABASE'\''" | grep -qx 1; then docker compose -f compose.dev.yaml exec -T postgres createdb --username="$PGUSER" "$PGDATABASE"; fi'
 
 dev-db-copy $source_worktree:
   #!/usr/bin/env bash
@@ -201,7 +253,8 @@ dev-db-copy $source_worktree:
 
   if ! (
     cd "$source_worktree"
-    bunx dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml exec -T postgres true
+    bunx dotenvx run -f .env --overload -- bash -eu -o pipefail -c \
+      'docker compose -f compose.dev.yaml exec -T postgres psql --username="$PGUSER" --dbname="$PGDATABASE" --command="SELECT 1" >/dev/null'
   ); then
     echo "Source development database is not running: $source_worktree" >&2
     exit 1
@@ -212,19 +265,27 @@ dev-db-copy $source_worktree:
 
   (
     cd "$source_worktree"
-    bunx dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml exec -T postgres \
-      sh -c 'pg_dump --format=custom --no-owner --no-privileges --username="$POSTGRES_USER" --dbname="$POSTGRES_DB"'
+    bunx dotenvx run -f .env --overload -- bash -eu -o pipefail -c \
+      'docker compose -f compose.dev.yaml exec -T postgres pg_dump --format=custom --no-owner --no-privileges --username="$PGUSER" --dbname="$PGDATABASE"'
   ) > "$dump_path"
 
-  bunx dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml exec -T postgres \
-    sh -c 'pg_restore --clean --if-exists --no-owner --no-privileges --single-transaction --exit-on-error --username="$POSTGRES_USER" --dbname="$POSTGRES_DB"' \
+  bunx dotenvx run -f .env --overload -- bash -eu -o pipefail -c \
+    'docker compose -f compose.dev.yaml exec -T postgres pg_restore --clean --if-exists --no-owner --no-privileges --single-transaction --exit-on-error --username="$PGUSER" --dbname="$PGDATABASE"' \
     < "$dump_path"
 
-dev-db-down:
+# Stop the shared infrastructure. This affects every Coldbrew worktree.
+dev-infra-down:
   bunx dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml down
 
-dev-db-destroy:
+# Destroy all shared development databases and NATS state.
+[confirm("Destroy shared Coldbrew development infrastructure for every worktree?")]
+dev-infra-destroy:
   bunx dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml down --volumes
+
+# Remove only the current worktree's database and NATS namespace.
+dev-worktree-destroy:
+  bunx dotenvx run -f .env --overload -- bash -eu -o pipefail -c 'case "$PGDATABASE" in ""|*[!a-z0-9_]*) echo "Invalid development database name: $PGDATABASE" >&2; exit 1;; esac; docker compose -f compose.dev.yaml exec -T postgres dropdb --force --if-exists --username="$PGUSER" "$PGDATABASE"'
+  bunx dotenvx run -f .env --overload -- go run ./apps/chat cleanup-nats-namespace
 
 backup-now:
   docker compose run --rm --no-deps wal-g wal-g backup-push

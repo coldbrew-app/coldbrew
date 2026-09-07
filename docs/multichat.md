@@ -83,6 +83,11 @@ CHAT_PUBLIC_URL
 CHAT_WEB_URL
 ```
 
+`NATS_NAMESPACE` is optional. Development assigns a distinct value to each
+worktree so its stream, subjects, collector leases, cached source states, and
+collector refresh requests do not cross worktree boundaries. Production keeps
+the unnamespaced resource names when the setting is absent.
+
 `apps/web` additionally requires `CHAT_SERVICE_URL`.
 
 Provider settings are enabled as complete groups:
@@ -145,9 +150,10 @@ immediately.
 
 ## Development and operations
 
-`just dev-db-up` starts PostgreSQL and NATS. `just dev` starts the TypeScript web app and the Go
-chat, donation, and video services. `just typecheck` and `just test` include the Go services. The
-When an internal chat request, response, or stream event changes, update the Go handler together
+`just dev-db-up` starts the repository-wide PostgreSQL and NATS infrastructure and creates the
+current worktree's database. `just dev` starts the TypeScript web app and the Go chat, donation,
+and video services. `just typecheck` and `just test` include the Go services. When an internal chat
+request, response, or stream event changes, update the Go handler together
 with the `apps/web` adapter and shared Zod schemas, then verify both sides.
 
 Production Compose runs NATS with JetStream storage and healthchecks the chat service. Caddy sends

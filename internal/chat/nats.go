@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -15,7 +16,7 @@ import (
 
 const (
 	chatStream                    = "CHAT_EVENTS"
-	chatSubject                   = "chat.user.*"
+	chatSubjectPrefix             = "chat.user"
 	collectorLeaseBucket          = "chat_collectors"
 	chatStateBucket               = "chat_source_states"
 	collectorRefreshBucket        = "chat_collector_refreshes"
@@ -26,6 +27,38 @@ const (
 	collectorLeaseHeartbeat       = 10 * time.Second
 )
 
+var natsNamespacePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,47}$`)
+
+type natsResources struct {
+	stream                 string
+	subjectPrefix          string
+	collectorLeaseBucket   string
+	chatStateBucket        string
+	collectorRefreshBucket string
+}
+
+func resourcesForNamespace(namespace string) (natsResources, error) {
+	if namespace == "" {
+		return natsResources{
+			stream:                 chatStream,
+			subjectPrefix:          chatSubjectPrefix,
+			collectorLeaseBucket:   collectorLeaseBucket,
+			chatStateBucket:        chatStateBucket,
+			collectorRefreshBucket: collectorRefreshBucket,
+		}, nil
+	}
+	if !natsNamespacePattern.MatchString(namespace) {
+		return natsResources{}, errors.New("NATS namespace must match [a-z0-9][a-z0-9_-]{0,47}")
+	}
+	return natsResources{
+		stream:                 strings.ToUpper(namespace) + "_" + chatStream,
+		subjectPrefix:          namespace + "." + chatSubjectPrefix,
+		collectorLeaseBucket:   namespace + "_" + collectorLeaseBucket,
+		chatStateBucket:        namespace + "_" + chatStateBucket,
+		collectorRefreshBucket: namespace + "_" + collectorRefreshBucket,
+	}, nil
+}
+
 type NatsConnection struct {
 	connection       *nats.Conn
 	Broker           *NatsEventBroker
@@ -33,7 +66,11 @@ type NatsConnection struct {
 	CollectorControl *NatsCollectorControl
 }
 
-func ConnectNats(servers string) (*NatsConnection, error) {
+func ConnectNats(servers, namespace string) (*NatsConnection, error) {
+	resources, err := resourcesForNamespace(namespace)
+	if err != nil {
+		return nil, err
+	}
 	parts := strings.Split(servers, ",")
 	for index := range parts {
 		parts[index] = strings.TrimSpace(parts[index])
@@ -47,8 +84,8 @@ func ConnectNats(servers string) (*NatsConnection, error) {
 		connection.Close()
 		return nil, err
 	}
-	if _, err := jetstream.StreamInfo(chatStream); errors.Is(err, nats.ErrStreamNotFound) {
-		_, err = jetstream.AddStream(&nats.StreamConfig{Name: chatStream, Subjects: []string{chatSubject}, Storage: nats.MemoryStorage, Retention: nats.LimitsPolicy, Discard: nats.DiscardOld, MaxAge: chatEventMaxAge, MaxMsgsPerSubject: chatEventMaxPerUser, Duplicates: chatDuplicateWindow})
+	if _, err := jetstream.StreamInfo(resources.stream); errors.Is(err, nats.ErrStreamNotFound) {
+		_, err = jetstream.AddStream(&nats.StreamConfig{Name: resources.stream, Subjects: []string{resources.subjectPrefix + ".*"}, Storage: nats.MemoryStorage, Retention: nats.LimitsPolicy, Discard: nats.DiscardOld, MaxAge: chatEventMaxAge, MaxMsgsPerSubject: chatEventMaxPerUser, Duplicates: chatDuplicateWindow})
 		if err != nil {
 			connection.Close()
 			return nil, err
@@ -57,22 +94,50 @@ func ConnectNats(servers string) (*NatsConnection, error) {
 		connection.Close()
 		return nil, err
 	}
-	leases, err := ensureKeyValue(jetstream, nats.KeyValueConfig{Bucket: collectorLeaseBucket, TTL: collectorLeaseTTL, History: 1, Storage: nats.MemoryStorage})
+	leases, err := ensureKeyValue(jetstream, nats.KeyValueConfig{Bucket: resources.collectorLeaseBucket, TTL: collectorLeaseTTL, History: 1, Storage: nats.MemoryStorage})
 	if err != nil {
 		connection.Close()
 		return nil, err
 	}
-	states, err := ensureKeyValue(jetstream, nats.KeyValueConfig{Bucket: chatStateBucket, TTL: chatEventMaxAge, History: 1, Storage: nats.MemoryStorage})
+	states, err := ensureKeyValue(jetstream, nats.KeyValueConfig{Bucket: resources.chatStateBucket, TTL: chatEventMaxAge, History: 1, Storage: nats.MemoryStorage})
 	if err != nil {
 		connection.Close()
 		return nil, err
 	}
-	refreshes, err := ensureKeyValue(jetstream, nats.KeyValueConfig{Bucket: collectorRefreshBucket, TTL: chatEventMaxAge, History: 1, Storage: nats.MemoryStorage})
+	refreshes, err := ensureKeyValue(jetstream, nats.KeyValueConfig{Bucket: resources.collectorRefreshBucket, TTL: chatEventMaxAge, History: 1, Storage: nats.MemoryStorage})
 	if err != nil {
 		connection.Close()
 		return nil, err
 	}
-	return &NatsConnection{connection: connection, Broker: &NatsEventBroker{connection: connection, jetstream: jetstream, states: states}, Leases: &NatsCollectorLeases{bucket: leases}, CollectorControl: &NatsCollectorControl{bucket: refreshes}}, nil
+	return &NatsConnection{connection: connection, Broker: &NatsEventBroker{connection: connection, jetstream: jetstream, states: states, subjectPrefix: resources.subjectPrefix}, Leases: &NatsCollectorLeases{bucket: leases}, CollectorControl: &NatsCollectorControl{bucket: refreshes}}, nil
+}
+
+func DeleteNatsNamespace(servers, namespace string) error {
+	if namespace == "" {
+		return errors.New("refusing to delete the unnamespaced NATS resources")
+	}
+	resources, err := resourcesForNamespace(namespace)
+	if err != nil {
+		return err
+	}
+	connection, err := nats.Connect(servers)
+	if err != nil {
+		return err
+	}
+	defer connection.Close()
+	jetstream, err := connection.JetStream()
+	if err != nil {
+		return err
+	}
+	for _, bucket := range []string{resources.collectorLeaseBucket, resources.chatStateBucket, resources.collectorRefreshBucket} {
+		if err := jetstream.DeleteKeyValue(bucket); err != nil && !errors.Is(err, nats.ErrBucketNotFound) && !errors.Is(err, nats.ErrStreamNotFound) {
+			return err
+		}
+	}
+	if err := jetstream.DeleteStream(resources.stream); err != nil && !errors.Is(err, nats.ErrStreamNotFound) {
+		return err
+	}
+	return nil
 }
 
 func (connection *NatsConnection) Close() error {
@@ -91,9 +156,10 @@ func ensureKeyValue(jetstream nats.JetStreamContext, config nats.KeyValueConfig)
 }
 
 type NatsEventBroker struct {
-	connection *nats.Conn
-	jetstream  nats.JetStreamContext
-	states     nats.KeyValue
+	connection    *nats.Conn
+	jetstream     nats.JetStreamContext
+	states        nats.KeyValue
+	subjectPrefix string
 }
 
 func (broker *NatsEventBroker) Publish(_ context.Context, userID int, event StreamEvent, idempotencyKey string) error {
@@ -101,7 +167,7 @@ func (broker *NatsEventBroker) Publish(_ context.Context, userID int, event Stre
 	if err != nil {
 		return err
 	}
-	if _, err := broker.jetstream.Publish(userSubject(userID), body, nats.MsgId(idempotencyKey)); err != nil {
+	if _, err := broker.jetstream.Publish(broker.userSubject(userID), body, nats.MsgId(idempotencyKey)); err != nil {
 		return err
 	}
 	var stateEvent *StreamEvent
@@ -124,7 +190,7 @@ func (broker *NatsEventBroker) Publish(_ context.Context, userID int, event Stre
 func (broker *NatsEventBroker) Stream(ctx context.Context, userID int) <-chan StreamEvent {
 	output := make(chan StreamEvent)
 	messages := make(chan *nats.Msg, 128)
-	subscription, err := broker.connection.ChanSubscribe(userSubject(userID), messages)
+	subscription, err := broker.connection.ChanSubscribe(broker.userSubject(userID), messages)
 	if err != nil {
 		close(output)
 		return output
@@ -260,7 +326,9 @@ func (control *NatsCollectorControl) Refreshes(ctx context.Context) (<-chan stri
 	return output, nil
 }
 
-func userSubject(userID int) string { return fmt.Sprintf("chat.user.%d", userID) }
+func (broker *NatsEventBroker) userSubject(userID int) string {
+	return fmt.Sprintf("%s.%d", broker.subjectPrefix, userID)
+}
 func sourceStateKey(userID int, sourceID string) string {
 	return fmt.Sprintf("%d.%s", userID, sourceID)
 }

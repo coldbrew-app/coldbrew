@@ -19,6 +19,13 @@ import (
 )
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "cleanup-nats-namespace" {
+		if err := cleanupNatsNamespace(); err != nil {
+			slog.Error("NATS namespace cleanup failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if err := run(); err != nil {
 		slog.Error("Chat service stopped", "error", err)
 		os.Exit(1)
@@ -41,7 +48,7 @@ func run() error {
 	if err := pool.Ping(ctx); err != nil {
 		return fmt.Errorf("ping PostgreSQL: %w", err)
 	}
-	natsConnection, err := chat.ConnectNats(config.natsServers)
+	natsConnection, err := chat.ConnectNats(config.natsServers, config.natsNamespace)
 	if err != nil {
 		return fmt.Errorf("connect NATS: %w", err)
 	}
@@ -117,6 +124,7 @@ func run() error {
 type serviceConfig struct {
 	databaseURL           string
 	natsServers           string
+	natsNamespace         string
 	port                  int
 	publicURL             string
 	webURL                string
@@ -190,7 +198,19 @@ func loadConfig() (serviceConfig, error) {
 	if natsServers == "" {
 		natsServers = "nats://localhost:4222"
 	}
-	return serviceConfig{databaseURL: databaseURL, natsServers: natsServers, port: port, publicURL: publicURL, webURL: webURL, serviceSecret: serviceSecret, tokenEncryptionSecret: tokenSecret, youtube: youtube, twitch: twitch, kick: kick, vkVideo: vkVideo, kickWebhookPublicKey: os.Getenv("KICK_WEBHOOK_PUBLIC_KEY")}, nil
+	return serviceConfig{databaseURL: databaseURL, natsServers: natsServers, natsNamespace: os.Getenv("NATS_NAMESPACE"), port: port, publicURL: publicURL, webURL: webURL, serviceSecret: serviceSecret, tokenEncryptionSecret: tokenSecret, youtube: youtube, twitch: twitch, kick: kick, vkVideo: vkVideo, kickWebhookPublicKey: os.Getenv("KICK_WEBHOOK_PUBLIC_KEY")}, nil
+}
+
+func cleanupNatsNamespace() error {
+	namespace := os.Getenv("NATS_NAMESPACE")
+	if namespace == "" {
+		return errors.New("NATS_NAMESPACE is required for cleanup")
+	}
+	servers := os.Getenv("NATS_SERVERS")
+	if servers == "" {
+		servers = "nats://localhost:4222"
+	}
+	return chat.DeleteNatsNamespace(servers, namespace)
 }
 
 func requiredEnvironment(name string) (string, error) {

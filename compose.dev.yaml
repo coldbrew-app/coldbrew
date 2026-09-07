@@ -2,7 +2,7 @@ services:
   postgres:
     image: postgres:18
     environment:
-      POSTGRES_DB: ${PGDATABASE:?Set PGDATABASE in .env}
+      POSTGRES_DB: postgres
       POSTGRES_USER: ${PGUSER:?Set PGUSER in .env}
       POSTGRES_PASSWORD: ${PGPASSWORD:?Set PGPASSWORD in .env}
     healthcheck:
