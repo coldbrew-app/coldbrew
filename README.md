@@ -30,8 +30,6 @@ Install these tools on the host:
 - Go 1.27.1, as declared by `go.mod`, for the Go services;
 - [just](https://just.systems/) for repository tasks;
 - Docker with the Compose plugin for PostgreSQL and NATS;
-- [Worktrunk](https://worktrunk.dev/) (`wt`) to derive per-worktree names and
-  ports;
 - [pgschema](https://github.com/pgschema/pgschema) to apply `db/schema.sql`;
 - [ripgrep](https://github.com/BurntSushi/ripgrep) for the Go lint task.
 
@@ -54,33 +52,39 @@ just schema-apply
 just dev
 ```
 
-`just env-init` decrypts `.env.dev` into the gitignored `.env` file and assigns
-the current worktree its own application, chat, PostgreSQL, and NATS ports,
-database name, and Docker Compose project name. `just dev-db-up` starts
-PostgreSQL and NATS. `just dev` starts the web, chat, donations, and video
-processes.
+`just env-init` decrypts `.env.dev` into the gitignored `.env` file. All
+worktrees share one repository-wide PostgreSQL and NATS Compose stack, while
+each worktree receives its own application and service ports, PostgreSQL
+database, and NATS namespace. `just dev-db-up` starts the shared infrastructure
+when necessary and creates the current worktree's database. `just dev` starts
+the web, chat, donations, and video processes.
 
 The local application URL is the `APP_DOMAIN` value written to `.env`.
 Authentication and the web UI use that origin, and `/api/chat/*` is handled by
 the web application before permitted requests are forwarded to the chat
 service.
 
-Worktrunk's hooks in `.config/wt.toml` copy configured ignored files, initialize
-the worktree environment, install dependencies, start its development database
-and NATS, copy the development database from the base worktree, and apply the
-schema. The source worktree must have an initialized `.env` and a running
-development PostgreSQL container; a copy failure stops setup. Run `just dev`
-after the worktree is ready to start the application processes.
+T3 Code's setup action in `t3.json` runs
+`just t3-worktree-init "$T3CODE_PROJECT_ROOT"`. It copies `.env.keys` from the
+primary checkout, initializes the worktree environment, installs dependencies,
+starts the shared development infrastructure, creates and copies the
+worktree's database from the primary checkout, and applies the schema. The same
+recipe can be run manually with the source worktree path. The source worktree must have an
+initialized `.env` and a running development PostgreSQL container; a copy
+failure stops setup. Run `just dev` after the worktree is ready to start the
+application processes.
 
-Stop the development containers with:
+Remove only the current worktree's database and NATS namespace with:
 
 ```sh
-just dev-db-down
+just dev-worktree-destroy
 ```
 
-This retains the PostgreSQL and NATS volumes. `just dev-db-destroy` removes
-those volumes and their data; Worktrunk runs that destructive task from its
-pre-remove hook when it removes a worktree.
+This leaves the shared containers and every other worktree untouched. Run it
+before deleting a worktree when its local development data is no longer needed.
+`just dev-infra-down` stops the shared containers while retaining all data;
+`just dev-infra-destroy` removes the shared volumes and therefore requires
+confirmation because it affects every worktree.
 
 ## Production
 
