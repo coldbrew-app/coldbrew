@@ -1,0 +1,19 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  "workspaces": {
+    ".": {
+      // Knip does not parse justfile recipes, where these tools are invoked.
+      "ignoreDependencies": [
+        "@dotenvx/dotenvx",
+        "@tanstack/intent",
+        "concurrently",
+        "oxfmt",
+        "oxlint",
+        "oxlint-tsgolint",
+      ],
+    },
+    "apps/web": {
+      "ignore": ["src/components/ui/**"],
+    },
+  },
+}

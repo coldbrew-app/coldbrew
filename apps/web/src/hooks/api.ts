@@ -17,15 +17,6 @@ export function useUserInfo() {
   return userInfo;
 }
 
-export function useSlug() {
-  const userInfo = useUserInfoSafe();
-
-  if (!userInfo?.slug) {
-    throw new Error("not slug");
-  }
-  return userInfo.slug;
-}
-
 export function useSetSlugM() {
   const { queryClient, trpc } = useApi();
   return useMutation(

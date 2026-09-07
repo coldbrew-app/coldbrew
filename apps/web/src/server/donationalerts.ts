@@ -1,7 +1,7 @@
 import { donationIntegration } from "./donation-integration/client.js";
 import { env } from "./env.js";
 
-export const donationAlertsCallbackURL = new URL(
+const donationAlertsCallbackURL = new URL(
   "/api/integration/donationalerts/callback",
   env.APP_DOMAIN,
 ).href;

@@ -104,7 +104,10 @@ lint-go:
     exit 1
   fi
 
-lint: lint-ts lint-go
+lint-knip:
+  bunx knip
+
+lint: lint-ts lint-go lint-knip
 
 build-web: install
   cd apps/web && bunx vite build
