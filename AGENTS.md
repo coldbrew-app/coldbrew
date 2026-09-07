@@ -109,6 +109,7 @@ Before editing TS and TSX files for a substantial task:
 ## Documentation
 
 - Documentation files referenced by this guide may and should be edited whenever needed, and kept up to date with the codebase and project conventions.
+- Follow the [Git workflow](docs/git.md) when the user asks to merge changes into `master`.
 - Read [the multichat architecture](docs/multichat.md) before changing chat providers, collectors, streams, overlays, or related external-service integrations.
 - In TypeScript, follow the [error-handling guide](docs/errors.md) when working with HTTP requests, subscriptions, streams, workers, or other external failures.
 - Follow the [React guide](docs/react.md) when creating or changing React hooks or their consumers in `apps/web`.
@@ -121,10 +122,10 @@ Before editing TS and TSX files for a substantial task:
 
 Add helper scripts to `justfile`, not `package.json`
 
-## Development environment
+## Data schema
 
-- Agents work in a development environment and may run `just schema-apply` without asking for confirmation whenever `db/schema.sql` changes or the current development database needs to be brought up to date.
-- This permission applies only to the non-destructive schema apply command. Database reset, destruction, or removal of volumes still requires explicit user authorization.
+- Any change to the data schema requires explicit user confirmation before it is made.
+- Do not run `just schema-apply` or any other command that applies schema changes without explicit user confirmation.
 
 ## Check yourself
 

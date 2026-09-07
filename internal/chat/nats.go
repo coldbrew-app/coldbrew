@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -27,7 +28,12 @@ const (
 	collectorLeaseHeartbeat       = 10 * time.Second
 )
 
-var natsNamespacePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,47}$`)
+var (
+	natsNamespacePattern         = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,47}$`)
+	worktreeNatsNamespacePattern = regexp.MustCompile(`^wt_[0-9a-f]{8}$`)
+	worktreeNatsStreamPattern    = regexp.MustCompile(`^(WT_[0-9A-F]{8})_CHAT_EVENTS$`)
+	worktreeNatsKeyValuePattern  = regexp.MustCompile(`^(wt_[0-9a-f]{8})_chat_(collectors|source_states|collector_refreshes)$`)
+)
 
 type natsResources struct {
 	stream                 string
@@ -116,8 +122,7 @@ func DeleteNatsNamespace(servers, namespace string) error {
 	if namespace == "" {
 		return errors.New("refusing to delete the unnamespaced NATS resources")
 	}
-	resources, err := resourcesForNamespace(namespace)
-	if err != nil {
+	if _, err := resourcesForNamespace(namespace); err != nil {
 		return err
 	}
 	connection, err := nats.Connect(servers)
@@ -126,6 +131,66 @@ func DeleteNatsNamespace(servers, namespace string) error {
 	}
 	defer connection.Close()
 	jetstream, err := connection.JetStream()
+	if err != nil {
+		return err
+	}
+	return deleteNatsNamespace(jetstream, namespace)
+}
+
+func DeleteOtherWorktreeNatsNamespaces(servers, keepNamespace string) error {
+	if !worktreeNatsNamespacePattern.MatchString(keepNamespace) {
+		return errors.New("NATS_NAMESPACE must identify the primary worktree")
+	}
+	connection, err := nats.Connect(servers)
+	if err != nil {
+		return err
+	}
+	defer connection.Close()
+	jetstream, err := connection.JetStream()
+	if err != nil {
+		return err
+	}
+	streamNames := make([]string, 0)
+	for name := range jetstream.StreamNames() {
+		streamNames = append(streamNames, name)
+	}
+	bucketNames := make([]string, 0)
+	for name := range jetstream.KeyValueStoreNames() {
+		bucketNames = append(bucketNames, name)
+	}
+	for _, namespace := range worktreeNamespacesFromResources(streamNames, bucketNames) {
+		if namespace == keepNamespace {
+			continue
+		}
+		if err := deleteNatsNamespace(jetstream, namespace); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func worktreeNamespacesFromResources(streamNames, bucketNames []string) []string {
+	namespaces := make(map[string]struct{})
+	for _, name := range streamNames {
+		if matches := worktreeNatsStreamPattern.FindStringSubmatch(name); matches != nil {
+			namespaces[strings.ToLower(matches[1])] = struct{}{}
+		}
+	}
+	for _, name := range bucketNames {
+		if matches := worktreeNatsKeyValuePattern.FindStringSubmatch(name); matches != nil {
+			namespaces[matches[1]] = struct{}{}
+		}
+	}
+	result := make([]string, 0, len(namespaces))
+	for namespace := range namespaces {
+		result = append(result, namespace)
+	}
+	slices.Sort(result)
+	return result
+}
+
+func deleteNatsNamespace(jetstream nats.JetStreamContext, namespace string) error {
+	resources, err := resourcesForNamespace(namespace)
 	if err != nil {
 		return err
 	}

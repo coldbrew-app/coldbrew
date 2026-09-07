@@ -282,10 +282,122 @@ dev-infra-down:
 dev-infra-destroy:
   bunx dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml down --volumes
 
-# Remove only the current worktree's database and NATS namespace.
-dev-worktree-destroy:
-  bunx dotenvx run -f .env --overload -- bash -eu -o pipefail -c 'case "$PGDATABASE" in ""|*[!a-z0-9_]*) echo "Invalid development database name: $PGDATABASE" >&2; exit 1;; esac; docker compose -f compose.dev.yaml exec -T postgres dropdb --force --if-exists --username="$PGUSER" "$PGDATABASE"'
-  bunx dotenvx run -f .env --overload -- go run ./apps/chat cleanup-nats-namespace
+# Remove every clean, merged secondary worktree and its local development resources.
+[confirm("Remove all clean, merged secondary worktrees, their local branches, databases, and NATS namespaces?")]
+dev-cleanup:
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  current_worktree="$(pwd -P)"
+  common_dir="$(git rev-parse --path-format=absolute --git-common-dir)"
+  primary_worktree="$(cd "$common_dir/.." && pwd -P)"
+  if [[ "$current_worktree" != "$primary_worktree" ]]; then
+    echo "Run just dev-cleanup from the primary checkout: $primary_worktree" >&2
+    exit 1
+  fi
+  if [[ ! -f .env ]]; then
+    echo "The primary checkout has no .env file; run just env-init first" >&2
+    exit 1
+  fi
+  bunx dotenvx run -f .env --overload -- just _dev-cleanup-validate
+  running_services="$(bunx dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml ps --status running --services)"
+  infra_was_running="false"
+  if grep -qx postgres <<<"$running_services" && grep -qx nats <<<"$running_services"; then
+    infra_was_running="true"
+  fi
+
+  git worktree prune
+  worktree_paths=()
+  worktree_branches=()
+  worktree_locked=()
+  record_path=""
+  record_branch=""
+  record_locked="false"
+  flush_record() {
+    if [[ -n "$record_path" && "$record_path" != "$primary_worktree" ]]; then
+      worktree_paths[${#worktree_paths[@]}]="$record_path"
+      worktree_branches[${#worktree_branches[@]}]="$record_branch"
+      worktree_locked[${#worktree_locked[@]}]="$record_locked"
+    fi
+    record_path=""
+    record_branch=""
+    record_locked="false"
+  }
+  while IFS= read -r line; do
+    case "$line" in
+      "worktree "*) record_path="${line#worktree }" ;;
+      "branch refs/heads/"*) record_branch="${line#branch refs/heads/}" ;;
+      "locked"*) record_locked="true" ;;
+      "") flush_record ;;
+    esac
+  done < <(git worktree list --porcelain; printf '\n')
+
+  for ((index = 0; index < ${#worktree_paths[@]}; index++)); do
+    path="${worktree_paths[$index]}"
+    if [[ "${worktree_locked[$index]}" == "true" ]]; then
+      echo "Refusing to remove locked worktree: $path" >&2
+      exit 1
+    fi
+    if [[ -n "$(git -C "$path" status --porcelain)" ]]; then
+      echo "Refusing to remove worktree with uncommitted changes: $path" >&2
+      exit 1
+    fi
+    worktree_head="$(git -C "$path" rev-parse HEAD)"
+    if ! git merge-base --is-ancestor "$worktree_head" HEAD; then
+      echo "Refusing to remove worktree whose HEAD is not merged into the primary branch: $path" >&2
+      exit 1
+    fi
+  done
+
+  for ((index = 0; index < ${#worktree_paths[@]}; index++)); do
+    path="${worktree_paths[$index]}"
+    branch="${worktree_branches[$index]}"
+    git worktree remove --force "$path"
+    if [[ -n "$branch" ]]; then
+      git branch -d -- "$branch"
+    fi
+  done
+  git worktree prune
+
+  just dev-infra-up
+  if [[ "$infra_was_running" == "false" ]]; then
+    trap 'just dev-infra-down' EXIT
+  fi
+  bunx dotenvx run -f .env --overload -- just _dev-resources-cleanup
+
+[private]
+_dev-cleanup-validate:
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  if [[ ! "${PGDATABASE:-}" =~ ^coldbrew_[a-z0-9_]+_[0-9a-f]{8}$ ]]; then
+    echo "Invalid primary development database; run just env-init in the primary checkout" >&2
+    exit 1
+  fi
+  if [[ ! "${NATS_NAMESPACE:-}" =~ ^wt_[0-9a-f]{8}$ ]]; then
+    echo "Invalid primary NATS namespace; run just env-init in the primary checkout" >&2
+    exit 1
+  fi
+
+[private]
+_dev-resources-cleanup: _dev-cleanup-validate
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  while IFS= read -r database; do
+    if [[ -z "$database" || "$database" == "$PGDATABASE" ]]; then
+      continue
+    fi
+    echo "Removing development database: $database"
+    docker compose -f compose.dev.yaml exec -T postgres \
+      dropdb --force --if-exists --username="$PGUSER" "$database"
+  done < <(
+    docker compose -f compose.dev.yaml exec -T postgres \
+      psql --username="$PGUSER" --dbname=postgres --tuples-only --no-align \
+      --command="SELECT datname FROM pg_database WHERE datname ~ '^coldbrew_[a-z0-9_]+$' ORDER BY datname"
+  )
+
+  go run ./cmd/dev-cleanup
 
 backup-now:
   docker compose run --rm --no-deps wal-g wal-g backup-push

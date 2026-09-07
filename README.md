@@ -74,17 +74,25 @@ initialized `.env` and a running development PostgreSQL container; a copy
 failure stops setup. Run `just dev` after the worktree is ready to start the
 application processes.
 
-Remove only the current worktree's database and NATS namespace with:
+Periodically clean up completed worktrees from the primary checkout with:
 
 ```sh
-just dev-worktree-destroy
+just dev-cleanup
 ```
 
-This leaves the shared containers and every other worktree untouched. Run it
-before deleting a worktree when its local development data is no longer needed.
+The command requires confirmation. It removes every secondary worktree whose
+working tree is clean and whose `HEAD` is already merged into the primary
+branch, then deletes its local branch. It also removes every secondary or
+orphaned `coldbrew_*` development database and `wt_*` NATS namespace while
+preserving the primary checkout's database, NATS namespace, and the shared
+infrastructure data. If the shared containers were stopped, cleanup starts them
+temporarily and stops them again afterward. If any worktree is dirty, locked,
+or unmerged, cleanup stops before removing anything. There is no per-session
+cleanup step.
+
 `just dev-infra-down` stops the shared containers while retaining all data;
 `just dev-infra-destroy` removes the shared volumes and therefore requires
-confirmation because it affects every worktree.
+confirmation because it affects every checkout.
 
 ## Production
 

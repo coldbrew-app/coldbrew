@@ -156,6 +156,9 @@ and video services. `just typecheck` and `just test` include the Go services. Wh
 request, response, or stream event changes, update the Go handler together
 with the `apps/web` adapter and shared Zod schemas, then verify both sides.
 
+`just dev-cleanup`, run manually from the primary checkout, removes NATS namespaces belonging to
+secondary and already-deleted worktrees while preserving the primary checkout's namespace.
+
 Production Compose runs NATS with JetStream storage and healthchecks the chat service. Caddy sends
 all public traffic to `apps/web`; only the web container reaches chat port 3001. Scale chat
 collectors independently through NATS, and scale web with the number of browser and overlay
