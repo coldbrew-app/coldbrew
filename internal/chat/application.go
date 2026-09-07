@@ -77,8 +77,8 @@ func (application *Application) RefreshSource(ctx context.Context, userID int, s
 	if source == nil {
 		return &ApplicationError{Type: "chat source not found", Detail: "Chat source not found"}
 	}
-	if source.Source.Provider != "youtube" {
-		return &ApplicationError{Type: "chat source refresh unsupported", Detail: "Manual stream discovery is only available for YouTube"}
+	if source.Source.Provider != "youtube" && source.Source.Provider != "vk_video" {
+		return &ApplicationError{Type: "chat source refresh unsupported", Detail: "Manual stream discovery is only available for YouTube and VK Video"}
 	}
 	return application.collectorControl.RequestRefresh(ctx, sourceID)
 }

@@ -13,6 +13,7 @@ const (
 	youtubeSourceID = "00000000-0000-4000-8000-000000000001"
 	twitchSourceID  = "00000000-0000-4000-8000-000000000002"
 	boostySourceID  = "00000000-0000-4000-8000-000000000003"
+	vkVideoSourceID = "00000000-0000-4000-8000-000000000004"
 )
 
 type fakeRepository struct {
@@ -203,6 +204,17 @@ func TestApplicationRequestsYouTubeRefresh(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(control.refreshes, []string{youtubeSourceID}) {
+		t.Fatalf("refreshes = %v", control.refreshes)
+	}
+}
+
+func TestApplicationRequestsVKVideoRefresh(t *testing.T) {
+	application, repository, _, control, _ := setupApplication()
+	repository.sources = append(repository.sources, connectedSource(vkVideoSourceID, "vk_video", CapabilityRead))
+	if err := application.RefreshSource(context.Background(), 42, vkVideoSourceID); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(control.refreshes, []string{vkVideoSourceID}) {
 		t.Fatalf("refreshes = %v", control.refreshes)
 	}
 }
