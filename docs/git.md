@@ -9,13 +9,14 @@ complete this workflow in order:
 2. Resolve every rebase conflict and verify the resulting code, rather than
    abandoning the rebase or leaving conflict markers behind.
 3. Combine all commits belonging to the task into one coherent commit.
-4. Merge that single commit into `master`, using a fast-forward merge whenever
+4. Run `just check` and ensure it passes.
+5. Merge that single commit into `master`, using a fast-forward merge whenever
    possible.
-5. Switch the working context to the primary checkout with `master` checked
+6. Switch the working context to the primary checkout with `master` checked
    out. If `master` is already checked out there, continue subsequent Git
    commands from that checkout instead of trying to check it out in the linked
    worktree.
-6. Remove the old task worktree. Before removal, verify that its working tree
+7. Remove the old task worktree. Before removal, verify that its working tree
    is clean and that its commit is reachable from `master`. Use force only when
    the remaining files are ignored setup artifacts and those two checks have
    passed.
