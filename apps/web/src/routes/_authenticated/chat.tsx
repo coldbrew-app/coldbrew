@@ -162,6 +162,7 @@ function SourceState({
 function ChatPage() {
   const { locale, t } = useI18n();
   const { chat_oauth: chatOauth, chat_oauth_error: chatOauthError } = Route.useSearch();
+  const navigate = Route.useNavigate();
   const text = copy[locale];
   const { availabilityQuery, configQuery } = useChatServiceQueries();
   const stream = useChatServiceStream();
@@ -259,16 +260,37 @@ function ChatPage() {
       {chatOauth && (
         <div
           className={cn(
-            "rounded-xl border px-3.5 py-3 text-[13px]",
+            "flex items-center gap-2 rounded-xl border px-3.5 py-2 text-[13px]",
             chatOauth === "success"
               ? "border-emerald-300/50 bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"
               : "border-red-300/50 bg-red-50 text-red-700 dark:bg-red-400/10 dark:text-red-300",
           )}
           role={chatOauth === "error" ? "alert" : "status"}
         >
-          {chatOauth === "success"
-            ? t("chatOauthSuccess")
-            : t(chatOauthErrorMessages[chatOauthError ?? "unknown"])}
+          <p className="min-w-0 grow">
+            {chatOauth === "success"
+              ? t("chatOauthSuccess")
+              : t(chatOauthErrorMessages[chatOauthError ?? "unknown"])}
+          </p>
+          <Button
+            aria-label={t("dismissChatOauthNotification")}
+            className="text-current hover:bg-black/5 hover:text-current dark:hover:bg-white/10"
+            onClick={() =>
+              void navigate({
+                replace: true,
+                search: (previous) => ({
+                  ...previous,
+                  chat_oauth: undefined,
+                  chat_oauth_error: undefined,
+                }),
+              })
+            }
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          >
+            <Icons.cancel aria-hidden="true" />
+          </Button>
         </div>
       )}
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-3 xl:grid xl:grid-cols-[330px_minmax(0,1fr)] xl:grid-rows-[minmax(0,1fr)] xl:overflow-hidden">
