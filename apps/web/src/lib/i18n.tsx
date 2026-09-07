@@ -9,9 +9,9 @@ import {
   useState,
 } from "react";
 
-import { localeCookieName, locales, type Locale, resolveLocale } from "./locale";
+import { localeCookieName, type Locale, resolveLocale } from "./locale";
 
-export { locales, resolveLocale };
+export { resolveLocale };
 export type { Locale };
 
 type VideoTimeParts = {
