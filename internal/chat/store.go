@@ -386,7 +386,7 @@ func (store *Store) saveConnection(ctx context.Context, tx pgx.Tx, userID int, c
 			user_id, provider, provider_user_id, display_name, access_token_ciphertext,
 			refresh_token_ciphertext, oauth_device_id, access_token_expires_at, scopes
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, ''), $8, $9)
 		ON CONFLICT (provider, provider_user_id) DO UPDATE
 		SET
 			display_name = EXCLUDED.display_name,

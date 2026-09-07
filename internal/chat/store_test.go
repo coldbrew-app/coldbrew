@@ -100,3 +100,97 @@ func TestCapabilitiesFor(t *testing.T) {
 		})
 	}
 }
+
+func TestStoreSavesOptionalDeviceID(t *testing.T) {
+	databaseURL := os.Getenv("CHAT_STORE_TEST_DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("CHAT_STORE_TEST_DATABASE_URL is required for PostgreSQL integration tests")
+	}
+	ctx := context.Background()
+	config, err := pgxpool.ParseConfig(databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config.MaxConns = 1
+	pool, err := pgxpool.NewWithConfig(ctx, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	_, err = pool.Exec(ctx, `
+		CREATE TEMP TABLE chat_provider_connection (
+			chat_provider_connection_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+			user_id integer, provider text, provider_user_id text, display_name text,
+			access_token_ciphertext bytea, refresh_token_ciphertext bytea,
+			oauth_device_id text CHECK (char_length(oauth_device_id) BETWEEN 1 AND 200),
+			access_token_expires_at timestamptz, scopes text[],
+			status text DEFAULT 'connected', token_version integer DEFAULT 1,
+			updated_at timestamptz DEFAULT now(),
+			UNIQUE (provider, provider_user_id)
+		);
+		CREATE TEMP TABLE chat_source (
+			chat_provider_connection_id uuid, user_id integer, provider text,
+			provider_source_id text, display_name text, source_url text,
+			position integer, enabled boolean DEFAULT true, updated_at timestamptz DEFAULT now(),
+			UNIQUE (user_id, provider, provider_source_id)
+		);
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cipher, err := NewTokenCipher("store-test-secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := NewStore(pool, cipher)
+	for _, provider := range []string{"youtube", "twitch", "kick", "vk_video", "boosty"} {
+		t.Run(provider, func(t *testing.T) {
+			deviceID := ""
+			if provider == "vk_video" || provider == "boosty" {
+				deviceID = "device-1"
+			}
+			connection := SaveConnection{Provider: provider, ProviderUserID: "channel", DisplayName: "Channel", AccessToken: "access", RefreshToken: "refresh", OAuthDeviceID: deviceID, Scopes: []string{}}
+			source := SaveSource{Provider: provider, ProviderSourceID: "channel", DisplayName: "Channel", SourceURL: "https://example.com/channel"}
+			var connectionID string
+			for attempt := range 3 {
+				if attempt == 1 {
+					connection.OAuthDeviceID = "" // A reconnect may omit an existing device ID.
+				}
+				if attempt == 2 && deviceID != "" {
+					deviceID = "device-2"
+					connection.OAuthDeviceID = deviceID
+				}
+				id, err := store.SaveProviderAccount(ctx, 1, connection, source)
+				if err != nil {
+					t.Fatalf("save attempt %d: %v", attempt, err)
+				}
+				if attempt > 0 && id != connectionID {
+					t.Fatal("reconnect created a different connection")
+				}
+				connectionID = id
+				var storedDeviceID *string
+				var version int
+				if err := pool.QueryRow(ctx, `SELECT oauth_device_id, token_version FROM pg_temp.chat_provider_connection WHERE chat_provider_connection_id = $1`, id).Scan(&storedDeviceID, &version); err != nil {
+					t.Fatal(err)
+				}
+				if deviceID == "" {
+					if storedDeviceID != nil {
+						t.Fatal("absent device ID must be SQL NULL")
+					}
+				} else if storedDeviceID == nil || *storedDeviceID != deviceID {
+					t.Fatal("device ID was not preserved or updated")
+				}
+				if version != attempt+1 {
+					t.Fatalf("token version = %d; want %d", version, attempt+1)
+				}
+			}
+			var count int
+			if err := pool.QueryRow(ctx, `SELECT count(*) FROM pg_temp.chat_source WHERE user_id = 1 AND provider = $1`, provider).Scan(&count); err != nil {
+				t.Fatal(err)
+			}
+			if count != 1 {
+				t.Fatalf("source count = %d; want 1", count)
+			}
+		})
+	}
+}
