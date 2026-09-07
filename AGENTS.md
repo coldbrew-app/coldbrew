@@ -132,4 +132,3 @@ Add helper scripts to `justfile`, not `package.json`
 - `just test` - runs the TypeScript and Go test suites.
 - `just fmt` - formats TypeScript, Go, Markdown, and other supported files.
 - `just check` - runs linting, formatting checks, and both test suites.
-- Make sure that file `vite.config.js` does not exist. You already have `vite.config.ts`.
