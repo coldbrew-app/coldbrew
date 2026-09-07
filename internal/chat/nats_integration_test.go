@@ -2,10 +2,13 @@ package chat
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/nats-io/nats.go"
 )
 
 func TestNatsBrokerAndLeasesIntegration(t *testing.T) {
@@ -13,7 +16,8 @@ func TestNatsBrokerAndLeasesIntegration(t *testing.T) {
 	if server == "" {
 		t.Skip("NATS_TEST_URL is not set")
 	}
-	namespace := fmt.Sprintf("test_%x", time.Now().UnixNano())
+	namespaceID := uint32(time.Now().UnixNano())
+	namespace := fmt.Sprintf("wt_%08x", namespaceID)
 	connection, err := ConnectNats(server, namespace)
 	if err != nil {
 		t.Fatal(err)
@@ -24,7 +28,7 @@ func TestNatsBrokerAndLeasesIntegration(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	otherNamespace := namespace + "_other"
+	otherNamespace := fmt.Sprintf("wt_%08x", namespaceID+1)
 	otherConnection, err := ConnectNats(server, otherNamespace)
 	if err != nil {
 		t.Fatal(err)
@@ -86,5 +90,23 @@ func TestNatsBrokerAndLeasesIntegration(t *testing.T) {
 	}
 	if err := reacquired.Release(); err != nil {
 		t.Fatal(err)
+	}
+
+	if err := DeleteOtherWorktreeNatsNamespaces(server, namespace); err != nil {
+		t.Fatal(err)
+	}
+	resources, err := resourcesForNamespace(namespace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := connection.Broker.jetstream.StreamInfo(resources.stream); err != nil {
+		t.Fatalf("primary test namespace was deleted: %v", err)
+	}
+	otherResources, err := resourcesForNamespace(otherNamespace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := connection.Broker.jetstream.StreamInfo(otherResources.stream); !errors.Is(err, nats.ErrStreamNotFound) {
+		t.Fatalf("secondary test namespace still exists: %v", err)
 	}
 }

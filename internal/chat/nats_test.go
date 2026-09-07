@@ -35,3 +35,19 @@ func TestResourcesForNamespaceRejectsInvalidValue(t *testing.T) {
 		}
 	}
 }
+
+func TestWorktreeNamespacesFromResources(t *testing.T) {
+	namespaces := worktreeNamespacesFromResources(
+		[]string{"CHAT_EVENTS", "WT_1234ABCD_CHAT_EVENTS", "UNRELATED"},
+		[]string{"wt_1234abcd_chat_collectors", "wt_deadbeef_chat_source_states", "chat_collectors"},
+	)
+	want := []string{"wt_1234abcd", "wt_deadbeef"}
+	if len(namespaces) != len(want) {
+		t.Fatalf("namespaces = %q", namespaces)
+	}
+	for index := range want {
+		if namespaces[index] != want[index] {
+			t.Fatalf("namespaces = %q", namespaces)
+		}
+	}
+}
