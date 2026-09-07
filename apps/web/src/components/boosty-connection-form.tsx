@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@web/comp
 import { Input } from "@web/components/ui/input";
 import { Kbd, KbdGroup } from "@web/components/ui/kbd";
 import { useBoostyConnection } from "@web/hooks/chat-service";
+import { parseBoostyAuth } from "@web/lib/boosty-auth";
 import { getDevtoolsShortcut } from "@web/lib/devtools-shortcut";
 import { createTranslator, useI18n } from "@web/lib/i18n";
 import { resolveLocale } from "@web/lib/locale";
@@ -12,12 +13,12 @@ import { Fragment, useState, type FormEvent } from "react";
 function BoostyInstructionText({ text }: { text: string }) {
   return text
     .split(
-      /(\b(?:Local Storage|Application|Storage|Cookies|Settings|Advanced|auth|accessToken|refreshToken|_clientId|localStorage|Fn|F9)\b|Приложение|Хранилище|Настройки|Дополнения)/,
+      /(\b(?:Local Storage|Application|Storage|Cookies|Settings|Advanced|auth|_clientId|localStorage|Fn|F9)\b|Приложение|Хранилище|Настройки|Дополнения)/,
     )
     .map((part, index) => {
       if (index % 2 === 0) return part;
       if (part === "Fn" || part === "F9") return <Kbd key={index}>{part}</Kbd>;
-      if (/^(auth|accessToken|refreshToken|_clientId|localStorage)$/.test(part)) {
+      if (/^(auth|_clientId|localStorage)$/.test(part)) {
         return (
           <code
             className="rounded-sm bg-secondary px-1 py-0.5 font-mono text-[0.9em] text-secondary-foreground"
@@ -64,22 +65,24 @@ export function BoostyConnectionForm({ onClose }: { onClose: () => void }) {
         return t("boostyTokenStepFind", panels);
     }
   })();
-  const [accessToken, setAccessToken] = useState("");
-  const [refreshToken, setRefreshToken] = useState("");
+  const [auth, setAuth] = useState("");
+  const [authInvalid, setAuthInvalid] = useState(false);
   const [deviceId, setDeviceId] = useState("");
   const connect = useBoostyConnection(onClose);
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const token = accessToken.trim();
-    if (!token || !refreshToken.trim() || !deviceId.trim() || connect.isPending) return;
-    setAccessToken("");
-    setRefreshToken("");
+    if (!auth.trim() || !deviceId.trim() || connect.isPending) return;
+    let credentials;
+    try {
+      credentials = parseBoostyAuth(auth);
+    } catch {
+      setAuthInvalid(true);
+      return;
+    }
+    setAuthInvalid(false);
+    setAuth("");
     setDeviceId("");
-    connect.mutate({
-      accessToken: token,
-      refreshToken: refreshToken.trim(),
-      deviceId: deviceId.trim(),
-    });
+    connect.mutate({ ...credentials, deviceId: deviceId.trim() });
   };
   return (
     <Dialog
@@ -132,37 +135,33 @@ export function BoostyConnectionForm({ onClose }: { onClose: () => void }) {
           </li>
         </ol>
         <form className="flex flex-col gap-4" onSubmit={submit}>
-          <label className="flex flex-col gap-1 text-sm" htmlFor="boosty-access-token">
-            {t("boostyAccessToken")}
-            <Input
-              aria-describedby="boosty-token-storage"
-              autoComplete="off"
-              disabled={connect.isPending}
-              id="boosty-access-token"
-              maxLength={8192}
-              onChange={(event) => setAccessToken(event.target.value)}
-              required
-              spellCheck={false}
-              type="password"
-              value={accessToken}
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm" htmlFor="boosty-refresh-token">
+          <label className="flex flex-col gap-1 text-sm" htmlFor="boosty-auth">
             <span>
-              <BoostyInstructionText text={t("boostyRefreshToken")} />
+              <BoostyInstructionText text={t("boostyAuth")} />
             </span>
             <Input
+              aria-describedby={
+                authInvalid ? "boosty-auth-error boosty-token-storage" : "boosty-token-storage"
+              }
+              aria-invalid={authInvalid}
               autoComplete="off"
               disabled={connect.isPending}
-              id="boosty-refresh-token"
-              maxLength={8192}
-              onChange={(event) => setRefreshToken(event.target.value)}
+              id="boosty-auth"
+              onChange={(event) => {
+                setAuth(event.target.value);
+                setAuthInvalid(false);
+              }}
               required
               spellCheck={false}
               type="password"
-              value={refreshToken}
+              value={auth}
             />
           </label>
+          {authInvalid && (
+            <p className="text-xs text-destructive" id="boosty-auth-error" role="alert">
+              {t("boostyAuthInvalid")}
+            </p>
+          )}
           <label className="flex flex-col gap-1 text-sm" htmlFor="boosty-device-id">
             <span>
               <BoostyInstructionText text={t("boostyDeviceId")} />
@@ -187,12 +186,7 @@ export function BoostyConnectionForm({ onClose }: { onClose: () => void }) {
             </p>
           )}
           <div className="flex flex-wrap justify-end gap-2">
-            <Button
-              disabled={
-                !accessToken.trim() || !refreshToken.trim() || !deviceId.trim() || connect.isPending
-              }
-              type="submit"
-            >
+            <Button disabled={!auth.trim() || !deviceId.trim() || connect.isPending} type="submit">
               {connect.isPending ? t("boostyConnecting") : t("boostyConnectTitle")}
             </Button>
             <Button disabled={connect.isPending} onClick={onClose} type="button" variant="ghost">
