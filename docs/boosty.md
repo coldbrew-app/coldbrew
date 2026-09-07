@@ -8,10 +8,11 @@ endpoints. It does not collect private dialogs or post comments.
 
 1. Sign in to your own account at `https://boosty.to`.
 2. Open browser developer tools → Application. Find the `auth` entry in Cookies
-   or Local Storage for Boosty. A cookie value may need URL decoding.
-3. Copy its `accessToken` and `refreshToken` values. Copy `_clientId` from Cookies
-   or Local Storage in the same browser; this is the device ID.
-4. In Coldbrew → Multichat → Boosty, fill the three fields and select **Connect Boosty**.
+   or Local Storage for Boosty.
+3. Copy its entire URL-encoded value into the `auth` field. Coldbrew decodes it and
+   extracts `accessToken` and `refreshToken` automatically. Copy `_clientId` from Cookies
+   or Local Storage in the same browser into the `_clientId` field.
+4. In Coldbrew → Multichat → Boosty, fill the two fields and select **Connect Boosty**.
 
 Coldbrew resolves `/v1/user/current`, derives the blog from that identity, and
 checks its owner through `/v1/blog/{blog}`. An arbitrary viewer-supplied channel

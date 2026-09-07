@@ -134,12 +134,12 @@ const en = {
   videos: "Videos",
   chat: "Multichat",
   boostyConnectTitle: "Connect Boosty",
-  boostyAccessToken: "Boosty access token",
-  boostyRefreshToken: "Refresh token",
-  boostyDeviceId: "Device ID (_clientId)",
+  boostyAuth: "auth",
+  boostyAuthInvalid: "Could not read auth. Copy its entire value from Boosty and paste it again.",
+  boostyDeviceId: "_clientId",
   boostyConnecting: "Connecting…",
   boostyTokenHelp:
-    "Read-only connection through an unofficial API. Follow these steps to get your access token.",
+    "Read-only connection through an unofficial API. Follow these steps to copy your connection details.",
   devtoolsApplication: "Application",
   devtoolsStorage: "Storage",
   boostyTokenStepSignIn: "Sign in to your account at",
@@ -154,7 +154,7 @@ const en = {
   boostyTokenStepMobile: ({ application, storage }: { application: string; storage: string }) =>
     `Get the token in a desktop browser: open Boosty there, then developer tools → ${application} (${storage} in Firefox or Safari). Find the auth entry under Cookies or Local Storage for Boosty.`,
   boostyTokenStepCopy:
-    "Copy accessToken and refreshToken from auth into the corresponding fields below. Copy the value of _clientId from the same browser’s Cookies or Local Storage into Device ID.",
+    "Copy the entire value of auth into the auth field below without changing it. Copy _clientId from the same browser’s Cookies or Local Storage into the _clientId field.",
   boostyTokenStorage:
     "Your tokens are stored encrypted. Coldbrew renews access automatically. If Boosty revokes the session, reconnect here with current credentials.",
   boostyConnectError:
@@ -456,12 +456,13 @@ const ru = defineTranslations({
   videos: "Видео",
   chat: "Мультичат",
   boostyConnectTitle: "Подключить Boosty",
-  boostyAccessToken: "Токен доступа Boosty",
-  boostyRefreshToken: "Токен обновления (refreshToken)",
-  boostyDeviceId: "Идентификатор устройства (_clientId)",
+  boostyAuth: "auth",
+  boostyAuthInvalid:
+    "Не удалось прочитать auth. Скопируйте его значение из Boosty целиком и вставьте снова.",
+  boostyDeviceId: "_clientId",
   boostyConnecting: "Подключаем…",
   boostyTokenHelp:
-    "Подключение только для чтения через неофициальный API. Получите токен доступа по инструкции ниже.",
+    "Подключение только для чтения через неофициальный API. Скопируйте данные для подключения по инструкции ниже.",
   devtoolsApplication: "Приложение",
   devtoolsStorage: "Хранилище",
   boostyTokenStepSignIn: "Войдите в свой аккаунт на",
@@ -476,7 +477,7 @@ const ru = defineTranslations({
   boostyTokenStepMobile: ({ application, storage }: { application: string; storage: string }) =>
     `Получите токен в браузере на компьютере: откройте там Boosty, затем инструменты разработчика → ${application} (${storage} в Firefox или Safari). Найдите запись auth в Cookies или Local Storage для Boosty.`,
   boostyTokenStepCopy:
-    "Скопируйте accessToken и refreshToken из auth в соответствующие поля ниже. В поле идентификатора устройства вставьте значение _clientId из Cookies или Local Storage того же браузера.",
+    "Скопируйте значение auth целиком и без изменений в поле auth ниже. В поле _clientId вставьте значение _clientId из Cookies или Local Storage того же браузера.",
   boostyTokenStorage:
     "Токены хранятся зашифрованными. Coldbrew автоматически обновляет доступ. Если Boosty отзовёт сессию, подключите аккаунт здесь заново с актуальными данными.",
   boostyConnectError:
