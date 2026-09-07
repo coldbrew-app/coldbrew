@@ -399,7 +399,7 @@ function ChatPage() {
                 refreshSource.variables?.sourceId === source.sourceId;
               return (
                 <article
-                  className="relative flex flex-col gap-2 overflow-hidden rounded-xl border border-border bg-muted/30 p-3"
+                  className="relative flex shrink-0 flex-col gap-2 overflow-hidden rounded-xl border border-border bg-muted/30 p-3"
                   key={connection.connectionId}
                 >
                   <div className="flex items-center gap-2">
