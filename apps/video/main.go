@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -26,6 +27,10 @@ func main() {
 func run() error {
 	backfillTitles := flag.Bool("backfill-titles", false, "Fill missing video titles and exit")
 	flag.Parse()
+	apiKey := strings.TrimSpace(os.Getenv("YOUTUBE_API_KEY"))
+	if apiKey == "" {
+		return errors.New("YOUTUBE_API_KEY is required")
+	}
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
 		return errors.New("DATABASE_URL is required")
@@ -45,12 +50,12 @@ func run() error {
 	store := videoingest.NewStore(pool)
 	httpClient := &http.Client{Timeout: 30 * time.Second}
 	if *backfillTitles {
-		return store.BackfillTitles(ctx, httpClient)
+		return store.BackfillTitles(ctx, httpClient, apiKey)
 	}
 	worker := videoingest.NewWorker(store, videoingest.DefaultConfig())
 	errors := make(chan error, 2)
 	go func() { errors <- worker.Run(ctx) }()
-	go func() { errors <- store.RunMetadata(ctx, httpClient) }()
+	go func() { errors <- store.RunMetadata(ctx, httpClient, apiKey) }()
 	firstErr := <-errors
 	stop()
 	secondErr := <-errors
