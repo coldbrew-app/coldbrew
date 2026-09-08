@@ -1,5 +1,3 @@
-set script-interpreter := ["bash", "-euo", "pipefail"]
-
 [default]
 default:
   @just --list
@@ -8,150 +6,15 @@ install:
   bun install
 
 # Exercise environment initialization across real Git worktrees without Docker or secrets.
-[script]
 test-env-init:
-  test_dir="$(mktemp -d "${TMPDIR:-/tmp}/coldbrew-env-test.XXXXXX")"
-  trap 'rm -rf "$test_dir"' EXIT
-  mkdir -p "$test_dir/bin" "$test_dir/primary checkout"
-  cat > "$test_dir/bin/bunx" <<'BASH'
-  #!/usr/bin/env bash
-  set -euo pipefail
-  [[ "$1" == dotenvx ]]
-  shift
-  case "$1" in
-    decrypt) printf 'PGUSER=test\nPGPASSWORD=test\nPGSSLMODE=require\n' ;;
-    set)
-      [[ "$2" == -f && "$4" == --plain ]]
-      printf '%s=%q\n' "$5" "$6" >> "$3"
-      ;;
-    run)
-      shift
-      [[ "$1" == -f ]]
-      set -a
-      source "$2"
-      set +a
-      shift 2
-      [[ "$1" == --overload && "$2" == -- ]]
-      shift 2
-      exec "$@"
-      ;;
-    *) exit 1 ;;
-  esac
-  BASH
-  chmod +x "$test_dir/bin/bunx"
-  export PATH="$test_dir/bin:$PATH"
-  git -C "$test_dir/primary checkout" init --quiet
-  git -C "$test_dir/primary checkout" -c user.name=Test -c user.email=test@example.com -c commit.gpgsign=false -c core.hooksPath=/dev/null commit --quiet --allow-empty -m init
-  git -C "$test_dir/primary checkout" -c core.hooksPath=/dev/null worktree add --quiet -b feature/one "$test_dir/worktree-one"
-  git -C "$test_dir/primary checkout" -c core.hooksPath=/dev/null worktree add --quiet -b feature/two "$test_dir/worktree-two"
-
-  for directory in "primary checkout" worktree-one worktree-two; do
-    cp justfile "$test_dir/$directory/justfile"
-    (cd "$test_dir/$directory" && just env-init >/dev/null)
-  done
-
-  source "$test_dir/primary checkout/.env"
-  shared_project="$COMPOSE_PROJECT_NAME"
-  shared_db_port="$PGPORT"
-  shared_nats_port="$NATS_PORT"
-  primary_database="$PGDATABASE"
-  primary_app_port="$APP_PORT"
-  primary_namespace="$NATS_NAMESPACE"
-  for directory in worktree-one worktree-two; do
-    source "$test_dir/$directory/.env"
-    [[ "$COMPOSE_PROJECT_NAME" == "$shared_project" ]] || { echo 'Compose project differs between worktrees' >&2; exit 1; }
-    [[ "$PGPORT" == "$shared_db_port" && "$NATS_PORT" == "$shared_nats_port" ]]
-    [[ "$PGDATABASE" != "$primary_database" && "$APP_PORT" != "$primary_app_port" && "$NATS_NAMESPACE" != "$primary_namespace" ]]
-    [[ "$PGHOST" == 127.0.0.1 && "$PGSSLMODE" == disable ]]
-    [[ "$DATABASE_URL" == "postgresql://test:test@127.0.0.1:$PGPORT/$PGDATABASE" ]]
-    cp "$test_dir/$directory/.env" "$test_dir/previous.env"
-    (cd "$test_dir/$directory" && just env-init >/dev/null)
-    cmp "$test_dir/previous.env" "$test_dir/$directory/.env"
-  done
-  git -C "$test_dir/primary checkout" config --local coldbrew.devComposeProject existing_shared_dev
-  for directory in "primary checkout" worktree-one worktree-two; do
-    (cd "$test_dir/$directory" && just env-init >/dev/null)
-    source "$test_dir/$directory/.env"
-    [[ "$COMPOSE_PROJECT_NAME" == existing_shared_dev ]] || { echo 'Shared Compose project override was not preserved' >&2; exit 1; }
-    [[ "$PGPORT" == "$shared_db_port" && "$NATS_PORT" == "$shared_nats_port" ]]
-  done
-  echo 'Environment initialization is shared, isolated, and repeatable.'
+  bun --no-env-file scripts/test-env-init.ts
 
 # Build the runtime environment for the current worktree from long-lived dev settings.
-[script]
 env-init $source_env=".env.dev":
-  hash_value() {
-    printf '%s' "$1" | git hash-object --stdin
-  }
-
-  hash_port() {
-    local hash
-    hash="$(hash_value "$1")"
-    printf '%d\n' "$((10000 + 0x${hash:0:8} % 40000))"
-  }
-
-  sanitize_name() {
-    printf '%s' "$1" \
-      | tr '[:upper:]' '[:lower:]' \
-      | sed -E 's/[^a-z0-9]+/_/g; s/^_+//; s/_+$//'
-  }
-
-  repository_id="$(cd "$(git rev-parse --git-common-dir)" && pwd -P)"
-  repository_name="$(sanitize_name "$(basename "$(dirname "$repository_id")")")"
-  branch="$(git branch --show-current)"
-  if [[ -z "$branch" ]]; then
-    branch="detached_$(git rev-parse --short HEAD)"
-  fi
-  branch_name="$(sanitize_name "$branch")"
-  repository_hash="$(hash_value "$repository_id" | cut -c1-8)"
-  branch_hash="$(hash_value "$repository_id:$branch" | cut -c1-8)"
-  name_suffix="${branch_name:0:40}_$branch_hash"
-
-  app_port="$(hash_port "$repository_id:$branch:app")"
-  db_port="$(hash_port "$repository_id:db")"
-  chat_port="$(hash_port "$repository_id:$branch:chat")"
-  donations_port="$(hash_port "$repository_id:$branch:donations")"
-  nats_port="$(hash_port "$repository_id:nats")"
-  db_name="coldbrew_$name_suffix"
-  compose_project="${repository_name:0:32}_dev_$repository_hash"
-  shared_compose_project="$(git config --local --get coldbrew.devComposeProject || true)"
-  if [[ -n "$shared_compose_project" ]]; then
-    if [[ ! "$shared_compose_project" =~ ^[a-z0-9][a-z0-9_-]*$ ]]; then
-      echo 'Invalid coldbrew.devComposeProject Git setting' >&2
-      exit 1
-    fi
-    compose_project="$shared_compose_project"
-  fi
-  nats_namespace="wt_$branch_hash"
-
-  bunx dotenvx decrypt -f "$source_env" -fk .env.keys --stdout > .env
-  set_env() {
-    bunx dotenvx set -f .env --plain "$@"
-  }
-
-  set_env APP_PORT "$app_port"
-  set_env APP_DOMAIN "http://localhost:$app_port"
-  set_env CHAT_PORT "$chat_port"
-  set_env CHAT_PUBLIC_URL "http://localhost:$app_port/api/chat"
-  set_env CHAT_SERVICE_URL "http://127.0.0.1:$chat_port"
-  set_env CHAT_WEB_URL "http://localhost:$app_port"
-  set_env DONATIONS_PORT "$donations_port"
-  set_env DONATIONS_SERVICE_URL "http://127.0.0.1:$donations_port"
-  set_env NATS_PORT "$nats_port"
-  set_env NATS_SERVERS "nats://127.0.0.1:$nats_port"
-  set_env NATS_NAMESPACE "$nats_namespace"
-  set_env PGHOST 127.0.0.1
-  set_env PGSSLMODE disable
-  set_env PGPORT "$db_port"
-  set_env PGDATABASE "$db_name"
-  set_env COMPOSE_PROJECT_NAME "$compose_project"
-
-  bunx dotenvx run -f .env --overload -- bash -c 'bunx dotenvx set -f .env --plain DATABASE_URL "postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"'
-
-  chmod 600 .env
+  bun --no-env-file scripts/env-init.ts "$source_env"
 
 # Prepare a new T3 Code worktree from the project's primary checkout.
-[script]
+[script("bash", "-euo", "pipefail")]
 t3-worktree-init $source_worktree:
   if [[ ! -f "$source_worktree/.env.keys" ]]; then
     echo "Source worktree has no .env.keys file: $source_worktree" >&2
@@ -196,7 +59,10 @@ typecheck-chat: test-chat
 typecheck-packages:
   bunx tsc --noEmit -p packages/tsconfig.json
 
-typecheck: typecheck-web typecheck-chat typecheck-donations typecheck-video typecheck-packages
+typecheck-scripts:
+  bunx tsc --noEmit -p scripts/tsconfig.json
+
+typecheck: typecheck-scripts typecheck-web typecheck-chat typecheck-donations typecheck-video typecheck-packages
 
 
 fmt:
@@ -210,7 +76,7 @@ fmt-check:
 lint-ts:
   bunx oxlint
 
-[script]
+[script("bash", "-euo", "pipefail")]
 lint-go:
   go vet ./...
   stderr_file="$(mktemp)"
@@ -237,7 +103,7 @@ lint: lint-ts lint-go lint-knip
 build-web: install
   cd apps/web && bunx vite build
 
-[script]
+[script("bash", "-euo", "pipefail")]
 generate-youtube-chat-go-proto:
   tool_dir="$(mktemp -d "${TMPDIR:-/tmp}/coldbrew-protoc.XXXXXX")"
   trap 'rm -rf "$tool_dir"' EXIT
@@ -261,7 +127,7 @@ docker-ps:
   @docker ps --format 'table {{ "{{" }}.Names{{ "}}" }}\t{{ "{{" }}.Status{{ "}}" }}\t{{ "{{" }}.Ports{{ "}}" }}' | sed -E 's/, \[::\]:[0-9]+->[0-9]+\/(tcp|udp)//g' | cut -c1-150
 
 # Pull immutable production images, recreate the stack, and verify the public endpoint.
-[script]
+[script("bash", "-euo", "pipefail")]
 production-deploy $app_image $postgres_image:
   export COLDBREW_IMAGE="$app_image"
   export COLDBREW_POSTGRES_IMAGE="$postgres_image"
@@ -295,14 +161,13 @@ compose-down:
 
 # Start the repository-wide PostgreSQL and NATS development infrastructure.
 dev-infra-up:
-  bunx dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml up -d --wait
-  bunx dotenvx run -f .env --overload -- bash -eu -o pipefail -c 'for mapping in "postgres:5432:$PGPORT" "nats:4222:$NATS_PORT"; do IFS=: read -r service internal_port host_port <<< "$mapping"; published="$(docker compose -f compose.dev.yaml port "$service" "$internal_port")"; if [[ "$published" != "127.0.0.1:$host_port" ]]; then echo "Unexpected $service port mapping: $published; expected 127.0.0.1:$host_port. Check COMPOSE_PROJECT_NAME and regenerate the workspace environment with just env-init." >&2; exit 1; fi; done'
+  bunx dotenvx run -f .env --overload -- bun --no-env-file scripts/dev-infra-up.ts
 
 # Create the current worktree's logical database in the shared PostgreSQL server.
 dev-db-up: dev-infra-up
-  bunx dotenvx run -f .env --overload -- bash -eu -o pipefail -c 'case "$PGDATABASE" in ""|*[!a-z0-9_]*) echo "Invalid development database name: $PGDATABASE" >&2; exit 1;; esac; if ! docker compose -f compose.dev.yaml exec -T postgres psql --username="$PGUSER" --dbname=postgres --tuples-only --no-align --command="SELECT 1 FROM pg_database WHERE datname = '\''$PGDATABASE'\''" | grep -qx 1; then docker compose -f compose.dev.yaml exec -T postgres createdb --username="$PGUSER" "$PGDATABASE"; fi'
+  bunx dotenvx run -f .env --overload -- bun --no-env-file scripts/dev-db-up.ts
 
-[script]
+[script("bash", "-euo", "pipefail")]
 dev-db-copy $source_worktree:
   target_worktree="$(pwd -P)"
 
@@ -361,114 +226,16 @@ dev-infra-destroy:
 
 # Remove every clean, merged secondary worktree and its local development resources.
 [confirm("Remove all clean, merged secondary worktrees, their local branches, databases, and NATS namespaces?")]
-[script]
 dev-cleanup:
-  current_worktree="$(pwd -P)"
-  common_dir="$(git rev-parse --path-format=absolute --git-common-dir)"
-  primary_worktree="$(cd "$common_dir/.." && pwd -P)"
-  if [[ "$current_worktree" != "$primary_worktree" ]]; then
-    echo "Run just dev-cleanup from the primary checkout: $primary_worktree" >&2
-    exit 1
-  fi
-  if [[ ! -f .env ]]; then
-    echo "The primary checkout has no .env file; run just env-init first" >&2
-    exit 1
-  fi
-  bunx dotenvx run -f .env --overload -- just _dev-cleanup-validate
-  running_services="$(bunx dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml ps --status running --services)"
-  infra_was_running="false"
-  if grep -qx postgres <<<"$running_services" && grep -qx nats <<<"$running_services"; then
-    infra_was_running="true"
-  fi
-
-  git worktree prune
-  worktree_paths=()
-  worktree_branches=()
-  worktree_locked=()
-  record_path=""
-  record_branch=""
-  record_locked="false"
-  flush_record() {
-    if [[ -n "$record_path" && "$record_path" != "$primary_worktree" ]]; then
-      worktree_paths[${#worktree_paths[@]}]="$record_path"
-      worktree_branches[${#worktree_branches[@]}]="$record_branch"
-      worktree_locked[${#worktree_locked[@]}]="$record_locked"
-    fi
-    record_path=""
-    record_branch=""
-    record_locked="false"
-  }
-  while IFS= read -r line; do
-    case "$line" in
-      "worktree "*) record_path="${line#worktree }" ;;
-      "branch refs/heads/"*) record_branch="${line#branch refs/heads/}" ;;
-      "locked"*) record_locked="true" ;;
-      "") flush_record ;;
-    esac
-  done < <(git worktree list --porcelain; printf '\n')
-
-  for ((index = 0; index < ${#worktree_paths[@]}; index++)); do
-    path="${worktree_paths[$index]}"
-    if [[ "${worktree_locked[$index]}" == "true" ]]; then
-      echo "Refusing to remove locked worktree: $path" >&2
-      exit 1
-    fi
-    if [[ -n "$(git -C "$path" status --porcelain)" ]]; then
-      echo "Refusing to remove worktree with uncommitted changes: $path" >&2
-      exit 1
-    fi
-    worktree_head="$(git -C "$path" rev-parse HEAD)"
-    if ! git merge-base --is-ancestor "$worktree_head" HEAD; then
-      echo "Refusing to remove worktree whose HEAD is not merged into the primary branch: $path" >&2
-      exit 1
-    fi
-  done
-
-  for ((index = 0; index < ${#worktree_paths[@]}; index++)); do
-    path="${worktree_paths[$index]}"
-    branch="${worktree_branches[$index]}"
-    git worktree remove --force "$path"
-    if [[ -n "$branch" ]]; then
-      git branch -d -- "$branch"
-    fi
-  done
-  git worktree prune
-
-  just dev-infra-up
-  if [[ "$infra_was_running" == "false" ]]; then
-    trap 'just dev-infra-down' EXIT
-  fi
-  bunx dotenvx run -f .env --overload -- just _dev-resources-cleanup
+  bun --no-env-file scripts/dev-cleanup.ts
 
 [private]
-[script]
 _dev-cleanup-validate:
-  if [[ ! "${PGDATABASE:-}" =~ ^coldbrew_[a-z0-9_]+_[0-9a-f]{8}$ ]]; then
-    echo "Invalid primary development database; run just env-init in the primary checkout" >&2
-    exit 1
-  fi
-  if [[ ! "${NATS_NAMESPACE:-}" =~ ^wt_[0-9a-f]{8}$ ]]; then
-    echo "Invalid primary NATS namespace; run just env-init in the primary checkout" >&2
-    exit 1
-  fi
+  bun --no-env-file scripts/dev-cleanup-validate.ts
 
 [private]
-[script]
 _dev-resources-cleanup: _dev-cleanup-validate
-  while IFS= read -r database; do
-    if [[ -z "$database" || "$database" == "$PGDATABASE" ]]; then
-      continue
-    fi
-    echo "Removing development database: $database"
-    docker compose -f compose.dev.yaml exec -T postgres \
-      dropdb --force --if-exists --username="$PGUSER" "$database"
-  done < <(
-    docker compose -f compose.dev.yaml exec -T postgres \
-      psql --username="$PGUSER" --dbname=postgres --tuples-only --no-align \
-      --command="SELECT datname FROM pg_database WHERE datname ~ '^coldbrew_[a-z0-9_]+$' ORDER BY datname"
-  )
-
-  go run ./cmd/dev-cleanup
+  bun --no-env-file scripts/dev-resources-cleanup.ts
 
 backup-now:
   docker compose run --rm --no-deps wal-g wal-g backup-push

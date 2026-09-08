@@ -2,9 +2,10 @@
   "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
   "workspaces": {
     ".": {
+      "entry": ["scripts/**/*.ts"],
+      "ignoreBinaries": ["just", "go"],
       // Knip does not parse justfile recipes, where these tools are invoked.
       "ignoreDependencies": [
-        "@dotenvx/dotenvx",
         "@tanstack/intent",
         "concurrently",
         "oxfmt",
