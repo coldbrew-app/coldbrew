@@ -47,9 +47,15 @@ type Props = {
   allowOpenEnd?: boolean;
   className?: string;
   disabled?: boolean;
+  showOpenEndHelp?: boolean;
 };
 
-export function VideoTimingFields({ allowOpenEnd = false, className, disabled = false }: Props) {
+export function VideoTimingFields({
+  allowOpenEnd = false,
+  className,
+  disabled = false,
+  showOpenEndHelp = true,
+}: Props) {
   const { t } = useI18n();
   const { formState, getValues, register, trigger, watch } = useFormContext<VideoTimingValues>();
   const id = useId();
@@ -127,7 +133,7 @@ export function VideoTimingFields({ allowOpenEnd = false, className, disabled = 
         </FieldDescription>
       </Field>
       <FieldDescription className="col-span-2 flex flex-col gap-0.5" id={helpId}>
-        {allowOpenEnd && <span>{t("manualVideoTimingHelp")}</span>}
+        {allowOpenEnd && showOpenEndHelp && <span>{t("manualVideoTimingHelp")}</span>}
         {watchDuration !== null ? (
           <span>{t("watchDuration", watchDuration)}</span>
         ) : (
