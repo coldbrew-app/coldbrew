@@ -152,20 +152,13 @@ function VideoQueue() {
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
           <div className="order-2 min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain lg:order-1">
             {search.videoId && (
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-secondary/40 px-4 py-2">
+              <div className="flex flex-wrap items-center gap-2 border-b border-border bg-secondary/40 px-4 py-2">
                 <p className="text-sm">{t("selectedVideo")}</p>
-                <Link
-                  className={buttonVariants({ variant: "default", size: "default" })}
-                  to="/videos"
-                  search={{ page: 1, videoPriorityId: "all", videoStatus: "all" }}
-                >
-                  {t("showAllVideos")}
-                </Link>
               </div>
             )}
             {isAddingVideo && <AddVideoForm onCancel={() => setIsAddingVideo(false)} />}
             <div className={isQueueSettingsOpen ? "block" : "hidden lg:block"} id="queue-sharing">
-              <SlugEditor />
+              <SlugEditor showAllVideos={Boolean(search.videoId)} />
             </div>
 
             {videosQ.isLoading ? (
