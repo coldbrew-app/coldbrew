@@ -12,7 +12,7 @@ import (
 
 // BackfillTitles fills only missing titles. Re-running retries unavailable videos
 // without rescanning donations or changing video timing, money or priorities.
-func (store *Store) BackfillTitles(ctx context.Context, client *http.Client) error {
+func (store *Store) BackfillTitles(ctx context.Context, client *http.Client, apiKey string) error {
 	cursor := ""
 	failures := 0
 	for {
@@ -43,7 +43,7 @@ func (store *Store) BackfillTitles(ctx context.Context, client *http.Client) err
 			break
 		}
 		for _, id := range ids {
-			title, err := youtube.GetTitle(ctx, client, "https://www.youtube.com/watch?v="+url.QueryEscape(id))
+			title, err := youtube.GetTitle(ctx, client, apiKey, "https://www.youtube.com/watch?v="+url.QueryEscape(id))
 			if err != nil {
 				if ctx.Err() != nil {
 					return ctx.Err()

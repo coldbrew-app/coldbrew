@@ -176,6 +176,7 @@ jobs:
           TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
           VK_VIDEO_CLIENT_ID: ${{ vars.VK_VIDEO_CLIENT_ID }}
           VK_VIDEO_CLIENT_SECRET: ${{ secrets.VK_VIDEO_CLIENT_SECRET }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           YOUTUBE_CLIENT_ID: ${{ vars.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           PGDATABASE: ${{ vars.PGDATABASE }}
@@ -193,6 +194,7 @@ jobs:
 
           const outputPath = process.argv[2]
           const required = [
+            "YOUTUBE_API_KEY",
             "APP_DOMAIN",
             "AWS_REGION",
             "AXIOM_TOKEN",
@@ -334,6 +336,7 @@ jobs:
           fi
 
           required_env=(
+            YOUTUBE_API_KEY
             APP_DOMAIN
             PGDATABASE
             PGUSER

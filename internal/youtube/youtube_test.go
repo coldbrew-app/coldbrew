@@ -2,12 +2,15 @@ package youtube
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -62,148 +65,152 @@ func TestParseTimestamp(t *testing.T) {
 	}
 }
 
-func TestRetryAfterIsPreserved(t *testing.T) {
-	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
-		result := response(http.StatusTooManyRequests, "")
-		result.Header.Set("Retry-After", "120")
-		return result, nil
-	})}
-	_, err := GetTiming(context.Background(), client, "https://youtu.be/_JXL6Fn99l8", nil)
-	var httpError *HTTPError
-	if !errors.As(err, &httpError) || httpError.RetryAfter.Seconds() != 120 {
-		t.Fatalf("expected Retry-After, got %v", err)
-	}
+func metadataBody(id, duration, title, live string) string {
+	body, _ := json.Marshal(map[string]any{"items": []any{map[string]any{
+		"id": id, "contentDetails": map[string]string{"duration": duration},
+		"snippet": map[string]string{"title": title, "liveBroadcastContent": live},
+	}}})
+	return string(body)
 }
 
-func TestGetTiming(t *testing.T) {
-	tests := []struct {
-		name      string
-		rawURL    string
-		body      string
-		requested *RequestedTiming
-		expected  Timing
+func TestDataAPITiming(t *testing.T) {
+	for _, test := range []struct {
+		duration string
+		seconds  int
 	}{
-		{name: "exact length", rawURL: "https://youtu.be/dQw4w9WgXcQ", body: `{"lengthSeconds":"213"}`, expected: Timing{Title: "", StartSeconds: 0, EndSeconds: 213, DurationSeconds: 213}},
-		{name: "approximate duration", rawURL: "https://www.youtube.com/watch?v=_JXL6Fn99l8&t=13s", body: `{"approxDurationMs":"7260183"}`, expected: Timing{Title: "", StartSeconds: 0, EndSeconds: 7260, DurationSeconds: 7260}},
-		{name: "valid end", rawURL: "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=1m15s&end=180", body: `{"lengthSeconds":"213"}`, expected: Timing{Title: "", StartSeconds: 0, EndSeconds: 180, DurationSeconds: 213}},
-		{name: "requested range", rawURL: "https://youtu.be/dQw4w9WgXcQ", body: `{"lengthSeconds":"213"}`, requested: &RequestedTiming{StartSeconds: 30, EndSeconds: integerPointer(90)}, expected: Timing{Title: "", StartSeconds: 30, EndSeconds: 90, DurationSeconds: 213}},
-		{name: "requested open end", rawURL: "https://youtu.be/dQw4w9WgXcQ?end=180", body: `{"lengthSeconds":"213"}`, requested: &RequestedTiming{StartSeconds: 30}, expected: Timing{Title: "", StartSeconds: 30, EndSeconds: 213, DurationSeconds: 213}},
-		{name: "invalid start falls back", rawURL: "https://youtu.be/dQw4w9WgXcQ?t=300", body: `{"lengthSeconds":"213"}`, expected: Timing{Title: "", StartSeconds: 0, EndSeconds: 213, DurationSeconds: 213}},
-		{name: "invalid range uses end", rawURL: "https://youtu.be/dQw4w9WgXcQ?t=30&end=20", body: `{"lengthSeconds":"213"}`, expected: Timing{Title: "", StartSeconds: 0, EndSeconds: 20, DurationSeconds: 213}},
-		{name: "invalid end falls back", rawURL: "https://youtu.be/dQw4w9WgXcQ?start=nope&end=300", body: `{"lengthSeconds":"213"}`, expected: Timing{Title: "", StartSeconds: 0, EndSeconds: 213, DurationSeconds: 213}},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			client := responseClient(test.body)
-			actual, err := GetTiming(context.Background(), client, test.rawURL, test.requested)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if actual != test.expected {
-				t.Fatalf("GetTiming() = %#v; want %#v", actual, test.expected)
+		{"PT3M33S", 213}, {"PT2H1M", 7260}, {"P1DT2H3M4S", 93784}, {"P2D", 172800},
+		{"PT90S", 90}, {"PT2147483647S", 2147483647},
+	} {
+		t.Run(test.duration, func(t *testing.T) {
+			calls := 0
+			client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+				calls++
+				if r.Method != "GET" || r.URL.Host != "www.googleapis.com" || r.URL.Path != "/youtube/v3/videos" ||
+					r.URL.Query().Get("id") != "dQw4w9WgXcQ" || r.URL.Query().Get("part") != "contentDetails,snippet" ||
+					r.Header.Get("X-Goog-Api-Key") != "test-key" || strings.Contains(r.URL.String(), "test-key") {
+					t.Fatalf("unexpected API request: %s", r.URL)
+				}
+				return response(200, metadataBody("dQw4w9WgXcQ", test.duration, "  Название видео  ", "none")), nil
+			})}
+			timing, err := GetTiming(context.Background(), client, "test-key", "https://youtu.be/dQw4w9WgXcQ?t=13s", nil)
+			if err != nil || timing.DurationSeconds != test.seconds || timing.EndSeconds != test.seconds || timing.StartSeconds != 0 ||
+				timing.Title != "Название видео" || calls != 1 {
+				t.Fatalf("timing=%+v err=%v calls=%d", timing, err, calls)
 			}
 		})
 	}
 }
 
-func TestGetTimingFallsBackToPlayerMetadata(t *testing.T) {
-	calls := 0
-	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
-		calls++
-		body := `{"INNERTUBE_CLIENT_VERSION":"2.20260824.01.00"}`
-		if calls == 2 {
-			body = `{"videoDetails":{"lengthSeconds":"7260"}}`
-			if request.Method != http.MethodPost || request.URL.String() != "https://www.youtube.com/youtubei/v1/player?prettyPrint=false" {
-				t.Fatalf("unexpected player request: %s %s", request.Method, request.URL)
-			}
+func TestTimingRanges(t *testing.T) {
+	for _, test := range []struct {
+		url       string
+		requested *RequestedTiming
+		end       int
+	}{
+		{"https://youtu.be/id?end=180", nil, 180},
+		{"https://youtu.be/id?end=300", nil, 213},
+		{"https://youtu.be/id?t=1m15s", &RequestedTiming{StartSeconds: 30}, 213},
+		{"https://youtu.be/id", &RequestedTiming{StartSeconds: 30, EndSeconds: integerPointer(90)}, 90},
+	} {
+		timing, err := GetTiming(context.Background(), responseClient(metadataBody("id", "PT3M33S", "", "none")), "key", test.url, test.requested)
+		if err != nil || timing.EndSeconds != test.end {
+			t.Fatalf("%+v %v", timing, err)
 		}
-		return response(http.StatusOK, body), nil
-	})}
-	actual, err := GetTiming(context.Background(), client, "https://www.youtube.com/watch?v=_JXL6Fn99l8&t=13s", nil)
-	if err != nil {
-		t.Fatal(err)
 	}
-	if actual != (Timing{Title: "", StartSeconds: 0, EndSeconds: 7260, DurationSeconds: 7260}) || calls != 2 {
-		t.Fatalf("GetTiming() = %#v after %d calls", actual, calls)
-	}
-}
-
-func TestGetTimingRejectsInvalidRequestedRanges(t *testing.T) {
 	for _, requested := range []RequestedTiming{
-		{StartSeconds: 213},
-		{StartSeconds: 30, EndSeconds: integerPointer(30)},
+		{StartSeconds: 213}, {StartSeconds: -1}, {StartSeconds: 30, EndSeconds: integerPointer(30)},
 		{StartSeconds: 30, EndSeconds: integerPointer(214)},
 	} {
-		_, err := GetTiming(context.Background(), responseClient(`{"lengthSeconds":"213"}`), "https://youtu.be/dQw4w9WgXcQ", &requested)
-		if err == nil || !strings.Contains(err.Error(), "youtube: invalid timing") {
-			t.Fatalf("expected invalid timing error, got %v", err)
+		_, err := GetTiming(context.Background(), responseClient(metadataBody("id", "PT3M33S", "", "none")), "key", "https://youtu.be/id", &requested)
+		if err == nil {
+			t.Fatal("accepted invalid timing")
 		}
 	}
 }
 
-func TestGetTimingRejectsUnsupportedURLWithoutFetching(t *testing.T) {
-	called := false
-	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
-		called = true
-		return response(http.StatusOK, ""), nil
-	})}
-	_, err := GetTiming(context.Background(), client, "https://example.com/watch?v=dQw4w9WgXcQ", nil)
-	if err == nil || err.Error() != "youtube: invalid url" || called {
-		t.Fatalf("expected invalid URL without fetch, got err=%v called=%v", err, called)
+func TestUnknownDurationPreservesTitle(t *testing.T) {
+	for _, duration := range []string{"", "PT0S", "P", "PT", "P1DT", "PT-1S", "PT1.5S", "garbage", "PT2147483648S", "P99999999999999999999D"} {
+		timing, err := GetTiming(context.Background(), responseClient(metadataBody("id", duration, "Title", "none")), "key", "https://youtu.be/id", nil)
+		if err == nil || timing.Title != "Title" || timing.DurationSeconds != 0 {
+			t.Fatalf("%s: %+v %v", duration, timing, err)
+		}
+	}
+	for _, live := range []string{"live", "upcoming"} {
+		body := metadataBody("id", "PT1H", "Live title", live)
+		timing, err := GetTiming(context.Background(), responseClient(body), "key", "https://youtu.be/id", nil)
+		if err == nil || timing.Title != "Live title" || timing.DurationSeconds != 0 {
+			t.Fatalf("%+v %v", timing, err)
+		}
+		title, err := GetTitle(context.Background(), responseClient(body), "key", "https://youtu.be/id")
+		if err != nil || title != "Live title" {
+			t.Fatalf("%s %v", title, err)
+		}
 	}
 }
 
-func TestGetTimingClassifiesTransportFailure(t *testing.T) {
-	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
-		return nil, errors.New("connection reset")
-	})}
-	_, err := GetTiming(context.Background(), client, "https://youtu.be/dQw4w9WgXcQ", nil)
-	var transportError *TransportError
-	if !errors.As(err, &transportError) {
-		t.Fatalf("expected TransportError, got %v", err)
+func TestDataAPIErrors(t *testing.T) {
+	for _, test := range []struct {
+		status       int
+		body, reason string
+		delay        time.Duration
+	}{
+		{429, "", "", 120 * time.Second},
+		{503, "", "", 120 * time.Second},
+		{403, `{"error":{"errors":[{"reason":"quotaExceeded","message":"secret-key"}]}}`, "quota_exceeded", 24 * time.Hour},
+		{400, `{"error":{"details":[{"reason":"API_KEY_INVALID"}]}}`, "api_configuration", 120 * time.Second},
+		{403, `{"error":{"errors":[{"reason":"forbidden"}]}}`, "", 120 * time.Second},
+	} {
+		t.Run(fmt.Sprint(test.status, test.reason), func(t *testing.T) {
+			client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+				res := response(test.status, test.body)
+				res.Header.Set("Retry-After", "120")
+				return res, nil
+			})}
+			_, err := GetTiming(context.Background(), client, "secret-key", "https://youtu.be/id", nil)
+			var failure *HTTPError
+			if !errors.As(err, &failure) || failure.Status != test.status || failure.Reason != test.reason || failure.RetryAfter != test.delay ||
+				strings.Contains(err.Error(), "secret-key") {
+				t.Fatalf("failure=%+v err=%v", failure, err)
+			}
+		})
+	}
+	for _, body := range []string{`{"items":[]}`, "{}", "not json", strings.Repeat("x", (1<<20)+1), metadataBody("other", "PT10S", "Wrong video", "none")} {
+		_, err := GetTiming(context.Background(), responseClient(body), "key", "https://youtu.be/id", nil)
+		if err == nil {
+			t.Fatal("accepted invalid response")
+		}
+	}
+	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) { return nil, errors.New("connection reset") })}
+	_, err := GetTiming(context.Background(), client, "key", "https://youtu.be/id", nil)
+	var transport *TransportError
+	if !errors.As(err, &transport) {
+		t.Fatalf("expected transport error: %v", err)
+	}
+}
+
+func TestInvalidInputDoesNotFetch(t *testing.T) {
+	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) { t.Fatal("unexpected request"); return nil, nil })}
+	for _, input := range []struct{ key, url string }{{"key", "https://example.com/watch?v=id"}, {"key", "https://youtube.com/"}, {"", "https://youtu.be/id"}} {
+		if _, err := GetTiming(context.Background(), client, input.key, input.url, nil); err == nil {
+			t.Fatal("accepted invalid input")
+		}
+	}
+}
+
+func TestTitleWithoutDuration(t *testing.T) {
+	title, err := GetTitle(context.Background(), responseClient(metadataBody("id", "", "  Title  ", "none")), "key", "https://youtu.be/id")
+	if err != nil || title != "Title" {
+		t.Fatalf("%s %v", title, err)
+	}
+	if _, err := GetTitle(context.Background(), responseClient(metadataBody("id", "PT10S", "  ", "none")), "key", "https://youtu.be/id"); err == nil {
+		t.Fatal("accepted empty title")
 	}
 }
 
 func responseClient(body string) *http.Client {
-	return &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
-		return response(http.StatusOK, body), nil
-	})}
+	return &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) { return response(200, body), nil })}
 }
-
 func response(status int, body string) *http.Response {
 	return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}
 }
-
 func integerPointer(value int) *int { return &value }
-
-func TestGetTimingIncludesVideoTitle(t *testing.T) {
-	client := responseClient(`{"title":"Wrong recommendation","videoDetails":{"title":"  Заголовок \"видео\" & тест  ","lengthSeconds":"90"}}`)
-	timing, err := GetTiming(context.Background(), client, "https://youtu.be/dQw4w9WgXcQ", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if timing.Title != `Заголовок "видео" & тест` || timing.EndSeconds != 90 {
-		t.Fatalf("unexpected metadata: %#v", timing)
-	}
-}
-
-func TestGetTitle(t *testing.T) {
-	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
-		if request.URL.Host != "www.youtube.com" || request.URL.Path != "/oembed" || request.URL.Query().Get("url") != "https://www.youtube.com/watch?v=dQw4w9WgXcQ" {
-			t.Fatalf("unexpected metadata request: %s", request.URL)
-		}
-		return response(http.StatusOK, `{"title":"  Заголовок \"видео\"  "}`), nil
-	})}
-	title, err := GetTitle(context.Background(), client, "https://youtu.be/dQw4w9WgXcQ?t=10")
-	if err != nil || title != `Заголовок "видео"` {
-		t.Fatalf("GetTitle() = %q, %v", title, err)
-	}
-}
-
-func TestGetTitleRejectsMissingMetadata(t *testing.T) {
-	for _, body := range []string{`{}`, `{"title":"  "}`, `{"title":123}`, `not json`} {
-		if _, err := GetTitle(context.Background(), responseClient(body), "https://youtu.be/dQw4w9WgXcQ"); err == nil {
-			t.Fatalf("accepted %s", body)
-		}
-	}
-}
