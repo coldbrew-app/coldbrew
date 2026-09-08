@@ -16,6 +16,21 @@ describe("parseVideoTiming", () => {
     });
   });
 
+  it("limits the end to the known video duration", () => {
+    expect(
+      parseVideoTiming(
+        { startTime: "1:15", endTime: "2:31" },
+        { allowOpenEnd: true, maximumEndSeconds: 150 },
+      ),
+    ).toBeNull();
+    expect(
+      parseVideoTiming(
+        { startTime: "1:15", endTime: "2:30" },
+        { allowOpenEnd: true, maximumEndSeconds: 150 },
+      ),
+    ).toEqual({ startSeconds: 75, endSeconds: 150 });
+  });
+
   it.each([
     [{ startTime: "invalid", endTime: "2:00" }, false],
     [{ startTime: "1:00", endTime: "" }, false],
