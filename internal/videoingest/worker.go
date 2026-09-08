@@ -4,8 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
-	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/lebedev-nikita/coldbrew/internal/money"
@@ -16,11 +15,6 @@ type jobStore interface {
 	Backfill(context.Context) error
 	Claim(context.Context, time.Time, time.Duration) (*Job, error)
 	Complete(context.Context, Job, []Video, time.Time) error
-	Retry(context.Context, Job, time.Time, string, time.Time) error
-}
-
-type youtubeWork interface {
-	Timing(context.Context, string) (youtube.Timing, error)
 }
 
 type clock interface {
@@ -30,32 +24,27 @@ type clock interface {
 type Config struct {
 	PollInterval  time.Duration
 	LeaseDuration time.Duration
-	BaseBackoff   time.Duration
-	MaxBackoff    time.Duration
 }
 
 func DefaultConfig() Config {
 	return Config{
 		PollInterval:  2500 * time.Millisecond,
 		LeaseDuration: 2 * time.Minute,
-		BaseBackoff:   5 * time.Second,
-		MaxBackoff:    5 * time.Minute,
 	}
 }
 
 type Worker struct {
-	store   jobStore
-	youtube youtubeWork
-	clock   clock
-	config  Config
+	store  jobStore
+	clock  clock
+	config Config
 }
 
-func NewWorker(store *Store, youtubeClient *YouTubeClient, config Config) *Worker {
-	return newWorker(store, youtubeClient, realClock{}, config)
+func NewWorker(store *Store, config Config) *Worker {
+	return newWorker(store, realClock{}, config)
 }
 
-func newWorker(store jobStore, youtubeClient youtubeWork, workerClock clock, config Config) *Worker {
-	return &Worker{store: store, youtube: youtubeClient, clock: workerClock, config: config}
+func newWorker(store jobStore, workerClock clock, config Config) *Worker {
+	return &Worker{store: store, clock: workerClock, config: config}
 }
 
 func (worker *Worker) Run(ctx context.Context) error {
@@ -103,13 +92,6 @@ func (worker *Worker) ProcessNext(ctx context.Context) (bool, error) {
 		if (errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)) && ctx.Err() != nil {
 			return true, nil
 		}
-		if retryableYouTubeError(err) {
-			now = worker.clock.Now()
-			if retryErr := worker.store.Retry(ctx, *job, now.Add(worker.backoff(job.Attempts)), safeYouTubeError(err), now); retryErr != nil && !errors.Is(retryErr, ErrLeaseLost) {
-				return true, fmt.Errorf("retry donation video scan %d: %w", job.DonationID, retryErr)
-			}
-			return true, nil
-		}
 		return true, fmt.Errorf("scan donation %d: %w", job.DonationID, err)
 	}
 
@@ -137,13 +119,10 @@ func (worker *Worker) scan(ctx context.Context, job Job) ([]Video, error) {
 		if !ok {
 			continue
 		}
-		timing, timingErr := worker.youtube.Timing(ctx, rawURL)
-		if timingErr != nil {
-			if retryableYouTubeError(timingErr) || errors.Is(timingErr, context.Canceled) || errors.Is(timingErr, context.DeadlineExceeded) {
-				return nil, timingErr
-			}
-			slog.Warn("skip unsupported or invalid video link", "donation_id", job.DonationID, "url", rawURL, "error", timingErr)
-			continue
+		parsed, _ := url.Parse(rawURL)
+		var end *int
+		if seconds, ok := youtube.ParseTimestamp(parsed.Query().Get("end")); ok && seconds > 0 {
+			end = &seconds
 		}
 		var amount *string
 		if supported {
@@ -152,46 +131,13 @@ func (worker *Worker) scan(ctx context.Context, job Job) ([]Video, error) {
 		}
 		videos = append(videos, Video{
 			ProviderVideoID: providerVideoID,
-			Title:           timing.Title,
 			URL:             rawURL,
 			QueueAmount:     amount,
-			StartSeconds:    timing.StartSeconds,
-			EndSeconds:      timing.EndSeconds,
-			DurationSeconds: timing.DurationSeconds,
+			StartSeconds:    0,
+			EndSeconds:      end,
 		})
 	}
 	return videos, nil
-}
-
-func (worker *Worker) backoff(attempts int) time.Duration {
-	delay := worker.config.BaseBackoff
-	for attempt := 1; attempt < attempts && delay < worker.config.MaxBackoff; attempt++ {
-		if delay > worker.config.MaxBackoff/2 {
-			return worker.config.MaxBackoff
-		}
-		delay *= 2
-	}
-	if delay > worker.config.MaxBackoff {
-		return worker.config.MaxBackoff
-	}
-	return delay
-}
-
-func retryableYouTubeError(err error) bool {
-	var httpError *youtube.HTTPError
-	if errors.As(err, &httpError) {
-		return httpError.Status == http.StatusTooManyRequests
-	}
-	var transportError *youtube.TransportError
-	return errors.As(err, &transportError)
-}
-
-func safeYouTubeError(err error) string {
-	var httpError *youtube.HTTPError
-	if errors.As(err, &httpError) && httpError.Status == http.StatusTooManyRequests {
-		return "youtube rate limited"
-	}
-	return "youtube transport failure"
 }
 
 type realClock struct{}

@@ -65,6 +65,9 @@ export const DonationSchema = z.object({
 export type Donation = z.infer<typeof DonationSchema>;
 
 const VideoBaseSchema = z.object({
+  durationSeconds: z.int().positive().nullable(),
+  metadataUnavailable: z.boolean(),
+  metadataRetryAt: z.coerce.date().nullable(),
   videoId: VideoIdSchema,
   videoPriorityId: VideoPriorityIdSchema.nullable(),
   provider: z.literal("youtube"),
@@ -73,7 +76,7 @@ const VideoBaseSchema = z.object({
   queueAmount: MoneyAmountSchema.nullable(),
   queueCurrency: QueueCurrencySchema,
   startSeconds: z.int().nonnegative(),
-  endSeconds: z.int().positive(),
+  endSeconds: z.int().positive().nullable(),
   priorityLabel: z.string().nullable(),
   watchedAt: z.coerce.date().nullable(),
   bookmarkedAt: z.coerce.date().nullable(),
@@ -91,7 +94,7 @@ export const VideoSchema = z
       donation: z.null(),
     }),
   ])
-  .refine(({ startSeconds, endSeconds }) => endSeconds > startSeconds, {
+  .refine(({ startSeconds, endSeconds }) => endSeconds === null || endSeconds > startSeconds, {
     error: "video end must be after video start",
     path: ["endSeconds"],
   });
@@ -114,20 +117,21 @@ export type PublicQueueSettings = z.infer<typeof PublicQueueSettingsSchema>;
 
 export const SharedVideoSchema = z
   .object({
+    metadataUnavailable: z.boolean(),
     videoId: VideoIdSchema,
     videoPriorityId: VideoPriorityIdSchema.nullable(),
     provider: z.literal("youtube"),
     url: z.url(),
     startSeconds: z.int().nonnegative(),
-    endSeconds: z.int().positive(),
-    durationSeconds: z.int().positive(),
+    endSeconds: z.int().positive().nullable(),
+    durationSeconds: z.int().positive().nullable(),
     priorityLabel: z.string().nullable(),
     watchedAt: z.coerce.date().nullable(),
     createdAt: z.coerce.date(),
     displayAmount: MoneyAmountSchema.nullable(),
     displayCurrency: CurrencyCodeSchema.nullable(),
   })
-  .refine(({ startSeconds, endSeconds }) => endSeconds > startSeconds, {
+  .refine(({ startSeconds, endSeconds }) => endSeconds === null || endSeconds > startSeconds, {
     error: "video end must be after video start",
     path: ["endSeconds"],
   })

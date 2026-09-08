@@ -2,7 +2,10 @@
 
 ## Status
 
-Accepted.
+Accepted. Metadata fetching and failure handling are superseded by
+[ADR 0006](0006-video-metadata-retries.md): scans now persist videos without
+YouTube requests, and separate leased jobs fetch duration afterwards. The scan
+lease, idempotency, and transaction rules below remain applicable.
 
 ## Context
 

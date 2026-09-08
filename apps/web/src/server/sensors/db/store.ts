@@ -118,7 +118,7 @@ export class Store {
       url: z.url(),
       title: z.string().trim().min(1).nullable(),
       startSeconds: z.int().nonnegative(),
-      endSeconds: z.int().positive(),
+      endSeconds: z.int().positive().nullable(),
       queueAmount: MoneyAmountSchema.nullable(),
       queueCurrency: QueueCurrencySchema,
       priorityLabel: z.string().nullable(),

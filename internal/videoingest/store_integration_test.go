@@ -123,7 +123,7 @@ func TestCompletionIsIdempotentForDuplicateVideos(t *testing.T) {
 	seedDonation(t, pool, 1)
 	now := time.Date(2026, 9, 4, 12, 0, 0, 0, time.UTC)
 	job, _ := store.Claim(context.Background(), now, time.Minute)
-	video := Video{Title: "Video title", ProviderVideoID: "same", URL: "https://youtu.be/same", StartSeconds: 0, EndSeconds: 10, DurationSeconds: 10}
+	video := Video{Title: "Video title", ProviderVideoID: "same", URL: "https://youtu.be/same", StartSeconds: 0, EndSeconds: intPointer(10), DurationSeconds: intPointer(10)}
 	if err := store.Complete(context.Background(), *job, []Video{video, video}, now.Add(time.Second)); err != nil {
 		t.Fatal(err)
 	}
@@ -146,8 +146,8 @@ func TestCompletionIsAllOrNothing(t *testing.T) {
 	now := time.Date(2026, 9, 4, 12, 0, 0, 0, time.UTC)
 	job, _ := store.Claim(context.Background(), now, time.Minute)
 	videos := []Video{
-		{ProviderVideoID: "valid", URL: "https://youtu.be/valid", StartSeconds: 0, EndSeconds: 10, DurationSeconds: 10},
-		{ProviderVideoID: "invalid", URL: "https://youtu.be/invalid", StartSeconds: 0, EndSeconds: 0, DurationSeconds: 10},
+		{ProviderVideoID: "valid", URL: "https://youtu.be/valid", StartSeconds: 0, EndSeconds: intPointer(10), DurationSeconds: intPointer(10)},
+		{ProviderVideoID: "invalid", URL: "https://youtu.be/invalid", StartSeconds: 0, EndSeconds: intPointer(0), DurationSeconds: intPointer(10)},
 	}
 	if err := store.Complete(context.Background(), *job, videos, now.Add(time.Second)); err == nil {
 		t.Fatal("expected invalid second insert to abort completion")
@@ -169,7 +169,7 @@ func TestNoLinksCompletionSetsVideosParsedAt(t *testing.T) {
 	store, pool := newIntegrationStore(t)
 	seedDonation(t, pool, 1)
 	now := time.Date(2026, 9, 4, 12, 0, 0, 0, time.UTC)
-	worker := newWorker(store, &fakeYouTube{}, &fakeClock{now: now}, DefaultConfig())
+	worker := newWorker(store, &fakeClock{now: now}, DefaultConfig())
 	if worked, err := worker.ProcessNext(context.Background()); err != nil || !worked {
 		t.Fatalf("ProcessNext() = %v, %v", worked, err)
 	}
@@ -216,43 +216,11 @@ func newIntegrationStore(t *testing.T) (*Store, *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	_, err = pool.Exec(ctx, `
-		CREATE TABLE "user" (
-			user_id integer PRIMARY KEY,
-			queue_currency char(3) NOT NULL
-		);
-		CREATE TABLE donation (
-			donation_id bigint PRIMARY KEY,
-			user_id integer NOT NULL REFERENCES "user" (user_id),
-			message text NULL,
-			amount numeric(20, 2) NOT NULL,
-			currency char(3) NOT NULL,
-			videos_parsed_at timestamptz NULL
-		);
-		CREATE TABLE donation_video_scan (
-			donation_id bigint PRIMARY KEY REFERENCES donation (donation_id),
-			generation bigint NOT NULL DEFAULT 0,
-			attempts integer NOT NULL DEFAULT 0,
-			available_at timestamptz NOT NULL DEFAULT now(),
-			lease_expires_at timestamptz NULL,
-			completed_at timestamptz NULL,
-			last_error text NULL
-		);
-		CREATE TABLE video (
-			video_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-			donation_id bigint REFERENCES donation (donation_id),
-			provider text NOT NULL,
-			provider_video_id text NOT NULL,
-			title text,
-			url text NOT NULL,
-			queue_amount numeric(20, 2) NULL,
-			start_seconds integer NOT NULL CHECK (start_seconds >= 0),
-			end_seconds integer NOT NULL CHECK (end_seconds > 0),
-			duration_seconds integer NOT NULL CHECK (duration_seconds > 0),
-			UNIQUE (donation_id, provider, provider_video_id),
-			CHECK (end_seconds > start_seconds)
-		)
-	`)
+	schemaSQL, err := os.ReadFile("../../db/schema.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = pool.Exec(ctx, string(schemaSQL))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,6 +233,7 @@ func seedDonation(t *testing.T, pool *pgxpool.Pool, donationID int64) {
 	if _, err := pool.Exec(context.Background(), `
         INSERT INTO donation_video_scan (donation_id, available_at)
         VALUES ($1, '2026-09-04T12:00:00Z')
+        ON CONFLICT (donation_id) DO UPDATE SET available_at = EXCLUDED.available_at
     `, donationID); err != nil {
 		t.Fatal(err)
 	}
@@ -273,11 +242,18 @@ func seedDonation(t *testing.T, pool *pgxpool.Pool, donationID int64) {
 func seedDonationWithoutScan(t *testing.T, pool *pgxpool.Pool, donationID int64) {
 	t.Helper()
 	ctx := context.Background()
-	_, err := pool.Exec(ctx, `INSERT INTO "user" (user_id, queue_currency) VALUES (1, 'RUB') ON CONFLICT DO NOTHING`)
+	_, err := pool.Exec(ctx, `INSERT INTO auth_user (id, name, email, "emailVerified") VALUES ('test', 'Test', 'test@example.com', true) ON CONFLICT DO NOTHING;
+        INSERT INTO "user" (user_id, auth_user_id, queue_currency) VALUES (1, 'test', 'RUB') ON CONFLICT DO NOTHING;
+        INSERT INTO video_priority (user_id, label, min_price_per_minute, is_default)
+        VALUES (1, 'Default', 0, true) ON CONFLICT DO NOTHING`)
 	if err == nil {
-		_, err = pool.Exec(ctx, `INSERT INTO donation (donation_id, user_id, amount, currency) VALUES ($1, 1, 10, 'RUB')`, donationID)
+		_, err = pool.Exec(ctx, `INSERT INTO donation (donation_id, user_id, amount, currency, source, source_donation_id, source_created_at, occurred_at)
+        OVERRIDING SYSTEM VALUE VALUES ($1, 1, 10, 'RUB', 'donationalerts', $1::bigint::text, 'test', now())`, donationID)
 	}
 	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `DELETE FROM donation_video_scan WHERE donation_id = $1`, donationID); err != nil {
 		t.Fatal(err)
 	}
 }

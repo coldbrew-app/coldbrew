@@ -14,13 +14,18 @@ import { preloadRouteQuery } from "@web/lib/trpc";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 
-import { useUpdateVideoM, useUpdateVideoStatusM, useVideoPageQ } from "../../hooks/api";
+import {
+  useUpdateVideoM,
+  useUpdateVideoStatusM,
+  useVideoPageQ,
+  useRetryVideoMetadataM,
+} from "../../hooks/api";
 import { createTranslator, useI18n } from "../../lib/i18n";
 
 const VideoPageInputSchema = z.object({
   page: z.int().positive(),
   videoId: z.string().optional(),
-  videoPriorityId: z.int().positive().nullable(),
+  videoPriorityId: z.union([z.int().positive(), z.literal("unassigned")]).nullable(),
   videoStatus: z.enum(["all", "notwatched", "watched", "bookmarked"]),
 });
 
@@ -37,7 +42,7 @@ export const Route = createFileRoute("/_authenticated/videos")({
       .catch(undefined),
     page: z.coerce.number().int().positive().default(1).catch(1),
     videoPriorityId: z
-      .union([z.literal("all"), z.coerce.number().int().positive()])
+      .union([z.literal("all"), z.literal("unassigned"), z.coerce.number().int().positive()])
       .default("all")
       .catch("all"),
     videoStatus: z
@@ -70,6 +75,7 @@ function VideoQueue() {
   const navigate = Route.useNavigate();
   const updateVideoStatusM = useUpdateVideoStatusM();
   const updateVideoM = useUpdateVideoM();
+  const retryMetadataM = useRetryVideoMetadataM();
   const { t } = useI18n();
   const selectedVideoPriorityId = search.videoPriorityId === "all" ? null : search.videoPriorityId;
   const activeTab = search.videoStatus;
@@ -173,7 +179,12 @@ function VideoQueue() {
               <div className="divide-y divide-border">
                 {visibleVideos.map((video) => (
                   <VideoCard
-                    isUpdating={updateVideoStatusM.isPending || updateVideoM.isPending}
+                    isUpdating={
+                      updateVideoStatusM.isPending ||
+                      updateVideoM.isPending ||
+                      retryMetadataM.isPending
+                    }
+                    onRetryMetadata={() => retryMetadataM.mutate({ videoId: video.videoId })}
                     key={video.videoId}
                     onUpdate={(input) =>
                       updateVideoM.mutateAsync({

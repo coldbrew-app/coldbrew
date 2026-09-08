@@ -93,7 +93,7 @@ export function useDonationOverviewQ() {
 export type VideoPageInput = {
   videoId?: string;
   page: number;
-  videoPriorityId: number | null;
+  videoPriorityId: number | "unassigned" | null;
   videoStatus: "all" | "notwatched" | "watched" | "bookmarked";
 };
 
@@ -102,7 +102,19 @@ export function useVideoPageQ(input: VideoPageInput) {
   return useQuery({
     ...trpc.videoPage.queryOptions(input),
     placeholderData: input.videoId ? undefined : keepPreviousData,
+    refetchInterval: 15000,
   });
+}
+
+export function useRetryVideoMetadataM() {
+  const { queryClient, trpc } = useApi();
+  return useMutation(
+    trpc.retryVideoMetadata.mutationOptions({
+      async onSuccess() {
+        await queryClient.invalidateQueries({ queryKey: trpc.videoPage.queryKey() });
+      },
+    }),
+  );
 }
 
 export function useAddVideoM() {
@@ -168,6 +180,7 @@ export function useSharedVideoPageQ(slug: Slug, page: number, status: "queue" | 
   const { trpc } = useApi();
   return useQuery({
     ...trpc.sharedVideoPage.queryOptions({ page, slug, status }),
+    refetchInterval: 15000,
     placeholderData: keepPreviousData,
   });
 }

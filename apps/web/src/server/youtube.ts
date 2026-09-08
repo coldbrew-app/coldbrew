@@ -96,7 +96,10 @@ function timingFromDuration(
   return { startSeconds, endSeconds, durationSeconds: endOfVideoSeconds };
 }
 
-export async function getYoutubeTiming(url: string, requestedTiming?: RequestedYoutubeTiming) {
+export async function getYoutubeTiming(
+  url: string,
+  requestedTiming?: RequestedYoutubeTiming,
+): Promise<YoutubeTiming> {
   const parsedUrl = parseUrl(url);
   const providerVideoId = youtubeVideoId(url);
   if (parsedUrl === null || providerVideoId === null) {

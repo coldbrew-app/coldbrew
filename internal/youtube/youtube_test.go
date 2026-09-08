@@ -62,6 +62,19 @@ func TestParseTimestamp(t *testing.T) {
 	}
 }
 
+func TestRetryAfterIsPreserved(t *testing.T) {
+	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		result := response(http.StatusTooManyRequests, "")
+		result.Header.Set("Retry-After", "120")
+		return result, nil
+	})}
+	_, err := GetTiming(context.Background(), client, "https://youtu.be/_JXL6Fn99l8", nil)
+	var httpError *HTTPError
+	if !errors.As(err, &httpError) || httpError.RetryAfter.Seconds() != 120 {
+		t.Fatalf("expected Retry-After, got %v", err)
+	}
+}
+
 func TestGetTiming(t *testing.T) {
 	tests := []struct {
 		name      string
