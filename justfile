@@ -246,7 +246,7 @@ generate-youtube-chat-go-proto:
     internal/youtubechatpb/stream_list.proto
 
 compose-up:
-  docker compose up -d
+  docker compose up -d --remove-orphans
 
 # Show running containers in a terminal-friendly table capped at 150 columns.
 docker-ps:
@@ -265,7 +265,7 @@ production-deploy $app_image $postgres_image:
   bunx dotenvx set -f .env --plain COLDBREW_POSTGRES_IMAGE "$COLDBREW_POSTGRES_IMAGE"
 
   docker compose pull postgres web
-  docker compose up --no-build --detach --wait --wait-timeout 180
+  docker compose up --no-build --detach --wait --wait-timeout 180 --remove-orphans
   # Git may replace the bind-mounted Caddyfile inode without Compose detecting
   # a service change. Recreate Caddy so it mounts the checked-out revision.
   # The same recipe also recreates it with the previous file during rollback.
