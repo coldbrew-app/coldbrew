@@ -16,10 +16,6 @@ complete this workflow in order:
    out. If `master` is already checked out there, continue subsequent Git
    commands from that checkout instead of trying to check it out in the linked
    worktree.
-7. Remove the old task worktree. Before removal, verify that its working tree
-   is clean and that its commit is reachable from `master`. Use force only when
-   the remaining files are ignored setup artifacts and those two checks have
-   passed.
 
 Removing a task worktree does not require cleaning its PostgreSQL database or
 NATS namespace immediately. Those resources are removed periodically by
