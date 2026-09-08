@@ -6,6 +6,11 @@
       "command": "just t3-worktree-init \"$T3CODE_PROJECT_ROOT\"",
       "icon": "configure",
       "runOnWorktreeCreate": true
+    },
+    {
+      "name": "Prepare PR",
+      "command": "git fetch origin && git rebase origin/master && just check && git push --force-with-lease",
+      "icon": "configure"
     }
   ]
 }
