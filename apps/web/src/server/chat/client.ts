@@ -86,12 +86,21 @@ export const chatService = {
     return request("/internal/oauth/start", AuthorizationUrlSchema, { provider, userId });
   },
 
-  connectBoosty(userId: number, accessToken: string, refreshToken?: string, deviceId?: string) {
+  connectBoosty(
+    userId: number,
+    accessToken: string,
+    refreshToken?: string,
+    deviceId?: string,
+    expiresAt?: number,
+    dedicatedSession?: boolean,
+  ) {
     return request("/internal/boosty/connect", z.null(), {
       userId,
       accessToken,
       refreshToken,
       deviceId,
+      expiresAt,
+      dedicatedSession,
     });
   },
 

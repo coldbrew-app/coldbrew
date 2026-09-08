@@ -46,7 +46,14 @@ describe("chat service adapter", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(
-      chatService.connectBoosty(42, "boosty-session-token", "boosty-refresh-token", "device-1"),
+      chatService.connectBoosty(
+        42,
+        "boosty-session-token",
+        "boosty-refresh-token",
+        "device-1",
+        1_800_000_000_000,
+        true,
+      ),
     ).resolves.toBeNull();
 
     const [url, options] = fetchMock.mock.calls[0]!;
@@ -60,6 +67,8 @@ describe("chat service adapter", () => {
         accessToken: "boosty-session-token",
         refreshToken: "boosty-refresh-token",
         deviceId: "device-1",
+        expiresAt: 1_800_000_000_000,
+        dedicatedSession: true,
       }),
     );
   });

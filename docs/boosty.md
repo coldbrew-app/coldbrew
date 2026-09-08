@@ -6,13 +6,19 @@ endpoints. It does not collect private dialogs or post comments.
 
 ## Connect
 
-1. Sign in to your own account at `https://boosty.to`.
+1. Create a separate browser profile without browser sync for Coldbrew. Sign in
+   to your own account at `https://boosty.to` in that profile. Do not copy credentials
+   from the browser profile you use to watch or manage Boosty.
 2. Open browser developer tools → Application. Find the `auth` entry in Cookies
    or Local Storage for Boosty.
 3. Copy its entire URL-encoded value into the `auth` field. Coldbrew decodes it and
-   extracts `accessToken` and `refreshToken` automatically. Copy `_clientId` from Cookies
+   extracts `accessToken`, `refreshToken`, and the absolute millisecond `expiresAt` automatically. Copy `_clientId` from Cookies
    or Local Storage in the same browser into the `_clientId` field.
-4. In Coldbrew → Multichat → Boosty, fill the two fields and select **Connect Boosty**.
+4. Close all Boosty tabs in the separate profile **without signing out**. Do not
+   reopen Boosty in that profile while Coldbrew owns the session. Continue using
+   Boosty in your usual profile.
+5. In Coldbrew → Multichat → Boosty, confirm that you used a separate session,
+   fill the two fields, and select **Connect Boosty**.
 
 Coldbrew resolves `/v1/user/current`, derives the blog from that identity, and
 checks its owner through `/v1/blog/{blog}`. An arbitrary viewer-supplied channel
@@ -28,13 +34,32 @@ The response's `expires_in` determines the expiry; access and rotated refresh to
 are saved together using `token_version` compare-and-swap. The refreshed identity must
 still match the connected blog.
 
-On the first collector start, the expiry is unknown, so the service refreshes once.
-Subsequent collection renews one minute before expiry through the shared collector
-lifecycle. Temporary refresh failures retry with backoff; rejected sessions require
+The imported expiry is saved with the connection, so a valid token is not refreshed
+on the first collector start. Collection renews one minute before expiry through
+the shared collector lifecycle. Calls that omit expiry retain the unknown-expiry
+refresh behavior; refresh credentials are accepted only with `dedicatedSession: true`. Temporary refresh failures retry with backoff; rejected sessions require
 reconnection. Existing access-token-only connections still work until their token
 expires and must be reconnected once with a refresh token and device ID to enable
 renewal. No Boosty OAuth application or environment credentials are needed; the previously reserved `BOOSTY_CLIENT_ID` and
 `BOOSTY_CLIENT_SECRET` settings do not configure this connection.
+
+## Browser session ownership
+
+A copied auth value is a copy of a browser session, not a new authorization grant.
+Boosty's web client exchanges `refresh_token` together with `device_id` and saves
+both returned tokens in its own auth storage. Coldbrew saves its rotated pair only
+in its database. Sharing that session lets the website and collector invalidate
+each other's credentials. A generated replacement `_clientId` alone does not
+establish a separately authenticated session.
+
+The original connection flow also discarded `expiresAt`, forcing an immediate
+rotation. The import regression test exercises connection persistence followed by
+collector refresh and asserts that a still-valid token is not exchanged.
+
+Connections imported from a normal browser before this fix must be reconnected
+using a separate session. Already revoked credentials cannot be repaired locally.
+The confirmation is the user's declaration of session ownership; the unofficial
+API does not let Coldbrew verify that no browser still uses those credentials.
 
 ## Collection
 
@@ -77,3 +102,13 @@ ownership, token validation, refresh rotation and expiry, read-only capabilities
 pagination, message normalization, error handling, and cancellation. Authenticated
 collection from a real live stream still requires a streamer session for an
 end-to-end smoke test; fixtures are not captured live-chat traffic.
+
+Authenticated smoke test on 2026-09-08 used a fresh Google sign-in in an isolated
+Chrome Incognito session. After closing all windows of that session without
+signing out, the real credentials were imported through the Coldbrew form.
+PostgreSQL retained the imported expiry and token version 1; the collector reported
+offline without an authorization error. Advancing the local connection expiry and
+version triggered the production refresher against Boosty's real API. It persisted
+the renewed credentials and a new 30-day expiry, and collection resumed offline.
+Reloading Boosty in the normal browser profile retained its signed-in owner controls.
+No stream was live during this check, so live-message delivery remains unverified.

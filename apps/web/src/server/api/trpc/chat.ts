@@ -105,6 +105,8 @@ export const chatRouter = router({
   connectBoosty: authenticatedProcedure
     .input(
       z.object({
+        expiresAt: z.int().positive().max(8_640_000_000_000_000).optional(),
+        dedicatedSession: z.boolean().optional(),
         accessToken: z
           .string()
           .trim()
@@ -135,6 +137,8 @@ export const chatRouter = router({
           input.accessToken,
           input.refreshToken,
           input.deviceId,
+          input.expiresAt,
+          input.dedicatedSession,
         ),
       );
     }),

@@ -75,9 +75,11 @@ func NewBoostyConnector(provider *BoostyProvider, store BoostyConnectionStore) *
 }
 
 type BoostyCredentials struct {
-	AccessToken  string `json:"accessToken"`
-	RefreshToken string `json:"refreshToken"`
-	DeviceID     string `json:"deviceId"`
+	AccessToken      string `json:"accessToken"`
+	RefreshToken     string `json:"refreshToken"`
+	DeviceID         string `json:"deviceId"`
+	ExpiresAt        *int64 `json:"expiresAt"`
+	DedicatedSession bool   `json:"dedicatedSession"`
 }
 
 // Connect derives the owned blog from the authenticated identity, never a supplied URL.
@@ -90,6 +92,20 @@ func (connector *BoostyConnector) Connect(ctx context.Context, userID int, input
 	}
 	if token == "" || len(token) > 8192 || strings.IndexFunc(token, func(r rune) bool { return r <= 32 || r >= 127 }) >= 0 {
 		return &ApplicationError{Type: "invalid boosty token", Detail: "Invalid Boosty access token"}
+	}
+	if refreshToken != "" && !input.DedicatedSession {
+		return &ApplicationError{Type: "invalid boosty credentials", Detail: "Use a separate Boosty browser session for automatic renewal"}
+	}
+	var expiresAt *time.Time
+	if input.ExpiresAt != nil {
+		if *input.ExpiresAt <= 0 || *input.ExpiresAt > 8_640_000_000_000_000 {
+			return &ApplicationError{Type: "invalid boosty credentials", Detail: "Invalid Boosty token expiry"}
+		}
+		expiry := time.UnixMilli(*input.ExpiresAt)
+		if !expiry.After(time.Now()) {
+			return &ApplicationError{Type: "invalid boosty credentials", Detail: "Copy current credentials from the separate Boosty browser session"}
+		}
+		expiresAt = &expiry
 	}
 	var identity boostyUser
 	if err := connector.provider.request(ctx, token, "/v1/user/current", &identity); err != nil {
@@ -115,7 +131,7 @@ func (connector *BoostyConnector) Connect(ctx context.Context, userID int, input
 	if !capacity {
 		return &ApplicationError{Type: "chat source limit reached", Detail: "Chat source limit reached"}
 	}
-	_, err = connector.store.SaveProviderAccount(ctx, userID, SaveConnection{Provider: "boosty", ProviderUserID: string(identity.ID), DisplayName: identity.Name, AccessToken: token, RefreshToken: refreshToken, OAuthDeviceID: deviceID, Scopes: []string{}}, SaveSource{Provider: "boosty", ProviderSourceID: blog, DisplayName: identity.Name, SourceURL: "https://boosty.to/" + blog + "/streams/video_stream"})
+	_, err = connector.store.SaveProviderAccount(ctx, userID, SaveConnection{Provider: "boosty", ProviderUserID: string(identity.ID), DisplayName: identity.Name, AccessToken: token, RefreshToken: refreshToken, OAuthDeviceID: deviceID, AccessTokenExpiresAt: expiresAt, Scopes: []string{}}, SaveSource{Provider: "boosty", ProviderSourceID: blog, DisplayName: identity.Name, SourceURL: "https://boosty.to/" + blog + "/streams/video_stream"})
 	return err
 }
 

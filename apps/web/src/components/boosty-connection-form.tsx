@@ -3,6 +3,7 @@ import { Button } from "@web/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@web/components/ui/dialog";
 import { Input } from "@web/components/ui/input";
 import { Kbd, KbdGroup } from "@web/components/ui/kbd";
+import { Switch } from "@web/components/ui/switch";
 import { useBoostyConnection } from "@web/hooks/chat-service";
 import { parseBoostyAuth } from "@web/lib/boosty-auth";
 import { getDevtoolsShortcut } from "@web/lib/devtools-shortcut";
@@ -65,13 +66,14 @@ export function BoostyConnectionForm({ onClose }: { onClose: () => void }) {
         return t("boostyTokenStepFind", panels);
     }
   })();
+  const [dedicatedSession, setDedicatedSession] = useState(false);
   const [auth, setAuth] = useState("");
   const [authInvalid, setAuthInvalid] = useState(false);
   const [deviceId, setDeviceId] = useState("");
   const connect = useBoostyConnection(onClose);
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!auth.trim() || !deviceId.trim() || connect.isPending) return;
+    if (!dedicatedSession || !auth.trim() || !deviceId.trim() || connect.isPending) return;
     let credentials;
     try {
       credentials = parseBoostyAuth(auth);
@@ -82,7 +84,7 @@ export function BoostyConnectionForm({ onClose }: { onClose: () => void }) {
     setAuthInvalid(false);
     setAuth("");
     setDeviceId("");
-    connect.mutate({ ...credentials, deviceId: deviceId.trim() });
+    connect.mutate({ ...credentials, dedicatedSession, deviceId: deviceId.trim() });
   };
   return (
     <Dialog
@@ -134,7 +136,19 @@ export function BoostyConnectionForm({ onClose }: { onClose: () => void }) {
             <BoostyInstructionText text={t("boostyTokenStepCopy")} />
           </li>
         </ol>
-        <form className="flex flex-col gap-4" onSubmit={submit}>
+        <form autoComplete="off" className="flex flex-col gap-4" onSubmit={submit}>
+          <label
+            className="flex items-start gap-3 text-sm leading-relaxed"
+            htmlFor="boosty-dedicated-session"
+          >
+            <Switch
+              id="boosty-dedicated-session"
+              checked={dedicatedSession}
+              onCheckedChange={setDedicatedSession}
+              disabled={connect.isPending}
+            />
+            <span>{t("boostyDedicatedSession")}</span>
+          </label>
           <label className="flex flex-col gap-1 text-sm" htmlFor="boosty-auth">
             <span>
               <BoostyInstructionText text={t("boostyAuth")} />
@@ -145,6 +159,9 @@ export function BoostyConnectionForm({ onClose }: { onClose: () => void }) {
               }
               aria-invalid={authInvalid}
               autoComplete="off"
+              autoCapitalize="none"
+              data-1p-ignore
+              data-lpignore="true"
               disabled={connect.isPending}
               id="boosty-auth"
               onChange={(event) => {
@@ -153,7 +170,9 @@ export function BoostyConnectionForm({ onClose }: { onClose: () => void }) {
               }}
               required
               spellCheck={false}
-              type="password"
+              // Tokens are not passwords; keep them masked without login-form heuristics.
+              className="[-webkit-text-security:disc]"
+              type="text"
               value={auth}
             />
           </label>
@@ -168,6 +187,9 @@ export function BoostyConnectionForm({ onClose }: { onClose: () => void }) {
             </span>
             <Input
               autoComplete="off"
+              autoCapitalize="none"
+              data-1p-ignore
+              data-lpignore="true"
               disabled={connect.isPending}
               id="boosty-device-id"
               maxLength={200}
@@ -186,7 +208,10 @@ export function BoostyConnectionForm({ onClose }: { onClose: () => void }) {
             </p>
           )}
           <div className="flex flex-wrap justify-end gap-2">
-            <Button disabled={!auth.trim() || !deviceId.trim() || connect.isPending} type="submit">
+            <Button
+              disabled={!dedicatedSession || !auth.trim() || !deviceId.trim() || connect.isPending}
+              type="submit"
+            >
               {connect.isPending ? t("boostyConnecting") : t("boostyConnectTitle")}
             </Button>
             <Button disabled={connect.isPending} onClick={onClose} type="button" variant="ghost">
