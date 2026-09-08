@@ -202,8 +202,6 @@ const en = {
   dateRange: "Date range",
   allTime: "All time",
   sampleChart: "Example",
-  chatFeedCounts: ({ sources, messages }: { sources: number; messages: number }) =>
-    `Sources: ${sources} · Messages: ${messages}`,
   chatDisconnectTitle: "Disconnect channel?",
   chatDisconnectDescription: ({ name, provider }: { name: string; provider: string }) =>
     `Messages from ${name} on ${provider} will no longer appear in the chat. You can reconnect the channel later.`,
@@ -560,8 +558,6 @@ const ru = defineTranslations({
   dateRange: "Период",
   allTime: "За всё время",
   sampleChart: "Пример",
-  chatFeedCounts: ({ sources, messages }: { sources: number; messages: number }) =>
-    `Источники: ${sources} · Сообщения: ${messages}`,
   chatDisconnectTitle: "Отключить канал?",
   chatDisconnectDescription: ({ name, provider }: { name: string; provider: string }) =>
     `Сообщения канала «${name}» в ${provider} больше не будут появляться в чате. Канал можно подключить снова.`,
