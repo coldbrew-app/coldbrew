@@ -2,6 +2,7 @@ import type {
   ChatBroadcastResult,
   ChatProvider,
   ChatProviderAvailability,
+  ChatProviderConnection,
   ChatSourceId,
 } from "@coldbrew/packages/chat.js";
 import { MAX_CHAT_MESSAGE_LENGTH } from "@coldbrew/packages/chat.js";
@@ -10,7 +11,9 @@ import { BoostyConnectionForm } from "@web/components/boosty-connection-form";
 import { ChatFeed } from "@web/components/chat-feed";
 import { Icons, PlatformIcons } from "@web/components/icons";
 import { Button } from "@web/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@web/components/ui/dialog";
 import { Input } from "@web/components/ui/input";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@web/components/ui/tooltip";
 import { useChatServiceMutations, useChatServiceQueries } from "@web/hooks/chat-service";
 import { useChatServiceStream } from "@web/hooks/use-chat-service-stream";
 import { useI18n, type TranslationKey } from "@web/lib/i18n";
@@ -132,21 +135,28 @@ function SourceState({
   const text = copy[locale];
   const normalized = state ?? "offline";
   return (
-    <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
-      <span
-        className={cn(
-          "size-1.5 rounded-full",
-          normalized === "live"
-            ? "bg-emerald-500"
-            : normalized === "error"
-              ? "bg-destructive"
-              : normalized === "connecting"
-                ? "animate-pulse bg-amber-500"
-                : "bg-muted-foreground/40",
-        )}
-      />
-      {text[normalized]}
-    </span>
+    <Tooltip>
+      <TooltipTrigger
+        aria-label={text[normalized]}
+        className="inline-flex size-6 shrink-0 items-center justify-center rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      >
+        <span aria-hidden="true" className="flex size-3 shrink-0 items-center justify-center">
+          <span
+            className={cn(
+              "size-1.5 rounded-full",
+              normalized === "live"
+                ? "bg-emerald-500"
+                : normalized === "error"
+                  ? "bg-destructive"
+                  : normalized === "connecting"
+                    ? "animate-pulse bg-amber-500"
+                    : "bg-muted-foreground/40",
+            )}
+          />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{text[normalized]}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -158,6 +168,8 @@ function ChatPage() {
   const { availabilityQuery, configQuery } = useChatServiceQueries();
   const stream = useChatServiceStream();
   const [boostyFormOpen, setBoostyFormOpen] = useState(false);
+  const [connectionToDisconnect, setConnectionToDisconnect] =
+    useState<ChatProviderConnection | null>(null);
   const [message, setMessage] = useState("");
   const [broadcastResult, setBroadcastResult] = useState<ChatBroadcastResult | null>(null);
   const [overlayUrl, setOverlayUrl] = useState<string | null>(null);
@@ -276,18 +288,6 @@ function ChatPage() {
                 })}
               </p>
             </div>
-            <div className="flex h-7 items-end gap-1" aria-hidden="true">
-              {config.sources.slice(0, 8).map((source, index) => (
-                <span
-                  className="w-1 rounded-full"
-                  key={source.sourceId}
-                  style={{
-                    backgroundColor: providerMeta[source.provider].color,
-                    height: `${12 + (index % 3) * 6}px`,
-                  }}
-                />
-              ))}
-            </div>
             <a
               href="#chat-connections"
               className="rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring xl:hidden"
@@ -360,12 +360,7 @@ function ChatPage() {
           className="cosmic-panel flex min-h-0 shrink-0 scroll-mt-4 flex-col overflow-hidden xl:order-first"
         >
           <header className="flex flex-col gap-1 border-b border-border p-4">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="font-heading text-xl font-semibold">{text.connections}</h2>
-              <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                {config.connections.length}
-              </span>
-            </div>
+            <h2 className="font-heading text-xl font-semibold">{text.connections}</h2>
             <p className="text-xs text-muted-foreground">{text.connectHelp}</p>
           </header>
 
@@ -387,58 +382,100 @@ function ChatPage() {
                   className="relative flex shrink-0 flex-col gap-2 overflow-hidden rounded-xl border border-border bg-muted/30 p-3"
                   key={connection.connectionId}
                 >
-                  <div className="flex items-center gap-2">
-                    <ProviderMark provider={connection.provider} />
-                    <div className="min-w-0 grow">
-                      <p className="truncate text-sm font-semibold">{connection.displayName}</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {providerMeta[connection.provider].label}
-                      </p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Tooltip>
+                          <TooltipTrigger
+                            aria-label={providerMeta[connection.provider].label}
+                            className="shrink-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                          >
+                            <ProviderMark provider={connection.provider} />
+                          </TooltipTrigger>
+                          <TooltipContent>{providerMeta[connection.provider].label}</TooltipContent>
+                        </Tooltip>
+                        <div className="flex min-w-0 items-center">
+                          {source ? (
+                            <a
+                              className="min-w-0 rounded-sm break-words text-sm font-semibold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                              href={source.sourceUrl}
+                              rel="noopener noreferrer"
+                              target="_blank"
+                            >
+                              {connection.displayName}
+                            </a>
+                          ) : (
+                            <p className="min-w-0 break-words text-sm font-semibold">
+                              {connection.displayName}
+                            </p>
+                          )}
+                          <SourceState
+                            {...(source
+                              ? sourceState
+                                ? { state: sourceState }
+                                : {}
+                              : { state: "error" })}
+                            locale={locale}
+                          />
+                        </div>
+                      </div>
+                      {!connection.capabilities.includes("send_message") && (
+                        <span className="self-start whitespace-nowrap rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                          {text.readOnly}
+                        </span>
+                      )}
                     </div>
-                    <SourceState
-                      {...(source
-                        ? sourceState
-                          ? { state: sourceState }
-                          : {}
-                        : { state: "error" })}
-                      locale={locale}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    {!connection.capabilities.includes("send_message") && (
-                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
-                        {text.readOnly}
-                      </span>
-                    )}
-                    <div className="flex grow justify-end gap-1">
+                    <div className="flex shrink-0 flex-col items-end">
+                      <Tooltip>
+                        <TooltipTrigger
+                          render={
+                            <Button
+                              aria-label={text.disconnect}
+                              disabled={disconnect.isPending}
+                              onClick={() => {
+                                disconnect.reset();
+                                setConnectionToDisconnect(connection);
+                              }}
+                              size="icon-xs"
+                              variant="ghost"
+                            />
+                          }
+                        >
+                          <Icons.removeSource aria-hidden="true" />
+                        </TooltipTrigger>
+                        <TooltipContent>{text.disconnect}</TooltipContent>
+                      </Tooltip>
                       {(connection.provider === "youtube" || connection.provider === "vk_video") &&
                         source && (
-                          <Button
-                            disabled={
-                              refreshSource.isPending ||
-                              sourceState === "live" ||
-                              sourceState === "connecting"
-                            }
-                            onClick={() => refreshSource.mutate({ sourceId: source.sourceId })}
-                            size="xs"
-                            variant="ghost"
-                          >
-                            {isRefreshing ? (
-                              <Icons.loader aria-hidden="true" className="animate-spin" />
-                            ) : (
-                              <Icons.retry aria-hidden="true" />
-                            )}
-                            {isRefreshing ? text.checkingStream : text.checkStream}
-                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={
+                                <Button
+                                  aria-label={isRefreshing ? text.checkingStream : text.checkStream}
+                                  disabled={
+                                    refreshSource.isPending ||
+                                    sourceState === "live" ||
+                                    sourceState === "connecting"
+                                  }
+                                  onClick={() =>
+                                    refreshSource.mutate({ sourceId: source.sourceId })
+                                  }
+                                  size="icon-xs"
+                                  variant="ghost"
+                                />
+                              }
+                            >
+                              {isRefreshing ? (
+                                <Icons.loader aria-hidden="true" className="animate-spin" />
+                              ) : (
+                                <Icons.retry aria-hidden="true" />
+                              )}
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {isRefreshing ? text.checkingStream : text.checkStream}
+                            </TooltipContent>
+                          </Tooltip>
                         )}
-                      <Button
-                        disabled={disconnect.isPending}
-                        onClick={() => disconnect.mutate({ connectionId: connection.connectionId })}
-                        size="xs"
-                        variant="ghost"
-                      >
-                        {text.disconnect}
-                      </Button>
                     </div>
                   </div>
                   {source &&
@@ -530,6 +567,52 @@ function ChatPage() {
           </footer>
         </aside>
       </div>
+      <Dialog
+        open={connectionToDisconnect !== null}
+        onOpenChange={(open) => {
+          if (!open && !disconnect.isPending) setConnectionToDisconnect(null);
+        }}
+      >
+        <DialogContent>
+          <DialogTitle>{t("chatDisconnectTitle")}</DialogTitle>
+          {connectionToDisconnect && (
+            <DialogDescription>
+              {t("chatDisconnectDescription", {
+                name: connectionToDisconnect.displayName,
+                provider: providerMeta[connectionToDisconnect.provider].label,
+              })}
+            </DialogDescription>
+          )}
+          {disconnect.error && (
+            <p role="alert" className="text-sm text-destructive">
+              {disconnect.error.message}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button
+              disabled={disconnect.isPending}
+              onClick={() => setConnectionToDisconnect(null)}
+              variant="outline"
+            >
+              {t("cancel")}
+            </Button>
+            <Button
+              disabled={disconnect.isPending}
+              onClick={() => {
+                if (!connectionToDisconnect || disconnect.isPending) return;
+                disconnect.mutate(
+                  { connectionId: connectionToDisconnect.connectionId },
+                  { onSuccess: () => setConnectionToDisconnect(null) },
+                );
+              }}
+              variant="destructive"
+            >
+              {disconnect.isPending && <Icons.loader aria-hidden="true" className="animate-spin" />}
+              {text.disconnect}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
