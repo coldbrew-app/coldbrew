@@ -150,8 +150,8 @@ type boostyMessage struct {
 type boostyChatPage struct {
 	Data  []boostyMessage `json:"data"`
 	Extra *struct {
-		Offset string `json:"offset"`
-		IsLast bool   `json:"isLast"`
+		Offset stringOrNumber `json:"offset"`
+		IsLast bool           `json:"isLast"`
 	} `json:"extra"`
 }
 
@@ -314,10 +314,11 @@ func (provider *BoostyProvider) poll(ctx context.Context, source ConnectedSource
 		if !initialized || page.Extra.IsLast || len(page.Data) == 0 {
 			return messages, newest, nil
 		}
-		if page.Extra.Offset == "" || page.Extra.Offset == offset {
+		nextOffset := string(page.Extra.Offset)
+		if nextOffset == "" || nextOffset == offset {
 			return nil, "", operationError("Boosty chat pagination failed", errors.New("missing or repeated cursor"))
 		}
-		offset = page.Extra.Offset
+		offset = nextOffset
 	}
 	return nil, "", operationError("Boosty chat catch-up limit exceeded", errors.New("more than 2000 unseen messages"))
 }

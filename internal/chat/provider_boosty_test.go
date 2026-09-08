@@ -289,3 +289,75 @@ func TestBoostyConnectRejectsSharedRefreshSession(t *testing.T) {
 		t.Fatal("shared browser refresh session accepted")
 	}
 }
+
+// Boosty's live API returns numeric message IDs and numeric extra.offset cursors.
+func TestBoostyStreamNumericCursor(t *testing.T) {
+	polls := 0
+	olderPages := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/blog/blog/video_stream" {
+			_, _ = w.Write([]byte(`{"isOnline":true,"hasAccess":true}`))
+			return
+		}
+		if r.URL.Path != "/v1/blog/blog/video_stream/chat" || r.URL.Query().Get("limit") != "100" {
+			t.Errorf("unexpected request: %s", r.URL)
+		}
+		switch r.URL.Query().Get("offset") {
+		case "":
+			polls++
+			if polls == 1 {
+				_, _ = w.Write([]byte(`{"data":[{"id":30136925,"author":{"id":42,"name":"Streamer"},"createdAt":1788873048,"data":[{"type":"text","content":"History"}]}],"extra":{"isLast":true,"offset":30136925}}`))
+			} else {
+				_, _ = w.Write([]byte(`{"data":[{"id":30136940,"author":{"id":42,"name":"Streamer"},"createdAt":1788873111,"data":[{"type":"text","content":"[\"Hello\",\"unstyled\",[]]"},{"type":"text","content":"","modificator":"BLOCK_END"}]}],"extra":{"isLast":false,"offset":30136940}}`))
+			}
+		case "30136940":
+			olderPages++
+			_, _ = w.Write([]byte(`{"data":[{"id":30136925,"createdAt":1788873048}],"extra":{"isLast":true,"offset":30136925}}`))
+		default:
+			t.Errorf("unexpected cursor: %s", r.URL.Query().Get("offset"))
+			http.Error(w, "invalid cursor", http.StatusBadRequest)
+		}
+	}))
+	defer server.Close()
+	provider := NewBoostyProvider(server.Client())
+	provider.apiURL = server.URL
+	waits := 0
+	provider.wait = func(context.Context, time.Duration) bool { waits++; return waits < 3 }
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	events, failures := provider.Stream(ctx, ConnectedSource{
+		Source:      Source{SourceID: "source", ConnectionID: "connection", Provider: "boosty", ProviderSourceID: "blog"},
+		Credentials: ProviderCredentials{AccessToken: "token"},
+	})
+	var messages []Message
+	live := false
+	for events != nil || failures != nil {
+		select {
+		case event, ok := <-events:
+			if !ok {
+				events = nil
+				continue
+			}
+			if event.State == "live" {
+				live = true
+			}
+			if event.Message != nil {
+				messages = append(messages, *event.Message)
+			}
+		case err, ok := <-failures:
+			if !ok {
+				failures = nil
+				continue
+			}
+			t.Fatal(err)
+		case <-ctx.Done():
+			t.Fatal("collector did not stop")
+		}
+	}
+	if !live || polls != 3 || olderPages != 1 || len(messages) != 1 {
+		t.Fatalf("live=%v polls=%d olderPages=%d messages=%+v", live, polls, olderPages, messages)
+	}
+	if messages[0].ID != "30136940" || messages[0].Text != "Hello" || messages[0].Author.ID != "42" {
+		t.Fatalf("unexpected message: %+v", messages[0])
+	}
+}
