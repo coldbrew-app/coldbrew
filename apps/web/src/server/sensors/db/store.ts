@@ -3,6 +3,11 @@ import { randomUUID } from "node:crypto";
 import { createSql } from "@coldbrew/packages/pg.js";
 import {
   DonationSchema,
+  DonationIdSchema,
+  VideoIdSchema,
+  MoneyAmountSchema,
+  QueueCurrencySchema,
+  type DonationId,
   PublicQueueSettingsSchema,
   SlugSchema,
   UserIdSchema,
@@ -35,13 +40,21 @@ export class Store {
 
   async listDonationsPage(
     userId: UserId,
-    input: { page: number; pageSize: number; query: string; occurredAfter: Date | null },
+    input: {
+      page: number;
+      pageSize: number;
+      query: string;
+      occurredAfter: Date | null;
+      donationId?: DonationId;
+    },
   ) {
+    const focusedDonationId = input.donationId?.toString() ?? null;
     const searchPattern = `%${input.query}%`;
     const countRows = await this.sql`
       SELECT count(*)::int AS total
       FROM donation
       WHERE user_id = ${userId}
+        AND (${focusedDonationId}::bigint IS NULL OR donation_id = ${focusedDonationId})
         AND (${input.occurredAfter}::timestamptz IS NULL OR occurred_at >= ${input.occurredAfter})
         AND (
           ${input.query} = ''
@@ -60,6 +73,7 @@ export class Store {
       SELECT *
       FROM donation
       WHERE user_id = ${userId}
+        AND (${focusedDonationId}::bigint IS NULL OR donation_id = ${focusedDonationId})
         AND (${input.occurredAfter}::timestamptz IS NULL OR occurred_at >= ${input.occurredAfter})
         AND (
           ${input.query} = ''
@@ -70,8 +84,53 @@ export class Store {
       LIMIT ${input.pageSize}
       OFFSET ${offset}
     `;
+    const donationSchema = DonationSchema.extend({
+      videosParsedAt: z.coerce.date().nullable(),
+    });
+    const donations = z.array(donationSchema).parse(rows);
+    const videoRows =
+      donations.length === 0
+        ? []
+        : await this.sql`
+      SELECT
+        video.donation_id,
+        video.video_id,
+        video.url,
+        video.title,
+        video.start_seconds,
+        video.end_seconds,
+        video.queue_amount,
+        video.watched_at,
+        video.bookmarked_at,
+        "user".queue_currency,
+        video_priority.label AS priority_label
+      FROM video
+      JOIN donation USING (donation_id)
+      JOIN "user" ON "user".user_id = donation.user_id
+      LEFT JOIN video_priority USING (video_priority_id)
+      WHERE donation.user_id = ${userId}
+        AND donation.donation_id = ANY(${donations.map((donation) => donation.donationId.toString())}::bigint[])
+      ORDER BY video.video_id
+    `;
+    const videoSchema = z.object({
+      donationId: DonationIdSchema,
+      videoId: VideoIdSchema,
+      url: z.url(),
+      title: z.string().trim().min(1).nullable(),
+      startSeconds: z.int().nonnegative(),
+      endSeconds: z.int().positive(),
+      queueAmount: MoneyAmountSchema.nullable(),
+      queueCurrency: QueueCurrencySchema,
+      priorityLabel: z.string().nullable(),
+      watchedAt: z.coerce.date().nullable(),
+      bookmarkedAt: z.coerce.date().nullable(),
+    });
+    const videos = z.array(videoSchema).parse(videoRows);
     return {
-      items: z.array(DonationSchema).parse(rows),
+      items: donations.map((donation) => ({
+        ...donation,
+        videos: videos.filter((video) => video.donationId === donation.donationId),
+      })),
       page,
       pageSize: input.pageSize,
       total,

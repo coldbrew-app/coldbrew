@@ -23,6 +23,18 @@ type VideoTimeParts = {
 type HourMinuteParts = Pick<VideoTimeParts, "hours" | "minutes">;
 
 const en = {
+  selectedDonation: "Selected donation",
+  selectedVideo: "Selected video",
+  showAllDonations: "Show all donations",
+  showAllVideos: "Show all videos",
+  linkedDonationUnavailable: "Donation not found or unavailable",
+  linkedVideoUnavailable: "Video not found or unavailable",
+  donationVideosPending: "Video links are awaiting processing",
+  donationVideoNumber: ({ number }: { number: number }) => `Video ${number}`,
+  queueAmountUnavailable: "not calculated",
+  goToVideo: "Go to video in queue",
+  goToDonation: "Go to original donation",
+
   overview: "Overview",
   donations: "Donations",
   integrations: "Integrations",
@@ -359,6 +371,18 @@ function defineTranslations<const Translation extends TranslationContract>(
 }
 
 const ru = defineTranslations({
+  selectedDonation: "Выбранный донат",
+  selectedVideo: "Выбранное видео",
+  showAllDonations: "Показать все донаты",
+  showAllVideos: "Показать все видео",
+  linkedDonationUnavailable: "Донат не найден или недоступен",
+  linkedVideoUnavailable: "Видео не найдено или недоступно",
+  donationVideosPending: "Ссылки на видео ожидают обработки",
+  donationVideoNumber: ({ number }: { number: number }) => `Видео ${number}`,
+  queueAmountUnavailable: "не рассчитана",
+  goToVideo: "Перейти к видео в очереди",
+  goToDonation: "Перейти к исходному донату",
+
   overview: "Главная",
   donations: "Донаты",
   integrations: "Интеграции",

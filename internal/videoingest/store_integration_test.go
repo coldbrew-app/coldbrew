@@ -123,9 +123,16 @@ func TestCompletionIsIdempotentForDuplicateVideos(t *testing.T) {
 	seedDonation(t, pool, 1)
 	now := time.Date(2026, 9, 4, 12, 0, 0, 0, time.UTC)
 	job, _ := store.Claim(context.Background(), now, time.Minute)
-	video := Video{ProviderVideoID: "same", URL: "https://youtu.be/same", StartSeconds: 0, EndSeconds: 10, DurationSeconds: 10}
+	video := Video{Title: "Video title", ProviderVideoID: "same", URL: "https://youtu.be/same", StartSeconds: 0, EndSeconds: 10, DurationSeconds: 10}
 	if err := store.Complete(context.Background(), *job, []Video{video, video}, now.Add(time.Second)); err != nil {
 		t.Fatal(err)
+	}
+	var title string
+	if err := pool.QueryRow(context.Background(), `SELECT title FROM video WHERE provider_video_id = 'same'`).Scan(&title); err != nil {
+		t.Fatal(err)
+	}
+	if title != video.Title {
+		t.Fatalf("title = %q", title)
 	}
 	var count int
 	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM video WHERE donation_id = 1`).Scan(&count); err != nil || count != 1 {
@@ -236,6 +243,7 @@ func newIntegrationStore(t *testing.T) (*Store, *pgxpool.Pool) {
 			donation_id bigint REFERENCES donation (donation_id),
 			provider text NOT NULL,
 			provider_video_id text NOT NULL,
+			title text,
 			url text NOT NULL,
 			queue_amount numeric(20, 2) NULL,
 			start_seconds integer NOT NULL CHECK (start_seconds >= 0),
@@ -254,7 +262,10 @@ func newIntegrationStore(t *testing.T) (*Store, *pgxpool.Pool) {
 func seedDonation(t *testing.T, pool *pgxpool.Pool, donationID int64) {
 	t.Helper()
 	seedDonationWithoutScan(t, pool, donationID)
-	if _, err := pool.Exec(context.Background(), `INSERT INTO donation_video_scan (donation_id) VALUES ($1)`, donationID); err != nil {
+	if _, err := pool.Exec(context.Background(), `
+        INSERT INTO donation_video_scan (donation_id, available_at)
+        VALUES ($1, '2026-09-04T12:00:00Z')
+    `, donationID); err != nil {
 		t.Fatal(err)
 	}
 }

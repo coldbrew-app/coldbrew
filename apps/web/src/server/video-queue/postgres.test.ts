@@ -61,7 +61,7 @@ describe("PostgresVideoQueue", () => {
     });
     const lookupTiming = vi.fn(async () => {
       order.push("timing");
-      return { startSeconds: 10, endSeconds: 70, durationSeconds: 90 };
+      return { startSeconds: 10, endSeconds: 70, durationSeconds: 90, title: "A video title" };
     });
     const queue = createPostgresVideoQueue(database.sql, lookupTiming);
 
@@ -75,6 +75,7 @@ describe("PostgresVideoQueue", () => {
     ).resolves.toEqual({ videoId });
     expect(order).toEqual(["timing", "insert"]);
     expect(database.queries[0]?.values).toContain("youtube-id");
+    expect(database.queries[0]?.values).toContain("A video title");
   });
 
   it("rejects an invalid URL without timing lookup or insert", async () => {
@@ -223,6 +224,36 @@ describe("PostgresVideoQueue", () => {
     });
     const pageQuery = database.queries.find((query) => query.text.includes("AS source"));
     expect(pageQuery?.values.at(-1)).toBe(50);
+  });
+
+  it("filters both the count and records by exact video ID while retaining ownership checks", async () => {
+    const database = createSqlMock((query) => {
+      if (query.text.startsWith("SELECT count(*)::int AS total")) return [{ total: 1 }];
+      if (query.text.includes("AS all"))
+        return [{ all: 1, notwatched: 0, watched: 1, bookmarked: 0 }];
+      if (query.text.includes("AS source"))
+        return [
+          { ...manualVideoRow(), videoId: "9007199254740993", watchedAt: new Date("2026-01-01") },
+        ];
+      return [];
+    });
+    const queue = createPostgresVideoQueue(database.sql, vi.fn());
+    const page = await queue.listPage(userId, {
+      page: 1,
+      pageSize: 25,
+      videoPriorityId: null,
+      videoStatus: "all",
+      videoId: VideoIdSchema.parse("9007199254740993"),
+    });
+    expect(page.items[0]?.videoId).toBe(9007199254740993n);
+    expect(page.items[0]?.watchedAt).not.toBeNull();
+    const queries = database.queries.filter((query) => query.text.includes("video.video_id ="));
+    expect(queries).toHaveLength(2);
+    for (const query of queries) {
+      expect(query.text).toContain("user_id");
+      expect(query.values).toContain(userId);
+      expect(query.values).toContain("9007199254740993");
+    }
   });
 
   it("hides disabled public queues without loading their videos", async () => {

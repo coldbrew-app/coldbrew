@@ -6,7 +6,7 @@ install:
   bun install
 
 # Build the runtime environment for the current worktree from long-lived dev settings.
-env-init source-env=".env.dev":
+env-init $source_env=".env.dev":
   #!/usr/bin/env bash
   set -euo pipefail
 
@@ -47,7 +47,7 @@ env-init source-env=".env.dev":
   compose_project="${repository_name:0:32}_dev_$repository_hash"
   nats_namespace="wt_$branch_hash"
 
-  bunx dotenvx decrypt -f "{{source-env}}" -fk .env.keys --stdout > .env
+  bunx dotenvx decrypt -f "$source_env" -fk .env.keys --stdout > .env
   bunx dotenvx set -f .env --plain APP_PORT "$app_port"
   bunx dotenvx set -f .env --plain APP_DOMAIN "http://localhost:$app_port"
   bunx dotenvx set -f .env --plain CHAT_PORT "$chat_port"
@@ -87,6 +87,9 @@ t3-worktree-init $source_worktree:
 
 dev-donations:
   bunx dotenvx run -f .env --overload -- go run ./apps/donations
+
+video-titles-backfill:
+  bunx dotenvx run -f .env --overload -- go run ./apps/video --backfill-titles
 
 dev-video:
   bunx dotenvx run -f .env --overload -- go run ./apps/video
@@ -181,12 +184,12 @@ compose-up:
   docker compose up -d
 
 # Pull immutable production images, recreate the stack, and verify the public endpoint.
-production-deploy app_image postgres_image:
+production-deploy $app_image $postgres_image:
   #!/usr/bin/env bash
   set -euo pipefail
 
-  export COLDBREW_IMAGE="{{app_image}}"
-  export COLDBREW_POSTGRES_IMAGE="{{postgres_image}}"
+  export COLDBREW_IMAGE="$app_image"
+  export COLDBREW_POSTGRES_IMAGE="$postgres_image"
 
   # Keep manual Compose operations and host restarts on the deployed immutable images.
   bunx dotenvx set -f .env --plain COLDBREW_IMAGE "$COLDBREW_IMAGE"
@@ -427,8 +430,8 @@ test: test-web test-chat test-donations test-video test-packages
 
 check: lint fmt-check test
 
-schema-apply:
-  bunx dotenvx run -f .env --overload -- pgschema apply --auto-approve --file db/schema.sql
+schema-apply $env_file=".env":
+  bunx dotenvx run -f "$env_file" --overload -- pgschema apply --auto-approve --file db/schema.sql
 
 schema-reset:
   bunx dotenvx run -f .env --overload -- pgschema apply --auto-approve --file db/empty.sql
@@ -436,8 +439,8 @@ schema-reset:
 
 
 # Count production code and TypeScript tests in one report.
-count-lines path=".":
-  cloc --config .config/cloc-options.txt "{{path}}"
+count-lines $target_path=".":
+  cloc --config .config/cloc-options.txt "$target_path"
 
 env-decrypt-prod:
   bunx dotenvx decrypt -f .env.prod

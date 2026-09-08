@@ -152,6 +152,7 @@ func (worker *Worker) scan(ctx context.Context, job Job) ([]Video, error) {
 		}
 		videos = append(videos, Video{
 			ProviderVideoID: providerVideoID,
+			Title:           timing.Title,
 			URL:             rawURL,
 			QueueAmount:     amount,
 			StartSeconds:    timing.StartSeconds,

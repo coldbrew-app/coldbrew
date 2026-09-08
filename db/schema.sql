@@ -267,6 +267,7 @@ CREATE TABLE video (
   added_at          js_date             NULL,
   provider          video_provider NOT NULL,
   provider_video_id text           NOT NULL,
+  title             text               NULL CHECK (title IS NULL OR btrim(title) <> ''),
   url               text           NOT NULL,
   queue_amount      money_amount       NULL,
   start_seconds     nonnegative_int NOT NULL,

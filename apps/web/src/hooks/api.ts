@@ -36,6 +36,7 @@ export function useUpdateQueueCurrencyM() {
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: trpc.userInfo.queryKey() }),
           queryClient.invalidateQueries({ queryKey: trpc.videoPage.queryKey() }),
+          queryClient.invalidateQueries({ queryKey: trpc.donationPage.queryKey() }),
           queryClient.invalidateQueries({ queryKey: trpc.videoPriorities.queryKey() }),
         ]);
       },
@@ -70,6 +71,7 @@ export function useDisconnectM() {
 }
 
 export type DonationPageInput = {
+  donationId?: string;
   page: number;
   period: "all" | "week" | "month";
   query: string;
@@ -79,7 +81,7 @@ export function useDonationPageQ(input: DonationPageInput) {
   const { trpc } = useApi();
   return useQuery({
     ...trpc.donationPage.queryOptions(input),
-    placeholderData: keepPreviousData,
+    placeholderData: input.donationId ? undefined : keepPreviousData,
   });
 }
 
@@ -89,6 +91,7 @@ export function useDonationOverviewQ() {
 }
 
 export type VideoPageInput = {
+  videoId?: string;
   page: number;
   videoPriorityId: number | null;
   videoStatus: "all" | "notwatched" | "watched" | "bookmarked";
@@ -98,7 +101,7 @@ export function useVideoPageQ(input: VideoPageInput) {
   const { trpc } = useApi();
   return useQuery({
     ...trpc.videoPage.queryOptions(input),
-    placeholderData: keepPreviousData,
+    placeholderData: input.videoId ? undefined : keepPreviousData,
   });
 }
 
@@ -126,6 +129,7 @@ export function useUpdateVideoPriorityM() {
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: trpc.videoPriorities.queryKey() }),
           queryClient.invalidateQueries({ queryKey: trpc.videoPage.queryKey() }),
+          queryClient.invalidateQueries({ queryKey: trpc.donationPage.queryKey() }),
         ]);
       },
     }),
@@ -137,7 +141,10 @@ export function useUpdateVideoStatusM() {
   return useMutation(
     trpc.updateVideoStatus.mutationOptions({
       async onSuccess() {
-        await queryClient.invalidateQueries({ queryKey: trpc.videoPage.queryKey() });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: trpc.videoPage.queryKey() }),
+          queryClient.invalidateQueries({ queryKey: trpc.donationPage.queryKey() }),
+        ]);
       },
     }),
   );
@@ -148,7 +155,10 @@ export function useUpdateVideoM() {
   return useMutation(
     trpc.updateVideo.mutationOptions({
       async onSuccess() {
-        await queryClient.invalidateQueries({ queryKey: trpc.videoPage.queryKey() });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: trpc.videoPage.queryKey() }),
+          queryClient.invalidateQueries({ queryKey: trpc.donationPage.queryKey() }),
+        ]);
       },
     }),
   );

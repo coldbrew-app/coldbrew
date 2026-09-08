@@ -19,6 +19,7 @@ import { createTranslator, useI18n } from "../../lib/i18n";
 
 const VideoPageInputSchema = z.object({
   page: z.int().positive(),
+  videoId: z.string().optional(),
   videoPriorityId: z.int().positive().nullable(),
   videoStatus: z.enum(["all", "notwatched", "watched", "bookmarked"]),
 });
@@ -29,6 +30,11 @@ export const Route = createFileRoute("/_authenticated/videos")({
     meta: [{ title: `${createTranslator(match.context.locale)("videoQueue")} · Coldbrew` }],
   }),
   validateSearch: z.object({
+    videoId: z
+      .string()
+      .regex(/^[1-9][0-9]*$/)
+      .optional()
+      .catch(undefined),
     page: z.coerce.number().int().positive().default(1).catch(1),
     videoPriorityId: z
       .union([z.literal("all"), z.coerce.number().int().positive()])
@@ -41,6 +47,7 @@ export const Route = createFileRoute("/_authenticated/videos")({
   }),
   loaderDeps: ({ search }) => ({
     page: search.page,
+    videoId: search.videoId,
     videoPriorityId: search.videoPriorityId === "all" ? null : search.videoPriorityId,
     videoStatus: search.videoStatus,
   }),
@@ -68,6 +75,7 @@ function VideoQueue() {
   const activeTab = search.videoStatus;
   const videosQ = useVideoPageQ({
     page: search.page,
+    videoId: search.videoId,
     videoPriorityId: selectedVideoPriorityId,
     videoStatus: activeTab,
   });
@@ -137,6 +145,18 @@ function VideoQueue() {
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
           <div className="order-2 min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain lg:order-1">
+            {search.videoId && (
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-secondary/40 px-4 py-2">
+                <p className="text-sm">{t("selectedVideo")}</p>
+                <Link
+                  className={buttonVariants({ variant: "default", size: "default" })}
+                  to="/videos"
+                  search={{ page: 1, videoPriorityId: "all", videoStatus: "all" }}
+                >
+                  {t("showAllVideos")}
+                </Link>
+              </div>
+            )}
             {isAddingVideo && <AddVideoForm onCancel={() => setIsAddingVideo(false)} />}
             <div className={isQueueSettingsOpen ? "block" : "hidden lg:block"} id="queue-sharing">
               <SlugEditor />
@@ -169,6 +189,12 @@ function VideoQueue() {
                   />
                 ))}
               </div>
+            ) : search.videoId ? (
+              <EmptyState
+                title={t("linkedVideoUnavailable")}
+                description={t("showAllVideos")}
+                icon={Icons.video}
+              />
             ) : (
               <EmptyState
                 description={

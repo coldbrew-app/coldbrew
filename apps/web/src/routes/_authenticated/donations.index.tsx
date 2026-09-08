@@ -1,10 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import DonationCard from "@web/components/donation-card";
 import { EmptyState } from "@web/components/empty-state";
 import { Icons } from "@web/components/icons";
 import { DonationListSkeleton } from "@web/components/loading-skeletons";
 import { PagePagination } from "@web/components/page-pagination";
 import QueryErrorState from "@web/components/query-error-state";
+import { buttonVariants } from "@web/components/ui/button";
 import { Input } from "@web/components/ui/input";
 import { preloadRouteQuery } from "@web/lib/trpc";
 import { useEffect, useState } from "react";
@@ -18,6 +19,11 @@ const DonationPeriodSchema = z.enum(["all", "week", "month"]);
 export const Route = createFileRoute("/_authenticated/donations/")({
   component: DonationsIndex,
   validateSearch: z.object({
+    donationId: z
+      .string()
+      .regex(/^[1-9][0-9]*$/)
+      .optional()
+      .catch(undefined),
     page: z.coerce.number().int().positive().catch(1).default(1),
     period: DonationPeriodSchema.catch("all").default("all"),
     query: z.string().max(200).catch("").default(""),
@@ -47,7 +53,12 @@ function DonationsIndex() {
       }
       void navigate({
         replace: true,
-        search: (previous) => ({ ...previous, page: 1, query: normalizedQuery }),
+        search: (previous) => ({
+          ...previous,
+          donationId: undefined,
+          page: 1,
+          query: normalizedQuery,
+        }),
       });
     }, 300);
     return () => clearTimeout(timeout);
@@ -64,6 +75,18 @@ function DonationsIndex() {
 
   return (
     <>
+      {search.donationId && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-secondary/40 px-4 py-2">
+          <p className="text-sm">{t("selectedDonation")}</p>
+          <Link
+            className={buttonVariants({ variant: "default", size: "default" })}
+            to="/donations"
+            search={{ page: 1, period: "all", query: "" }}
+          >
+            {t("showAllDonations")}
+          </Link>
+        </div>
+      )}
       <div className="flex shrink-0 flex-col gap-2 border-b border-border p-4 sm:flex-row sm:p-5">
         <label className="relative min-w-0 grow">
           <Icons.search
@@ -87,6 +110,7 @@ function DonationsIndex() {
               void navigate({
                 search: (previous) => ({
                   ...previous,
+                  donationId: undefined,
                   page: 1,
                   period: DonationPeriodSchema.parse(event.target.value),
                 }),
@@ -117,9 +141,20 @@ function DonationsIndex() {
         ) : donationsQ.data?.items.length ? (
           <div className="divide-y divide-border">
             {donationsQ.data.items.map((donation) => (
-              <DonationCard key={donation.donationId} donation={donation} />
+              <DonationCard
+                key={donation.donationId}
+                donation={donation}
+                expandMessage={Boolean(search.donationId)}
+                videoParsing={donation}
+              />
             ))}
           </div>
+        ) : search.donationId ? (
+          <EmptyState
+            title={t("linkedDonationUnavailable")}
+            description={t("showAllDonations")}
+            icon={Icons.wallet}
+          />
         ) : (
           <EmptyDonations query={search.query} />
         )}

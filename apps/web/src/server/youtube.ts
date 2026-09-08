@@ -32,6 +32,7 @@ export class YoutubeTimingError extends Error {
 }
 
 export type YoutubeTiming = {
+  title: string | null;
   startSeconds: number;
   endSeconds: number;
   durationSeconds: number;
@@ -114,6 +115,7 @@ export async function getYoutubeTiming(url: string, requestedTiming?: RequestedY
   const schema = z.object({
     basic_info: z.object({
       duration: z.unknown().optional(),
+      title: z.string().nullish(),
     }),
   });
   const parsedInfo = schema.safeParse(info);
@@ -131,5 +133,8 @@ export async function getYoutubeTiming(url: string, requestedTiming?: RequestedY
     });
   }
 
-  return timingFromDuration(parsedUrl, parsedDuration.data, requestedTiming);
+  return {
+    ...timingFromDuration(parsedUrl, parsedDuration.data, requestedTiming),
+    title: parsedInfo.data.basic_info.title?.trim() || null,
+  };
 }

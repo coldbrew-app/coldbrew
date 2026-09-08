@@ -100,6 +100,14 @@ jobs:
       - name: Create empty CI environment file
         run: install -m 600 /dev/null .env
 
+      - name: Initialize CI database schema
+        env:
+          POSTGRES_CONTAINER_ID: ${{ job.services.postgres.id }}
+        run: |
+          docker exec -i "$POSTGRES_CONTAINER_ID" \
+            psql --username=coldbrew --dbname=coldbrew --no-psqlrc \
+            --set=ON_ERROR_STOP=1 --single-transaction < db/schema.sql
+
       - name: Check types
         run: just typecheck
 

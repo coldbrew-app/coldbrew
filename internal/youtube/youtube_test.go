@@ -70,14 +70,14 @@ func TestGetTiming(t *testing.T) {
 		requested *RequestedTiming
 		expected  Timing
 	}{
-		{name: "exact length", rawURL: "https://youtu.be/dQw4w9WgXcQ", body: `{"lengthSeconds":"213"}`, expected: Timing{0, 213, 213}},
-		{name: "approximate duration", rawURL: "https://www.youtube.com/watch?v=_JXL6Fn99l8&t=13s", body: `{"approxDurationMs":"7260183"}`, expected: Timing{0, 7260, 7260}},
-		{name: "valid end", rawURL: "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=1m15s&end=180", body: `{"lengthSeconds":"213"}`, expected: Timing{0, 180, 213}},
-		{name: "requested range", rawURL: "https://youtu.be/dQw4w9WgXcQ", body: `{"lengthSeconds":"213"}`, requested: &RequestedTiming{StartSeconds: 30, EndSeconds: integerPointer(90)}, expected: Timing{30, 90, 213}},
-		{name: "requested open end", rawURL: "https://youtu.be/dQw4w9WgXcQ?end=180", body: `{"lengthSeconds":"213"}`, requested: &RequestedTiming{StartSeconds: 30}, expected: Timing{30, 213, 213}},
-		{name: "invalid start falls back", rawURL: "https://youtu.be/dQw4w9WgXcQ?t=300", body: `{"lengthSeconds":"213"}`, expected: Timing{0, 213, 213}},
-		{name: "invalid range uses end", rawURL: "https://youtu.be/dQw4w9WgXcQ?t=30&end=20", body: `{"lengthSeconds":"213"}`, expected: Timing{0, 20, 213}},
-		{name: "invalid end falls back", rawURL: "https://youtu.be/dQw4w9WgXcQ?start=nope&end=300", body: `{"lengthSeconds":"213"}`, expected: Timing{0, 213, 213}},
+		{name: "exact length", rawURL: "https://youtu.be/dQw4w9WgXcQ", body: `{"lengthSeconds":"213"}`, expected: Timing{Title: "", StartSeconds: 0, EndSeconds: 213, DurationSeconds: 213}},
+		{name: "approximate duration", rawURL: "https://www.youtube.com/watch?v=_JXL6Fn99l8&t=13s", body: `{"approxDurationMs":"7260183"}`, expected: Timing{Title: "", StartSeconds: 0, EndSeconds: 7260, DurationSeconds: 7260}},
+		{name: "valid end", rawURL: "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=1m15s&end=180", body: `{"lengthSeconds":"213"}`, expected: Timing{Title: "", StartSeconds: 0, EndSeconds: 180, DurationSeconds: 213}},
+		{name: "requested range", rawURL: "https://youtu.be/dQw4w9WgXcQ", body: `{"lengthSeconds":"213"}`, requested: &RequestedTiming{StartSeconds: 30, EndSeconds: integerPointer(90)}, expected: Timing{Title: "", StartSeconds: 30, EndSeconds: 90, DurationSeconds: 213}},
+		{name: "requested open end", rawURL: "https://youtu.be/dQw4w9WgXcQ?end=180", body: `{"lengthSeconds":"213"}`, requested: &RequestedTiming{StartSeconds: 30}, expected: Timing{Title: "", StartSeconds: 30, EndSeconds: 213, DurationSeconds: 213}},
+		{name: "invalid start falls back", rawURL: "https://youtu.be/dQw4w9WgXcQ?t=300", body: `{"lengthSeconds":"213"}`, expected: Timing{Title: "", StartSeconds: 0, EndSeconds: 213, DurationSeconds: 213}},
+		{name: "invalid range uses end", rawURL: "https://youtu.be/dQw4w9WgXcQ?t=30&end=20", body: `{"lengthSeconds":"213"}`, expected: Timing{Title: "", StartSeconds: 0, EndSeconds: 20, DurationSeconds: 213}},
+		{name: "invalid end falls back", rawURL: "https://youtu.be/dQw4w9WgXcQ?start=nope&end=300", body: `{"lengthSeconds":"213"}`, expected: Timing{Title: "", StartSeconds: 0, EndSeconds: 213, DurationSeconds: 213}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -110,7 +110,7 @@ func TestGetTimingFallsBackToPlayerMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if actual != (Timing{0, 7260, 7260}) || calls != 2 {
+	if actual != (Timing{Title: "", StartSeconds: 0, EndSeconds: 7260, DurationSeconds: 7260}) || calls != 2 {
 		t.Fatalf("GetTiming() = %#v after %d calls", actual, calls)
 	}
 }
@@ -162,3 +162,35 @@ func response(status int, body string) *http.Response {
 }
 
 func integerPointer(value int) *int { return &value }
+
+func TestGetTimingIncludesVideoTitle(t *testing.T) {
+	client := responseClient(`{"title":"Wrong recommendation","videoDetails":{"title":"  Заголовок \"видео\" & тест  ","lengthSeconds":"90"}}`)
+	timing, err := GetTiming(context.Background(), client, "https://youtu.be/dQw4w9WgXcQ", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if timing.Title != `Заголовок "видео" & тест` || timing.EndSeconds != 90 {
+		t.Fatalf("unexpected metadata: %#v", timing)
+	}
+}
+
+func TestGetTitle(t *testing.T) {
+	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if request.URL.Host != "www.youtube.com" || request.URL.Path != "/oembed" || request.URL.Query().Get("url") != "https://www.youtube.com/watch?v=dQw4w9WgXcQ" {
+			t.Fatalf("unexpected metadata request: %s", request.URL)
+		}
+		return response(http.StatusOK, `{"title":"  Заголовок \"видео\"  "}`), nil
+	})}
+	title, err := GetTitle(context.Background(), client, "https://youtu.be/dQw4w9WgXcQ?t=10")
+	if err != nil || title != `Заголовок "видео"` {
+		t.Fatalf("GetTitle() = %q, %v", title, err)
+	}
+}
+
+func TestGetTitleRejectsMissingMetadata(t *testing.T) {
+	for _, body := range []string{`{}`, `{"title":"  "}`, `{"title":123}`, `not json`} {
+		if _, err := GetTitle(context.Background(), responseClient(body), "https://youtu.be/dQw4w9WgXcQ"); err == nil {
+			t.Fatalf("accepted %s", body)
+		}
+	}
+}

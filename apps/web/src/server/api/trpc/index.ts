@@ -1,4 +1,8 @@
-import { PublicQueueSettingsSchema, SlugSchema } from "@coldbrew/packages/schemas.js";
+import {
+  DonationIdSchema,
+  PublicQueueSettingsSchema,
+  SlugSchema,
+} from "@coldbrew/packages/schemas.js";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -45,6 +49,7 @@ export const appRouter = router({
       z.object({
         page: PageSchema,
         period: DonationPeriodSchema,
+        donationId: DonationIdSchema.optional(),
         query: z.string().trim().max(200),
       }),
     )

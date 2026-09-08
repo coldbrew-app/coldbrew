@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -23,6 +24,8 @@ func main() {
 }
 
 func run() error {
+	backfillTitles := flag.Bool("backfill-titles", false, "Fill missing video titles and exit")
+	flag.Parse()
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
 		return errors.New("DATABASE_URL is required")
@@ -40,7 +43,11 @@ func run() error {
 	}
 
 	store := videoingest.NewStore(pool)
-	youtubeClient := videoingest.NewYouTubeClient(&http.Client{Timeout: 30 * time.Second})
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+	if *backfillTitles {
+		return store.BackfillTitles(ctx, httpClient)
+	}
+	youtubeClient := videoingest.NewYouTubeClient(httpClient)
 	worker := videoingest.NewWorker(store, youtubeClient, videoingest.DefaultConfig())
 	return worker.Run(ctx)
 }

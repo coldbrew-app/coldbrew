@@ -5,6 +5,7 @@
     "apps/*",
     "packages"
   ],
+  "type": "module",
   "dependencies": {
     "@dotenvx/dotenvx": "^2.19.2",
     "oxlint": "^1.79.0"

@@ -5,6 +5,7 @@ import {
   getWatchDurationSeconds,
 } from "@coldbrew/packages/video-timing.js";
 import { rurl } from "@lebedevna/readonly-url";
+import { Link } from "@tanstack/react-router";
 import { fmtAmount, fmtDate, formatMoneyInputValue, formatRelativeDate } from "@web/lib/fmt";
 import type { Video } from "@web/server/exports";
 import { clsx } from "clsx";
@@ -80,14 +81,6 @@ export default function VideoCard({
   const isWatched = video.watchedAt !== null;
   const isBookmarked = video.bookmarkedAt !== null;
   const SourceIcon = video.source === "donation" ? Icons.videoFromDonation : Icons.manualVideo;
-  const displayedAmount =
-    video.queueAmount === null && video.source === "donation"
-      ? video.donation.amount
-      : (video.queueAmount ?? MoneyAmountSchema.parse("0.00"));
-  const displayedCurrency =
-    video.queueAmount === null && video.source === "donation"
-      ? video.donation.currency
-      : CurrencyCodeSchema.parse(video.queueCurrency);
   const amountHelpId = `video-amount-help-${video.videoId}`;
   const amountErrorId = `video-amount-error-${video.videoId}`;
   const [isEditing, setIsEditing] = useState(false);
@@ -188,7 +181,13 @@ export default function VideoCard({
             <div className="flex shrink-0 items-start gap-2">
               <div className="flex flex-col items-end gap-0.5">
                 <strong className="block text-sm text-card-foreground">
-                  {fmtAmount(displayedAmount, displayedCurrency, locale)}
+                  {video.queueAmount === null
+                    ? t("queueAmountUnavailable")
+                    : fmtAmount(
+                        video.queueAmount,
+                        CurrencyCodeSchema.parse(video.queueCurrency),
+                        locale,
+                      )}
                 </strong>
                 {!isEditing && (
                   <span className="text-xs text-muted-foreground">
@@ -295,6 +294,22 @@ export default function VideoCard({
               <Icons.externalLink aria-hidden="true" size={13} />
               {t("openOnYoutube")}
             </a>
+          )}
+          {video.source === "donation" && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+              <Link
+                className="rounded font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                to="/donations"
+                search={{
+                  donationId: video.donation.donationId.toString(),
+                  page: 1,
+                  period: "all",
+                  query: "",
+                }}
+              >
+                {t("goToDonation")}
+              </Link>
+            </div>
           )}
           <div className="flex flex-wrap items-center gap-2">
             {onStatusChange && (
