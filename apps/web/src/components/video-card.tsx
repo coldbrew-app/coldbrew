@@ -18,6 +18,7 @@ import { Icons } from "./icons";
 import { Button } from "./ui/button";
 import { Field, FieldDescription, FieldError, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { parseVideoTiming, VideoTimingFields, type VideoTimingValues } from "./video-timing-fields";
 
 type Props = {
@@ -131,7 +132,11 @@ export default function VideoCard({
       return;
     }
 
-    await onUpdate({ amount: input.amount, ...timing, endSeconds: timing.endSeconds });
+    await onUpdate({
+      amount: input.amount,
+      ...timing,
+      endSeconds: timing.endSeconds,
+    });
     setIsEditing(false);
   };
 
@@ -188,9 +193,9 @@ export default function VideoCard({
               </time>
             </div>
 
-            <div className="flex shrink-0 items-start gap-2">
-              <div className="flex flex-col items-end gap-0.5">
-                <strong className="block text-sm text-card-foreground">
+            <div className="grid shrink-0 grid-cols-[auto_auto] items-center justify-items-end gap-x-2 gap-y-0.5">
+              <div className="contents">
+                <strong className="col-start-1 row-start-1 block text-sm text-card-foreground">
                   {video.queueAmount === null
                     ? t("queueAmountUnavailable")
                     : fmtAmount(
@@ -200,20 +205,43 @@ export default function VideoCard({
                       )}
                 </strong>
                 {!isEditing && (
-                  <span className="text-xs text-muted-foreground">
-                    {watchDuration === null
-                      ? t(
-                          video.metadataUnavailable
-                            ? "videoDurationUnavailable"
-                            : "videoDurationPending",
-                        )
-                      : t("watchDuration", watchDuration)}
-                  </span>
+                  <div className="contents text-xs text-muted-foreground">
+                    <span className="col-start-1 row-start-2">
+                      {watchDuration === null
+                        ? t(
+                            video.metadataUnavailable
+                              ? "videoDurationUnavailable"
+                              : "videoDurationPending",
+                          )
+                        : t("watchDuration", watchDuration)}
+                    </span>
+                    {video.durationSeconds === null && onRetryMetadata && (
+                      <Tooltip>
+                        <TooltipTrigger
+                          render={
+                            <Button
+                              aria-label={t("videoRetryMetadata")}
+                              className="col-start-2 row-start-2"
+                              disabled={isUpdating}
+                              onClick={onRetryMetadata}
+                              size="icon-xs"
+                              type="button"
+                              variant="ghost"
+                            >
+                              <Icons.retry aria-hidden="true" />
+                            </Button>
+                          }
+                        />
+                        <TooltipContent>{t("videoRetryMetadata")}</TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
                 )}
               </div>
               {onUpdate && !isEditing && (
                 <Button
                   aria-label={t("editVideoDetails")}
+                  className="col-start-2 row-start-1"
                   disabled={isUpdating}
                   onClick={startEditing}
                   size="icon-xs"
@@ -330,18 +358,12 @@ export default function VideoCard({
           {video.durationSeconds !== null && video.startSeconds >= video.durationSeconds && (
             <p className="text-xs text-destructive">{t("videoInvalidRange")}</p>
           )}
-          {video.durationSeconds === null && onRetryMetadata && (
-            <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" variant="outline" disabled={isUpdating} onClick={onRetryMetadata}>
-                <Icons.retry aria-hidden="true" />
-                {t("videoRetryMetadata")}
-              </Button>
-              {video.metadataRetryAt !== null && (
-                <span className="text-xs text-muted-foreground">
-                  {t("videoNextRetry", { date: fmtDate(video.metadataRetryAt, locale) })}
-                </span>
-              )}
-            </div>
+          {video.durationSeconds === null && onRetryMetadata && video.metadataRetryAt !== null && (
+            <span className="text-xs text-muted-foreground">
+              {t("videoNextRetry", {
+                date: fmtDate(video.metadataRetryAt, locale),
+              })}
+            </span>
           )}
           <div className="flex flex-wrap items-center gap-2">
             {onStatusChange && (
@@ -364,7 +386,11 @@ export default function VideoCard({
                 <Button
                   aria-label={t(isBookmarked ? "removeVideoBookmark" : "bookmarkVideo")}
                   disabled={isUpdating}
-                  onClick={() => onStatusChange({ bookmarkedAt: isBookmarked ? null : new Date() })}
+                  onClick={() =>
+                    onStatusChange({
+                      bookmarkedAt: isBookmarked ? null : new Date(),
+                    })
+                  }
                   size="sm"
                   variant={isBookmarked ? "secondary" : "outline"}
                 >
@@ -392,7 +418,9 @@ export default function VideoCard({
                     dateTime={video.bookmarkedAt.toISOString()}
                     title={fmtDate(video.bookmarkedAt, locale)}
                   >
-                    {t("bookmarkedOn", { date: fmtDate(video.bookmarkedAt, locale) })}
+                    {t("bookmarkedOn", {
+                      date: fmtDate(video.bookmarkedAt, locale),
+                    })}
                   </time>
                 )}
               </div>

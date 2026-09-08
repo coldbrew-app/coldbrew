@@ -4,7 +4,10 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../lib/i18n", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/i18n")>();
-  return { ...actual, useI18n: () => ({ locale: "ru", t: actual.createTranslator("ru") }) };
+  return {
+    ...actual,
+    useI18n: () => ({ locale: "ru", t: actual.createTranslator("ru") }),
+  };
 });
 
 import { SharedVideoCard } from "./shared-video-card";
@@ -40,6 +43,7 @@ describe("videos awaiting metadata", () => {
     expect(html).toContain("Длительность уточняется");
     expect(html).toContain("Без очереди");
     expect(html).toContain("Повторить получение данных");
+    expect(html).toContain('aria-label="Повторить получение данных"');
     expect(html).toContain("/embed/_JXL6Fn99l8?start=0");
     expect(html).not.toContain("end=null");
     expect(html).not.toContain("NaN");
