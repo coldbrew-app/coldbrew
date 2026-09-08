@@ -57,6 +57,11 @@ worktrees share one repository-wide PostgreSQL and NATS Compose stack, while
 each worktree receives its own application and service ports, PostgreSQL
 database, and NATS namespace. The Compose project name and infrastructure ports
 are derived from the common Git directory, not the individual worktree folder.
+If the shared containers already run under a different Compose project name,
+save that name with `git config --local coldbrew.devComposeProject <existing-name>`
+and run `just env-init` in each worktree that needs to use them. This local Git
+setting is shared across worktrees and preserves the existing containers and
+volumes; their published PostgreSQL and NATS ports must match the generated ports.
 Local PostgreSQL connections use `PGSSLMODE=disable`.
 `just dev-db-up` starts the shared infrastructure
 when necessary and creates the current worktree's database. `just dev` starts
