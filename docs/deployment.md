@@ -6,6 +6,14 @@ as immutable `linux/amd64` images, published to GitHub Container Registry
 (GHCR), and deployed over SSH. The VPS never builds application images during
 a deployment.
 
+The `CI` workflow in `.github/workflows/ci.yml` runs `just typecheck` and
+`just check` for pull requests targeting `master` and pushes to other branches.
+For pushes to `master` and manual deployments, `Production` calls that same
+workflow with the resolved deployment commit SHA and waits for it to succeed
+before publishing images. This avoids duplicate checks on pushes to `master`.
+CI uses its own temporary PostgreSQL service and test configuration; only the
+deployment job references the `Production` GitHub environment.
+
 The workflow publishes these public packages as immutable images:
 
 - `ghcr.io/lebedev-nikita/coldbrew`, tagged with the full commit SHA;

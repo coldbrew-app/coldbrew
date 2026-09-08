@@ -42,78 +42,13 @@ jobs:
           echo "postgres_tag=$(git rev-parse HEAD:docker/postgres-walg)" >> "$GITHUB_OUTPUT"
 
   quality:
-    name: Quality checks
+    name: CI
     needs: resolve
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_DB: coldbrew
-          POSTGRES_USER: coldbrew
-          POSTGRES_PASSWORD: coldbrew
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U coldbrew -d coldbrew"
-          --health-interval 1s
-          --health-timeout 3s
-          --health-retries 30
     permissions:
       contents: read
-    env:
-      APP_DOMAIN: http://localhost:3000
-      BETTER_AUTH_SECRET: ci-only-secret-at-least-thirty-two-characters
-      CHAT_SERVICE_SECRET: ci-only-chat-service-secret-at-least-thirty-two-characters
-      CHAT_SERVICE_URL: http://127.0.0.1:3001
-      CHAT_TOKEN_ENCRYPTION_SECRET: ci-only-chat-token-encryption-secret-at-least-thirty-two-characters
-      CHAT_STORE_TEST_DATABASE_URL: postgresql://coldbrew:coldbrew@127.0.0.1:5432/coldbrew
-      VIDEO_INGEST_TEST_DATABASE_URL: postgresql://coldbrew:coldbrew@127.0.0.1:5432/coldbrew
-      DATABASE_URL: postgresql://coldbrew:coldbrew@127.0.0.1:5432/coldbrew
-      DONATION_ALERTS_CLIENT_ID: "1"
-      DONATION_ALERTS_CLIENT_SECRET: ci-only
-      DONATIONS_SERVICE_SECRET: ci-only-donations-service-secret-at-least-thirty-two-characters
-      DONATIONS_SERVICE_URL: http://127.0.0.1:3002
-      GOOGLE_CLIENT_ID: ci-only
-      GOOGLE_CLIENT_SECRET: ci-only
-      YOUTUBE_CLIENT_ID: ci-only
-      YOUTUBE_CLIENT_SECRET: ci-only
-    steps:
-      - name: Check out revision
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with:
-          ref: ${{ needs.resolve.outputs.sha }}
-
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-        with:
-          bun-version: 1.3.14
-
-      - name: Set up just
-        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
-
-      - name: Install ripgrep
-        run: sudo apt-get update && sudo apt-get install --yes ripgrep
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Create empty CI environment file
-        run: install -m 600 /dev/null .env
-
-      - name: Initialize CI database schema
-        env:
-          POSTGRES_CONTAINER_ID: ${{ job.services.postgres.id }}
-        run: |
-          docker exec -i "$POSTGRES_CONTAINER_ID" \
-            psql --username=coldbrew --dbname=coldbrew --no-psqlrc \
-            --set=ON_ERROR_STOP=1 --single-transaction < db/schema.sql
-
-      - name: Check types
-        run: just typecheck
-
-      - name: Lint, format, and test
-        run: just check
+    uses: ./.github/workflows/ci.yml
+    with:
+      revision: ${{ needs.resolve.outputs.sha }}
 
   publish:
     name: Publish production images
