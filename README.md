@@ -52,6 +52,9 @@ just schema-apply
 just dev
 ```
 
+The environment and development infrastructure scripts are written in TypeScript, live in `scripts/`,
+and run through Bun Shell. `just typecheck-scripts` checks their types and is included in `just typecheck`.
+
 `just env-init` decrypts `.env.dev` into the gitignored `.env` file. All
 worktrees share one repository-wide PostgreSQL and NATS Compose stack, while
 each worktree receives its own application and service ports, PostgreSQL
@@ -91,6 +94,7 @@ Periodically clean up completed worktrees from the primary checkout with:
 just dev-cleanup
 ```
 
+The cleanup scripts live in `scripts/` and run through Bun Shell.
 The command requires confirmation. It removes every secondary worktree whose
 working tree is clean and whose `HEAD` is already merged into the primary
 branch, then deletes its local branch. It also removes every secondary or
