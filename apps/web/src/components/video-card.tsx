@@ -16,7 +16,7 @@ import { useTextWithLinks } from "../hooks/use-text-with-links";
 import { useI18n } from "../lib/i18n";
 import { Icons } from "./icons";
 import { Button } from "./ui/button";
-import { Field, FieldDescription, FieldError, FieldLabel } from "./ui/field";
+import { Field, FieldError, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { parseVideoTiming, VideoTimingFields, type VideoTimingValues } from "./video-timing-fields";
@@ -92,7 +92,6 @@ export default function VideoCard({
   const isWatched = video.watchedAt !== null;
   const isBookmarked = video.bookmarkedAt !== null;
   const SourceIcon = video.source === "donation" ? Icons.videoFromDonation : Icons.manualVideo;
-  const amountHelpId = `video-amount-help-${video.videoId}`;
   const amountErrorId = `video-amount-error-${video.videoId}`;
   const [isEditing, setIsEditing] = useState(false);
   const form = useForm<VideoFormValues>({
@@ -263,7 +262,7 @@ export default function VideoCard({
                   <Field data-invalid={Boolean(formState.errors.amount)}>
                     <FieldLabel htmlFor={`video-amount-${video.videoId}`}>{t("amount")}</FieldLabel>
                     <Input
-                      aria-describedby={`${amountHelpId}${formState.errors.amount ? ` ${amountErrorId}` : ""}`}
+                      aria-describedby={formState.errors.amount ? amountErrorId : undefined}
                       aria-invalid={Boolean(formState.errors.amount)}
                       autoComplete="off"
                       className="bg-card dark:bg-card"
@@ -278,10 +277,9 @@ export default function VideoCard({
                           MoneyAmountSchema.safeParse(value).success || t("enterAmountZeroOrMore"),
                       })}
                     />
-                    <FieldDescription id={amountHelpId}>{t("queueAmountHelp")}</FieldDescription>
                     <FieldError errors={[formState.errors.amount]} id={amountErrorId} />
                   </Field>
-                  <VideoTimingFields allowOpenEnd disabled={isUpdating} />
+                  <VideoTimingFields allowOpenEnd disabled={isUpdating} showOpenEndHelp={false} />
                 </div>
                 <div className="flex items-center justify-end gap-2">
                   <Button
