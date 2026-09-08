@@ -48,7 +48,6 @@ function DeadLettersPage() {
             </span>
           ) : undefined
         }
-        description={t("deadLettersDescription")}
         title={t("deadLetters")}
         navigation={<AdminTabs />}
       />
