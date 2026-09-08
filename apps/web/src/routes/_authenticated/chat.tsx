@@ -63,10 +63,9 @@ const providerMeta = {
 const copy = {
   ru: {
     connections: "Каналы",
-    connectHelp: "Можно подключить несколько аккаунтов каждого сервиса.",
     feed: "Чат",
     empty: "Сообщения появятся здесь, когда подключённый канал выйдет в эфир.",
-    placeholder: "Написать одновременно в YouTube, Twitch и Kick…",
+    placeholder: "Написать во все чаты…",
     send: "Отправить всем",
     noConnections: "Пока нет подключённых каналов",
     disconnect: "Отключить",
@@ -88,10 +87,9 @@ const copy = {
   },
   en: {
     connections: "Channels",
-    connectHelp: "You can connect multiple accounts from each provider.",
     feed: "Chat",
     empty: "Messages will appear when a connected channel goes live.",
-    placeholder: "Send to YouTube, Twitch, and Kick at once…",
+    placeholder: "Send to all chats…",
     send: "Send to all",
     noConnections: "No connected channels yet",
     disconnect: "Disconnect",
@@ -279,15 +277,7 @@ function ChatPage() {
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain xl:grid xl:grid-cols-[330px_minmax(0,1fr)] xl:grid-rows-[minmax(0,1fr)] xl:overflow-hidden">
         <article className="cosmic-panel isolate flex h-[max(24rem,55dvh)] min-h-0 min-w-0 shrink-0 flex-col overflow-hidden xl:h-auto">
           <header className="flex items-center gap-3 border-b border-border p-4">
-            <div className="min-w-0 grow">
-              <h2 className="font-heading text-xl font-semibold">{text.feed}</h2>
-              <p className="text-xs text-muted-foreground">
-                {t("chatFeedCounts", {
-                  sources: config.sources.length,
-                  messages: stream.messages.length,
-                })}
-              </p>
-            </div>
+            <h2 className="min-w-0 grow font-heading text-xl font-semibold">{text.feed}</h2>
             <a
               href="#chat-connections"
               className="rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring xl:hidden"
@@ -359,9 +349,8 @@ function ChatPage() {
           id="chat-connections"
           className="cosmic-panel flex min-h-0 shrink-0 scroll-mt-4 flex-col overflow-hidden xl:order-first"
         >
-          <header className="flex flex-col gap-1 border-b border-border p-4">
+          <header className="border-b border-border p-4">
             <h2 className="font-heading text-xl font-semibold">{text.connections}</h2>
-            <p className="text-xs text-muted-foreground">{text.connectHelp}</p>
           </header>
 
           <div className="flex min-h-0 grow flex-col gap-2 overflow-y-auto p-3">
