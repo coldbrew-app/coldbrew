@@ -8,6 +8,7 @@ type Props = {
   className?: string;
   description: string;
   eyebrow?: string;
+  navigation?: ReactNode;
   title: string;
   variant?: "orbit" | "beans";
 };
@@ -17,6 +18,7 @@ export function CosmicPageHeader({
   className,
   description,
   eyebrow,
+  navigation,
   title,
   variant = "orbit",
 }: Props) {
@@ -27,11 +29,23 @@ export function CosmicPageHeader({
         className,
       )}
     >
-      <div className="relative z-10 flex min-w-0 flex-1 flex-col items-start gap-1">
+      <div
+        className={cn(
+          "relative z-10 flex min-w-0 flex-1 flex-col items-start gap-1",
+          navigation && "min-w-[min(100%,15rem)]",
+        )}
+      >
         <span className="sr-only">{eyebrow}</span>
-        <h1 className="font-heading text-xl leading-tight font-semibold tracking-tight text-[#fff8ed]">
+        <h1
+          className={
+            navigation
+              ? "sr-only"
+              : "font-heading text-xl leading-tight font-semibold tracking-tight text-[#fff8ed]"
+          }
+        >
           {title}
         </h1>
+        {navigation}
         <p className="max-w-2xl text-xs leading-relaxed text-[#dec9bf]">{description}</p>
       </div>
       {actions && <div className="relative z-10 flex shrink-0 items-center gap-2">{actions}</div>}

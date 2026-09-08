@@ -5,6 +5,71 @@ default:
 install:
   bun install
 
+# Exercise environment initialization across real Git worktrees without Docker or secrets.
+test-env-init:
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  test_dir="$(mktemp -d "${TMPDIR:-/tmp}/coldbrew-env-test.XXXXXX")"
+  trap 'rm -rf "$test_dir"' EXIT
+  mkdir -p "$test_dir/bin" "$test_dir/primary checkout"
+  cat > "$test_dir/bin/bunx" <<'BASH'
+  #!/usr/bin/env bash
+  set -euo pipefail
+  [[ "$1" == dotenvx ]]
+  shift
+  case "$1" in
+    decrypt) printf 'PGUSER=test\nPGPASSWORD=test\nPGSSLMODE=require\n' ;;
+    set)
+      [[ "$2" == -f && "$4" == --plain ]]
+      printf '%s=%q\n' "$5" "$6" >> "$3"
+      ;;
+    run)
+      shift
+      [[ "$1" == -f ]]
+      set -a
+      source "$2"
+      set +a
+      shift 2
+      [[ "$1" == --overload && "$2" == -- ]]
+      shift 2
+      exec "$@"
+      ;;
+    *) exit 1 ;;
+  esac
+  BASH
+  chmod +x "$test_dir/bin/bunx"
+  export PATH="$test_dir/bin:$PATH"
+  git -C "$test_dir/primary checkout" init --quiet
+  git -C "$test_dir/primary checkout" -c user.name=Test -c user.email=test@example.com -c commit.gpgsign=false -c core.hooksPath=/dev/null commit --quiet --allow-empty -m init
+  git -C "$test_dir/primary checkout" -c core.hooksPath=/dev/null worktree add --quiet -b feature/one "$test_dir/worktree-one"
+  git -C "$test_dir/primary checkout" -c core.hooksPath=/dev/null worktree add --quiet -b feature/two "$test_dir/worktree-two"
+
+  for directory in "primary checkout" worktree-one worktree-two; do
+    cp justfile "$test_dir/$directory/justfile"
+    (cd "$test_dir/$directory" && just env-init >/dev/null)
+  done
+
+  source "$test_dir/primary checkout/.env"
+  shared_project="$COMPOSE_PROJECT_NAME"
+  shared_db_port="$PGPORT"
+  shared_nats_port="$NATS_PORT"
+  primary_database="$PGDATABASE"
+  primary_app_port="$APP_PORT"
+  primary_namespace="$NATS_NAMESPACE"
+  for directory in worktree-one worktree-two; do
+    source "$test_dir/$directory/.env"
+    [[ "$COMPOSE_PROJECT_NAME" == "$shared_project" ]] || { echo 'Compose project differs between worktrees' >&2; exit 1; }
+    [[ "$PGPORT" == "$shared_db_port" && "$NATS_PORT" == "$shared_nats_port" ]]
+    [[ "$PGDATABASE" != "$primary_database" && "$APP_PORT" != "$primary_app_port" && "$NATS_NAMESPACE" != "$primary_namespace" ]]
+    [[ "$PGHOST" == 127.0.0.1 && "$PGSSLMODE" == disable ]]
+    [[ "$DATABASE_URL" == "postgresql://test:test@127.0.0.1:$PGPORT/$PGDATABASE" ]]
+    cp "$test_dir/$directory/.env" "$test_dir/previous.env"
+    (cd "$test_dir/$directory" && just env-init >/dev/null)
+    cmp "$test_dir/previous.env" "$test_dir/$directory/.env"
+  done
+  echo 'Environment initialization is shared, isolated, and repeatable.'
+
 # Build the runtime environment for the current worktree from long-lived dev settings.
 env-init $source_env=".env.dev":
   #!/usr/bin/env bash
@@ -26,9 +91,8 @@ env-init $source_env=".env.dev":
       | sed -E 's/[^a-z0-9]+/_/g; s/^_+//; s/_+$//'
   }
 
-  repository_root="$(git rev-parse --show-toplevel)"
   repository_id="$(cd "$(git rev-parse --git-common-dir)" && pwd -P)"
-  repository_name="$(sanitize_name "$(basename "$repository_root")")"
+  repository_name="$(sanitize_name "$(basename "$(dirname "$repository_id")")")"
   branch="$(git branch --show-current)"
   if [[ -z "$branch" ]]; then
     branch="detached_$(git rev-parse --short HEAD)"
@@ -60,6 +124,7 @@ env-init $source_env=".env.dev":
   bunx dotenvx set -f .env --plain NATS_SERVERS "nats://127.0.0.1:$nats_port"
   bunx dotenvx set -f .env --plain NATS_NAMESPACE "$nats_namespace"
   bunx dotenvx set -f .env --plain PGHOST 127.0.0.1
+  bunx dotenvx set -f .env --plain PGSSLMODE disable
   bunx dotenvx set -f .env --plain PGPORT "$db_port"
   bunx dotenvx set -f .env --plain PGDATABASE "$db_name"
   bunx dotenvx set -f .env --plain COMPOSE_PROJECT_NAME "$compose_project"
@@ -221,6 +286,7 @@ compose-down:
 # Start the repository-wide PostgreSQL and NATS development infrastructure.
 dev-infra-up:
   bunx dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml up -d --wait
+  bunx dotenvx run -f .env --overload -- bash -eu -o pipefail -c 'for mapping in "postgres:5432:$PGPORT" "nats:4222:$NATS_PORT"; do IFS=: read -r service internal_port host_port <<< "$mapping"; published="$(docker compose -f compose.dev.yaml port "$service" "$internal_port")"; if [[ "$published" != "127.0.0.1:$host_port" ]]; then echo "Unexpected $service port mapping: $published; expected 127.0.0.1:$host_port. Check COMPOSE_PROJECT_NAME and regenerate the workspace environment with just env-init." >&2; exit 1; fi; done'
 
 # Create the current worktree's logical database in the shared PostgreSQL server.
 dev-db-up: dev-infra-up
@@ -426,7 +492,7 @@ test-chat: install
 test-packages: install
   bunx dotenvx run -f .env --overload -- bunx vitest --run packages
 
-test: test-web test-chat test-donations test-video test-packages
+test: test-env-init test-web test-chat test-donations test-video test-packages
 
 check: lint fmt-check test
 

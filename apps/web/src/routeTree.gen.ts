@@ -25,12 +25,14 @@ import { Route as AuthenticatedVideosRouteImport } from './routes/_authenticated
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as DocsPrivacyRouteImport } from './routes/docs/privacy'
 import { Route as DocsTosRouteImport } from './routes/docs/tos'
-import { Route as AuthenticatedAdminDeadLettersRouteImport } from './routes/_authenticated/_admin/dead-letters'
+import { Route as AuthenticatedAdminAdminRouteImport } from './routes/_authenticated/_admin/admin'
 import { Route as AuthenticatedDonationsIndexRouteImport } from './routes/_authenticated/donations.index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiChatSplatRouteImport } from './routes/api/chat/$'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api/trpc/$'
 import { Route as ChatOverlayTokenRouteImport } from './routes/chat.overlay.$token'
+import { Route as AuthenticatedAdminAdminIndexRouteImport } from './routes/_authenticated/_admin/admin/index'
+import { Route as AuthenticatedAdminAdminDlqRouteImport } from './routes/_authenticated/_admin/admin/dlq'
 import { Route as ApiIntegrationDonationalertsCallbackRouteImport } from './routes/api/integration/donationalerts/callback'
 
 const SplatRoute = SplatRouteImport.update({
@@ -112,12 +114,11 @@ const DocsTosRoute = DocsTosRouteImport.update({
   path: '/docs/tos',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedAdminDeadLettersRoute =
-  AuthenticatedAdminDeadLettersRouteImport.update({
-    id: '/dead-letters',
-    path: '/dead-letters',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
+const AuthenticatedAdminAdminRoute = AuthenticatedAdminAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
 const AuthenticatedDonationsIndexRoute =
   AuthenticatedDonationsIndexRouteImport.update({
     id: '/',
@@ -144,6 +145,18 @@ const ChatOverlayTokenRoute = ChatOverlayTokenRouteImport.update({
   path: '/chat/overlay/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAdminAdminIndexRoute =
+  AuthenticatedAdminAdminIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedAdminAdminRoute,
+  } as any)
+const AuthenticatedAdminAdminDlqRoute =
+  AuthenticatedAdminAdminDlqRouteImport.update({
+    id: '/dlq',
+    path: '/dlq',
+    getParentRoute: () => AuthenticatedAdminAdminRoute,
+  } as any)
 const ApiIntegrationDonationalertsCallbackRoute =
   ApiIntegrationDonationalertsCallbackRouteImport.update({
     id: '/api/integration/donationalerts/callback',
@@ -166,13 +179,15 @@ export interface FileRoutesByFullPath {
   '/api/health': typeof ApiHealthRoute
   '/docs/privacy': typeof DocsPrivacyRoute
   '/docs/tos': typeof DocsTosRoute
-  '/dead-letters': typeof AuthenticatedAdminDeadLettersRoute
+  '/admin': typeof AuthenticatedAdminAdminRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/$': typeof ApiChatSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/chat/overlay/$token': typeof ChatOverlayTokenRoute
   '/donations/': typeof AuthenticatedDonationsIndexRoute
+  '/admin/dlq': typeof AuthenticatedAdminAdminDlqRoute
   '/api/integration/donationalerts/callback': typeof ApiIntegrationDonationalertsCallbackRoute
+  '/admin/': typeof AuthenticatedAdminAdminIndexRoute
 }
 export interface FileRoutesByTo {
   '/$': typeof SplatRoute
@@ -188,13 +203,14 @@ export interface FileRoutesByTo {
   '/api/health': typeof ApiHealthRoute
   '/docs/privacy': typeof DocsPrivacyRoute
   '/docs/tos': typeof DocsTosRoute
-  '/dead-letters': typeof AuthenticatedAdminDeadLettersRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/$': typeof ApiChatSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/chat/overlay/$token': typeof ChatOverlayTokenRoute
   '/donations': typeof AuthenticatedDonationsIndexRoute
+  '/admin/dlq': typeof AuthenticatedAdminAdminDlqRoute
   '/api/integration/donationalerts/callback': typeof ApiIntegrationDonationalertsCallbackRoute
+  '/admin': typeof AuthenticatedAdminAdminIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -214,13 +230,15 @@ export interface FileRoutesById {
   '/docs/privacy': typeof DocsPrivacyRoute
   '/docs/tos': typeof DocsTosRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
-  '/_authenticated/_admin/dead-letters': typeof AuthenticatedAdminDeadLettersRoute
+  '/_authenticated/_admin/admin': typeof AuthenticatedAdminAdminRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/$': typeof ApiChatSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/chat/overlay/$token': typeof ChatOverlayTokenRoute
   '/_authenticated/donations/': typeof AuthenticatedDonationsIndexRoute
+  '/_authenticated/_admin/admin/dlq': typeof AuthenticatedAdminAdminDlqRoute
   '/api/integration/donationalerts/callback': typeof ApiIntegrationDonationalertsCallbackRoute
+  '/_authenticated/_admin/admin/': typeof AuthenticatedAdminAdminIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -239,13 +257,15 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/docs/privacy'
     | '/docs/tos'
-    | '/dead-letters'
+    | '/admin'
     | '/api/auth/$'
     | '/api/chat/$'
     | '/api/trpc/$'
     | '/chat/overlay/$token'
     | '/donations/'
+    | '/admin/dlq'
     | '/api/integration/donationalerts/callback'
+    | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/$'
@@ -261,13 +281,14 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/docs/privacy'
     | '/docs/tos'
-    | '/dead-letters'
     | '/api/auth/$'
     | '/api/chat/$'
     | '/api/trpc/$'
     | '/chat/overlay/$token'
     | '/donations'
+    | '/admin/dlq'
     | '/api/integration/donationalerts/callback'
+    | '/admin'
   id:
     | '__root__'
     | '/$'
@@ -286,13 +307,15 @@ export interface FileRouteTypes {
     | '/docs/privacy'
     | '/docs/tos'
     | '/_authenticated/'
-    | '/_authenticated/_admin/dead-letters'
+    | '/_authenticated/_admin/admin'
     | '/api/auth/$'
     | '/api/chat/$'
     | '/api/trpc/$'
     | '/chat/overlay/$token'
     | '/_authenticated/donations/'
+    | '/_authenticated/_admin/admin/dlq'
     | '/api/integration/donationalerts/callback'
+    | '/_authenticated/_admin/admin/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -425,11 +448,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocsTosRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/_admin/dead-letters': {
-      id: '/_authenticated/_admin/dead-letters'
-      path: '/dead-letters'
-      fullPath: '/dead-letters'
-      preLoaderRoute: typeof AuthenticatedAdminDeadLettersRouteImport
+    '/_authenticated/_admin/admin': {
+      id: '/_authenticated/_admin/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminAdminRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/donations/': {
@@ -467,6 +490,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatOverlayTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/_admin/admin/': {
+      id: '/_authenticated/_admin/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AuthenticatedAdminAdminIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminAdminRoute
+    }
+    '/_authenticated/_admin/admin/dlq': {
+      id: '/_authenticated/_admin/admin/dlq'
+      path: '/dlq'
+      fullPath: '/admin/dlq'
+      preLoaderRoute: typeof AuthenticatedAdminAdminDlqRouteImport
+      parentRoute: typeof AuthenticatedAdminAdminRoute
+    }
     '/api/integration/donationalerts/callback': {
       id: '/api/integration/donationalerts/callback'
       path: '/api/integration/donationalerts/callback'
@@ -477,12 +514,28 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedAdminAdminRouteChildren {
+  AuthenticatedAdminAdminDlqRoute: typeof AuthenticatedAdminAdminDlqRoute
+  AuthenticatedAdminAdminIndexRoute: typeof AuthenticatedAdminAdminIndexRoute
+}
+
+const AuthenticatedAdminAdminRouteChildren: AuthenticatedAdminAdminRouteChildren =
+  {
+    AuthenticatedAdminAdminDlqRoute: AuthenticatedAdminAdminDlqRoute,
+    AuthenticatedAdminAdminIndexRoute: AuthenticatedAdminAdminIndexRoute,
+  }
+
+const AuthenticatedAdminAdminRouteWithChildren =
+  AuthenticatedAdminAdminRoute._addFileChildren(
+    AuthenticatedAdminAdminRouteChildren,
+  )
+
 interface AuthenticatedAdminRouteChildren {
-  AuthenticatedAdminDeadLettersRoute: typeof AuthenticatedAdminDeadLettersRoute
+  AuthenticatedAdminAdminRoute: typeof AuthenticatedAdminAdminRouteWithChildren
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
-  AuthenticatedAdminDeadLettersRoute: AuthenticatedAdminDeadLettersRoute,
+  AuthenticatedAdminAdminRoute: AuthenticatedAdminAdminRouteWithChildren,
 }
 
 const AuthenticatedAdminRouteWithChildren =

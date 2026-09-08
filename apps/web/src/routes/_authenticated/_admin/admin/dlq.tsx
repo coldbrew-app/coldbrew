@@ -1,5 +1,6 @@
 import type { ChatDeadLetter } from "@coldbrew/packages/chat.js";
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { AdminTabs } from "@web/components/admin-tabs";
 import { CosmicPageHeader } from "@web/components/cosmic-page-header";
 import { EmptyState } from "@web/components/empty-state";
 import { Icons } from "@web/components/icons";
@@ -11,7 +12,7 @@ import { createTranslator, useI18n } from "@web/lib/i18n";
 import { preloadRouteQuery } from "@web/lib/trpc";
 import { z } from "zod";
 
-export const Route = createFileRoute("/_authenticated/_admin/dead-letters")({
+export const Route = createFileRoute("/_authenticated/_admin/admin/dlq")({
   component: DeadLettersPage,
   validateSearch: z.object({
     before: z
@@ -42,13 +43,14 @@ function DeadLettersPage() {
       <CosmicPageHeader
         actions={
           deadLettersQ.data ? (
-            <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-xs font-semibold text-amber-800 tabular-nums dark:text-amber-200">
+            <span className="rounded-full border border-amber-200/40 bg-amber-950/60 px-2.5 py-1 text-xs font-semibold text-amber-100 tabular-nums">
               {t("deadLetterCount", { count: deadLettersQ.data.total })}
             </span>
           ) : undefined
         }
         description={t("deadLettersDescription")}
         title={t("deadLetters")}
+        navigation={<AdminTabs />}
       />
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {deadLettersQ.isLoading ? (
@@ -83,7 +85,7 @@ function DeadLettersPage() {
           </span>
           <div className="flex items-center gap-2">
             {search.before && (
-              <Button render={<Link search={{}} to="/dead-letters" />} size="sm" variant="outline">
+              <Button render={<Link search={{}} to="/admin/dlq" />} size="sm" variant="outline">
                 <Icons.chevronLeft aria-hidden="true" />
                 {t("newestDeadLetters")}
               </Button>
@@ -91,10 +93,7 @@ function DeadLettersPage() {
             {deadLettersQ.data.nextBeforeSequence && (
               <Button
                 render={
-                  <Link
-                    search={{ before: deadLettersQ.data.nextBeforeSequence }}
-                    to="/dead-letters"
-                  />
+                  <Link search={{ before: deadLettersQ.data.nextBeforeSequence }} to="/admin/dlq" />
                 }
                 size="sm"
                 variant="outline"
