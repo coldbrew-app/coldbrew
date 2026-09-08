@@ -50,6 +50,7 @@ function SharedVideoGroups({
   isLastPage: boolean;
   priorities: Array<SharedPriority & { videoCount: number }>;
 }) {
+  const { t } = useI18n();
   const { groups, unassignedVideos } = groupVideosByPriority(items);
   const emptyPriorities = isLastPage
     ? priorities.filter((priority) => priority.videoCount === 0)
@@ -84,6 +85,9 @@ function SharedVideoGroups({
       })}
       {unassignedVideos.length > 0 && (
         <div className="divide-y divide-border border-t border-border">
+          <h2 className="bg-secondary/50 px-4 py-2.5 font-heading text-sm font-semibold">
+            {t("videoUnassigned")}
+          </h2>
           {unassignedVideos.map((video) => (
             <SharedVideoCard key={video.videoId} video={video} />
           ))}

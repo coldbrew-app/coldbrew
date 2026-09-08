@@ -17,6 +17,7 @@ type VideoQueue = Parameters<typeof createVideoRouter>[0];
 function createQueue(overrides: Partial<VideoQueue> = {}): VideoQueue {
   return {
     listPage: vi.fn(),
+    retryMetadata: vi.fn(),
     addManualVideo: vi.fn(),
     listPriorities: vi.fn(async (): Promise<VideoPriority[]> => []),
     updatePriority: vi.fn(),

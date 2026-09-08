@@ -271,8 +271,8 @@ CREATE TABLE video (
   url               text           NOT NULL,
   queue_amount      money_amount       NULL,
   start_seconds     nonnegative_int NOT NULL,
-  end_seconds       positive_int    NOT NULL,
-  duration_seconds  positive_int    NOT NULL,
+  end_seconds       positive_int        NULL,
+  duration_seconds  positive_int        NULL,
   watched_at        js_date            NULL,
   bookmarked_at     js_date            NULL,
   video_priority_id int                NULL REFERENCES video_priority (video_priority_id),
@@ -289,7 +289,41 @@ CREATE INDEX video_watched_idx ON video (watched_at DESC, video_id DESC)
 CREATE INDEX video_bookmarked_idx ON video (bookmarked_at DESC, video_id DESC)
   WHERE bookmarked_at IS NOT NULL;
 
+CREATE TABLE video_metadata_job (
+  video_id         bigint          PRIMARY KEY REFERENCES video (video_id) ON DELETE CASCADE,
+  generation       bigint          NOT NULL DEFAULT 0 CHECK (generation >= 0),
+  attempts         nonnegative_int NOT NULL DEFAULT 0,
+  available_at     js_date         NOT NULL DEFAULT now(),
+  lease_expires_at js_date             NULL,
+  completed_at     js_date             NULL,
+  last_attempt_at  js_date             NULL,
+  last_error_code  text                NULL CHECK (char_length(last_error_code) <= 64),
+  last_http_status int                 NULL CHECK (last_http_status BETWEEN 100 AND 599),
+  CHECK (completed_at IS NULL OR lease_expires_at IS NULL)
+);
+
+CREATE INDEX video_metadata_job_available_idx
+  ON video_metadata_job (available_at, video_id)
+  WHERE completed_at IS NULL;
+
 -- functions and triggers
+
+CREATE FUNCTION enqueue_video_metadata_job()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.duration_seconds IS NULL THEN
+    INSERT INTO video_metadata_job (video_id) VALUES (NEW.video_id)
+    ON CONFLICT (video_id) DO NOTHING;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER enqueue_video_metadata_job
+AFTER INSERT ON video
+FOR EACH ROW EXECUTE FUNCTION enqueue_video_metadata_job();
 
 CREATE FUNCTION enqueue_donation_video_scan()
 RETURNS trigger
@@ -316,8 +350,19 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
-  IF NEW.queue_amount IS NULL THEN
+  IF NEW.queue_amount IS NULL OR NEW.end_seconds IS NULL OR
+     (NEW.duration_seconds IS NOT NULL AND NEW.start_seconds >= NEW.duration_seconds) THEN
     NEW.video_priority_id := NULL;
+    RETURN NEW;
+  END IF;
+
+  IF TG_OP = 'UPDATE' AND
+     NEW.queue_amount IS NOT DISTINCT FROM OLD.queue_amount AND
+     NEW.start_seconds = OLD.start_seconds AND
+     NEW.end_seconds IS NOT DISTINCT FROM OLD.end_seconds AND
+     NEW.donation_id IS NOT DISTINCT FROM OLD.donation_id AND
+     NEW.user_id IS NOT DISTINCT FROM OLD.user_id AND
+     OLD.video_priority_id IS NOT NULL THEN
     RETURN NEW;
   END IF;
 
@@ -351,6 +396,6 @@ END;
 $$;
 
 CREATE TRIGGER set_video_priority_id
-BEFORE INSERT OR UPDATE OF queue_amount, start_seconds, end_seconds, donation_id, user_id ON video
+BEFORE INSERT OR UPDATE OF queue_amount, start_seconds, end_seconds, duration_seconds, donation_id, user_id ON video
 FOR EACH ROW
 EXECUTE FUNCTION set_video_priority_id();

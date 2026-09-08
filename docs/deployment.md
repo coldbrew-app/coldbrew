@@ -30,7 +30,9 @@ Coldbrew authentication and the public OAuth routes.
   requests to `web:3000`. The web container reaches `chat:3001` and `donations:3002` through the
   private network.
 - `web`, `chat`, `donations`, and `video` share one SHA-tagged GHCR image.
-  `web`, `chat`, and `donations` have HTTP health checks; `video` is a worker.
+  `web`, `chat`, and `donations` have HTTP health checks; `video` runs independent
+  donation-scan and metadata-retry loops. See [video metadata operations](video-metadata.md)
+  for nullable-timing rollout and historical donation recovery.
 - `vector` reads the four application services' Docker logs and forwards them
   to the `coldbrew-logs` Axiom dataset. Infrastructure and Vector's own
   logs remain local.

@@ -27,8 +27,8 @@ type Video struct {
 	URL             string
 	QueueAmount     *string
 	StartSeconds    int
-	EndSeconds      int
-	DurationSeconds int
+	EndSeconds      *int
+	DurationSeconds *int
 }
 
 type Store struct{ pool *pgxpool.Pool }

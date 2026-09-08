@@ -22,6 +22,9 @@ describe("MoneyAmountSchema", () => {
 });
 
 const baseVideo = {
+  durationSeconds: 213,
+  metadataUnavailable: false,
+  metadataRetryAt: null,
   videoId: "1",
   videoPriorityId: 1,
   provider: "youtube",
@@ -51,6 +54,20 @@ const donation = {
 };
 
 describe("VideoSchema", () => {
+  it("accepts a saved video while its duration is unknown", () => {
+    const video = VideoSchema.parse({
+      ...baseVideo,
+      source: "manual",
+      donation: null,
+      endSeconds: null,
+      durationSeconds: null,
+      videoPriorityId: null,
+      priorityLabel: null,
+      metadataRetryAt: "2026-09-08T09:02:00Z",
+    });
+    expect(video.endSeconds).toBeNull();
+    expect(video.durationSeconds).toBeNull();
+  });
   it("parses a video from a donation", () => {
     const video = VideoSchema.parse({ ...baseVideo, source: "donation", donation });
 
@@ -90,6 +107,7 @@ describe("PublicQueueSettingsSchema", () => {
 describe("SharedVideoSchema", () => {
   it("keeps only fields intended for the public queue", () => {
     const video = SharedVideoSchema.parse({
+      metadataUnavailable: false,
       videoId: "1",
       videoPriorityId: 1,
       provider: "youtube",
@@ -112,6 +130,7 @@ describe("SharedVideoSchema", () => {
 
   it("requires display amount and currency together", () => {
     const result = SharedVideoSchema.safeParse({
+      metadataUnavailable: false,
       videoId: "1",
       videoPriorityId: null,
       provider: "youtube",

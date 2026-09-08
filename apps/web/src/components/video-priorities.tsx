@@ -8,7 +8,7 @@ import { useI18n } from "../lib/i18n";
 import VideoPriorityEditor from "./video-priority-editor";
 
 type Props = {
-  selectedVideoPriorityId: number | null;
+  selectedVideoPriorityId: number | "unassigned" | null;
   remainingSecondsByPriorityId: Record<number, number>;
   videoCountByPriorityId: Record<number, number>;
 };
@@ -48,6 +48,25 @@ export default function VideoPriorities({
       >
         <span className="grow">{t("all")}</span>
         <span className="text-[10px] font-bold">{videoCount}</span>
+      </Link>
+
+      <Link
+        aria-current={selectedVideoPriorityId === "unassigned" ? "page" : undefined}
+        className={cn(
+          "flex rounded-lg border px-3 py-2 text-xs font-medium",
+          selectedVideoPriorityId === "unassigned"
+            ? "border-ring/35 bg-secondary text-secondary-foreground"
+            : "border-border bg-card text-muted-foreground",
+        )}
+        to="/videos"
+        search={(previous) => ({
+          page: 1,
+          videoPriorityId: "unassigned",
+          videoStatus: previous.videoStatus ?? "all",
+        })}
+      >
+        <span className="grow">{t("videoUnassigned")}</span>
+        <span>{videoCountByPriorityId[0] ?? 0}</span>
       </Link>
 
       {prioritiesQ.isLoading ? (

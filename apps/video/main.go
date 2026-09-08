@@ -47,7 +47,15 @@ func run() error {
 	if *backfillTitles {
 		return store.BackfillTitles(ctx, httpClient)
 	}
-	youtubeClient := videoingest.NewYouTubeClient(httpClient)
-	worker := videoingest.NewWorker(store, youtubeClient, videoingest.DefaultConfig())
-	return worker.Run(ctx)
+	worker := videoingest.NewWorker(store, videoingest.DefaultConfig())
+	errors := make(chan error, 2)
+	go func() { errors <- worker.Run(ctx) }()
+	go func() { errors <- store.RunMetadata(ctx, httpClient) }()
+	firstErr := <-errors
+	stop()
+	secondErr := <-errors
+	if firstErr != nil {
+		return firstErr
+	}
+	return secondErr
 }

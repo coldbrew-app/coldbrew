@@ -8,7 +8,6 @@ import {
 import type { Sql } from "postgres";
 import { describe, expect, it, vi } from "vitest";
 
-import { VideoQueueError } from "./errors.js";
 import { createPostgresVideoQueue } from "./postgres.js";
 
 type Query = { text: string; values: unknown[] };
@@ -42,6 +41,9 @@ function manualVideoRow() {
     queueCurrency: "RUB",
     startSeconds: 10,
     endSeconds: 70,
+    durationSeconds: 90,
+    metadataUnavailable: false,
+    metadataRetryAt: null,
     priorityLabel: "queue 2",
     watchedAt: null,
     bookmarkedAt: null,
@@ -52,7 +54,7 @@ function manualVideoRow() {
 }
 
 describe("PostgresVideoQueue", () => {
-  it("looks up timing before inserting a manual video", async () => {
+  it("inserts a manual video without a metadata lookup", async () => {
     const order: string[] = [];
     const database = createSqlMock((query) => {
       expect(query.text).toContain("INSERT INTO video");
@@ -63,7 +65,7 @@ describe("PostgresVideoQueue", () => {
       order.push("timing");
       return { startSeconds: 10, endSeconds: 70, durationSeconds: 90, title: "A video title" };
     });
-    const queue = createPostgresVideoQueue(database.sql, lookupTiming);
+    const queue = createPostgresVideoQueue(database.sql);
 
     await expect(
       queue.addManualVideo(userId, {
@@ -73,15 +75,16 @@ describe("PostgresVideoQueue", () => {
         endSeconds: 70,
       }),
     ).resolves.toEqual({ videoId });
-    expect(order).toEqual(["timing", "insert"]);
+    expect(order).toEqual(["insert"]);
+    expect(lookupTiming).not.toHaveBeenCalled();
     expect(database.queries[0]?.values).toContain("youtube-id");
-    expect(database.queries[0]?.values).toContain("A video title");
+    expect(database.queries[0]?.text).toContain("NULL");
   });
 
   it("rejects an invalid URL without timing lookup or insert", async () => {
     const database = createSqlMock(() => []);
     const lookupTiming = vi.fn();
-    const queue = createPostgresVideoQueue(database.sql, lookupTiming);
+    const queue = createPostgresVideoQueue(database.sql);
 
     await expect(
       queue.addManualVideo(userId, {
@@ -95,12 +98,8 @@ describe("PostgresVideoQueue", () => {
     expect(database.queries).toEqual([]);
   });
 
-  it("preserves the timing failure as the module error cause", async () => {
-    const cause = new Error("youtube unavailable");
-    const queue = createPostgresVideoQueue(
-      createSqlMock(() => []).sql,
-      vi.fn(async () => await Promise.reject(cause)),
-    );
+  it("saves an open-ended video with unknown duration", async () => {
+    const queue = createPostgresVideoQueue(createSqlMock(() => [{ videoId: "41" }]).sql);
 
     await expect(
       queue.addManualVideo(userId, {
@@ -109,14 +108,14 @@ describe("PostgresVideoQueue", () => {
         startSeconds: 0,
         endSeconds: null,
       }),
-    ).rejects.toEqual(new VideoQueueError("youtube timing unavailable", { cause }));
+    ).resolves.toEqual({ videoId });
   });
 
   it("localizes ownership to direct and donation-owned videos", async () => {
     const database = createSqlMock((query) =>
       query.text.startsWith("UPDATE video SET") ? [{ videoId: "41" }] : [],
     );
-    const queue = createPostgresVideoQueue(database.sql, vi.fn());
+    const queue = createPostgresVideoQueue(database.sql);
 
     await queue.updateVideo(userId, videoId, {
       amount,
@@ -133,7 +132,7 @@ describe("PostgresVideoQueue", () => {
     const database = createSqlMock((query) =>
       query.text.startsWith("UPDATE video SET") ? [{ videoId: "41" }] : [],
     );
-    const queue = createPostgresVideoQueue(database.sql, vi.fn());
+    const queue = createPostgresVideoQueue(database.sql);
     const watchedAt = new Date("2026-02-03T04:05:06Z");
 
     await queue.updateStatus(userId, videoId, { watchedAt });
@@ -153,7 +152,7 @@ describe("PostgresVideoQueue", () => {
         minPricePerMinute: "0.00",
       },
     ]);
-    const queue = createPostgresVideoQueue(database.sql, vi.fn());
+    const queue = createPostgresVideoQueue(database.sql);
 
     await expect(
       queue.updatePriority(userId, {
@@ -169,7 +168,7 @@ describe("PostgresVideoQueue", () => {
     const database = createSqlMock((query) =>
       query.text.startsWith("SELECT queue_currency") ? [{ queueCurrency: "RUB" }] : [],
     );
-    const queue = createPostgresVideoQueue(database.sql, vi.fn());
+    const queue = createPostgresVideoQueue(database.sql);
 
     await expect(
       queue.setQueueCurrency(
@@ -196,7 +195,7 @@ describe("PostgresVideoQueue", () => {
       if (query.text.includes("AS all")) {
         return [{ all: 60, notwatched: 40, watched: 20, bookmarked: 5 }];
       }
-      if (query.text.startsWith("SELECT video.video_priority_id, count")) {
+      if (query.text.startsWith("SELECT coalesce(video.video_priority_id, 0)")) {
         return [{ videoPriorityId: 3, count: 12 }];
       }
       if (query.text.includes("AS remaining_seconds")) {
@@ -205,7 +204,7 @@ describe("PostgresVideoQueue", () => {
       if (query.text.includes("AS source")) return [manualVideoRow()];
       return [];
     });
-    const queue = createPostgresVideoQueue(database.sql, vi.fn());
+    const queue = createPostgresVideoQueue(database.sql);
 
     await expect(
       queue.listPage(userId, {
@@ -237,7 +236,7 @@ describe("PostgresVideoQueue", () => {
         ];
       return [];
     });
-    const queue = createPostgresVideoQueue(database.sql, vi.fn());
+    const queue = createPostgresVideoQueue(database.sql);
     const page = await queue.listPage(userId, {
       page: 1,
       pageSize: 25,
@@ -266,7 +265,7 @@ describe("PostgresVideoQueue", () => {
         total: 1,
       },
     ]);
-    const queue = createPostgresVideoQueue(database.sql, vi.fn());
+    const queue = createPostgresVideoQueue(database.sql);
 
     await expect(
       queue.listSharedPage(SlugSchema.parse("streamer"), {
@@ -301,6 +300,7 @@ describe("PostgresVideoQueue", () => {
             startSeconds: 10,
             endSeconds: 70,
             durationSeconds: 90,
+            metadataUnavailable: false,
             watchedAt: null,
             priorityLabel: "queue 2",
             displayAmount: "120.00",
@@ -318,7 +318,7 @@ describe("PostgresVideoQueue", () => {
         },
       ];
     });
-    const queue = createPostgresVideoQueue(database.sql, vi.fn());
+    const queue = createPostgresVideoQueue(database.sql);
 
     await expect(
       queue.listSharedPage(SlugSchema.parse("streamer"), {

@@ -68,6 +68,7 @@ jobs:
       CHAT_SERVICE_URL: http://127.0.0.1:3001
       CHAT_TOKEN_ENCRYPTION_SECRET: ci-only-chat-token-encryption-secret-at-least-thirty-two-characters
       CHAT_STORE_TEST_DATABASE_URL: postgresql://coldbrew:coldbrew@127.0.0.1:5432/coldbrew
+      VIDEO_INGEST_TEST_DATABASE_URL: postgresql://coldbrew:coldbrew@127.0.0.1:5432/coldbrew
       DATABASE_URL: postgresql://coldbrew:coldbrew@127.0.0.1:5432/coldbrew
       DONATION_ALERTS_CLIENT_ID: "1"
       DONATION_ALERTS_CLIENT_SECRET: ci-only

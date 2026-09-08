@@ -2,8 +2,8 @@ import { formatVideoTime } from "@coldbrew/packages/video-timing.js";
 
 type SharedVideoTiming = {
   startSeconds: number;
-  endSeconds: number;
-  durationSeconds: number;
+  endSeconds: number | null;
+  durationSeconds: number | null;
 };
 
 export function getSharedVideoTimingParts({
@@ -13,6 +13,7 @@ export function getSharedVideoTimingParts({
 }: SharedVideoTiming) {
   return {
     startTime: startSeconds === 0 ? null : formatVideoTime(startSeconds),
-    endTime: endSeconds === durationSeconds ? null : formatVideoTime(endSeconds),
+    endTime:
+      endSeconds === null || endSeconds === durationSeconds ? null : formatVideoTime(endSeconds),
   };
 }

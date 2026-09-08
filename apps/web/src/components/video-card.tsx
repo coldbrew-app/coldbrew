@@ -25,15 +25,20 @@ type Props = {
   showPriorityLabel?: boolean;
   showSource?: boolean;
   onStatusChange?: (status: { watchedAt?: Date | null; bookmarkedAt?: Date | null }) => void;
-  onUpdate?: (input: { amount: string; startSeconds: number; endSeconds: number }) => Promise<void>;
+  onUpdate?: (input: {
+    amount: string;
+    startSeconds: number;
+    endSeconds: number | null;
+  }) => Promise<void>;
   isUpdating?: boolean;
+  onRetryMetadata?: () => void;
 };
 
 type VideoFormValues = VideoTimingValues & {
   amount: string;
 };
 
-const getYoutubeEmbedUrl = (url: string, startSeconds: number, endSeconds: number) => {
+const getYoutubeEmbedUrl = (url: string, startSeconds: number, endSeconds: number | null) => {
   const parsedUrl = rurl(url);
   const host = parsedUrl.hostname.replace(/^www\./, "").toLowerCase();
   const videoId =
@@ -48,7 +53,7 @@ const getYoutubeEmbedUrl = (url: string, startSeconds: number, endSeconds: numbe
 
   return rurl(`https://www.youtube-nocookie.com/embed/${videoId}`).withSearchParams({
     start: startSeconds,
-    end: endSeconds,
+    ...(endSeconds === null ? {} : { end: endSeconds }),
   }).href;
 };
 
@@ -66,6 +71,7 @@ export default function VideoCard({
   onStatusChange,
   onUpdate,
   isUpdating = false,
+  onRetryMetadata,
 }: Props) {
   const { locale, t } = useI18n();
   const author =
@@ -74,10 +80,14 @@ export default function VideoCard({
     video.source === "donation" ? (video.donation.message ?? "") : "",
   );
   const embedUrl = getYoutubeEmbedUrl(video.url, video.startSeconds, video.endSeconds);
-  const timingLabel = `${formatVideoTime(video.startSeconds)}–${formatVideoTime(video.endSeconds)}`;
-  const watchDuration = getRoundedWatchDurationParts(
-    getWatchDurationSeconds(video.startSeconds, video.endSeconds),
-  );
+  const timingLabel =
+    video.endSeconds === null
+      ? t("videoFromTime", { startTime: formatVideoTime(video.startSeconds) })
+      : `${formatVideoTime(video.startSeconds)}–${formatVideoTime(video.endSeconds)}`;
+  const watchDuration =
+    video.endSeconds === null
+      ? null
+      : getRoundedWatchDurationParts(getWatchDurationSeconds(video.startSeconds, video.endSeconds));
   const isWatched = video.watchedAt !== null;
   const isBookmarked = video.bookmarkedAt !== null;
   const SourceIcon = video.source === "donation" ? Icons.videoFromDonation : Icons.manualVideo;
@@ -88,7 +98,7 @@ export default function VideoCard({
     defaultValues: {
       amount: formatMoneyInputValue(video.queueAmount ?? MoneyAmountSchema.parse("0.00")),
       startTime: formatVideoTime(video.startSeconds),
-      endTime: formatVideoTime(video.endSeconds),
+      endTime: video.endSeconds === null ? "" : formatVideoTime(video.endSeconds),
     },
     mode: "onChange",
   });
@@ -98,7 +108,7 @@ export default function VideoCard({
     reset({
       amount: formatMoneyInputValue(video.queueAmount ?? MoneyAmountSchema.parse("0.00")),
       startTime: formatVideoTime(video.startSeconds),
-      endTime: formatVideoTime(video.endSeconds),
+      endTime: video.endSeconds === null ? "" : formatVideoTime(video.endSeconds),
     });
     setIsEditing(true);
   };
@@ -107,7 +117,7 @@ export default function VideoCard({
     reset({
       amount: formatMoneyInputValue(video.queueAmount ?? MoneyAmountSchema.parse("0.00")),
       startTime: formatVideoTime(video.startSeconds),
-      endTime: formatVideoTime(video.endSeconds),
+      endTime: video.endSeconds === null ? "" : formatVideoTime(video.endSeconds),
     });
     setIsEditing(false);
   };
@@ -116,8 +126,8 @@ export default function VideoCard({
     if (!onUpdate) {
       return;
     }
-    const timing = parseVideoTiming(input, { allowOpenEnd: false });
-    if (timing === null || timing.endSeconds === null) {
+    const timing = parseVideoTiming(input, { allowOpenEnd: true });
+    if (timing === null) {
       return;
     }
 
@@ -163,9 +173,9 @@ export default function VideoCard({
                     {t(video.source === "donation" ? "fromDonation" : "addedManually")}
                   </span>
                 )}
-                {showPriorityLabel && video.priorityLabel !== null && (
+                {showPriorityLabel && (
                   <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-secondary-foreground">
-                    {video.priorityLabel}
+                    {video.priorityLabel ?? t("videoUnassigned")}
                   </span>
                 )}
               </div>
@@ -191,7 +201,13 @@ export default function VideoCard({
                 </strong>
                 {!isEditing && (
                   <span className="text-xs text-muted-foreground">
-                    {t("watchDuration", watchDuration)}
+                    {watchDuration === null
+                      ? t(
+                          video.metadataUnavailable
+                            ? "videoDurationUnavailable"
+                            : "videoDurationPending",
+                        )
+                      : t("watchDuration", watchDuration)}
                   </span>
                 )}
               </div>
@@ -237,7 +253,7 @@ export default function VideoCard({
                     <FieldDescription id={amountHelpId}>{t("queueAmountHelp")}</FieldDescription>
                     <FieldError errors={[formState.errors.amount]} id={amountErrorId} />
                   </Field>
-                  <VideoTimingFields disabled={isUpdating} />
+                  <VideoTimingFields allowOpenEnd disabled={isUpdating} />
                 </div>
                 <div className="flex items-center justify-end gap-2">
                   <Button
@@ -309,6 +325,22 @@ export default function VideoCard({
               >
                 {t("goToDonation")}
               </Link>
+            </div>
+          )}
+          {video.durationSeconds !== null && video.startSeconds >= video.durationSeconds && (
+            <p className="text-xs text-destructive">{t("videoInvalidRange")}</p>
+          )}
+          {video.durationSeconds === null && onRetryMetadata && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" variant="outline" disabled={isUpdating} onClick={onRetryMetadata}>
+                <Icons.retry aria-hidden="true" />
+                {t("videoRetryMetadata")}
+              </Button>
+              {video.metadataRetryAt !== null && (
+                <span className="text-xs text-muted-foreground">
+                  {t("videoNextRetry", { date: fmtDate(video.metadataRetryAt, locale) })}
+                </span>
+              )}
             </div>
           )}
           <div className="flex flex-wrap items-center gap-2">

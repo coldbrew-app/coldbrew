@@ -16,14 +16,8 @@ import { youtubeVideoId } from "@coldbrew/packages/youtube.js";
 import type { Sql, TransactionSql } from "postgres";
 import { z } from "zod";
 
-import type { RequestedYoutubeTiming, YoutubeTiming } from "../youtube.js";
 import { VideoQueueError } from "./errors.js";
 import type { SharedVideoStatus, VideoStatus } from "./types.js";
-
-type YoutubeTimingLookup = (
-  url: string,
-  requestedTiming?: RequestedYoutubeTiming,
-) => Promise<YoutubeTiming>;
 
 function ownershipPredicate(sql: Sql | TransactionSql, userId: UserId) {
   return sql`
@@ -38,21 +32,20 @@ function ownershipPredicate(sql: Sql | TransactionSql, userId: UserId) {
 }
 
 class PostgresVideoQueue {
-  constructor(
-    private readonly sql: Sql,
-    private readonly lookupYoutubeTiming: YoutubeTimingLookup,
-  ) {}
+  constructor(private readonly sql: Sql) {}
 
   async listPage(
     userId: UserId,
     input: {
       page: number;
       pageSize: number;
-      videoPriorityId: number | null;
+      videoPriorityId: number | "unassigned" | null;
       videoStatus: VideoStatus;
       videoId?: VideoId;
     },
   ) {
+    const priorityId = input.videoPriorityId === "unassigned" ? null : input.videoPriorityId;
+    const unassigned = input.videoPriorityId === "unassigned";
     const focusedVideoId = input.videoId?.toString() ?? null;
     const statisticRows = await Promise.all([
       this.sql`
@@ -61,7 +54,8 @@ class PostgresVideoQueue {
         LEFT JOIN donation USING (donation_id)
         WHERE coalesce(video.user_id, donation.user_id) = ${userId}
           AND (${focusedVideoId}::bigint IS NULL OR video.video_id = ${focusedVideoId})
-          AND (${input.videoPriorityId}::int IS NULL OR video.video_priority_id = ${input.videoPriorityId})
+          AND (${priorityId}::int IS NULL OR video.video_priority_id = ${priorityId})
+          AND (NOT ${unassigned} OR video.video_priority_id IS NULL)
           AND (
             ${input.videoStatus} = 'all'
             OR (${input.videoStatus} = 'notwatched' AND video.watched_at IS NULL)
@@ -80,11 +74,10 @@ class PostgresVideoQueue {
         WHERE coalesce(video.user_id, donation.user_id) = ${userId}
       `,
       this.sql`
-        SELECT video.video_priority_id, count(*)::int AS count
+        SELECT coalesce(video.video_priority_id, 0) AS video_priority_id, count(*)::int AS count
         FROM video
         LEFT JOIN donation USING (donation_id)
         WHERE coalesce(video.user_id, donation.user_id) = ${userId}
-          AND video.video_priority_id IS NOT NULL
           AND (
             ${input.videoStatus} = 'all'
             OR (${input.videoStatus} = 'notwatched' AND video.watched_at IS NULL)
@@ -124,6 +117,20 @@ class PostgresVideoQueue {
         video.url,
         video.start_seconds,
         video.end_seconds,
+        video.duration_seconds,
+        EXISTS (
+          SELECT 1
+          FROM video_metadata_job
+          WHERE video_metadata_job.video_id = video.video_id
+            AND completed_at IS NOT NULL
+            AND last_error_code IS NOT NULL
+        ) AS metadata_unavailable,
+        (
+          SELECT available_at
+          FROM video_metadata_job
+          WHERE video_metadata_job.video_id = video.video_id
+            AND completed_at IS NULL
+        ) AS metadata_retry_at,
         video.watched_at,
         video.bookmarked_at,
         video_priority.label AS priority_label,
@@ -156,7 +163,8 @@ class PostgresVideoQueue {
       LEFT JOIN video_priority USING (video_priority_id)
       WHERE "user".user_id = ${userId}
         AND (${focusedVideoId}::bigint IS NULL OR video.video_id = ${focusedVideoId})
-        AND (${input.videoPriorityId}::int IS NULL OR video.video_priority_id = ${input.videoPriorityId})
+        AND (${priorityId}::int IS NULL OR video.video_priority_id = ${priorityId})
+        AND (NOT ${unassigned} OR video.video_priority_id IS NULL)
         AND (
           ${input.videoStatus} = 'all'
           OR (${input.videoStatus} = 'notwatched' AND video.watched_at IS NULL)
@@ -180,7 +188,7 @@ class PostgresVideoQueue {
       bookmarked: z.int().nonnegative(),
     });
     const priorityCountSchema = z.object({
-      videoPriorityId: z.int().positive(),
+      videoPriorityId: z.int().nonnegative(),
       count: z.int().nonnegative(),
     });
     const priorityDurationSchema = z.object({
@@ -224,16 +232,6 @@ class PostgresVideoQueue {
       throw new VideoQueueError("invalid youtube url");
     }
 
-    let timing: YoutubeTiming;
-    try {
-      timing = await this.lookupYoutubeTiming(input.url, {
-        startSeconds: input.startSeconds,
-        endSeconds: input.endSeconds,
-      });
-    } catch (cause) {
-      throw new VideoQueueError("youtube timing unavailable", { cause });
-    }
-
     const rows = await this.sql`
       INSERT INTO video (
         user_id,
@@ -254,10 +252,10 @@ class PostgresVideoQueue {
         ${providerVideoId},
         ${input.url},
         ${input.amount},
-        ${timing.startSeconds},
-        ${timing.endSeconds},
-        ${timing.durationSeconds},
-        ${timing.title}
+        ${input.startSeconds},
+        ${input.endSeconds},
+        NULL,
+        NULL
       )
       RETURNING video_id
     `;
@@ -322,10 +320,28 @@ class PostgresVideoQueue {
     }
   }
 
+  async retryMetadata(userId: UserId, videoId: VideoId) {
+    const ownsVideo = ownershipPredicate(this.sql, userId);
+    const rows = await this.sql`
+      UPDATE video_metadata_job AS job
+      SET
+        completed_at = NULL,
+        available_at = now()
+      FROM video
+      WHERE job.video_id = video.video_id AND video.video_id = ${String(videoId)}
+        AND (${ownsVideo})
+        AND video.duration_seconds IS NULL
+        AND (job.lease_expires_at IS NULL OR job.lease_expires_at <= now())
+        AND (job.last_attempt_at IS NULL OR job.last_attempt_at <= now() - interval '1 minute')
+      RETURNING job.video_id
+    `;
+    return rows.length > 0;
+  }
+
   async updateVideo(
     userId: UserId,
     videoId: VideoId,
-    input: { amount: MoneyAmount; startSeconds: number; endSeconds: number },
+    input: { amount: MoneyAmount; startSeconds: number; endSeconds: number | null },
   ) {
     const ownsVideo = ownershipPredicate(this.sql, userId);
     const rows = await this.sql`
@@ -333,7 +349,7 @@ class PostgresVideoQueue {
       SET
         queue_amount = ${input.amount},
         start_seconds = ${input.startSeconds},
-        end_seconds = ${input.endSeconds}
+        end_seconds = coalesce(${input.endSeconds}, duration_seconds)
       WHERE video.video_id = ${String(videoId)}
         AND (${ownsVideo})
       RETURNING video.video_id
@@ -441,6 +457,13 @@ class PostgresVideoQueue {
           video.start_seconds,
           video.end_seconds,
           video.duration_seconds,
+          EXISTS (
+            SELECT 1
+            FROM video_metadata_job
+            WHERE video_metadata_job.video_id = video.video_id
+              AND completed_at IS NOT NULL
+              AND last_error_code IS NOT NULL
+          ) AS metadata_unavailable,
           video.watched_at,
           video_priority.label AS priority_label,
           CASE
@@ -517,6 +540,6 @@ class PostgresVideoQueue {
   }
 }
 
-export function createPostgresVideoQueue(sql: Sql, lookupYoutubeTiming: YoutubeTimingLookup) {
-  return new PostgresVideoQueue(sql, lookupYoutubeTiming);
+export function createPostgresVideoQueue(sql: Sql) {
+  return new PostgresVideoQueue(sql);
 }

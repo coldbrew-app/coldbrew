@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var (
@@ -36,8 +37,35 @@ type RequestedTiming struct {
 }
 
 type HTTPError struct {
-	Status int
-	URL    string
+	Status     int
+	URL        string
+	RetryAfter time.Duration
+}
+
+// UnavailableError is emitted only for explicit provider declarations. Missing
+// metadata and generic authentication/bot challenges are not terminal results.
+type UnavailableError struct{ Reason string }
+
+func (e *UnavailableError) Error() string { return "youtube unavailable: " + e.Reason }
+
+func metadataError(body string) error {
+	pattern := regexp.MustCompile(`"playabilityStatus"\s*:\s*`)
+	if location := pattern.FindStringIndex(body); location != nil {
+		var status struct {
+			Status string `json:"status"`
+			Reason string `json:"reason"`
+		}
+		if json.NewDecoder(strings.NewReader(body[location[1]:])).Decode(&status) == nil {
+			reason := strings.ToLower(status.Reason)
+			if status.Status != "OK" && (reason == "this is a private video. please sign in to verify that you may see it." || reason == "this video is private.") {
+				return &UnavailableError{Reason: "private"}
+			}
+			if status.Status != "OK" && strings.HasPrefix(reason, "this video has been removed") {
+				return &UnavailableError{Reason: "removed"}
+			}
+		}
+	}
+	return errors.New("youtube: duration not found")
 }
 
 func (e *HTTPError) Error() string {
@@ -127,7 +155,7 @@ func GetTiming(ctx context.Context, client *http.Client, rawURL string, requeste
 		providerVideoID, idOK := VideoID(rawURL)
 		versionMatch := clientVersionPattern.FindStringSubmatch(body)
 		if !idOK || versionMatch == nil {
-			return Timing{}, errors.New("youtube: duration not found")
+			return Timing{}, metadataError(body)
 		}
 		version := versionMatch[1]
 		requestBody := fmt.Sprintf(`{"videoId":%q,"context":{"client":{"clientName":"WEB","clientVersion":%q}}}`, providerVideoID, version)
@@ -142,7 +170,7 @@ func GetTiming(ctx context.Context, client *http.Client, rawURL string, requeste
 		}
 		duration, ok = durationSeconds(body)
 		if !ok {
-			return Timing{}, errors.New("youtube: duration not found")
+			return Timing{}, metadataError(body)
 		}
 	}
 	timing, err := timingFromDuration(parsed, duration, requested)
@@ -174,7 +202,13 @@ func fetch(ctx context.Context, client *http.Client, method, rawURL, body string
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return "", &HTTPError{Status: response.StatusCode, URL: rawURL}
+		var retryAfter time.Duration
+		if seconds, err := strconv.Atoi(response.Header.Get("Retry-After")); err == nil && seconds > 0 && seconds <= 604800 {
+			retryAfter = time.Duration(seconds) * time.Second
+		} else if date, err := http.ParseTime(response.Header.Get("Retry-After")); err == nil {
+			retryAfter = max(0, time.Until(date))
+		}
+		return "", &HTTPError{Status: response.StatusCode, URL: rawURL, RetryAfter: retryAfter}
 	}
 	bytes, err := io.ReadAll(response.Body)
 	if err != nil {

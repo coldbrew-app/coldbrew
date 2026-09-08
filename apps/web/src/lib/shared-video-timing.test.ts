@@ -5,6 +5,14 @@ import { getSharedVideoTimingParts } from "./shared-video-timing";
 describe("getSharedVideoTimingParts", () => {
   it.each([
     [
+      { startSeconds: 0, endSeconds: null, durationSeconds: null },
+      { startTime: null, endTime: null },
+    ],
+    [
+      { startSeconds: 30, endSeconds: null, durationSeconds: null },
+      { startTime: "0:30", endTime: null },
+    ],
+    [
       { startSeconds: 30, endSeconds: 90, durationSeconds: 120 },
       { startTime: "0:30", endTime: "1:30" },
     ],

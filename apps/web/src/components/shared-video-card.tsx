@@ -15,7 +15,7 @@ type Props = {
   video: SharedVideo;
 };
 
-const getYoutubeEmbedUrl = (url: string, startSeconds: number, endSeconds: number) => {
+const getYoutubeEmbedUrl = (url: string, startSeconds: number, endSeconds: number | null) => {
   const parsedUrl = rurl(url);
   const host = parsedUrl.hostname.replace(/^www\./, "").toLowerCase();
   const videoId =
@@ -30,7 +30,7 @@ const getYoutubeEmbedUrl = (url: string, startSeconds: number, endSeconds: numbe
 
   return rurl(`https://www.youtube-nocookie.com/embed/${videoId}`).withSearchParams({
     start: startSeconds,
-    end: endSeconds,
+    ...(endSeconds === null ? {} : { end: endSeconds }),
   }).href;
 };
 
@@ -46,9 +46,10 @@ export function SharedVideoCard({ showPriorityLabel = true, video }: Props) {
       : endTime !== null
         ? t("videoUntilTime", { endTime })
         : null;
-  const watchDuration = getRoundedWatchDurationParts(
-    getWatchDurationSeconds(video.startSeconds, video.endSeconds),
-  );
+  const watchDuration =
+    video.endSeconds === null
+      ? null
+      : getRoundedWatchDurationParts(getWatchDurationSeconds(video.startSeconds, video.endSeconds));
 
   return (
     <article className="group relative flex min-w-0 flex-col gap-4 px-4 py-5 transition-colors hover:bg-secondary/25 sm:px-5">
@@ -97,7 +98,13 @@ export function SharedVideoCard({ showPriorityLabel = true, video }: Props) {
                 </strong>
               )}
               <span className="text-xs text-muted-foreground">
-                {t("watchDuration", watchDuration)}
+                {watchDuration === null
+                  ? t(
+                      video.metadataUnavailable
+                        ? "videoDurationUnavailable"
+                        : "videoDurationPending",
+                    )
+                  : t("watchDuration", watchDuration)}
               </span>
             </div>
           </div>

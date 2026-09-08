@@ -23,6 +23,7 @@ type VideoQueue = Pick<
   | "updatePriority"
   | "updateStatus"
   | "updateVideo"
+  | "retryMetadata"
 >;
 
 const PAGE_SIZE = 25;
@@ -99,7 +100,7 @@ function createVideoProcedures(queue: VideoQueue) {
       .input(
         z.object({
           page: PageSchema,
-          videoPriorityId: z.int().positive().nullable(),
+          videoPriorityId: z.union([z.int().positive(), z.literal("unassigned")]).nullable(),
           videoStatus: VideoStatusSchema,
           videoId: VideoIdSchema.optional(),
         }),
@@ -174,6 +175,20 @@ function createVideoProcedures(queue: VideoQueue) {
         }
       }),
 
+    retryVideoMetadata: authenticatedProcedure
+      .input(
+        z.object({
+          videoId: VideoIdSchema,
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        try {
+          await queue.retryMetadata(ctx.userId, input.videoId);
+        } catch (error) {
+          translateVideoQueueError(error);
+        }
+      }),
+
     updateVideo: authenticatedProcedure
       .input(
         z
@@ -181,12 +196,15 @@ function createVideoProcedures(queue: VideoQueue) {
             videoId: VideoIdSchema,
             amount: MoneyAmountSchema,
             startSeconds: z.int().nonnegative(),
-            endSeconds: z.int().positive(),
+            endSeconds: z.int().positive().nullable(),
           })
-          .refine(({ startSeconds, endSeconds }) => endSeconds > startSeconds, {
-            message: "Video end must be after video start.",
-            path: ["endSeconds"],
-          }),
+          .refine(
+            ({ startSeconds, endSeconds }) => endSeconds === null || endSeconds > startSeconds,
+            {
+              message: "Video end must be after video start.",
+              path: ["endSeconds"],
+            },
+          ),
       )
       .mutation(async ({ ctx, input }) => {
         try {
