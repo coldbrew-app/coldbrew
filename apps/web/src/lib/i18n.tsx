@@ -204,6 +204,9 @@ const en = {
   sampleChart: "Example",
   chatFeedCounts: ({ sources, messages }: { sources: number; messages: number }) =>
     `Sources: ${sources} · Messages: ${messages}`,
+  chatDisconnectTitle: "Disconnect channel?",
+  chatDisconnectDescription: ({ name, provider }: { name: string; provider: string }) =>
+    `Messages from ${name} on ${provider} will no longer appear in the chat. You can reconnect the channel later.`,
   sampleChartDescription: "Illustrative chart. These values are not your donation history.",
   last7Days: "Last 7 days",
   last30Days: "Last 30 days",
@@ -559,6 +562,9 @@ const ru = defineTranslations({
   sampleChart: "Пример",
   chatFeedCounts: ({ sources, messages }: { sources: number; messages: number }) =>
     `Источники: ${sources} · Сообщения: ${messages}`,
+  chatDisconnectTitle: "Отключить канал?",
+  chatDisconnectDescription: ({ name, provider }: { name: string; provider: string }) =>
+    `Сообщения канала «${name}» в ${provider} больше не будут появляться в чате. Канал можно подключить снова.`,
   sampleChartDescription: "Демонстрационный график. Значения не отражают историю ваших донатов.",
   last7Days: "Последние 7 дней",
   last30Days: "Последние 30 дней",

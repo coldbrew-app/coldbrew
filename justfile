@@ -68,6 +68,13 @@ test-env-init:
     (cd "$test_dir/$directory" && just env-init >/dev/null)
     cmp "$test_dir/previous.env" "$test_dir/$directory/.env"
   done
+  git -C "$test_dir/primary checkout" config --local coldbrew.devComposeProject existing_shared_dev
+  for directory in "primary checkout" worktree-one worktree-two; do
+    (cd "$test_dir/$directory" && just env-init >/dev/null)
+    source "$test_dir/$directory/.env"
+    [[ "$COMPOSE_PROJECT_NAME" == existing_shared_dev ]] || { echo 'Shared Compose project override was not preserved' >&2; exit 1; }
+    [[ "$PGPORT" == "$shared_db_port" && "$NATS_PORT" == "$shared_nats_port" ]]
+  done
   echo 'Environment initialization is shared, isolated, and repeatable.'
 
 # Build the runtime environment for the current worktree from long-lived dev settings.
@@ -109,6 +116,14 @@ env-init $source_env=".env.dev":
   nats_port="$(hash_port "$repository_id:nats")"
   db_name="coldbrew_$name_suffix"
   compose_project="${repository_name:0:32}_dev_$repository_hash"
+  shared_compose_project="$(git config --local --get coldbrew.devComposeProject || true)"
+  if [[ -n "$shared_compose_project" ]]; then
+    if [[ ! "$shared_compose_project" =~ ^[a-z0-9][a-z0-9_-]*$ ]]; then
+      echo 'Invalid coldbrew.devComposeProject Git setting' >&2
+      exit 1
+    fi
+    compose_project="$shared_compose_project"
+  fi
   nats_namespace="wt_$branch_hash"
 
   bunx dotenvx decrypt -f "$source_env" -fk .env.keys --stdout > .env
