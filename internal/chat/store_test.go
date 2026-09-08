@@ -2,9 +2,11 @@ package chat
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -192,5 +194,87 @@ func TestStoreSavesOptionalDeviceID(t *testing.T) {
 				t.Fatalf("source count = %d; want 1", count)
 			}
 		})
+	}
+}
+
+func TestBoostySessionExpiryAndRotationWithPostgres(t *testing.T) {
+	databaseURL := os.Getenv("CHAT_STORE_TEST_DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("CHAT_STORE_TEST_DATABASE_URL is required for PostgreSQL integration tests")
+	}
+	ctx := context.Background()
+	config, err := pgxpool.ParseConfig(databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config.MaxConns = 1
+	pool, err := pgxpool.NewWithConfig(ctx, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	// Exercise the applied schema without exposing test credentials to running collectors.
+	_, err = pool.Exec(ctx, `
+  CREATE TEMP TABLE chat_provider_connection (LIKE public.chat_provider_connection INCLUDING ALL);
+  CREATE TEMP TABLE chat_source (LIKE public.chat_source INCLUDING ALL);
+ `)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cipher, err := NewTokenCipher("boosty-postgres-test-secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := NewStore(pool, cipher)
+	rotations := 0
+	client := &http.Client{Transport: oauthRoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		switch r.URL.Path {
+		case "/v1/user/current":
+			return youtubeResponse(200, `{"id":42,"name":"Streamer","blogUrl":"my.blog"}`), nil
+		case "/v1/blog/my.blog":
+			return youtubeResponse(200, `{"owner":{"id":42}}`), nil
+		case "/oauth/token/":
+			rotations++
+			return youtubeResponse(200, `{"access_token":"renewed","refresh_token":"rotated","expires_in":3600}`), nil
+		default:
+			t.Errorf("unexpected request %s", r.URL.Path)
+			return youtubeResponse(404, `{}`), nil
+		}
+	})}
+	now := time.Now().Truncate(time.Millisecond)
+	expiry := now.Add(time.Hour).UnixMilli()
+	input := BoostyCredentials{AccessToken: "access", RefreshToken: "refresh", DeviceID: "separate-device", ExpiresAt: &expiry, DedicatedSession: true}
+	if err := NewBoostyConnector(NewBoostyProvider(client), store).Connect(ctx, 1, input); err != nil {
+		t.Fatal(err)
+	}
+	sources, err := store.GetEnabledSources(ctx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sources) != 1 || sources[0].Credentials.ExpiresAt == nil || sources[0].Credentials.ExpiresAt.UnixMilli() != expiry {
+		t.Fatal("imported expiry did not survive database round trip")
+	}
+	refresher := NewTokenRefresher(store, TokenRefreshConfigs(nil, nil, nil, nil, ""), client)
+	refresher.now = func() time.Time { return now }
+	if _, err := refresher.Refresh(ctx, sources[0]); err != nil {
+		t.Fatal(err)
+	}
+	if rotations != 0 {
+		t.Fatal("fresh session was rotated")
+	}
+	refresher.now = func() time.Time { return now.Add(time.Hour) }
+	if _, err := refresher.Refresh(ctx, sources[0]); err != nil {
+		t.Fatal(err)
+	}
+	reloaded, err := store.GetEnabledSources(ctx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(reloaded) != 1 {
+		t.Fatal("connection lost after renewal")
+	}
+	credentials := reloaded[0].Credentials
+	if rotations != 1 || credentials.AccessToken != "renewed" || credentials.RefreshToken != "rotated" || credentials.DeviceID != "separate-device" || credentials.TokenVersion != sources[0].Credentials.TokenVersion+1 || credentials.ExpiresAt == nil || !credentials.ExpiresAt.Equal(now.Add(2*time.Hour)) {
+		t.Fatal("renewed session was not persisted consistently")
 	}
 }

@@ -48,7 +48,7 @@ func TestBoostyConnectOwnedAccount(t *testing.T) {
 	provider := NewBoostyProvider(server.Client())
 	provider.apiURL = server.URL
 	store := &boostyTestStore{capacity: true}
-	if err := NewBoostyConnector(provider, store).Connect(context.Background(), 7, BoostyCredentials{AccessToken: " session-token ", RefreshToken: " refresh-token ", DeviceID: " device-1 "}); err != nil {
+	if err := NewBoostyConnector(provider, store).Connect(context.Background(), 7, BoostyCredentials{AccessToken: " session-token ", RefreshToken: " refresh-token ", DeviceID: " device-1 ", DedicatedSession: true}); err != nil {
 		t.Fatal(err)
 	}
 	if store.userID != 7 || store.source.ProviderSourceID != "my.blog" || store.connection.ProviderUserID != "42" || store.connection.AccessToken != "session-token" || store.saves != 1 || store.connection.RefreshToken != "refresh-token" || store.connection.OAuthDeviceID != "device-1" {
@@ -234,5 +234,58 @@ func TestBoostyStreamReportsProtocolErrorsAndRetries(t *testing.T) {
 				t.Fatalf("errors %d, waits %d", errorsSeen, waits)
 			}
 		})
+	}
+}
+
+// Importing a valid browser auth must not rotate its session at collector startup.
+func TestBoostyConnectPreservesExpiryBeforeCollectorRefresh(t *testing.T) {
+	expiry := time.Now().Add(time.Hour).Truncate(time.Millisecond)
+	var input BoostyCredentials
+	payload, _ := json.Marshal(map[string]any{"accessToken": "session-token", "refreshToken": "refresh-token", "deviceId": "device-1", "expiresAt": expiry.UnixMilli(), "dedicatedSession": true})
+	if err := json.Unmarshal(payload, &input); err != nil {
+		t.Fatal(err)
+	}
+	rotations := 0
+	client := &http.Client{Transport: oauthRoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		switch r.URL.Path {
+		case "/v1/user/current":
+			return youtubeResponse(200, `{"id":42,"name":"Streamer","blogUrl":"my.blog"}`), nil
+		case "/v1/blog/my.blog":
+			return youtubeResponse(200, `{"owner":{"id":42}}`), nil
+		case "/oauth/token/":
+			rotations++
+			return youtubeResponse(400, `{"error":"invalid_grant"}`), nil
+		default:
+			t.Errorf("unexpected request %s", r.URL.Path)
+			return youtubeResponse(404, `{}`), nil
+		}
+	})}
+	store := &boostyTestStore{capacity: true}
+	if err := NewBoostyConnector(NewBoostyProvider(client), store).Connect(context.Background(), 7, input); err != nil {
+		t.Fatal(err)
+	}
+	saved := store.connection
+	source := ConnectedSource{Source: Source{Provider: "boosty", ProviderSourceID: "my.blog"}, Credentials: ProviderCredentials{AccessToken: saved.AccessToken, RefreshToken: saved.RefreshToken, DeviceID: saved.OAuthDeviceID, ExpiresAt: saved.AccessTokenExpiresAt}}
+	refreshed, err := NewTokenRefresher(&refreshStore{}, TokenRefreshConfigs(nil, nil, nil, nil, ""), client).Refresh(context.Background(), source)
+	if rotations != 0 {
+		t.Fatal("collector rotated a still-valid imported session")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if refreshed.Credentials.ExpiresAt == nil || !refreshed.Credentials.ExpiresAt.Equal(expiry) {
+		t.Fatal("imported expiry was lost")
+	}
+}
+
+func TestBoostyConnectRejectsSharedRefreshSession(t *testing.T) {
+	client := &http.Client{Transport: oauthRoundTripFunc(func(*http.Request) (*http.Response, error) {
+		t.Fatal("unconfirmed session reached Boosty")
+		return nil, nil
+	})}
+	store := &boostyTestStore{capacity: true}
+	err := NewBoostyConnector(NewBoostyProvider(client), store).Connect(context.Background(), 7, BoostyCredentials{AccessToken: "access", RefreshToken: "refresh", DeviceID: "browser"})
+	if err == nil || store.saves != 0 {
+		t.Fatal("shared browser refresh session accepted")
 	}
 }

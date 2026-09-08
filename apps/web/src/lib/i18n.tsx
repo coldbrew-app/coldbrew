@@ -153,7 +153,10 @@ const en = {
     "Read-only connection through an unofficial API. Follow these steps to copy your connection details.",
   devtoolsApplication: "Application",
   devtoolsStorage: "Storage",
-  boostyTokenStepSignIn: "Sign in to your account at",
+  boostyTokenStepSignIn:
+    "Create a separate browser profile for Coldbrew (without browser sync). In that profile, sign in to your account at",
+  boostyDedicatedSession:
+    "I used a separate browser profile and will close its Boosty tabs after copying the credentials",
   boostyTokenStepFind: ({ application, storage }: { application: string; storage: string }) =>
     `On the Boosty tab, open developer tools from the browser menu → ${application} (${storage} in Firefox or Safari). Find the auth entry in Cookies or Local Storage for Boosty.`,
   boostyTokenStepChromium: ({ shortcut, panel }: { shortcut: string; panel: string }) =>
@@ -167,7 +170,7 @@ const en = {
   boostyTokenStepCopy:
     "Copy the entire value of auth into the auth field below without changing it. Copy _clientId from the same browser’s Cookies or Local Storage into the _clientId field.",
   boostyTokenStorage:
-    "Your tokens are stored encrypted. Coldbrew renews access automatically. If Boosty revokes the session, reconnect here with current credentials.",
+    "Close Boosty tabs in that profile without signing out. Use your usual profile to visit Boosty. Sharing one session with Coldbrew causes sign-outs and connection errors when either side renews it. Tokens are encrypted and renewed automatically.",
   boostyConnectError:
     "Could not connect Boosty. Check that the token is current and belongs to an account with a blog, then try again. Also check the channel limit and service availability.",
   chatOauthSuccess: "Chat account connected.",
@@ -487,7 +490,10 @@ const ru = defineTranslations({
     "Подключение только для чтения через неофициальный API. Скопируйте данные для подключения по инструкции ниже.",
   devtoolsApplication: "Приложение",
   devtoolsStorage: "Хранилище",
-  boostyTokenStepSignIn: "Войдите в свой аккаунт на",
+  boostyTokenStepSignIn:
+    "Создайте отдельный профиль браузера для Coldbrew без синхронизации. В нём войдите в свой аккаунт на",
+  boostyDedicatedSession:
+    "Я использую отдельный профиль браузера и закрою в нём вкладки Boosty после копирования данных",
   boostyTokenStepFind: ({ application, storage }: { application: string; storage: string }) =>
     `На вкладке Boosty откройте инструменты разработчика через меню браузера → ${application} (${storage} в Firefox или Safari). Найдите запись auth в Cookies или Local Storage для Boosty.`,
   boostyTokenStepChromium: ({ shortcut, panel }: { shortcut: string; panel: string }) =>
@@ -501,7 +507,7 @@ const ru = defineTranslations({
   boostyTokenStepCopy:
     "Скопируйте значение auth целиком и без изменений в поле auth ниже. В поле _clientId вставьте значение _clientId из Cookies или Local Storage того же браузера.",
   boostyTokenStorage:
-    "Токены хранятся зашифрованными. Coldbrew автоматически обновляет доступ. Если Boosty отзовёт сессию, подключите аккаунт здесь заново с актуальными данными.",
+    "Закройте вкладки Boosty в отдельном профиле, не нажимая «Выйти». Пользуйтесь Boosty в обычном профиле. Общая с Coldbrew сессия приводит к выходам из аккаунта и ошибкам при обновлении токенов. Токены хранятся зашифрованными и обновляются автоматически.",
   boostyConnectError:
     "Не удалось подключить Boosty. Проверьте, что токен действителен и принадлежит аккаунту с блогом, затем повторите попытку. Также проверьте лимит каналов и доступность сервиса.",
   chatOauthSuccess: "Аккаунт чата подключён.",
