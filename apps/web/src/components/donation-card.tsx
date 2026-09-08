@@ -1,14 +1,24 @@
+import { Link } from "@tanstack/react-router";
+import type { inferRouterOutputs } from "@trpc/server";
 import { fmtAmount, fmtDate, formatRelativeDate } from "@web/lib/fmt";
+import type { AppRouter } from "@web/server/api/trpc";
 import type { Donation } from "@web/server/exports";
 import { clsx } from "clsx";
 
 import { useTextWithLinks } from "../hooks/use-text-with-links";
 import { useI18n } from "../lib/i18n";
 import { DonationAlertsSourceBadge } from "./donation-alerts";
+import { Icons } from "./icons";
+import { buttonVariants } from "./ui/button";
 
 type Props = {
   className?: string;
   donation: Donation;
+  expandMessage?: boolean;
+  videoParsing?: Pick<
+    inferRouterOutputs<AppRouter>["donationPage"]["items"][number],
+    "videos" | "videosParsedAt"
+  >;
 };
 
 function getInitials(author: string) {
@@ -20,7 +30,12 @@ function getInitials(author: string) {
     .toUpperCase();
 }
 
-export default function DonationCard({ donation, ...props }: Props) {
+export default function DonationCard({
+  donation,
+  videoParsing,
+  expandMessage = false,
+  ...props
+}: Props) {
   const { locale, t } = useI18n();
   const author = donation.author ?? t("anonymous");
   const messageChunks = useTextWithLinks(donation.message ?? t("sentDonation"));
@@ -40,7 +55,12 @@ export default function DonationCard({ donation, ...props }: Props) {
           <strong className="text-[13px] text-card-foreground">{author}</strong>
           <DonationAlertsSourceBadge className="text-[9px]" />
         </div>
-        <p className="line-clamp-3 text-sm leading-6 break-words text-muted-foreground [overflow-wrap:anywhere]">
+        <p
+          className={clsx(
+            "text-sm leading-6 break-words text-muted-foreground [overflow-wrap:anywhere]",
+            !expandMessage && "line-clamp-3",
+          )}
+        >
           {messageChunks.map((chunk, index) =>
             chunk.type === "string" ? (
               <span key={index}>{chunk.value}</span>
@@ -56,6 +76,36 @@ export default function DonationCard({ donation, ...props }: Props) {
             ),
           )}
         </p>
+        {videoParsing?.videosParsedAt === null && (
+          <p className="text-xs text-muted-foreground">{t("donationVideosPending")}</p>
+        )}
+        {videoParsing && videoParsing.videos.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {videoParsing.videos.map((video, index) => (
+              <Link
+                className={buttonVariants({
+                  variant: "secondary",
+                  size: "sm",
+                  className: "max-w-full rounded-full",
+                })}
+                key={video.videoId}
+                title={video.title ?? t("goToVideo")}
+                to="/videos"
+                search={{
+                  videoId: video.videoId.toString(),
+                  page: 1,
+                  videoPriorityId: "all",
+                  videoStatus: "all",
+                }}
+              >
+                <Icons.video aria-hidden="true" />
+                <span className="truncate">
+                  {video.title ?? t("donationVideoNumber", { number: index + 1 })}
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
       <div className="shrink-0 text-right">
         <strong className="block text-sm font-semibold tabular-nums text-card-foreground">

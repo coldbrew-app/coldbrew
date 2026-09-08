@@ -101,6 +101,7 @@ function createVideoProcedures(queue: VideoQueue) {
           page: PageSchema,
           videoPriorityId: z.int().positive().nullable(),
           videoStatus: VideoStatusSchema,
+          videoId: VideoIdSchema.optional(),
         }),
       )
       .query(async ({ ctx, input }) => {

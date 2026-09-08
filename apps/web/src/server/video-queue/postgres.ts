@@ -50,14 +50,17 @@ class PostgresVideoQueue {
       pageSize: number;
       videoPriorityId: number | null;
       videoStatus: VideoStatus;
+      videoId?: VideoId;
     },
   ) {
+    const focusedVideoId = input.videoId?.toString() ?? null;
     const statisticRows = await Promise.all([
       this.sql`
         SELECT count(*)::int AS total
         FROM video
         LEFT JOIN donation USING (donation_id)
         WHERE coalesce(video.user_id, donation.user_id) = ${userId}
+          AND (${focusedVideoId}::bigint IS NULL OR video.video_id = ${focusedVideoId})
           AND (${input.videoPriorityId}::int IS NULL OR video.video_priority_id = ${input.videoPriorityId})
           AND (
             ${input.videoStatus} = 'all'
@@ -152,6 +155,7 @@ class PostgresVideoQueue {
         ON "user".user_id = coalesce(video.user_id, donation.user_id)
       LEFT JOIN video_priority USING (video_priority_id)
       WHERE "user".user_id = ${userId}
+        AND (${focusedVideoId}::bigint IS NULL OR video.video_id = ${focusedVideoId})
         AND (${input.videoPriorityId}::int IS NULL OR video.video_priority_id = ${input.videoPriorityId})
         AND (
           ${input.videoStatus} = 'all'
@@ -240,7 +244,8 @@ class PostgresVideoQueue {
         queue_amount,
         start_seconds,
         end_seconds,
-        duration_seconds
+        duration_seconds,
+        title
       )
       VALUES (
         ${userId},
@@ -251,7 +256,8 @@ class PostgresVideoQueue {
         ${input.amount},
         ${timing.startSeconds},
         ${timing.endSeconds},
-        ${timing.durationSeconds}
+        ${timing.durationSeconds},
+        ${timing.title}
       )
       RETURNING video_id
     `;

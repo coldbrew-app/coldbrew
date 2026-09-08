@@ -2,6 +2,7 @@ package youtube
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 )
 
 var (
+	videoDetailsPattern    = regexp.MustCompile(`"videoDetails"\s*:\s*`)
 	urlPattern             = regexp.MustCompile(`(?i)(?:(?:https?://)|(?:www\.))(?:[a-z0-9-]+\.)*(?:youtube\.com|youtube-nocookie\.com)(?:/[^\s<>]*)?|(?:(?:https?://)|(?:www\.))youtu\.be(?:/[^\s<>]*)?`)
 	timestampPattern       = regexp.MustCompile(`^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$`)
 	lengthSecondsPattern   = regexp.MustCompile(`(?:"|\\")lengthSeconds(?:"|\\")\s*:\s*(?:"|\\")(\d+)`)
@@ -22,6 +24,7 @@ var (
 )
 
 type Timing struct {
+	Title           string
 	StartSeconds    int
 	EndSeconds      int
 	DurationSeconds int
@@ -142,7 +145,19 @@ func GetTiming(ctx context.Context, client *http.Client, rawURL string, requeste
 			return Timing{}, errors.New("youtube: duration not found")
 		}
 	}
-	return timingFromDuration(parsed, duration, requested)
+	timing, err := timingFromDuration(parsed, duration, requested)
+	if err != nil {
+		return Timing{}, err
+	}
+	if location := videoDetailsPattern.FindStringIndex(body); location != nil {
+		var details struct {
+			Title string `json:"title"`
+		}
+		if json.NewDecoder(strings.NewReader(body[location[1]:])).Decode(&details) == nil {
+			timing.Title = strings.TrimSpace(details.Title)
+		}
+	}
+	return timing, nil
 }
 
 func fetch(ctx context.Context, client *http.Client, method, rawURL, body string, headers map[string]string) (string, error) {

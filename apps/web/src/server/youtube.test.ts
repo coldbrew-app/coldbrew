@@ -16,7 +16,9 @@ afterEach(() => vi.clearAllMocks());
 
 describe("getYoutubeTiming", () => {
   it("reads and validates timing through youtubei.js", async () => {
-    youtube.getBasicInfo.mockResolvedValue({ basic_info: { duration: 120 } });
+    youtube.getBasicInfo.mockResolvedValue({
+      basic_info: { duration: 120, title: "  A video title  " },
+    });
 
     await expect(
       getYoutubeTiming("https://www.youtube.com/watch?v=video", {
@@ -27,6 +29,7 @@ describe("getYoutubeTiming", () => {
       startSeconds: 10,
       endSeconds: 70,
       durationSeconds: 120,
+      title: "A video title",
     });
     expect(youtube.getBasicInfo).toHaveBeenCalledWith("video");
   });
@@ -61,6 +64,7 @@ describe("getYoutubeTiming", () => {
       startSeconds: 0,
       endSeconds: 60,
       durationSeconds: 90,
+      title: null,
     });
   });
 

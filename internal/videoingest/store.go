@@ -22,6 +22,7 @@ type Job struct {
 }
 
 type Video struct {
+	Title           string
 	ProviderVideoID string
 	URL             string
 	QueueAmount     *string
@@ -117,11 +118,12 @@ func (store *Store) Complete(ctx context.Context, job Job, videos []Video, now t
 					queue_amount,
 					start_seconds,
 					end_seconds,
-					duration_seconds
+					duration_seconds,
+ title
 				)
-				VALUES ($1, 'youtube', $2, $3, $4, $5, $6, $7)
+				VALUES ($1, 'youtube', $2, $3, $4, $5, $6, $7, nullif($8, ''))
 				ON CONFLICT (donation_id, provider, provider_video_id) DO NOTHING
-			`, job.DonationID, video.ProviderVideoID, video.URL, video.QueueAmount, video.StartSeconds, video.EndSeconds, video.DurationSeconds)
+			`, job.DonationID, video.ProviderVideoID, video.URL, video.QueueAmount, video.StartSeconds, video.EndSeconds, video.DurationSeconds, video.Title)
 			if err != nil {
 				return err
 			}

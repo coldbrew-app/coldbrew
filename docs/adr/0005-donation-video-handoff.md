@@ -43,3 +43,14 @@ effects idempotent.
 The startup backfill is intentionally retained even after rollout: it repairs missing queue rows
 without modifying donations and is safe for concurrent replicas through `ON CONFLICT DO NOTHING`.
 Completed scan rows provide operational history and are not deleted by the worker.
+
+Video metadata includes a nullable `video.title`, populated from YouTube when a
+video is added by the worker or manually. An unavailable title does not prevent a
+video from being queued. Donation chips show the stored title, falling back to a
+numbered video label when metadata is unavailable.
+
+After applying the schema, run `just video-titles-backfill` to fill missing titles
+for existing videos. The command fetches each distinct YouTube video once per run,
+updates only missing titles, and leaves donation parsing, video timing, queue
+amounts, priorities, and statuses unchanged. Failed lookups stay eligible for the
+next run; the command reports failures with a nonzero exit status.
