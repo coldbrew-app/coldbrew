@@ -126,7 +126,10 @@ export default function VideoCard({
     if (!onUpdate) {
       return;
     }
-    const timing = parseVideoTiming(input, { allowOpenEnd: true });
+    const timing = parseVideoTiming(input, {
+      allowOpenEnd: true,
+      maximumEndSeconds: video.durationSeconds,
+    });
     if (timing === null) {
       return;
     }
@@ -279,7 +282,12 @@ export default function VideoCard({
                     />
                     <FieldError errors={[formState.errors.amount]} id={amountErrorId} />
                   </Field>
-                  <VideoTimingFields allowOpenEnd disabled={isUpdating} showOpenEndHelp={false} />
+                  <VideoTimingFields
+                    allowOpenEnd
+                    disabled={isUpdating}
+                    maximumEndSeconds={video.durationSeconds}
+                    showOpenEndHelp={false}
+                  />
                 </div>
                 <div className="flex items-center justify-end gap-2">
                   <Button
