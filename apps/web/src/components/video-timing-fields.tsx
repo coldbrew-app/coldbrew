@@ -24,7 +24,10 @@ type ParsedVideoTiming = {
 
 export function parseVideoTiming(
   { endTime, startTime }: VideoTimingValues,
-  { allowOpenEnd }: { allowOpenEnd: boolean },
+  {
+    allowOpenEnd,
+    maximumEndSeconds = null,
+  }: { allowOpenEnd: boolean; maximumEndSeconds?: number | null },
 ): ParsedVideoTiming | null {
   const startSeconds = parseVideoTime(startTime);
   const normalizedEndTime = endTime.trim();
@@ -39,6 +42,9 @@ export function parseVideoTiming(
   if (endSeconds <= startSeconds) {
     return null;
   }
+  if (maximumEndSeconds !== null && endSeconds > maximumEndSeconds) {
+    return null;
+  }
 
   return { startSeconds, endSeconds };
 }
@@ -47,6 +53,7 @@ type Props = {
   allowOpenEnd?: boolean;
   className?: string;
   disabled?: boolean;
+  maximumEndSeconds?: number | null;
   showOpenEndHelp?: boolean;
 };
 
@@ -54,6 +61,7 @@ export function VideoTimingFields({
   allowOpenEnd = false,
   className,
   disabled = false,
+  maximumEndSeconds = null,
   showOpenEndHelp = true,
 }: Props) {
   const { t } = useI18n();
@@ -119,11 +127,13 @@ export function VideoTimingFields({
                 return t("invalidVideoTime");
               }
               const candidateStartSeconds = parseVideoTime(getValues("startTime"));
-              return (
-                candidateStartSeconds === null ||
-                candidateEndSeconds > candidateStartSeconds ||
-                t("videoEndAfterStart")
-              );
+              if (candidateStartSeconds !== null && candidateEndSeconds <= candidateStartSeconds) {
+                return t("videoEndAfterStart");
+              }
+              if (maximumEndSeconds !== null && candidateEndSeconds > maximumEndSeconds) {
+                return t("videoEndWithinDuration");
+              }
+              return true;
             },
           })}
         />
