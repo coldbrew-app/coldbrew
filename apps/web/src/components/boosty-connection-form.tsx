@@ -149,6 +149,24 @@ export function BoostyConnectionForm({ onClose }: { onClose: () => void }) {
             />
             <span>{t("boostyDedicatedSession")}</span>
           </label>
+          <label className="flex flex-col gap-1 text-sm" htmlFor="boosty-device-id">
+            <span>
+              <BoostyInstructionText text={t("boostyDeviceId")} />
+            </span>
+            <Input
+              autoComplete="off"
+              autoCapitalize="none"
+              data-1p-ignore
+              data-lpignore="true"
+              disabled={connect.isPending}
+              id="boosty-device-id"
+              maxLength={200}
+              onChange={(event) => setDeviceId(event.target.value)}
+              required
+              spellCheck={false}
+              value={deviceId}
+            />
+          </label>
           <label className="flex flex-col gap-1 text-sm" htmlFor="boosty-auth">
             <span>
               <BoostyInstructionText text={t("boostyAuth")} />
@@ -181,24 +199,6 @@ export function BoostyConnectionForm({ onClose }: { onClose: () => void }) {
               {t("boostyAuthInvalid")}
             </p>
           )}
-          <label className="flex flex-col gap-1 text-sm" htmlFor="boosty-device-id">
-            <span>
-              <BoostyInstructionText text={t("boostyDeviceId")} />
-            </span>
-            <Input
-              autoComplete="off"
-              autoCapitalize="none"
-              data-1p-ignore
-              data-lpignore="true"
-              disabled={connect.isPending}
-              id="boosty-device-id"
-              maxLength={200}
-              onChange={(event) => setDeviceId(event.target.value)}
-              required
-              spellCheck={false}
-              value={deviceId}
-            />
-          </label>
           <p className="text-sm leading-relaxed text-muted-foreground" id="boosty-token-storage">
             {t("boostyTokenStorage")}
           </p>
