@@ -27,7 +27,7 @@ func metadataDelay(attempt int) time.Duration {
 
 // RunMetadata is independent of donation scanning so external requests cannot
 // delay persistence of new videos. Job ownership survives process restarts.
-func (store *Store) RunMetadata(ctx context.Context, client *http.Client) error {
+func (store *Store) RunMetadata(ctx context.Context, client *http.Client, apiKey string) error {
 	_, err := store.pool.Exec(ctx, `
 		INSERT INTO video_metadata_job (video_id)
 		SELECT video_id FROM video WHERE duration_seconds IS NULL
@@ -37,7 +37,7 @@ func (store *Store) RunMetadata(ctx context.Context, client *http.Client) error 
 		return err
 	}
 	for ctx.Err() == nil {
-		worked, err := store.processMetadata(ctx, client)
+		worked, err := store.processMetadata(ctx, client, apiKey)
 		if err != nil && ctx.Err() == nil {
 			return err
 		}
@@ -54,7 +54,7 @@ func (store *Store) RunMetadata(ctx context.Context, client *http.Client) error 
 	return nil
 }
 
-func (store *Store) processMetadata(ctx context.Context, client *http.Client) (bool, error) {
+func (store *Store) processMetadata(ctx context.Context, client *http.Client, apiKey string) (bool, error) {
 	var job metadataJob
 	err := store.pool.QueryRow(ctx, `
 		WITH candidate AS (
@@ -86,34 +86,26 @@ func (store *Store) processMetadata(ctx context.Context, client *http.Client) (b
 	if !ok {
 		return true, errors.New("stored video has invalid provider URL")
 	}
-	timing, lookupErr := NewYouTubeClient(client).Timing(ctx, "https://www.youtube.com/watch?v="+url.QueryEscape(id))
+	timing, lookupErr := youtube.GetTiming(ctx, client, apiKey, "https://www.youtube.com/watch?v="+url.QueryEscape(id), nil)
 	if ctx.Err() != nil {
 		return true, nil
 	}
 	title := timing.Title
-	if title == "" && lookupErr != nil {
-		// A missing duration does not prevent independent title enrichment.
-		title, _ = youtube.GetTitle(ctx, client, job.URL)
-	}
-	if ctx.Err() != nil {
-		return true, nil
-	}
 
 	code := ""
 	var status *int
-	terminal := false
 	nextAttempt := time.Now()
 	if lookupErr != nil {
 		code = "duration_unavailable"
 		delay := time.Duration(float64(metadataDelay(job.Attempts)) * (0.8 + rand.Float64()*0.4))
-		var unavailable *youtube.UnavailableError
 		var httpError *youtube.HTTPError
 		var transport *youtube.TransportError
 		switch {
-		case errors.As(lookupErr, &unavailable):
-			code, terminal = unavailable.Reason, true
 		case errors.As(lookupErr, &httpError):
 			code, status = "http_failure", &httpError.Status
+			if httpError.Reason != "" {
+				code = httpError.Reason
+			}
 			delay = max(delay, httpError.RetryAfter)
 		case errors.As(lookupErr, &transport):
 			code = "transport_failure"
@@ -126,7 +118,7 @@ func (store *Store) processMetadata(ctx context.Context, client *http.Client) (b
 				}
 				return *status
 			}(),
-			"terminal", terminal, "next_attempt_at", nextAttempt)
+			"next_attempt_at", nextAttempt)
 	}
 
 	err = pgx.BeginFunc(ctx, store.pool, func(tx pgx.Tx) error {
@@ -137,7 +129,7 @@ func (store *Store) processMetadata(ctx context.Context, client *http.Client) (b
 				available_at = $4, last_error_code = nullif($5, ''), last_http_status = $6
 			WHERE video_id = $1 AND generation = $2
 				AND completed_at IS NULL AND lease_expires_at > now()
-		`, job.VideoID, job.Generation, lookupErr == nil || terminal, nextAttempt, code, status)
+		`, job.VideoID, job.Generation, lookupErr == nil, nextAttempt, code, status)
 		if err != nil {
 			return err
 		}

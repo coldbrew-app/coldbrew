@@ -96,6 +96,7 @@ The GitHub Variables and Secrets described below provide:
   external PostgreSQL binding (defaults to `5432`);
 - `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET`;
 - optionally, `YOUTUBE_CLIENT_ID` and `YOUTUBE_CLIENT_SECRET` for multichat OAuth;
+- `YOUTUBE_API_KEY` for video duration and title lookups through YouTube Data API v3;
 - optionally, `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET` for multichat OAuth;
 - optionally, `KICK_CLIENT_ID`, `KICK_CLIENT_SECRET`, and `KICK_WEBHOOK_PUBLIC_KEY` for
   multichat OAuth and signed webhook verification;
@@ -206,26 +207,27 @@ Add these environment variables:
 
 Add these environment secrets:
 
-| Name                            | Value                                        | Required |
-| ------------------------------- | -------------------------------------------- | -------- |
-| `AWS_ACCESS_KEY_ID`             | Static AWS access key                        | no       |
-| `AWS_SECRET_ACCESS_KEY`         | Static AWS secret key                        | no       |
-| `AWS_SESSION_TOKEN`             | Temporary AWS session token                  | no       |
-| `AXIOM_TOKEN`                   | Axiom ingest-only API token                  | yes      |
-| `BETTER_AUTH_SECRET`            | At least 32 random characters                | yes      |
-| `BOOSTY_CLIENT_SECRET`          | Boosty OAuth client secret                   | no       |
-| `CHAT_SERVICE_SECRET`           | At least 32 random characters                | yes      |
-| `CHAT_TOKEN_ENCRYPTION_SECRET`  | At least 32 random characters                | yes      |
-| `DONATIONS_SERVICE_SECRET`      | At least 32 random characters                | yes      |
-| `DONATION_ALERTS_CLIENT_SECRET` | DonationAlerts OAuth client secret           | yes      |
-| `GOOGLE_CLIENT_SECRET`          | Google OAuth client secret                   | yes      |
-| `KICK_CLIENT_SECRET`            | Kick OAuth client secret                     | no       |
-| `TWITCH_CLIENT_SECRET`          | Twitch OAuth client secret                   | no       |
-| `VK_VIDEO_CLIENT_SECRET`        | VK Video OAuth client secret                 | no       |
-| `YOUTUBE_CLIENT_SECRET`         | YouTube chat OAuth client secret             | no       |
-| `PGPASSWORD`                    | PostgreSQL password                          | yes      |
-| `SSH_KNOWN_HOSTS`               | Verified `known_hosts` line for the VPS      | yes      |
-| `SSH_PRIVATE_KEY`               | Private half of the dedicated deployment key | yes      |
+| Name                            | Value                                                       | Required |
+| ------------------------------- | ----------------------------------------------------------- | -------- |
+| `AWS_ACCESS_KEY_ID`             | Static AWS access key                                       | no       |
+| `AWS_SECRET_ACCESS_KEY`         | Static AWS secret key                                       | no       |
+| `AWS_SESSION_TOKEN`             | Temporary AWS session token                                 | no       |
+| `AXIOM_TOKEN`                   | Axiom ingest-only API token                                 | yes      |
+| `BETTER_AUTH_SECRET`            | At least 32 random characters                               | yes      |
+| `BOOSTY_CLIENT_SECRET`          | Boosty OAuth client secret                                  | no       |
+| `CHAT_SERVICE_SECRET`           | At least 32 random characters                               | yes      |
+| `CHAT_TOKEN_ENCRYPTION_SECRET`  | At least 32 random characters                               | yes      |
+| `DONATIONS_SERVICE_SECRET`      | At least 32 random characters                               | yes      |
+| `DONATION_ALERTS_CLIENT_SECRET` | DonationAlerts OAuth client secret                          | yes      |
+| `GOOGLE_CLIENT_SECRET`          | Google OAuth client secret                                  | yes      |
+| `KICK_CLIENT_SECRET`            | Kick OAuth client secret                                    | no       |
+| `TWITCH_CLIENT_SECRET`          | Twitch OAuth client secret                                  | no       |
+| `VK_VIDEO_CLIENT_SECRET`        | VK Video OAuth client secret                                | no       |
+| `YOUTUBE_API_KEY`               | YouTube Data API key restricted to `youtube.googleapis.com` | yes      |
+| `YOUTUBE_CLIENT_SECRET`         | YouTube chat OAuth client secret                            | no       |
+| `PGPASSWORD`                    | PostgreSQL password                                         | yes      |
+| `SSH_KNOWN_HOSTS`               | Verified `known_hosts` line for the VPS                     | yes      |
+| `SSH_PRIVATE_KEY`               | Private half of the dedicated deployment key                | yes      |
 
 `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` must either both be set or both
 be omitted when the VPS uses an IAM role or another supported credential

@@ -6,12 +6,24 @@ open segment has a NULL end until metadata arrives. Such videos remain visible
 under “Без очереди”. A known segment permits priority assignment even before
 the full provider duration is known.
 
+Metadata comes from YouTube Data API v3 `videos.list`, requesting
+`contentDetails.duration`, `snippet.title`, and `snippet.liveBroadcastContent`
+in one request. ISO 8601 durations are normalized to positive integer seconds.
+Active and upcoming live broadcasts keep an unknown duration and retry until
+a final duration becomes available; their titles can be saved immediately.
+Title backfills also use this API. HTML scraping, the internal player endpoint,
+and oEmbed are no longer used by the video service.
+
 Metadata jobs are durable. Automatic attempts run immediately, then after
 15 seconds, 1 minute, 5 minutes, 15 minutes, 1 hour, 6 hours, and daily, with
 20% jitter. A provider `Retry-After` can postpone an attempt further. Missing
 metadata, network failures, 403, 429, and 5xx responses remain retryable.
-Only an explicit private/deleted provider result stops automatic attempts.
-The owner can request another attempt when access changes. Requests within one
+Empty API results remain retryable: they do not distinguish private, deleted,
+or otherwise inaccessible videos. API quota exhaustion is recorded as
+`quota_exceeded` and postpones retries by at least 24 hours. Invalid/restricted
+keys and disabled APIs are recorded as `api_configuration`; generic HTTP
+failures retain their HTTP status. The owner can request another attempt when
+access changes. Requests within one
 minute of the previous attempt, or while a lease is active, do not accelerate
 the job. They never reset attempt history.
 
@@ -26,7 +38,17 @@ new revision. Do not leave mixed old/new web and worker versions running.
 The worker backfills missing metadata jobs for videos with unknown duration at
 startup. Existing known durations are retained. Applying the schema or deploying
 does not automatically recover historical donations previously completed without
-videos. No new production environment variables are required.
+videos.
+
+`YOUTUBE_API_KEY` is required by the video service. Enable YouTube Data API v3
+in the corresponding Google Cloud project and restrict the key to
+`youtube.googleapis.com`. Development uses the encrypted `.env.dev` key;
+production uses GitHub's `Production` environment secret, wired into the
+deployment workflow's required environment list. The development key is kept
+locally; CI uses mocked YouTube responses and does not require an API key.
+Refresh an existing local `.env` with `just env-init` after changing `.env.dev`.
+The key is sent in a request header and is never included in URLs or logs.
+This API migration does not require a database schema change.
 
 ## Inspect pending and failed metadata
 
@@ -46,7 +68,7 @@ GROUP BY last_error_code;
 ```
 
 In Axiom, filter for `video metadata unavailable`, then `video_id`. Log fields
-include attempt, error category, HTTP status, terminal flag, and next attempt.
+include attempt, error category, HTTP status, and next attempt.
 `duration_unavailable` does not establish that the video is private or deleted.
 Raw provider HTML and credentials are not logged.
 

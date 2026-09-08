@@ -28,9 +28,10 @@ func TestMetadataFailureThenRecovery(t *testing.T) {
 		{"server failure", 503, ``, false},
 		{"forbidden", 403, ``, false},
 		{"transport", 0, ``, false},
-		{"removed", 200, `{"playabilityStatus":{"status":"ERROR","reason":"This video has been removed by the uploader"}}`, true},
+		{"empty items", 200, `{"items":[]}`, false},
 		{"bot challenge", 200, `{"playabilityStatus":{"status":"LOGIN_REQUIRED","reason":"Sign in to confirm you are not a bot"}}`, false},
-		{"private", 200, `{"playabilityStatus":{"status":"LOGIN_REQUIRED","reason":"This video is private."}}`, true},
+		{"quota exceeded", 403, `{"error":{"errors":[{"reason":"quotaExceeded"}]}}`, false},
+		{"title without duration", 200, `{"items":[{"id":"_JXL6Fn99l8","snippet":{"title":"Independent title"},"contentDetails":{"duration":"PT0S"}}]}`, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			store, pool := newIntegrationStore(t)
@@ -53,27 +54,31 @@ func TestMetadataFailureThenRecovery(t *testing.T) {
 				t.Fatalf("duration=%v parsed=%v", duration, parsed)
 			}
 			client := &http.Client{Transport: metadataTransport(func(request *http.Request) (*http.Response, error) {
-				if test.status == 0 && request.URL.Path != "/oembed" {
+				if test.status == 0 {
 					return nil, errors.New("connection reset")
 				}
 				status, body := test.status, test.body
-				if request.URL.Path == "/oembed" {
-					status, body = 200, `{"title":"Independent title"}`
-				}
+
 				return &http.Response{StatusCode: status, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(body))}, nil
 			})}
-			if worked, err := store.processMetadata(ctx, client); err != nil || !worked {
+			if worked, err := store.processMetadata(ctx, client, "test-key"); err != nil || !worked {
 				t.Fatalf("worked=%v err=%v", worked, err)
 			}
 			var completed bool
 			var code string
 			var available time.Time
-			var title string
+			var title *string
 			if err := pool.QueryRow(ctx, `SELECT completed_at IS NOT NULL, last_error_code, available_at, title FROM video_metadata_job JOIN video USING (video_id)`).Scan(&completed, &code, &available, &title); err != nil {
 				t.Fatal(err)
 			}
-			if completed != test.terminal || code == "" || title != "Independent title" || !available.After(time.Now()) {
-				t.Fatalf("completed=%v code=%s available=%s title=%s", completed, code, available, title)
+			if completed != test.terminal || code == "" || !available.After(time.Now()) {
+				t.Fatalf("completed=%v code=%s available=%s title=%v", completed, code, available, title)
+			}
+			if test.name == "quota exceeded" && (code != "quota_exceeded" || available.Before(time.Now().Add(23*time.Hour))) {
+				t.Fatalf("quota backoff not persisted: %s %s", code, available)
+			}
+			if test.name == "title without duration" && (title == nil || *title != "Independent title") {
+				t.Fatal("partial title was lost")
 			}
 			// Model owner retry and a user edit while the HTTP request is in flight.
 			// js_date rounds to milliseconds, so now() can round into the future.
@@ -86,9 +91,9 @@ func TestMetadataFailureThenRecovery(t *testing.T) {
 				if _, err := pool.Exec(ctx, `UPDATE video SET start_seconds = 10, end_seconds = 70`); err != nil {
 					return nil, err
 				}
-				return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(`{"videoDetails":{"lengthSeconds":"7260","title":"Provider title"}}`))}, nil
+				return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(`{"items":[{"id":"_JXL6Fn99l8","contentDetails":{"duration":"PT2H1M"},"snippet":{"title":"Provider title"}}]}`))}, nil
 			})
-			if worked, err := store.processMetadata(ctx, client); err != nil || !worked {
+			if worked, err := store.processMetadata(ctx, client, "test-key"); err != nil || !worked {
 				t.Fatalf("recovery worked=%v err=%v", worked, err)
 			}
 			var count, end, attempts int
@@ -115,9 +120,9 @@ func TestMetadataLeaseFence(t *testing.T) {
 		if _, err := pool.Exec(ctx, `UPDATE video_metadata_job SET generation = generation + 1, lease_expires_at = now() + interval '2 minutes'`); err != nil {
 			return nil, err
 		}
-		return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(`{"videoDetails":{"lengthSeconds":"100","title":"Stale title"}}`))}, nil
+		return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(`{"items":[{"id":"_JXL6Fn99l8","contentDetails":{"duration":"PT100S"},"snippet":{"title":"Stale title"}}]}`))}, nil
 	})}
-	if _, err := store.processMetadata(ctx, client); err != nil {
+	if _, err := store.processMetadata(ctx, client, "test-key"); err != nil {
 		t.Fatal(err)
 	}
 	var unchanged bool
@@ -127,7 +132,7 @@ func TestMetadataLeaseFence(t *testing.T) {
 	if !unchanged {
 		t.Fatal("stale worker committed metadata")
 	}
-	if worked, err := store.processMetadata(ctx, client); err != nil || worked {
+	if worked, err := store.processMetadata(ctx, client, "test-key"); err != nil || worked {
 		t.Fatalf("active lease was claimed: %v %v", worked, err)
 	}
 }
@@ -140,9 +145,9 @@ func TestOpenEndResolvesAndAssignsPriority(t *testing.T) {
 		t.Fatal(err)
 	}
 	client := &http.Client{Transport: metadataTransport(func(*http.Request) (*http.Response, error) {
-		return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(`{"videoDetails":{"lengthSeconds":"100","title":"Title"}}`))}, nil
+		return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(`{"items":[{"id":"_JXL6Fn99l8","contentDetails":{"duration":"PT100S"},"snippet":{"title":"Title"}}]}`))}, nil
 	})}
-	if _, err := store.processMetadata(ctx, client); err != nil {
+	if _, err := store.processMetadata(ctx, client, "test-key"); err != nil {
 		t.Fatal(err)
 	}
 	var assigned bool
