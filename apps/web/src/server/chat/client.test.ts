@@ -77,6 +77,45 @@ describe("chat service adapter", () => {
     });
   });
 
+  it("loads and validates a dead letter page", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () =>
+      Response.json({
+        items: [
+          {
+            sequence: "41",
+            failedAt: "2026-09-08T12:00:00Z",
+            sourceSubject: "chat.user.42",
+            error: "unexpected end of JSON input",
+            payload: "eyJ0eXBlIjo=",
+            payloadTruncated: false,
+          },
+        ],
+        total: 1,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await chatService.deadLetters("42");
+
+    expect(result.items[0]?.failedAt).toEqual(new Date("2026-09-08T12:00:00Z"));
+    const requestInput = fetchMock.mock.calls[0]?.[0];
+    if (requestInput === undefined) {
+      throw new Error("Expected a dead letter request.");
+    }
+    const requestedUrl = new URL(
+      typeof requestInput === "string"
+        ? requestInput
+        : requestInput instanceof URL
+          ? requestInput.href
+          : requestInput.url,
+    );
+    expect(requestedUrl.pathname).toBe("/internal/dead-letters");
+    expect(Object.fromEntries(requestedUrl.searchParams)).toEqual({
+      beforeSequence: "42",
+      limit: "25",
+    });
+  });
+
   it("validates every streamed NDJSON event", async () => {
     vi.stubGlobal(
       "fetch",

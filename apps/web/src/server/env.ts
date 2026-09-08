@@ -5,6 +5,7 @@ export const env = createEnv({
   server: {
     DATABASE_URL: z.url(),
     APP_DOMAIN: z.url(),
+    ADMIN_EMAILS: z.string().default(""),
     BETTER_AUTH_SECRET: z.string().min(32),
     CHAT_SERVICE_SECRET: z.string().min(32),
     CHAT_SERVICE_URL: z.url(),

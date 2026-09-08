@@ -40,10 +40,11 @@ type HTTPHandler struct {
 	webURL        string
 	kickWebhook   *KickWebhookHandler
 	boosty        *BoostyConnector
+	deadLetters   DeadLetterReader
 }
 
-func NewHTTPHandler(application ChatAPI, oauth HTTPOauth, store HTTPStore, serviceSecret, webURL string, kickWebhook *KickWebhookHandler, boosty *BoostyConnector) *HTTPHandler {
-	return &HTTPHandler{application: application, oauth: oauth, store: store, serviceSecret: serviceSecret, webURL: webURL, kickWebhook: kickWebhook, boosty: boosty}
+func NewHTTPHandler(application ChatAPI, oauth HTTPOauth, store HTTPStore, serviceSecret, webURL string, kickWebhook *KickWebhookHandler, boosty *BoostyConnector, deadLetters DeadLetterReader) *HTTPHandler {
+	return &HTTPHandler{application: application, oauth: oauth, store: store, serviceSecret: serviceSecret, webURL: webURL, kickWebhook: kickWebhook, boosty: boosty, deadLetters: deadLetters}
 }
 
 func (handler *HTTPHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
@@ -79,9 +80,34 @@ func (handler *HTTPHandler) ServeHTTP(response http.ResponseWriter, request *htt
 		handler.handleModerate(response, request)
 	case request.URL.Path == "/internal/stream" && request.Method == http.MethodGet:
 		handler.handleStream(response, request)
+	case request.URL.Path == "/internal/dead-letters" && request.Method == http.MethodGet:
+		handler.handleDeadLetters(response, request)
 	default:
 		http.NotFound(response, request)
 	}
+}
+
+func (handler *HTTPHandler) handleDeadLetters(response http.ResponseWriter, request *http.Request) {
+	limit := 25
+	if rawLimit := request.URL.Query().Get("limit"); rawLimit != "" {
+		value, err := strconv.Atoi(rawLimit)
+		if err != nil || value < 1 || value > 100 {
+			writeError(response, http.StatusBadRequest, "invalid limit")
+			return
+		}
+		limit = value
+	}
+	var beforeSequence uint64
+	if rawSequence := request.URL.Query().Get("beforeSequence"); rawSequence != "" {
+		value, err := strconv.ParseUint(rawSequence, 10, 64)
+		if err != nil || value == 0 {
+			writeError(response, http.StatusBadRequest, "invalid before sequence")
+			return
+		}
+		beforeSequence = value
+	}
+	value, err := handler.deadLetters.List(request.Context(), limit, beforeSequence)
+	writeResult(response, value, err)
 }
 
 func (handler *HTTPHandler) authenticated(request *http.Request) bool {

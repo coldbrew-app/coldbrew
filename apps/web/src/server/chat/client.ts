@@ -2,6 +2,7 @@ import {
   ChatBroadcastResultSchema,
   ChatCommandResultSchema,
   ChatConfigSchema,
+  ChatDeadLetterPageSchema,
   ChatProviderAvailabilitySchema,
   ChatStreamEventSchema,
   type ChatModerationCommand,
@@ -108,6 +109,13 @@ export const chatService = {
 
   moderate(userId: number, command: ChatModerationCommand) {
     return request("/internal/moderate", ChatCommandResultSchema, { command, userId });
+  },
+
+  deadLetters(beforeSequence?: string) {
+    const url = serviceUrl("/internal/dead-letters").withSearchParam("limit", "25");
+    const pageUrl =
+      beforeSequence === undefined ? url : url.withSearchParam("beforeSequence", beforeSequence);
+    return request(pageUrl.pathname + pageUrl.search, ChatDeadLetterPageSchema);
   },
 
   async *stream(userId: number, signal: AbortSignal): AsyncIterable<ChatStreamEvent> {

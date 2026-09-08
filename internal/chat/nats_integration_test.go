@@ -45,7 +45,7 @@ func TestNatsBrokerAndLeasesIntegration(t *testing.T) {
 	sourceID := "00000000-0000-4000-8000-" + fmt.Sprintf("%012x", time.Now().UnixNano()&0xffffffffffff)
 	events := connection.Broker.Stream(ctx, userID)
 	otherEvents := otherConnection.Broker.Stream(ctx, userID)
-	message := Message{ID: "message-1", SourceID: sourceID, ConnectionID: "connection-1", Provider: "youtube", Author: Author{ID: "viewer-1", DisplayName: "Viewer"}, Text: "hello", OccurredAt: time.Now().UTC()}
+	message := Message{ID: "message-1", SourceID: sourceID, ConnectionID: "00000000-0000-4000-8000-000000000001", Provider: "youtube", Author: Author{ID: "viewer-1", DisplayName: "Viewer"}, Text: "hello", OccurredAt: time.Now().UTC()}
 	if err := connection.Broker.Publish(ctx, userID, StreamEvent{Type: "message", Message: &message}, "integration:"+sourceID); err != nil {
 		t.Fatal(err)
 	}
@@ -71,6 +71,28 @@ func TestNatsBrokerAndLeasesIntegration(t *testing.T) {
 		}
 	case <-ctx.Done():
 		t.Fatal("timed out waiting for cached source state")
+	}
+
+	invalidPayload := []byte(`{"type":`)
+	if _, err := connection.Broker.jetstream.Publish(connection.Broker.userSubject(userID), invalidPayload); err != nil {
+		t.Fatal(err)
+	}
+	var deadLetters DeadLetterPage
+	for deadLetters.Total == 0 {
+		deadLetters, err = connection.DeadLetters.List(ctx, 25, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if deadLetters.Total == 0 {
+			select {
+			case <-ctx.Done():
+				t.Fatal("timed out waiting for NATS dead letter")
+			case <-time.After(10 * time.Millisecond):
+			}
+		}
+	}
+	if deadLetters.Total != 1 || len(deadLetters.Items) != 1 || string(deadLetters.Items[0].Payload) != string(invalidPayload) || deadLetters.Items[0].SourceSubject != connection.Broker.userSubject(userID) {
+		t.Fatalf("unexpected dead letters: %#v", deadLetters)
 	}
 
 	lease, err := connection.Leases.Acquire(ctx, sourceID, "owner-1")

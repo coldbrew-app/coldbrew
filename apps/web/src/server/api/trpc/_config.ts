@@ -2,14 +2,16 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
 import { SuperJSON } from "superjson";
 
-import { getUserId } from "../_util.js";
+import { getViewer } from "../_util.js";
 
-export const createContext = async (opt: FetchCreateContextFnOptions) => ({
-  request: opt.req,
-  userId: await getUserId(opt.req),
-});
+export const createContext = async (opt: FetchCreateContextFnOptions) => {
+  const viewer = await getViewer(opt.req);
+  return { request: opt.req, userId: viewer?.userId ?? null, viewer };
+};
 
-type Context = Awaited<ReturnType<typeof createContext>>;
+type Context = Omit<Awaited<ReturnType<typeof createContext>>, "viewer"> & {
+  viewer?: Awaited<ReturnType<typeof createContext>>["viewer"];
+};
 
 const t = initTRPC.context<Context>().create({
   transformer: SuperJSON,
@@ -30,4 +32,11 @@ export const authenticatedProcedure = procedure.use(async ({ next, ctx }) => {
   }
 
   return next({ ctx: { ...ctx, userId } });
+});
+
+export const adminProcedure = authenticatedProcedure.use(async ({ next, ctx }) => {
+  if (!ctx.viewer?.isAdmin) {
+    throw new TRPCError({ code: "FORBIDDEN" });
+  }
+  return next({ ctx });
 });

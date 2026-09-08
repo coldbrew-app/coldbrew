@@ -54,9 +54,46 @@ type httpTestStore struct{}
 
 func (*httpTestStore) Disconnect(context.Context, int, string) error { return nil }
 
+type httpTestDeadLetters struct {
+	beforeSequence uint64
+	limit          int
+	page           DeadLetterPage
+}
+
+func (deadLetters *httpTestDeadLetters) List(_ context.Context, limit int, beforeSequence uint64) (DeadLetterPage, error) {
+	deadLetters.limit = limit
+	deadLetters.beforeSequence = beforeSequence
+	return deadLetters.page, nil
+}
+
 func newHTTPTestHandler(application *httpTestApplication) (*HTTPHandler, *httpTestOauth) {
 	oauth := &httpTestOauth{available: map[string]bool{"youtube": true}, returnURL: "https://web.example/chat"}
-	return NewHTTPHandler(application, oauth, &httpTestStore{}, httpTestSecret, "https://web.example", nil, nil), oauth
+	return newHTTPTestHandlerWithDeadLetters(application, oauth, &httpTestDeadLetters{}), oauth
+}
+
+func newHTTPTestHandlerWithDeadLetters(application *httpTestApplication, oauth *httpTestOauth, deadLetters DeadLetterReader) *HTTPHandler {
+	return NewHTTPHandler(application, oauth, &httpTestStore{}, httpTestSecret, "https://web.example", nil, nil, deadLetters)
+}
+
+func TestHTTPHandlerListsDeadLetters(t *testing.T) {
+	application := &httpTestApplication{}
+	oauth := &httpTestOauth{available: map[string]bool{}}
+	deadLetters := &httpTestDeadLetters{page: DeadLetterPage{Items: []DeadLetter{{Sequence: "41", SourceSubject: "chat.user.42", Error: "invalid character", Payload: []byte("not-json")}}, Total: 1}}
+	handler := newHTTPTestHandlerWithDeadLetters(application, oauth, deadLetters)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, authorizedRequest(http.MethodGet, "/internal/dead-letters?limit=10&beforeSequence=42", ""))
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"sequence":"41"`) || deadLetters.limit != 10 || deadLetters.beforeSequence != 42 {
+		t.Fatalf("status=%d page=%+v body=%s", response.Code, deadLetters, response.Body.String())
+	}
+}
+
+func TestHTTPHandlerRejectsInvalidDeadLetterCursor(t *testing.T) {
+	handler, _ := newHTTPTestHandler(&httpTestApplication{})
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, authorizedRequest(http.MethodGet, "/internal/dead-letters?beforeSequence=zero", ""))
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
+	}
 }
 
 func authorizedRequest(method, target, body string) *http.Request {

@@ -33,6 +33,7 @@ export const Icons = {
   copy: icons.Copy,
   dashboard: icons.LayoutDashboard,
   dateRange: icons.ChevronDown,
+  deadLetter: icons.MailWarning,
   donations: icons.Sparkles,
   edit: icons.Pencil,
   externalLink: icons.ExternalLink,

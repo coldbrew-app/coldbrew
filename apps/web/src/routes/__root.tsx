@@ -261,6 +261,17 @@ function AuthenticatedApplicationContent() {
                 <TooltipContent>{t("underConstruction")}</TooltipContent>
               </Tooltip>
             </Link>
+            {viewer.isAdmin && (
+              <Link
+                activeProps={{ className: activeNavItem }}
+                className={navItem}
+                onClick={() => setOpenMobile(false)}
+                to="/dead-letters"
+              >
+                <Icons.deadLetter aria-hidden="true" />
+                {t("deadLetters")}
+              </Link>
+            )}
           </nav>
 
           <CosmicArt

@@ -168,4 +168,24 @@ export const ChatProviderAvailabilitySchema = z.object({
 });
 export type ChatProviderAvailability = z.infer<typeof ChatProviderAvailabilitySchema>;
 
+export const ChatDeadLetterSchema = z.object({
+  sequence: z.string().regex(/^[1-9]\d*$/),
+  failedAt: z.coerce.date(),
+  sourceSubject: z.string().min(1),
+  error: z.string().min(1),
+  payload: z.string(),
+  payloadTruncated: z.boolean(),
+});
+export type ChatDeadLetter = z.infer<typeof ChatDeadLetterSchema>;
+
+export const ChatDeadLetterPageSchema = z.object({
+  items: z.array(ChatDeadLetterSchema),
+  total: z.int().nonnegative(),
+  nextBeforeSequence: z
+    .string()
+    .regex(/^[1-9]\d*$/)
+    .optional(),
+});
+export type ChatDeadLetterPage = z.infer<typeof ChatDeadLetterPageSchema>;
+
 export const MAX_CHAT_MESSAGE_LENGTH = 500;
