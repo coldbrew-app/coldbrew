@@ -76,7 +76,9 @@ func TestMetadataFailureThenRecovery(t *testing.T) {
 				t.Fatalf("completed=%v code=%s available=%s title=%s", completed, code, available, title)
 			}
 			// Model owner retry and a user edit while the HTTP request is in flight.
-			_, err = pool.Exec(ctx, `UPDATE video_metadata_job SET completed_at = NULL, available_at = now()`)
+			// js_date rounds to milliseconds, so now() can round into the future.
+			// Make the retry unambiguously due without depending on runner speed.
+			_, err = pool.Exec(ctx, `UPDATE video_metadata_job SET completed_at = NULL, available_at = now() - interval '1 second'`)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -86,8 +88,8 @@ func TestMetadataFailureThenRecovery(t *testing.T) {
 				}
 				return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(`{"videoDetails":{"lengthSeconds":"7260","title":"Provider title"}}`))}, nil
 			})
-			if _, err := store.processMetadata(ctx, client); err != nil {
-				t.Fatal(err)
+			if worked, err := store.processMetadata(ctx, client); err != nil || !worked {
+				t.Fatalf("recovery worked=%v err=%v", worked, err)
 			}
 			var count, end, attempts int
 			if err := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM video), duration_seconds, end_seconds, attempts, completed_at IS NOT NULL FROM video JOIN video_metadata_job USING (video_id) WHERE video_id = $1`, videoID).Scan(&count, &duration, &end, &attempts, &completed); err != nil {
