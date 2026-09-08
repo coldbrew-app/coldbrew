@@ -2,35 +2,18 @@ package youtube
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 )
 
-// GetTitle reads public video metadata without fetching or changing playback timing.
-func GetTitle(ctx context.Context, client *http.Client, rawURL string) (string, error) {
-	id, ok := VideoID(rawURL)
-	if !ok {
-		return "", errors.New("youtube: invalid url")
-	}
-	endpoint := "https://www.youtube.com/oembed?" + url.Values{
-		"url":    {"https://www.youtube.com/watch?v=" + url.QueryEscape(id)},
-		"format": {"json"},
-	}.Encode()
-	body, err := fetch(ctx, client, http.MethodGet, endpoint, "", nil)
+// GetTitle uses the same Data API response without requiring a final duration.
+func GetTitle(ctx context.Context, client *http.Client, apiKey, rawURL string) (string, error) {
+	metadata, err := getMetadata(ctx, client, apiKey, rawURL)
 	if err != nil {
 		return "", err
 	}
-	var metadata struct {
-		Title string `json:"title"`
-	}
-	if err := json.Unmarshal([]byte(body), &metadata); err != nil {
-		return "", fmt.Errorf("youtube: invalid title response: %w", err)
-	}
-	title := strings.TrimSpace(metadata.Title)
+	title := strings.TrimSpace(metadata.Snippet.Title)
 	if title == "" {
 		return "", errors.New("youtube: title not found")
 	}

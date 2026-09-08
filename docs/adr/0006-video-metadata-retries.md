@@ -5,6 +5,13 @@
 Accepted. Implementation and schema changes approved by the user. Production
 schema application and historical data repair are separate rollout operations.
 
+The metadata provider was subsequently migrated to YouTube Data API v3.
+The durable job and timing rules below remain in effect. Empty API results
+remain retryable instead of inferring private/deleted status, titles are
+retrieved in the same request as duration, and the video service now requires
+`YOUTUBE_API_KEY`. See [the operations guide](../video-metadata.md) for the
+current provider error categories and quota backoff.
+
 ## Problem
 
 The production scan for donation 1101 extracted a supported YouTube URL but
