@@ -6,7 +6,7 @@ import { CosmicArt } from "./cosmic-art";
 type Props = {
   actions?: ReactNode;
   className?: string;
-  description: string;
+  description?: string;
   eyebrow?: string;
   navigation?: ReactNode;
   title: string;
@@ -46,7 +46,9 @@ export function CosmicPageHeader({
           {title}
         </h1>
         {navigation}
-        <p className="max-w-2xl text-xs leading-relaxed text-[#dec9bf]">{description}</p>
+        {description && (
+          <p className="max-w-2xl text-xs leading-relaxed text-[#dec9bf]">{description}</p>
+        )}
       </div>
       {actions && <div className="relative z-10 flex shrink-0 items-center gap-2">{actions}</div>}
       <CosmicArt
