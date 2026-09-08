@@ -1,3 +1,5 @@
+set script-interpreter := ["bash", "-euo", "pipefail"]
+
 [default]
 default:
   @just --list
@@ -6,10 +8,8 @@ install:
   bun install
 
 # Exercise environment initialization across real Git worktrees without Docker or secrets.
+[script]
 test-env-init:
-  #!/usr/bin/env bash
-  set -euo pipefail
-
   test_dir="$(mktemp -d "${TMPDIR:-/tmp}/coldbrew-env-test.XXXXXX")"
   trap 'rm -rf "$test_dir"' EXIT
   mkdir -p "$test_dir/bin" "$test_dir/primary checkout"
@@ -78,10 +78,8 @@ test-env-init:
   echo 'Environment initialization is shared, isolated, and repeatable.'
 
 # Build the runtime environment for the current worktree from long-lived dev settings.
+[script]
 env-init $source_env=".env.dev":
-  #!/usr/bin/env bash
-  set -euo pipefail
-
   hash_value() {
     printf '%s' "$1" | git hash-object --stdin
   }
@@ -127,32 +125,34 @@ env-init $source_env=".env.dev":
   nats_namespace="wt_$branch_hash"
 
   bunx dotenvx decrypt -f "$source_env" -fk .env.keys --stdout > .env
-  bunx dotenvx set -f .env --plain APP_PORT "$app_port"
-  bunx dotenvx set -f .env --plain APP_DOMAIN "http://localhost:$app_port"
-  bunx dotenvx set -f .env --plain CHAT_PORT "$chat_port"
-  bunx dotenvx set -f .env --plain CHAT_PUBLIC_URL "http://localhost:$app_port/api/chat"
-  bunx dotenvx set -f .env --plain CHAT_SERVICE_URL "http://127.0.0.1:$chat_port"
-  bunx dotenvx set -f .env --plain CHAT_WEB_URL "http://localhost:$app_port"
-  bunx dotenvx set -f .env --plain DONATIONS_PORT "$donations_port"
-  bunx dotenvx set -f .env --plain DONATIONS_SERVICE_URL "http://127.0.0.1:$donations_port"
-  bunx dotenvx set -f .env --plain NATS_PORT "$nats_port"
-  bunx dotenvx set -f .env --plain NATS_SERVERS "nats://127.0.0.1:$nats_port"
-  bunx dotenvx set -f .env --plain NATS_NAMESPACE "$nats_namespace"
-  bunx dotenvx set -f .env --plain PGHOST 127.0.0.1
-  bunx dotenvx set -f .env --plain PGSSLMODE disable
-  bunx dotenvx set -f .env --plain PGPORT "$db_port"
-  bunx dotenvx set -f .env --plain PGDATABASE "$db_name"
-  bunx dotenvx set -f .env --plain COMPOSE_PROJECT_NAME "$compose_project"
+  set_env() {
+    bunx dotenvx set -f .env --plain "$@"
+  }
+
+  set_env APP_PORT "$app_port"
+  set_env APP_DOMAIN "http://localhost:$app_port"
+  set_env CHAT_PORT "$chat_port"
+  set_env CHAT_PUBLIC_URL "http://localhost:$app_port/api/chat"
+  set_env CHAT_SERVICE_URL "http://127.0.0.1:$chat_port"
+  set_env CHAT_WEB_URL "http://localhost:$app_port"
+  set_env DONATIONS_PORT "$donations_port"
+  set_env DONATIONS_SERVICE_URL "http://127.0.0.1:$donations_port"
+  set_env NATS_PORT "$nats_port"
+  set_env NATS_SERVERS "nats://127.0.0.1:$nats_port"
+  set_env NATS_NAMESPACE "$nats_namespace"
+  set_env PGHOST 127.0.0.1
+  set_env PGSSLMODE disable
+  set_env PGPORT "$db_port"
+  set_env PGDATABASE "$db_name"
+  set_env COMPOSE_PROJECT_NAME "$compose_project"
 
   bunx dotenvx run -f .env --overload -- bash -c 'bunx dotenvx set -f .env --plain DATABASE_URL "postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"'
 
   chmod 600 .env
 
 # Prepare a new T3 Code worktree from the project's primary checkout.
+[script]
 t3-worktree-init $source_worktree:
-  #!/usr/bin/env bash
-  set -euo pipefail
-
   if [[ ! -f "$source_worktree/.env.keys" ]]; then
     echo "Source worktree has no .env.keys file: $source_worktree" >&2
     exit 1
@@ -187,14 +187,11 @@ typecheck-web:
   bunx tsc --noEmit -p apps/web/tsconfig.node.json
   bunx tsc --noEmit -p apps/web/tsconfig.json
 
-typecheck-donations:
-  go test ./apps/donations ./internal/donations ./internal/donationalerts
+typecheck-donations: test-donations
 
-typecheck-video:
-  go test ./apps/video ./internal/videoingest ./internal/money ./internal/youtube
+typecheck-video: test-video
 
-typecheck-chat:
-  go test ./apps/chat ./internal/chat
+typecheck-chat: test-chat
 
 typecheck-packages:
   bunx tsc --noEmit -p packages/tsconfig.json
@@ -213,10 +210,8 @@ fmt-check:
 lint-ts:
   bunx oxlint
 
+[script]
 lint-go:
-  #!/usr/bin/env bash
-  set -euo pipefail
-
   go vet ./...
   stderr_file="$(mktemp)"
   trap 'rm -f "$stderr_file"' EXIT
@@ -242,10 +237,8 @@ lint: lint-ts lint-go lint-knip
 build-web: install
   cd apps/web && bunx vite build
 
+[script]
 generate-youtube-chat-go-proto:
-  #!/usr/bin/env bash
-  set -euo pipefail
-
   tool_dir="$(mktemp -d "${TMPDIR:-/tmp}/coldbrew-protoc.XXXXXX")"
   trap 'rm -rf "$tool_dir"' EXIT
   GOBIN="$tool_dir" go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
@@ -268,10 +261,8 @@ docker-ps:
   @docker ps --format 'table {{ "{{" }}.Names{{ "}}" }}\t{{ "{{" }}.Status{{ "}}" }}\t{{ "{{" }}.Ports{{ "}}" }}' | sed -E 's/, \[::\]:[0-9]+->[0-9]+\/(tcp|udp)//g' | cut -c1-150
 
 # Pull immutable production images, recreate the stack, and verify the public endpoint.
+[script]
 production-deploy $app_image $postgres_image:
-  #!/usr/bin/env bash
-  set -euo pipefail
-
   export COLDBREW_IMAGE="$app_image"
   export COLDBREW_POSTGRES_IMAGE="$postgres_image"
 
@@ -311,10 +302,8 @@ dev-infra-up:
 dev-db-up: dev-infra-up
   bunx dotenvx run -f .env --overload -- bash -eu -o pipefail -c 'case "$PGDATABASE" in ""|*[!a-z0-9_]*) echo "Invalid development database name: $PGDATABASE" >&2; exit 1;; esac; if ! docker compose -f compose.dev.yaml exec -T postgres psql --username="$PGUSER" --dbname=postgres --tuples-only --no-align --command="SELECT 1 FROM pg_database WHERE datname = '\''$PGDATABASE'\''" | grep -qx 1; then docker compose -f compose.dev.yaml exec -T postgres createdb --username="$PGUSER" "$PGDATABASE"; fi'
 
+[script]
 dev-db-copy $source_worktree:
-  #!/usr/bin/env bash
-  set -euo pipefail
-
   target_worktree="$(pwd -P)"
 
   if [[ ! -d "$source_worktree" ]]; then
@@ -372,10 +361,8 @@ dev-infra-destroy:
 
 # Remove every clean, merged secondary worktree and its local development resources.
 [confirm("Remove all clean, merged secondary worktrees, their local branches, databases, and NATS namespaces?")]
+[script]
 dev-cleanup:
-  #!/usr/bin/env bash
-  set -euo pipefail
-
   current_worktree="$(pwd -P)"
   common_dir="$(git rev-parse --path-format=absolute --git-common-dir)"
   primary_worktree="$(cd "$common_dir/.." && pwd -P)"
@@ -454,10 +441,8 @@ dev-cleanup:
   bunx dotenvx run -f .env --overload -- just _dev-resources-cleanup
 
 [private]
+[script]
 _dev-cleanup-validate:
-  #!/usr/bin/env bash
-  set -euo pipefail
-
   if [[ ! "${PGDATABASE:-}" =~ ^coldbrew_[a-z0-9_]+_[0-9a-f]{8}$ ]]; then
     echo "Invalid primary development database; run just env-init in the primary checkout" >&2
     exit 1
@@ -468,10 +453,8 @@ _dev-cleanup-validate:
   fi
 
 [private]
+[script]
 _dev-resources-cleanup: _dev-cleanup-validate
-  #!/usr/bin/env bash
-  set -euo pipefail
-
   while IFS= read -r database; do
     if [[ -z "$database" || "$database" == "$PGDATABASE" ]]; then
       continue
