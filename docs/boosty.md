@@ -68,6 +68,8 @@ API does not let Coldbrew verify that no browser still uses those credentials.
 - Follow `extra.offset` backwards until reaching the previous message or timestamp,
   then publish new messages in chronological order through the existing NATS lease
   and event-deduplication pipeline.
+- Normalize numeric or string `extra.offset` values into a string when decoding
+  the response, then send that cursor as the next request's `offset` parameter.
 - Skip historical messages on the first successful collection. Poll every five
   seconds while live and every thirty seconds while offline. A 204, 404, or a
   stream with `isOnline: false` means offline. Transport and rate-limit errors use
@@ -99,9 +101,9 @@ Inspected on 2026-09-06:
 
 Automated tests use local HTTP fixtures derived from these contracts. They verify
 ownership, token validation, refresh rotation and expiry, read-only capabilities, history suppression,
-pagination, message normalization, error handling, and cancellation. Authenticated
-collection from a real live stream still requires a streamer session for an
-end-to-end smoke test; fixtures are not captured live-chat traffic.
+pagination, message normalization, error handling, and cancellation. The numeric
+cursor regression fixture follows the live response observed on 2026-09-08;
+other fixtures derive from the web-client contracts.
 
 Authenticated smoke test on 2026-09-08 used a fresh Google sign-in in an isolated
 Chrome Incognito session. After closing all windows of that session without
@@ -112,3 +114,15 @@ version triggered the production refresher against Boosty's real API. It persist
 the renewed credentials and a new 30-day expiry, and collection resumed offline.
 Reloading Boosty in the normal browser profile retained its signed-in owner controls.
 No stream was live during this check, so live-message delivery remains unverified.
+
+A subsequent live-stream check on 2026-09-08 reproduced `Boosty returned an
+invalid response`: stream discovery and chat both returned HTTP 200, but the chat
+response contained a numeric `extra.offset` that the adapter decoded as a Go
+string. The regression test first failed with that same error, then passed after
+normalizing the cursor. It also exercises pagination, history suppression, and
+duplicate suppression across consecutive polls. The corrected local Go adapter
+reached `live` using the existing stored session and received a test comment
+posted through Boosty's website. No browser credentials were imported or rotated
+for this check. A second comment was then received exactly once in the local
+multichat UI with the dev web/chat services running, verifying the NATS and web
+delivery path as well. Production was not deployed.
