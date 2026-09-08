@@ -266,10 +266,10 @@ function AuthenticatedApplicationContent() {
                 activeProps={{ className: activeNavItem }}
                 className={navItem}
                 onClick={() => setOpenMobile(false)}
-                to="/dead-letters"
+                to="/admin"
               >
-                <Icons.deadLetter aria-hidden="true" />
-                {t("deadLetters")}
+                <Icons.secure aria-hidden="true" />
+                {t("adminPanel")}
               </Link>
             )}
           </nav>

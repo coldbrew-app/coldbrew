@@ -55,9 +55,15 @@ just dev
 `just env-init` decrypts `.env.dev` into the gitignored `.env` file. All
 worktrees share one repository-wide PostgreSQL and NATS Compose stack, while
 each worktree receives its own application and service ports, PostgreSQL
-database, and NATS namespace. `just dev-db-up` starts the shared infrastructure
+database, and NATS namespace. The Compose project name and infrastructure ports
+are derived from the common Git directory, not the individual worktree folder.
+Local PostgreSQL connections use `PGSSLMODE=disable`.
+`just dev-db-up` starts the shared infrastructure
 when necessary and creates the current worktree's database. `just dev` starts
 the web, chat, donations, and video processes.
+
+`just test-env-init` checks the environment recipe across temporary Git worktrees
+without Docker or development credentials. It also runs as part of `just test`.
 
 The local application URL is the `APP_DOMAIN` value written to `.env`.
 Authentication and the web UI use that origin, and `/api/chat/*` is handled by

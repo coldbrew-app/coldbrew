@@ -32,6 +32,10 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+  --color-coffee-tab: var(--coffee-tab);
+  --color-coffee-tab-hover: var(--coffee-tab-hover);
+  --color-coffee-tab-foreground: var(--coffee-tab-foreground);
+  --color-coffee-tab-border: var(--coffee-tab-border);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -98,6 +102,10 @@
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: #4a3442;
   --sidebar-ring: #ffbd3e;
+  --coffee-tab: #3b2923;
+  --coffee-tab-hover: #4a3429;
+  --coffee-tab-foreground: #f2d3a8;
+  --coffee-tab-border: #78563f;
   --cosmic-blue: #4056e8;
   --comet-coral: #ff647c;
   --solar-mango: #ffbd3e;
@@ -138,6 +146,10 @@
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: #3d2b3d;
   --sidebar-ring: #ffbd3e;
+  --coffee-tab: #493228;
+  --coffee-tab-hover: #573c2e;
+  --coffee-tab-foreground: #f2d3a8;
+  --coffee-tab-border: #94704d;
 }
 
 @layer base {

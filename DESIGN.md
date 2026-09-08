@@ -203,6 +203,13 @@ geometric stars connect artwork across surfaces.
 - **Navigation:** sidebar links have a 48 px minimum height and warm translucent
   selection fill with a gold border and label. Secondary status filters use the
   existing secondary/ghost button variants with counts and accessible selection.
+- **Admin tabs:** use compact 36 px horizontal links with 12 px side padding,
+  16 px icons, placed inside the panel header in place of the visible title,
+  without a divider. Keep the page heading available to screen readers.
+  The active tab uses the `coffee-tab` tokens: espresso fill, caramel text and
+  a roasted-brown border, with a lighter fill in dark mode. Match active styles
+  through `data-status=active` so base link utilities cannot override them.
+  Keep keyboard focus visible inside the tab's scrolling navigation row.
 - **Configuration disclosures:** mobile video configuration uses a full-width
   ghost button with `aria-expanded` and `aria-controls`. Keep frequent status
   filters outside the collapsed region.
