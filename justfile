@@ -248,6 +248,10 @@ generate-youtube-chat-go-proto:
 compose-up:
   docker compose up -d
 
+# Show running containers in a terminal-friendly table capped at 150 columns.
+docker-ps:
+  @docker ps --format 'table {{ "{{" }}.Names{{ "}}" }}\t{{ "{{" }}.Status{{ "}}" }}\t{{ "{{" }}.Ports{{ "}}" }}' | sed -E 's/, \[::\]:[0-9]+->[0-9]+\/(tcp|udp)//g' | cut -c1-150
+
 # Pull immutable production images, recreate the stack, and verify the public endpoint.
 production-deploy $app_image $postgres_image:
   #!/usr/bin/env bash
