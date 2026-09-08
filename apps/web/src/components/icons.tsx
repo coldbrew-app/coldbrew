@@ -53,6 +53,7 @@ export const Icons = {
   rotateToken: icons.RefreshCw,
   unread: icons.ArrowDown,
   search: icons.Search,
+  save: icons.Save,
   send: icons.Send,
   secure: icons.ShieldCheck,
   settings: icons.Settings,

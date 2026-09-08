@@ -3,30 +3,29 @@ import { Link } from "@tanstack/react-router";
 import { Button, buttonVariants } from "@web/components/ui/button";
 import { useSetSlugM, useUserInfo } from "@web/hooks/api";
 import { cn } from "@web/lib/utils";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { useI18n } from "../lib/i18n";
 import { Icons } from "./icons";
 import { Field, FieldDescription, FieldError, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 type Props = {
   className?: string;
+  showAllVideos?: boolean;
 };
 
 type SlugFormValues = {
   slug: string;
 };
 
-export function SlugEditor({ className }: Props) {
+export function SlugEditor({ className, showAllVideos = false }: Props) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
-  const [origin, setOrigin] = useState("");
   const userInfo = useUserInfo();
   const { slug } = userInfo;
-
-  useEffect(() => setOrigin(window.location.origin), []);
 
   const { formState, handleSubmit, register, reset } = useForm<SlugFormValues>({
     defaultValues: { slug },
@@ -55,7 +54,7 @@ export function SlugEditor({ className }: Props) {
         className="flex flex-col gap-2"
         onSubmit={(event) => void handleSubmit(saveSlug)(event)}
       >
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="flex items-start gap-2">
           <Field className="min-w-0 grow" data-invalid={Boolean(formState.errors.slug)}>
             <FieldLabel className="sr-only" htmlFor="public-video-queue-slug">
               {t("publicVideoQueueSlug")}
@@ -64,14 +63,11 @@ export function SlugEditor({ className }: Props) {
               {t("slugHelp")}
             </FieldDescription>
             <div className="flex min-w-0 rounded-lg border border-input bg-background/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/20 has-[input[aria-invalid=true]]:border-destructive">
-              <span className="shrink-0 border-r border-input px-2.5 py-1.5 text-sm text-muted-foreground">
-                {origin}/@
-              </span>
               <Input
                 autoComplete="off"
                 aria-describedby={`slug-help${formState.errors.slug ? " slug-error" : ""}`}
                 aria-invalid={Boolean(formState.errors.slug)}
-                className="min-w-0 grow rounded-none border-0 bg-transparent focus-visible:ring-0 dark:bg-transparent"
+                className="min-w-0 grow border-0 bg-transparent focus-visible:ring-0 dark:bg-transparent"
                 id="public-video-queue-slug"
                 maxLength={47}
                 {...register("slug", {
@@ -88,41 +84,120 @@ export function SlugEditor({ className }: Props) {
                   validate: (value) => SlugSchema.safeParse(value).success || t("slugInvalid"),
                 })}
               />
-              <span className="shrink-0 border-l border-input px-2.5 py-1.5 text-sm text-muted-foreground">
-                /videos
-              </span>
             </div>
             <FieldError errors={[formState.errors.slug]} id="slug-error" />
           </Field>
-          <div className="flex shrink-0 gap-2">
-            <Button
-              disabled={!formState.isValid || !formState.isDirty || setSlugM.isPending}
-              size="sm"
-              type="submit"
-            >
-              {t(setSlugM.isPending ? "saving" : "save")}
-            </Button>
-            <Button onClick={() => void copyShareUrl()} size="sm" type="button" variant="outline">
-              {copied ? <Icons.copied aria-hidden="true" /> : <Icons.copy aria-hidden="true" />}
-              {t(copied ? "copied" : "copy")}
-            </Button>
-            <Link className={buttonVariants({ size: "sm", variant: "ghost" })} to="/settings">
-              <Icons.settings aria-hidden="true" />
-              {t("settings")}
-            </Link>
+          <div className="flex shrink-0 items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    aria-label={t(setSlugM.isPending ? "saving" : "save")}
+                    disabled={!formState.isValid || !formState.isDirty || setSlugM.isPending}
+                    size="icon"
+                    type="submit"
+                  >
+                    {setSlugM.isPending ? (
+                      <Icons.loader aria-hidden="true" className="animate-spin" />
+                    ) : (
+                      <Icons.save aria-hidden="true" />
+                    )}
+                  </Button>
+                }
+              />
+              <TooltipContent>{t(setSlugM.isPending ? "saving" : "save")}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    aria-label={t(copied ? "copied" : "copy")}
+                    onClick={() => void copyShareUrl()}
+                    size="icon"
+                    type="button"
+                    variant="outline"
+                  >
+                    {copied ? (
+                      <Icons.copied aria-hidden="true" />
+                    ) : (
+                      <Icons.copy aria-hidden="true" />
+                    )}
+                  </Button>
+                }
+              />
+              <TooltipContent>{t(copied ? "copied" : "copy")}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
+                aria-label={t(
+                  userInfo.publicQueueSettings.enabled
+                    ? "publicQueueEnabled"
+                    : "publicQueueDisabled",
+                )}
+                className="grid size-8 place-items-center rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                tabIndex={0}
+                type="button"
+              >
+                <span
+                  aria-hidden="true"
+                  className={
+                    userInfo.publicQueueSettings.enabled
+                      ? "size-2 rounded-full bg-green-500"
+                      : "size-2 rounded-full bg-amber-500"
+                  }
+                />
+              </TooltipTrigger>
+              <TooltipContent>
+                {t(
+                  userInfo.publicQueueSettings.enabled
+                    ? "publicQueueEnabled"
+                    : "publicQueueDisabled",
+                )}
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Link
+                    aria-label={t("settings")}
+                    className={buttonVariants({
+                      size: "icon",
+                      variant: "ghost",
+                    })}
+                    to="/settings"
+                  >
+                    <Icons.settings aria-hidden="true" />
+                  </Link>
+                }
+              />
+              <TooltipContent>{t("settings")}</TooltipContent>
+            </Tooltip>
+            {showAllVideos && (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Link
+                      aria-label={t("showAllVideos")}
+                      className={buttonVariants({
+                        size: "icon",
+                        variant: "default",
+                      })}
+                      search={{
+                        page: 1,
+                        videoPriorityId: "all",
+                        videoStatus: "all",
+                      }}
+                      to="/videos"
+                    >
+                      <Icons.list aria-hidden="true" />
+                    </Link>
+                  }
+                />
+                <TooltipContent>{t("showAllVideos")}</TooltipContent>
+              </Tooltip>
+            )}
           </div>
         </div>
-        <span className="inline-flex w-fit items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-          <span
-            aria-hidden="true"
-            className={
-              userInfo.publicQueueSettings.enabled
-                ? "size-1.5 rounded-full bg-green-500"
-                : "size-1.5 rounded-full bg-amber-500"
-            }
-          />
-          {t(userInfo.publicQueueSettings.enabled ? "publicQueueEnabled" : "publicQueueDisabled")}
-        </span>
         {setSlugM.error && <FieldError>{setSlugM.error.message}</FieldError>}
       </form>
     </div>
