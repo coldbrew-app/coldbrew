@@ -166,3 +166,11 @@ export function useAuthUrlQ(enabled = true) {
   const { trpc } = useApi();
   return useQuery({ ...trpc.authUrls.queryOptions(), enabled });
 }
+
+export function useChatDeadLettersQ(beforeSequence?: string) {
+  const { trpc } = useApi();
+  return useQuery({
+    ...trpc.chat.deadLetters.queryOptions({ beforeSequence }),
+    placeholderData: keepPreviousData,
+  });
+}

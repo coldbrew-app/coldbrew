@@ -122,6 +122,16 @@ Before editing TS and TSX files for a substantial task:
 
 Add helper scripts to `justfile`, not `package.json`
 
+## Environment variables
+
+- When adding an environment variable, immediately wire it through
+  `.github/workflows/production.yml` so deployments include it in the generated
+  production environment file.
+- Store non-sensitive configuration in GitHub Environment Variables (`vars`) and
+  credentials or other sensitive values in GitHub Environment Secrets (`secrets`).
+- Add the variable to the workflow's required or optional production environment
+  list as appropriate; declaring it only in a step's `env` block is insufficient.
+
 ## Data schema
 
 - Any change to the data schema requires explicit user confirmation before it is made.

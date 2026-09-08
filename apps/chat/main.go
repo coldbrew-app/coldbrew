@@ -80,7 +80,7 @@ func run() error {
 			return fmt.Errorf("configure Kick webhook: %w", err)
 		}
 	}
-	handler := chat.NewHTTPHandler(application, oauth, store, config.serviceSecret, config.webURL, kickWebhook, chat.NewBoostyConnector(boosty, store))
+	handler := chat.NewHTTPHandler(application, oauth, store, config.serviceSecret, config.webURL, kickWebhook, chat.NewBoostyConnector(boosty, store), natsConnection.DeadLetters)
 	server := &http.Server{Addr: ":" + strconv.Itoa(config.port), Handler: handler, ReadHeaderTimeout: 10 * time.Second}
 	collectorErrors := make(chan error, 1)
 	go func() {

@@ -84,11 +84,22 @@ CHAT_WEB_URL
 ```
 
 `NATS_NAMESPACE` is optional. Development assigns a distinct value to each
-worktree so its stream, subjects, collector leases, cached source states, and
+worktree so its streams, subjects, collector leases, cached source states, and
 collector refresh requests do not cross worktree boundaries. Production keeps
 the unnamespaced resource names when the setting is absent.
 
+Live chat consumers use explicit acknowledgements. An event that cannot be decoded or validated is
+negatively acknowledged and processed three times, then published to a dedicated file-backed
+dead-letter JetStream and terminated. If dead-letter publication fails, delivery continues until the
+record is safely stored. The stream retains at most 10,000 records or 64 MiB for
+30 days. Each record includes the original subject, failure time, error, and up to 64 KiB of the
+original payload. Publishing uses a content hash as the NATS message ID so multiple live subscribers
+do not duplicate the same poison message. Administrators can inspect these records at
+`/dead-letters`.
+
 `apps/web` additionally requires `CHAT_SERVICE_URL`.
+Set `ADMIN_EMAILS` to a comma-separated list of normalized sign-in email addresses allowed to open
+operational administration pages. When it is empty, no account has administrative access.
 
 Provider settings are enabled as complete groups:
 

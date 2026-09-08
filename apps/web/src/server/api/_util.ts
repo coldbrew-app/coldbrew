@@ -1,10 +1,12 @@
 import { AuthUserIdSchema, type UserId } from "@coldbrew/packages/schemas.js";
 import { slugFromEmail } from "@coldbrew/packages/slug.js";
 
+import { isAdminEmail } from "../admin.js";
 import { auth } from "../lib/auth.js";
 import { store } from "../sensors/db/index.js";
 
 export type Viewer = {
+  isAdmin: boolean;
   userId: UserId;
   user: {
     email: string;
@@ -25,6 +27,7 @@ export async function getViewer(req: Request): Promise<Viewer | null> {
   const userId = await store.getOrCreateUserId(authUserId, slug);
 
   return {
+    isAdmin: isAdminEmail(session.user.email),
     userId,
     user: {
       email: session.user.email,

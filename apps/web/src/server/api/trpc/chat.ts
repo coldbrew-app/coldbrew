@@ -2,6 +2,7 @@ import {
   ChatBroadcastResultSchema,
   ChatCommandResultSchema,
   ChatConfigSchema,
+  ChatDeadLetterPageSchema,
   ChatModerationCommandSchema,
   ChatProviderAvailabilitySchema,
   ChatProviderConnectionIdSchema,
@@ -13,7 +14,7 @@ import { z } from "zod";
 
 import { chatService, ChatServiceError } from "../../chat/client.js";
 import { getUserIdByOverlayToken, rotateOverlayToken } from "../../chat/store.js";
-import { authenticatedProcedure, procedure, router } from "./_config.js";
+import { adminProcedure, authenticatedProcedure, procedure, router } from "./_config.js";
 
 function toTRPCError(error: ChatServiceError) {
   if (error.status === 400) {
@@ -66,6 +67,18 @@ async function* streamForUser(userId: number, signal?: AbortSignal) {
 }
 
 export const chatRouter = router({
+  deadLetters: adminProcedure
+    .input(
+      z.object({
+        beforeSequence: z
+          .string()
+          .regex(/^[1-9]\d*$/)
+          .optional(),
+      }),
+    )
+    .output(ChatDeadLetterPageSchema)
+    .query(({ input }) => callChatService(chatService.deadLetters(input.beforeSequence))),
+
   config: authenticatedProcedure
     .output(ChatConfigSchema)
     .query(({ ctx }) => callChatService(chatService.config(ctx.userId))),

@@ -170,6 +170,7 @@ Add these environment variables:
 | Name                           | Example                            | Required |
 | ------------------------------ | ---------------------------------- | -------- |
 | `APP_DOMAIN`                   | `https://coldbrew.example.com`     | yes      |
+| `ADMIN_EMAILS`                 | `admin@example.com`                | no       |
 | `AWS_ENDPOINT`                 | `https://s3.example.com`           | no       |
 | `AWS_REGION`                   | `eu-central-1`                     | yes      |
 | `BOOSTY_CLIENT_ID`             | Boosty OAuth client ID             | no       |

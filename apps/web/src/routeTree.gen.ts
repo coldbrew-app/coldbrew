@@ -15,6 +15,7 @@ import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SlugVideosRouteImport } from './routes/$slug/videos'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/_admin'
 import { Route as AuthenticatedAlertsRouteImport } from './routes/_authenticated/alerts'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
 import { Route as AuthenticatedDonationsRouteImport } from './routes/_authenticated/donations'
@@ -24,6 +25,7 @@ import { Route as AuthenticatedVideosRouteImport } from './routes/_authenticated
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as DocsPrivacyRouteImport } from './routes/docs/privacy'
 import { Route as DocsTosRouteImport } from './routes/docs/tos'
+import { Route as AuthenticatedAdminDeadLettersRouteImport } from './routes/_authenticated/_admin/dead-letters'
 import { Route as AuthenticatedDonationsIndexRouteImport } from './routes/_authenticated/donations.index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiChatSplatRouteImport } from './routes/api/chat/$'
@@ -58,6 +60,10 @@ const SlugVideosRoute = SlugVideosRouteImport.update({
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/_admin',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedAlertsRoute = AuthenticatedAlertsRouteImport.update({
@@ -106,6 +112,12 @@ const DocsTosRoute = DocsTosRouteImport.update({
   path: '/docs/tos',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAdminDeadLettersRoute =
+  AuthenticatedAdminDeadLettersRouteImport.update({
+    id: '/dead-letters',
+    path: '/dead-letters',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedDonationsIndexRoute =
   AuthenticatedDonationsIndexRouteImport.update({
     id: '/',
@@ -154,6 +166,7 @@ export interface FileRoutesByFullPath {
   '/api/health': typeof ApiHealthRoute
   '/docs/privacy': typeof DocsPrivacyRoute
   '/docs/tos': typeof DocsTosRoute
+  '/dead-letters': typeof AuthenticatedAdminDeadLettersRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/$': typeof ApiChatSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
@@ -166,6 +179,7 @@ export interface FileRoutesByTo {
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/$slug/videos': typeof SlugVideosRoute
+  '/': typeof AuthenticatedIndexRoute
   '/alerts': typeof AuthenticatedAlertsRoute
   '/chat': typeof AuthenticatedChatRoute
   '/integrations': typeof AuthenticatedIntegrationsRoute
@@ -174,7 +188,7 @@ export interface FileRoutesByTo {
   '/api/health': typeof ApiHealthRoute
   '/docs/privacy': typeof DocsPrivacyRoute
   '/docs/tos': typeof DocsTosRoute
-  '/': typeof AuthenticatedIndexRoute
+  '/dead-letters': typeof AuthenticatedAdminDeadLettersRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/$': typeof ApiChatSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
@@ -189,6 +203,7 @@ export interface FileRoutesById {
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/$slug/videos': typeof SlugVideosRoute
+  '/_authenticated/_admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/alerts': typeof AuthenticatedAlertsRoute
   '/_authenticated/chat': typeof AuthenticatedChatRoute
   '/_authenticated/donations': typeof AuthenticatedDonationsRouteWithChildren
@@ -199,6 +214,7 @@ export interface FileRoutesById {
   '/docs/privacy': typeof DocsPrivacyRoute
   '/docs/tos': typeof DocsTosRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/_admin/dead-letters': typeof AuthenticatedAdminDeadLettersRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/$': typeof ApiChatSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
@@ -223,6 +239,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/docs/privacy'
     | '/docs/tos'
+    | '/dead-letters'
     | '/api/auth/$'
     | '/api/chat/$'
     | '/api/trpc/$'
@@ -235,6 +252,7 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/sitemap.xml'
     | '/$slug/videos'
+    | '/'
     | '/alerts'
     | '/chat'
     | '/integrations'
@@ -243,7 +261,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/docs/privacy'
     | '/docs/tos'
-    | '/'
+    | '/dead-letters'
     | '/api/auth/$'
     | '/api/chat/$'
     | '/api/trpc/$'
@@ -257,6 +275,7 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/sitemap.xml'
     | '/$slug/videos'
+    | '/_authenticated/_admin'
     | '/_authenticated/alerts'
     | '/_authenticated/chat'
     | '/_authenticated/donations'
@@ -267,6 +286,7 @@ export interface FileRouteTypes {
     | '/docs/privacy'
     | '/docs/tos'
     | '/_authenticated/'
+    | '/_authenticated/_admin/dead-letters'
     | '/api/auth/$'
     | '/api/chat/$'
     | '/api/trpc/$'
@@ -335,6 +355,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/_admin': {
+      id: '/_authenticated/_admin'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/alerts': {
       id: '/_authenticated/alerts'
       path: '/alerts'
@@ -398,6 +425,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocsTosRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/_admin/dead-letters': {
+      id: '/_authenticated/_admin/dead-letters'
+      path: '/dead-letters'
+      fullPath: '/dead-letters'
+      preLoaderRoute: typeof AuthenticatedAdminDeadLettersRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/donations/': {
       id: '/_authenticated/donations/'
       path: '/'
@@ -443,6 +477,17 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedAdminRouteChildren {
+  AuthenticatedAdminDeadLettersRoute: typeof AuthenticatedAdminDeadLettersRoute
+}
+
+const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+  AuthenticatedAdminDeadLettersRoute: AuthenticatedAdminDeadLettersRoute,
+}
+
+const AuthenticatedAdminRouteWithChildren =
+  AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
+
 interface AuthenticatedDonationsRouteChildren {
   AuthenticatedDonationsIndexRoute: typeof AuthenticatedDonationsIndexRoute
 }
@@ -458,6 +503,7 @@ const AuthenticatedDonationsRouteWithChildren =
   )
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedAlertsRoute: typeof AuthenticatedAlertsRoute
   AuthenticatedChatRoute: typeof AuthenticatedChatRoute
   AuthenticatedDonationsRoute: typeof AuthenticatedDonationsRouteWithChildren
@@ -468,6 +514,7 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedAlertsRoute: AuthenticatedAlertsRoute,
   AuthenticatedChatRoute: AuthenticatedChatRoute,
   AuthenticatedDonationsRoute: AuthenticatedDonationsRouteWithChildren,
