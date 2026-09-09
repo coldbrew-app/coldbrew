@@ -1,5 +1,9 @@
+import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 
 import { AuthUserIdSchema, MoneyAmountSchema, SlugSchema } from "@coldbrew/packages/schemas.js";
 import postgres from "postgres";
@@ -9,6 +13,16 @@ import { Store } from "../sensors/db/store.js";
 import { createPostgresVideoQueue } from "./postgres.js";
 
 const databaseUrl = process.env["VIDEO_INGEST_TEST_DATABASE_URL"];
+const execFileAsync = promisify(execFile);
+const repositoryRoot = fileURLToPath(new URL("../../../../../", import.meta.url));
+
+async function readVideoQueueMigrationUp() {
+  const migration = await readFile(
+    new URL("../../../../../db/migrations/20260909195358_video_queues.sql", import.meta.url),
+    "utf8",
+  );
+  return migration.split("-- migrate:down", 1)[0]!.replace("-- migrate:up", "");
+}
 
 describe.skipIf(!databaseUrl)("video queues in PostgreSQL", () => {
   let sql: ReturnType<typeof postgres>;
@@ -20,14 +34,21 @@ describe.skipIf(!databaseUrl)("video queues in PostgreSQL", () => {
     schemaName = `video_queue_test_${randomUUID().replaceAll("-", "")}`;
     admin = postgres(databaseUrl!, { max: 1, onnotice: () => {} });
     await admin.unsafe(`CREATE SCHEMA ${schemaName}`);
-    sql = postgres(databaseUrl!, {
+    const testDatabaseUrl = new URL(databaseUrl!);
+    testDatabaseUrl.searchParams.set("search_path", schemaName);
+    await execFileAsync(
+      resolve(repositoryRoot, "node_modules/.bin/dbmate"),
+      ["--no-dump-schema", "up"],
+      {
+        cwd: repositoryRoot,
+        env: { ...process.env, DATABASE_URL: testDatabaseUrl.toString() },
+      },
+    );
+    sql = postgres(testDatabaseUrl.toString(), {
       transform: postgres.camel,
-      connection: { search_path: schemaName },
       onnotice: () => {},
     });
     queue = createPostgresVideoQueue(sql);
-    const schema = await readFile(new URL("../../../../../db/schema.sql", import.meta.url), "utf8");
-    await sql.unsafe(schema);
   });
 
   afterEach(async () => {
@@ -55,47 +76,31 @@ describe.skipIf(!databaseUrl)("video queues in PostgreSQL", () => {
   };
   const pageInput = { page: 1, pageSize: 25, videoPriorityId: null, videoStatus: "all" as const };
 
-  it("creates one default queue per user and copies independently editable priorities", async () => {
+  it("creates one default queue per user and shares one editable priority set", async () => {
     const owner = await user();
     const second = await queue.createQueue(owner.id, "Kick");
-    const initial = await queue.listPriorities(owner.id, owner.main.videoQueueId);
-    const copied = await queue.listPriorities(owner.id, second.videoQueueId);
-    expect(
-      copied.map(({ label, minPricePerMinute, isDefault }) => ({
-        label,
-        minPricePerMinute,
-        isDefault,
-      })),
-    ).toEqual(
-      initial.map(({ label, minPricePerMinute, isDefault }) => ({
-        label,
-        minPricePerMinute,
-        isDefault,
-      })),
-    );
-    expect(copied.map((p) => p.videoPriorityId)).not.toEqual(initial.map((p) => p.videoPriorityId));
+    const initial = await queue.listPriorities(owner.id);
+    expect(initial).toHaveLength(4);
     await queue.updatePriority(owner.id, {
-      videoPriorityId: copied[0]!.videoPriorityId,
+      videoPriorityId: initial[0]!.videoPriorityId,
       label: "Urgent",
       minPricePerMinute: MoneyAmountSchema.parse("500"),
     });
-    expect(await queue.listPriorities(owner.id, owner.main.videoQueueId)).toEqual(initial);
+    expect(await queue.listPriorities(owner.id)).toContainEqual({
+      ...initial[0],
+      label: "Urgent",
+      minPricePerMinute: "500.00",
+    });
+    expect(second).toMatchObject({ label: "Kick", isDefault: false });
     expect((await queue.listQueues(owner.id)).filter((q) => q.isDefault)).toHaveLength(1);
     await expect(queue.createQueue(owner.id, "Kick")).rejects.toMatchObject({
       type: "video queue name taken",
     });
   });
 
-  it("moves a video, recalculates priority and scopes counts and public pages", async () => {
+  it("moves a video, preserves priority and scopes counts and public pages", async () => {
     const owner = await user();
     const second = await queue.createQueue(owner.id, "Kick");
-    const priorities = await queue.listPriorities(owner.id, second.videoQueueId);
-    for (const priority of priorities.filter((p) => !p.isDefault)) {
-      await queue.updatePriority(owner.id, {
-        ...priority,
-        minPricePerMinute: MoneyAmountSchema.parse("500"),
-      });
-    }
     const { videoId } = await queue.addManualVideo(owner.id, videoInput);
     const original = (await queue.listPage(owner.id, pageInput)).items[0]!;
     await queue.moveVideo(owner.id, videoId, second.videoQueueId);
@@ -115,9 +120,7 @@ describe.skipIf(!databaseUrl)("video queues in PostgreSQL", () => {
       videoQueueId: second.videoQueueId,
       queueAmount: original.queueAmount,
     });
-    expect(moved.items[0]!.videoPriorityId).toBe(
-      priorities.find((p) => p.isDefault)!.videoPriorityId,
-    );
+    expect(moved.items[0]!.videoPriorityId).toBe(original.videoPriorityId);
     const focused = await queue.listPage(owner.id, { ...pageInput, videoId });
     expect(focused.queue.videoQueueId).toBe(second.videoQueueId);
     const publicMain = await queue.listSharedPage(owner.slug, {
@@ -219,7 +222,6 @@ describe.skipIf(!databaseUrl)("video queues in PostgreSQL", () => {
       queue.listPage(owner.id, { ...pageInput, videoQueueId: other.main.videoQueueId }),
     ).rejects.toThrow();
     await expect(queue.updateQueue(owner.id, { ...other.main, label: "stolen" })).rejects.toThrow();
-    expect(await queue.listPriorities(owner.id, other.main.videoQueueId)).toEqual([]);
     expect(
       await queue.listSharedPage(owner.slug, {
         page: 1,
@@ -253,13 +255,72 @@ describe.skipIf(!databaseUrl)("video queues in PostgreSQL", () => {
         queueAmount: "1.20",
         videoQueueId,
       });
-      expect(
-        (await queue.listPriorities(owner.id, videoQueueId)).map((p) => p.minPricePerMinute),
-      ).toEqual(["2.00", "1.00", "0.50", "0.00"]);
     }
+    expect((await queue.listPriorities(owner.id)).map((p) => p.minPricePerMinute)).toEqual([
+      "2.00",
+      "1.00",
+      "0.50",
+      "0.00",
+    ]);
   });
 
-  it("backfills legacy videos and priorities without changing their history, and can be rerun", async () => {
+  it("consolidates an early per-queue priority preview into the default queue's set", async () => {
+    const owner = await user();
+    const second = await queue.createQueue(owner.id, "Kick");
+    const mainVideo = await queue.addManualVideo(owner.id, videoInput);
+    const secondVideo = await queue.addManualVideo(owner.id, {
+      ...videoInput,
+      videoQueueId: second.videoQueueId,
+    });
+    const initialPriorities = await queue.listPriorities(owner.id);
+
+    await sql.unsafe(`
+      ALTER TABLE video_priority ADD COLUMN video_queue_id int;
+      UPDATE video_priority SET video_queue_id = ${owner.main.videoQueueId};
+      ALTER TABLE video_priority DROP CONSTRAINT video_priority_user_id_label_key;
+      DROP INDEX video_priority_default_idx;
+    `);
+    await sql`
+      INSERT INTO video_priority (
+        user_id, video_queue_id, label, min_price_per_minute, is_default
+      )
+      SELECT user_id, ${second.videoQueueId}, label, min_price_per_minute, is_default
+      FROM video_priority
+      WHERE video_queue_id = ${owner.main.videoQueueId}
+    `;
+    const copiedRows = await sql`
+      SELECT video_priority_id
+      FROM video_priority
+      WHERE video_queue_id = ${second.videoQueueId}
+        AND min_price_per_minute = 100
+    `;
+    await sql`ALTER TABLE video DISABLE TRIGGER set_video_priority_id`;
+    await sql`
+      UPDATE video
+      SET video_priority_id = ${copiedRows[0]!["videoPriorityId"]}
+      WHERE video_id = ${String(secondVideo.videoId)}
+    `;
+
+    const migration = await readVideoQueueMigrationUp();
+    const connection = await sql.reserve();
+    try {
+      await connection.unsafe(migration);
+    } finally {
+      connection.release();
+    }
+
+    expect(await queue.listPriorities(owner.id)).toEqual(initialPriorities);
+    const rows = await sql`
+      SELECT video_id, video_queue_id, video_priority_id
+      FROM video
+      WHERE video_id IN (${String(mainVideo.videoId)}, ${String(secondVideo.videoId)})
+      ORDER BY video_id
+    `;
+    expect(rows[0]!["videoPriorityId"]).toBe(rows[1]!["videoPriorityId"]);
+    expect(rows[1]!["videoQueueId"]).toBe(second.videoQueueId);
+  });
+
+  it("backfills legacy videos and priorities without changing their history", async () => {
     const owner = await user();
     await queue.addManualVideo(owner.id, videoInput);
     await queue.addManualVideo(owner.id, { ...videoInput, endSeconds: null });
@@ -271,21 +332,14 @@ describe.skipIf(!databaseUrl)("video queues in PostgreSQL", () => {
     // Reconstruct the pre-feature tables inside this test's isolated schema.
     await sql.unsafe(`DROP TRIGGER set_video_priority_id ON video;
       ALTER TABLE video DROP COLUMN video_queue_id CASCADE;
-      ALTER TABLE video_priority DROP COLUMN video_queue_id CASCADE;
       DROP TABLE video_queue;
-      CREATE UNIQUE INDEX video_priority_default_idx ON video_priority (user_id) WHERE is_default;
-      ALTER TABLE video_priority ADD UNIQUE (user_id, label);`);
+      `);
     const beforeVideos = await sql`SELECT to_jsonb(video) AS row FROM video ORDER BY video_id`;
     const beforePriorities =
       await sql`SELECT to_jsonb(video_priority) AS row FROM video_priority ORDER BY video_priority_id`;
-    const migration = await readFile(
-      new URL("../../../../../db/migrations/0007-video-queues.sql", import.meta.url),
-      "utf8",
-    );
-    // The migration contains BEGIN/COMMIT; pin its connection for each execution.
+    const migration = await readVideoQueueMigrationUp();
     const connection = await sql.reserve();
     try {
-      await connection.unsafe(migration);
       await connection.unsafe(migration);
     } finally {
       connection.release();
@@ -294,15 +348,12 @@ describe.skipIf(!databaseUrl)("video queues in PostgreSQL", () => {
       await sql`SELECT to_jsonb(video) - 'video_queue_id' AS row FROM video ORDER BY video_id`,
     ).toEqual(beforeVideos);
     expect(
-      await sql`SELECT to_jsonb(video_priority) - 'video_queue_id' AS row FROM video_priority ORDER BY video_priority_id`,
+      await sql`SELECT to_jsonb(video_priority) AS row FROM video_priority ORDER BY video_priority_id`,
     ).toEqual(beforePriorities);
     const queues = await queue.listQueues(owner.id);
     expect(queues).toHaveLength(1);
     expect(
       await sql`SELECT count(*)::int AS count FROM video WHERE video_queue_id IS NULL`,
-    ).toMatchObject([{ count: 0 }]);
-    expect(
-      await sql`SELECT count(*)::int AS count FROM video_priority WHERE video_queue_id IS NULL`,
     ).toMatchObject([{ count: 0 }]);
   });
 });

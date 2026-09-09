@@ -21,7 +21,7 @@ export default function VideoPriorities({
   videoCountByPriorityId,
 }: Props) {
   const { t } = useI18n();
-  const prioritiesQ = useVideoPrioritiesQ(videoQueueId);
+  const prioritiesQ = useVideoPrioritiesQ();
   const videoCount = Object.values(videoCountByPriorityId).reduce(
     (total, count) => total + count,
     0,

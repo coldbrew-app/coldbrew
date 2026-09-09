@@ -207,25 +207,18 @@ export class Store {
             userId: UserIdSchema,
           });
           const userId = schema.parse(rows[0]).userId;
-          const queueRows = await sql`
+          await sql`
             INSERT INTO video_queue (user_id, label, is_default)
             VALUES (${userId}, 'Main', true)
             ON CONFLICT (user_id) WHERE is_default DO UPDATE SET user_id = EXCLUDED.user_id
-            RETURNING video_queue_id
           `;
-          const queueSchema = z.object({
-            videoQueueId: z.int().positive(),
-          });
-          const { videoQueueId } = queueSchema.parse(queueRows[0]);
           await sql`
-            INSERT INTO video_priority (
-              user_id, video_queue_id, label, min_price_per_minute, is_default
-            )
+            INSERT INTO video_priority (user_id, label, min_price_per_minute, is_default)
             VALUES
-              (${userId}, ${videoQueueId}, 'queue 0', 0, true),
-              (${userId}, ${videoQueueId}, 'queue 1', 50, false),
-              (${userId}, ${videoQueueId}, 'queue 2', 100, false),
-              (${userId}, ${videoQueueId}, 'queue 3', 200, false)
+              (${userId}, 'queue 0', 0, true),
+              (${userId}, 'queue 1', 50, false),
+              (${userId}, 'queue 2', 100, false),
+              (${userId}, 'queue 3', 200, false)
             ON CONFLICT DO NOTHING
           `;
           return userId;

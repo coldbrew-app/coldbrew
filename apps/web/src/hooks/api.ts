@@ -128,9 +128,9 @@ export function useAddVideoM() {
   );
 }
 
-export function useVideoPrioritiesQ(videoQueueId?: number) {
+export function useVideoPrioritiesQ() {
   const { trpc } = useApi();
-  return useQuery(trpc.videoPriorities.queryOptions({ videoQueueId }));
+  return useQuery(trpc.videoPriorities.queryOptions());
 }
 
 export function useVideoQueuesQ() {
