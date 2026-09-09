@@ -62,12 +62,12 @@ CREATE TABLE auth_account (
 );
 
 CREATE TABLE auth_verification (
-  "id"          text    PRIMARY KEY,
-  "identifier"  text    NOT NULL,
-  "value"       text    NOT NULL,
-  "expiresAt"   js_date NOT NULL,
-  "createdAt"   js_date NOT NULL DEFAULT now(),
-  "updatedAt"   js_date NOT NULL DEFAULT now()
+  "id"         text    PRIMARY KEY,
+  "identifier" text    NOT NULL,
+  "value"      text    NOT NULL,
+  "expiresAt"  js_date NOT NULL,
+  "createdAt"  js_date NOT NULL DEFAULT now(),
+  "updatedAt"  js_date NOT NULL DEFAULT now()
 );
 
 CREATE INDEX "auth_session_userId_idx" ON auth_session ("userId");
@@ -113,7 +113,7 @@ CREATE TABLE chat_provider_connection (
                                                                CHECK (char_length(display_name) BETWEEN 1 AND 200),
   access_token_ciphertext     bytea                               NULL,
   refresh_token_ciphertext    bytea                               NULL,
-  oauth_device_id            text                                NULL
+  oauth_device_id             text                                NULL
                                                                CHECK (char_length(oauth_device_id) BETWEEN 1 AND 200),
   access_token_expires_at     js_date                             NULL,
   scopes                      text[]                          NOT NULL DEFAULT '{}',
@@ -129,20 +129,20 @@ CREATE INDEX chat_provider_connection_user_idx
   ON chat_provider_connection (user_id, connected_at);
 
 CREATE TABLE chat_source (
-  chat_source_id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
-  chat_provider_connection_id uuid          NOT NULL,
-  user_id                     int           NOT NULL REFERENCES "user" (user_id) ON DELETE CASCADE,
-  provider                    chat_provider NOT NULL,
-  provider_source_id          text          NOT NULL
+  chat_source_id              uuid            PRIMARY KEY DEFAULT gen_random_uuid(),
+  chat_provider_connection_id uuid            NOT NULL,
+  user_id                     int             NOT NULL REFERENCES "user" (user_id) ON DELETE CASCADE,
+  provider                    chat_provider   NOT NULL,
+  provider_source_id          text            NOT NULL
                                              CHECK (char_length(provider_source_id) BETWEEN 1 AND 200),
-  display_name                text          NOT NULL
+  display_name                text            NOT NULL
                                              CHECK (char_length(display_name) BETWEEN 1 AND 200),
-  source_url                  text          NOT NULL,
+  source_url                  text            NOT NULL,
   position                    nonnegative_int NOT NULL CHECK (position < 20),
-  enabled                     boolean       NOT NULL DEFAULT true,
-  show_in_overlay             boolean       NOT NULL DEFAULT true,
-  created_at                  js_date       NOT NULL DEFAULT now(),
-  updated_at                  js_date       NOT NULL DEFAULT now(),
+  enabled                     boolean         NOT NULL DEFAULT true,
+  show_in_overlay             boolean         NOT NULL DEFAULT true,
+  created_at                  js_date         NOT NULL DEFAULT now(),
+  updated_at                  js_date         NOT NULL DEFAULT now(),
   UNIQUE (user_id, provider, provider_source_id),
   UNIQUE (user_id, position),
   UNIQUE (chat_source_id, user_id),
@@ -159,40 +159,40 @@ CREATE INDEX chat_source_user_enabled_idx
   WHERE enabled;
 
 CREATE TABLE chat_oauth_attempt (
-  state_hash             char(64)      PRIMARY KEY CHECK (state_hash ~ '^[0-9a-f]{64}$'),
-  user_id                int           NOT NULL REFERENCES "user" (user_id) ON DELETE CASCADE,
-  provider               chat_provider NOT NULL,
-  pkce_verifier_ciphertext bytea       NOT NULL,
-  return_url             text          NOT NULL,
-  expires_at             js_date       NOT NULL,
-  created_at             js_date       NOT NULL DEFAULT now()
+  state_hash               char(64)      PRIMARY KEY CHECK (state_hash ~ '^[0-9a-f]{64}$'),
+  user_id                  int           NOT NULL REFERENCES "user" (user_id) ON DELETE CASCADE,
+  provider                 chat_provider NOT NULL,
+  pkce_verifier_ciphertext bytea         NOT NULL,
+  return_url               text          NOT NULL,
+  expires_at               js_date       NOT NULL,
+  created_at               js_date       NOT NULL DEFAULT now()
 );
 
 CREATE INDEX chat_oauth_attempt_expires_idx
   ON chat_oauth_attempt (expires_at);
 
 CREATE TABLE chat_provider_ban (
-  chat_source_id  uuid          NOT NULL REFERENCES chat_source (chat_source_id) ON DELETE CASCADE,
-  provider_user_id text         NOT NULL,
-  provider_ban_id text          NOT NULL,
-  updated_at      js_date       NOT NULL DEFAULT now(),
+  chat_source_id   uuid    NOT NULL REFERENCES chat_source (chat_source_id) ON DELETE CASCADE,
+  provider_user_id text    NOT NULL,
+  provider_ban_id  text    NOT NULL,
+  updated_at       js_date NOT NULL DEFAULT now(),
   PRIMARY KEY (chat_source_id, provider_user_id)
 );
 
 CREATE TABLE chat_moderation_action (
-  chat_moderation_action_id bigint                         PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-  user_id                   int                            NOT NULL REFERENCES "user" (user_id)
+  chat_moderation_action_id bigint                        PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  user_id                   int                           NOT NULL REFERENCES "user" (user_id)
                                                              ON DELETE CASCADE,
-  chat_source_id            uuid                           NOT NULL,
-  provider                  chat_provider                  NOT NULL,
-  action_type               chat_moderation_action_type    NOT NULL,
-  status                    chat_moderation_action_status  NOT NULL,
-  provider_message_id       text                               NULL,
-  provider_user_id          text                               NULL,
-  duration_seconds          positive_int                       NULL,
-  reason                    text                               NULL,
-  detail                    text                               NULL,
-  occurred_at               js_date                        NOT NULL DEFAULT now()
+  chat_source_id            uuid                          NOT NULL,
+  provider                  chat_provider                 NOT NULL,
+  action_type               chat_moderation_action_type   NOT NULL,
+  status                    chat_moderation_action_status NOT NULL,
+  provider_message_id       text                              NULL,
+  provider_user_id          text                              NULL,
+  duration_seconds          positive_int                      NULL,
+  reason                    text                              NULL,
+  detail                    text                              NULL,
+  occurred_at               js_date                       NOT NULL DEFAULT now()
 );
 
 CREATE INDEX chat_moderation_action_user_occurred_idx
@@ -215,17 +215,17 @@ CREATE INDEX chat_overlay_source_user_position_idx
   ON chat_overlay_source (user_id, position);
 
 CREATE TABLE donation (
-  donation_id             bigint          PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-  source                  donation_source NOT NULL,
-  source_donation_id      text            NOT NULL,
-  user_id                 int             NOT NULL REFERENCES "user" (user_id) ON DELETE CASCADE,
-  author                  text                NULL,
-  message                 text                NULL,
-  amount                  money_amount    NOT NULL,
-  currency                currency_code   NOT NULL,
-  source_created_at       text            NOT NULL,
-  occurred_at             js_date         NOT NULL,
-  videos_parsed_at        js_date             NULL,
+  donation_id        bigint          PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  source             donation_source NOT NULL,
+  source_donation_id text            NOT NULL,
+  user_id            int             NOT NULL REFERENCES "user" (user_id) ON DELETE CASCADE,
+  author             text                NULL,
+  message            text                NULL,
+  amount             money_amount    NOT NULL,
+  currency           currency_code   NOT NULL,
+  source_created_at  text            NOT NULL,
+  occurred_at        js_date         NOT NULL,
+  videos_parsed_at   js_date             NULL,
   UNIQUE (user_id, source, source_donation_id)
 );
 
@@ -248,11 +248,11 @@ CREATE INDEX donation_video_scan_available_idx
   WHERE completed_at IS NULL;
 
 CREATE TABLE video_priority (
-  video_priority_id    serial        PRIMARY KEY,
-  user_id              int           NOT NULL REFERENCES "user" (user_id) ON DELETE CASCADE,
-  label                text          NOT NULL CHECK (char_length(trim(label)) BETWEEN 1 AND 64),
-  min_price_per_minute money_amount  NOT NULL,
-  is_default           boolean       NOT NULL DEFAULT false,
+  video_priority_id    serial       PRIMARY KEY,
+  user_id              int          NOT NULL REFERENCES "user" (user_id) ON DELETE CASCADE,
+  label                text         NOT NULL CHECK (char_length(trim(label)) BETWEEN 1 AND 64),
+  min_price_per_minute money_amount NOT NULL,
+  is_default           boolean      NOT NULL DEFAULT false,
   CHECK ((is_default AND min_price_per_minute = 0) OR
          (NOT is_default AND min_price_per_minute > 0)),
   UNIQUE (user_id, label)
@@ -263,21 +263,21 @@ CREATE UNIQUE INDEX video_priority_default_idx
   WHERE is_default;
 
 CREATE TABLE video (
-  video_id          bigint         PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-  donation_id       bigint             NULL REFERENCES donation (donation_id) ON DELETE CASCADE,
-  user_id           int                NULL REFERENCES "user" (user_id) ON DELETE CASCADE,
+  video_id          bigint          PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  donation_id       bigint              NULL REFERENCES donation (donation_id) ON DELETE CASCADE,
+  user_id           int                 NULL REFERENCES "user" (user_id) ON DELETE CASCADE,
   added_at          js_date             NULL,
-  provider          video_provider NOT NULL,
-  provider_video_id text           NOT NULL,
-  title             text               NULL CHECK (title IS NULL OR btrim(title) <> ''),
-  url               text           NOT NULL,
-  queue_amount      money_amount       NULL,
+  provider          video_provider  NOT NULL,
+  provider_video_id text            NOT NULL,
+  title             text                NULL CHECK (title IS NULL OR btrim(title) <> ''),
+  url               text            NOT NULL,
+  queue_amount      money_amount        NULL,
   start_seconds     nonnegative_int NOT NULL,
   end_seconds       positive_int        NULL,
   duration_seconds  positive_int        NULL,
-  watched_at        js_date            NULL,
-  bookmarked_at     js_date            NULL,
-  video_priority_id int                NULL REFERENCES video_priority (video_priority_id),
+  watched_at        js_date             NULL,
+  bookmarked_at     js_date             NULL,
+  video_priority_id int                 NULL REFERENCES video_priority (video_priority_id),
   UNIQUE (donation_id, provider, provider_video_id),
   CHECK (
     (donation_id IS NOT NULL AND user_id IS NULL AND added_at IS NULL) OR
