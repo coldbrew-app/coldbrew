@@ -1,5 +1,6 @@
 import type {
   ChatBroadcastResult,
+  ChatConfig,
   ChatModerationCommand,
   ChatSourceId,
 } from "@coldbrew/packages/chat.js";
@@ -34,6 +35,32 @@ export function useChatServiceMutations(callbacks: ChatServiceMutationCallbacks)
     trpc.chat.disconnect.mutationOptions({ onSuccess: refreshConfig }),
   );
   const refreshSource = useMutation(trpc.chat.refreshSource.mutationOptions());
+  const setSourceEnabled = useMutation(
+    trpc.chat.setSourceEnabled.mutationOptions({
+      onMutate: async ({ enabled, sourceId }) => {
+        const queryKey = trpc.chat.config.queryKey();
+        await queryClient.cancelQueries({ queryKey });
+        const previousConfig = queryClient.getQueryData<ChatConfig>(queryKey);
+        queryClient.setQueryData<ChatConfig>(queryKey, (config) =>
+          config
+            ? {
+                ...config,
+                sources: config.sources.map((source) =>
+                  source.sourceId === sourceId ? { ...source, enabled } : source,
+                ),
+              }
+            : config,
+        );
+        return { previousConfig };
+      },
+      onError: (_error, _variables, context) => {
+        if (context?.previousConfig) {
+          queryClient.setQueryData(trpc.chat.config.queryKey(), context.previousConfig);
+        }
+      },
+      onSettled: refreshConfig,
+    }),
+  );
   const broadcast = useMutation(
     trpc.chat.broadcast.mutationOptions({ onSuccess: callbacks.onBroadcastSuccess }),
   );
@@ -61,6 +88,7 @@ export function useChatServiceMutations(callbacks: ChatServiceMutationCallbacks)
     moderate,
     refreshSource,
     rotateOverlay,
+    setSourceEnabled,
     startOauth,
   };
 }

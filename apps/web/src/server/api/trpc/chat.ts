@@ -165,6 +165,20 @@ export const chatRouter = router({
       await callChatService(chatService.refreshSource(ctx.userId, input.sourceId));
     }),
 
+  setSourceEnabled: authenticatedProcedure
+    .input(
+      z.object({
+        sourceId: ChatSourceIdSchema,
+        enabled: z.boolean(),
+      }),
+    )
+    .output(z.void())
+    .mutation(async ({ ctx, input }) => {
+      await callChatService(
+        chatService.setSourceEnabled(ctx.userId, input.sourceId, input.enabled),
+      );
+    }),
+
   broadcast: authenticatedProcedure
     .input(
       z.object({

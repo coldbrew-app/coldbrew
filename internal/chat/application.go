@@ -24,6 +24,7 @@ type Repository interface {
 	GetConfig(context.Context, int) (Config, error)
 	GetEnabledSources(context.Context, int) ([]ConnectedSource, error)
 	GetSource(context.Context, int, string) (*ConnectedSource, error)
+	SetSourceEnabled(context.Context, int, string, bool) (bool, error)
 	GetProviderBanID(context.Context, string, string) (string, error)
 	SaveProviderBanID(context.Context, string, string, string) error
 	DeleteProviderBanID(context.Context, string, string) error
@@ -79,6 +80,17 @@ func (application *Application) RefreshSource(ctx context.Context, userID int, s
 	}
 	if source.Source.Provider != "youtube" && source.Source.Provider != "vk_video" {
 		return &ApplicationError{Type: "chat source refresh unsupported", Detail: "Manual stream discovery is only available for YouTube and VK Video"}
+	}
+	return application.collectorControl.RequestRefresh(ctx, sourceID)
+}
+
+func (application *Application) SetSourceEnabled(ctx context.Context, userID int, sourceID string, enabled bool) error {
+	found, err := application.repository.SetSourceEnabled(ctx, userID, sourceID, enabled)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return &ApplicationError{Type: "chat source not found", Detail: "Chat source not found"}
 	}
 	return application.collectorControl.RequestRefresh(ctx, sourceID)
 }

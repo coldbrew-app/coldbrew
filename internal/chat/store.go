@@ -472,6 +472,15 @@ func (store *Store) Disconnect(ctx context.Context, userID int, connectionID str
 	return err
 }
 
+func (store *Store) SetSourceEnabled(ctx context.Context, userID int, sourceID string, enabled bool) (bool, error) {
+	result, err := store.pool.Exec(ctx, `
+		UPDATE chat_source
+		SET enabled = $3, updated_at = now()
+		WHERE user_id = $1 AND chat_source_id = $2
+	`, userID, sourceID, enabled)
+	return result.RowsAffected() == 1, err
+}
+
 func (store *Store) GetProviderBanID(ctx context.Context, sourceID, providerUserID string) (string, error) {
 	var providerBanID string
 	err := store.pool.QueryRow(ctx, `SELECT provider_ban_id FROM chat_provider_ban WHERE chat_source_id = $1 AND provider_user_id = $2`, sourceID, providerUserID).Scan(&providerBanID)
