@@ -73,6 +73,18 @@ describe("chat service adapter", () => {
     );
   });
 
+  it("sets a source state without disconnecting its account", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => Response.json(null));
+    vi.stubGlobal("fetch", fetchMock);
+    const sourceId = "019c58be-a09e-7000-8000-000000000001";
+
+    await expect(chatService.setSourceEnabled(42, sourceId, false)).resolves.toBeNull();
+
+    const [url, options] = fetchMock.mock.calls[0]!;
+    expect(url).toMatch(/\/internal\/sources\/enabled$/);
+    expect(options?.body).toBe(JSON.stringify({ enabled: false, sourceId, userId: 42 }));
+  });
+
   it("rejects an invalid response before it reaches tRPC", async () => {
     vi.stubGlobal(
       "fetch",
