@@ -1,0 +1,8 @@
+[sqruff]
+dialect = postgres
+max_line_length = 200
+rules = core,LT15
+
+[sqruff:rules:layout.newlines]
+maximum_empty_lines_between_statements = 1
+maximum_empty_lines_inside_statements = 1

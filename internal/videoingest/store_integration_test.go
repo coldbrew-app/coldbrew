@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -206,24 +209,34 @@ func newIntegrationStore(t *testing.T) (*Store, *pgxpool.Pool) {
 		admin.Close()
 	})
 
-	config, err := pgxpool.ParseConfig(databaseURL)
+	database, err := url.Parse(databaseURL)
 	if err != nil {
 		t.Fatal(err)
 	}
-	config.ConnConfig.RuntimeParams["search_path"] = schema
+	query := database.Query()
+	query.Set("search_path", schema)
+	database.RawQuery = query.Encode()
+
+	repositoryRoot, err := filepath.Abs("../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	command := exec.Command(filepath.Join(repositoryRoot, "node_modules", ".bin", "dbmate"), "--no-dump-schema", "up")
+	command.Dir = repositoryRoot
+	command.Env = append(os.Environ(), "DATABASE_URL="+database.String())
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("apply test migrations: %v\n%s", err, output)
+	}
+
+	config, err := pgxpool.ParseConfig(database.String())
+	if err != nil {
+		t.Fatal(err)
+	}
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	schemaSQL, err := os.ReadFile("../../db/schema.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = pool.Exec(ctx, string(schemaSQL))
-	if err != nil {
-		t.Fatal(err)
-	}
 	return NewStore(pool), pool
 }
 

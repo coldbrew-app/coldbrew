@@ -8,6 +8,7 @@
       "ignoreDependencies": [
         "@tanstack/intent",
         "concurrently",
+        "dbmate",
         "oxfmt",
         "oxlint",
         "oxlint-tsgolint",
