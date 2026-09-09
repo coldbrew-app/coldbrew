@@ -44,8 +44,8 @@ jobs:
       CHAT_SERVICE_URL: http://127.0.0.1:3001
       CHAT_TOKEN_ENCRYPTION_SECRET: ci-only-chat-token-encryption-secret-at-least-thirty-two-characters
       CHAT_STORE_TEST_DATABASE_URL: postgresql://coldbrew:coldbrew@127.0.0.1:5432/coldbrew
-      VIDEO_INGEST_TEST_DATABASE_URL: postgresql://coldbrew:coldbrew@127.0.0.1:5432/coldbrew
-      DATABASE_URL: postgresql://coldbrew:coldbrew@127.0.0.1:5432/coldbrew
+      VIDEO_INGEST_TEST_DATABASE_URL: postgresql://coldbrew:coldbrew@127.0.0.1:5432/coldbrew?sslmode=disable
+      DATABASE_URL: postgresql://coldbrew:coldbrew@127.0.0.1:5432/coldbrew?sslmode=disable
       DONATION_ALERTS_CLIENT_ID: "1"
       DONATION_ALERTS_CLIENT_SECRET: ci-only
       DONATIONS_SERVICE_SECRET: ci-only-donations-service-secret-at-least-thirty-two-characters
@@ -68,6 +68,11 @@ jobs:
       - name: Set up just
         uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
 
+      - name: Set up sqruff
+        uses: quarylabs/install-sqruff-cli-action@7805329baf7cf340e849e254cddc782f08f2d36c # main
+        with:
+          version: v0.40.0
+
       - name: Install ripgrep
         run: sudo apt-get update && sudo apt-get install --yes ripgrep
 
@@ -77,13 +82,10 @@ jobs:
       - name: Create empty CI environment file
         run: install -m 600 /dev/null .env
 
-      - name: Initialize CI database schema
+      - name: Run database migrations
         env:
-          POSTGRES_CONTAINER_ID: ${{ job.services.postgres.id }}
-        run: |
-          docker exec -i "$POSTGRES_CONTAINER_ID" \
-            psql --username=coldbrew --dbname=coldbrew --no-psqlrc \
-            --set=ON_ERROR_STOP=1 --single-transaction < db/schema.sql
+          DBMATE_NO_DUMP_SCHEMA: "true"
+        run: just db-migrate
 
       - name: Check types
         run: just typecheck

@@ -137,11 +137,11 @@ Add helper scripts to `justfile`, not `package.json`
 ## Data schema
 
 - Any change to the data schema requires explicit user confirmation before it is made.
-- Do not run `just schema-apply` or any other command that applies schema changes without explicit user confirmation.
+- Do not run `just db-migrate` or any other command that applies schema changes without explicit user confirmation.
 
 ## Check yourself
 
-- `just typecheck` - type-checks TypeScript and compiles and tests the Go service packages.
+- `just typecheck` - type-checks TypeScript and compiles the Go service packages.
 - `just test` - runs the TypeScript and Go test suites.
 - `just fmt` - formats TypeScript, Go, Markdown, and other supported files.
 - `just check` - runs linting, formatting checks, and both test suites.

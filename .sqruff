@@ -1,0 +1,35 @@
+[sqruff]
+dialect = postgres
+max_line_length = 200
+rules = core,LT15
+
+[sqruff:indentation]
+tab_space_size = 2
+
+[sqruff:rules:layout.newlines]
+maximum_empty_lines_between_statements = 1
+maximum_empty_lines_inside_statements = 1
+
+[sqruff:rules:capitalisation.keywords]
+capitalisation_policy = upper
+
+[sqruff:rules:capitalisation.functions]
+extended_capitalisation_policy = lower
+
+[sqruff:rules:capitalisation.literals]
+capitalisation_policy = upper
+
+[sqruff:rules:capitalisation.types]
+extended_capitalisation_policy = lower
+
+[sqruff:layout:type:data_type]
+spacing_before = any
+
+[sqruff:layout:type:column_constraint_segment]
+spacing_before = any
+
+[sqruff:layout:type:start_square_bracket]
+spacing_before = touch:inline
+
+[sqruff:layout:type:referenced_column_list]
+spacing_before = single:inline
