@@ -16,6 +16,7 @@ import { z } from "zod";
 import { env } from "../env.js";
 
 export class ChatServiceError extends Error {
+  // fallow-ignore-next-line unused-class-member -- Read indirectly by Vitest toMatchObject
   readonly type = "chat service error";
   readonly detail: string;
   readonly status?: number;

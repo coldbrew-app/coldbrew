@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 
-import { createSql } from "@coldbrew/packages/pg.js";
 import {
   DonationSchema,
   DonationIdSchema,
@@ -32,10 +31,6 @@ function isUserSlugConflict(error: unknown) {
 }
 
 export class Store {
-  static fromDbUrl(dbUrl: string) {
-    return new Store(createSql(dbUrl));
-  }
-
   constructor(private readonly sql: Sql) {}
 
   async listDonationsPage(

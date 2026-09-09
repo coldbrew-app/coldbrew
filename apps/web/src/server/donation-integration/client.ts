@@ -5,6 +5,7 @@ import { z } from "zod";
 import { env } from "../env.js";
 
 export class DonationIntegrationError extends Error {
+  // fallow-ignore-next-line unused-class-member -- Kept as a stable error discriminator
   readonly type = "donation integration error";
   readonly detail: string;
   readonly status?: number;
