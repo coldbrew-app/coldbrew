@@ -9,7 +9,7 @@ import { Link } from "@tanstack/react-router";
 import { fmtAmount, fmtDate, formatMoneyInputValue, formatRelativeDate } from "@web/lib/fmt";
 import type { Video } from "@web/server/exports";
 import { clsx } from "clsx";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 
 import { useTextWithLinks } from "../hooks/use-text-with-links";
@@ -22,6 +22,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { parseVideoTiming, VideoTimingFields, type VideoTimingValues } from "./video-timing-fields";
 
 type Props = {
+  queueControl?: ReactNode;
   video: Video;
   showPriorityLabel?: boolean;
   showSource?: boolean;
@@ -66,6 +67,7 @@ const normalizeUrl = (url: string) => {
 };
 
 export default function VideoCard({
+  queueControl,
   video,
   showPriorityLabel = true,
   showSource = false,
@@ -170,6 +172,7 @@ export default function VideoCard({
         </div>
 
         <div className="flex min-w-0 grow flex-col gap-3">
+          {queueControl}
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="flex min-w-0 grow items-center gap-3">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">

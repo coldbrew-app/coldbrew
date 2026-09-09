@@ -5,6 +5,7 @@ import {
   UserIdSchema,
   VideoIdSchema,
   VideoPrioritySchema,
+  VideoQueueSchema,
   VideoSchema,
   type MoneyAmount,
   type QueueCurrency,
@@ -34,6 +35,81 @@ function ownershipPredicate(sql: Sql | TransactionSql, userId: UserId) {
 class PostgresVideoQueue {
   constructor(private readonly sql: Sql) {}
 
+  async listQueues(userId: UserId) {
+    const rows = await this.sql`
+      SELECT video_queue_id, label, is_default
+      FROM video_queue
+      WHERE user_id = ${userId}
+      ORDER BY video_queue_id
+    `;
+    return z.array(VideoQueueSchema).parse(rows);
+  }
+
+  async createQueue(userId: UserId, label: string) {
+    return await this.sql.begin(async (sql) => {
+      // Serialize with currency changes so the new thresholds use the current currency.
+      await sql`SELECT user_id FROM "user" WHERE user_id = ${userId} FOR UPDATE`;
+      const rows = await sql`
+        INSERT INTO video_queue (user_id, label)
+        VALUES (${userId}, ${label})
+        ON CONFLICT (user_id, label) DO NOTHING
+        RETURNING video_queue_id, label, is_default
+      `;
+      const queue = VideoQueueSchema.optional().parse(rows[0]);
+      if (!queue) throw new VideoQueueError("video queue name taken");
+      await sql`
+        INSERT INTO video_priority (user_id, video_queue_id, label, min_price_per_minute, is_default)
+        SELECT ${userId}, ${queue.videoQueueId}, priority.label, priority.min_price_per_minute, priority.is_default
+        FROM video_priority AS priority
+        JOIN video_queue USING (video_queue_id)
+        WHERE video_queue.user_id = ${userId} AND video_queue.is_default
+      `;
+      return queue;
+    });
+  }
+
+  async updateQueue(
+    userId: UserId,
+    input: { videoQueueId: number; label: string; isDefault: boolean },
+  ) {
+    return await this.sql.begin(async (sql) => {
+      await sql`SELECT user_id FROM "user" WHERE user_id = ${userId} FOR UPDATE`;
+      const existing = await sql`
+        SELECT video_queue_id, label, is_default FROM video_queue
+        WHERE user_id = ${userId} AND video_queue_id = ${input.videoQueueId}
+      `;
+      const queue = VideoQueueSchema.optional().parse(existing[0]);
+      if (!queue) throw new VideoQueueError("video queue not found");
+      const duplicates = await sql`
+        SELECT video_queue_id FROM video_queue
+        WHERE user_id = ${userId} AND label = ${input.label} AND video_queue_id <> ${input.videoQueueId}
+      `;
+      if (duplicates.length) throw new VideoQueueError("video queue name taken");
+      if (input.isDefault) {
+        await sql`UPDATE video_queue SET is_default = false WHERE user_id = ${userId} AND is_default`;
+      }
+      const rows = await sql`
+        UPDATE video_queue
+        SET label = ${input.label}, is_default = ${input.isDefault || queue.isDefault}
+        WHERE user_id = ${userId} AND video_queue_id = ${input.videoQueueId}
+        RETURNING video_queue_id, label, is_default
+      `;
+      return VideoQueueSchema.parse(rows[0]);
+    });
+  }
+
+  async moveVideo(userId: UserId, videoId: VideoId, videoQueueId: number) {
+    const ownsVideo = ownershipPredicate(this.sql, userId);
+    const rows = await this.sql`
+      UPDATE video
+      SET video_queue_id = ${videoQueueId}
+      WHERE video_id = ${String(videoId)} AND (${ownsVideo})
+        AND EXISTS (SELECT 1 FROM video_queue WHERE video_queue_id = ${videoQueueId} AND user_id = ${userId})
+      RETURNING video_id
+    `;
+    if (!rows.length) throw new VideoQueueError("video not found");
+  }
+
   async listPage(
     userId: UserId,
     input: {
@@ -42,17 +118,31 @@ class PostgresVideoQueue {
       videoPriorityId: number | "unassigned" | null;
       videoStatus: VideoStatus;
       videoId?: VideoId;
+      videoQueueId?: number;
     },
   ) {
     const priorityId = input.videoPriorityId === "unassigned" ? null : input.videoPriorityId;
     const unassigned = input.videoPriorityId === "unassigned";
     const focusedVideoId = input.videoId?.toString() ?? null;
+    const queueRows = await this.sql`
+      SELECT video_queue_id, label, is_default FROM video_queue
+      WHERE user_id = ${userId}
+        AND video_queue_id = coalesce(
+          ${input.videoQueueId ?? null}::int,
+          (SELECT video_queue_id FROM video WHERE video_id = ${focusedVideoId}::bigint),
+          (SELECT video_queue_id FROM video_queue WHERE user_id = ${userId} AND is_default)
+        )
+    `;
+    const queue = VideoQueueSchema.optional().parse(queueRows[0]);
+    if (!queue) throw new VideoQueueError("video queue not found");
+    const queueId = queue.videoQueueId;
     const statisticRows = await Promise.all([
       this.sql`
         SELECT count(*)::int AS total
         FROM video
         LEFT JOIN donation USING (donation_id)
         WHERE coalesce(video.user_id, donation.user_id) = ${userId}
+          AND video.video_queue_id = ${queueId}
           AND (${focusedVideoId}::bigint IS NULL OR video.video_id = ${focusedVideoId})
           AND (${priorityId}::int IS NULL OR video.video_priority_id = ${priorityId})
           AND (NOT ${unassigned} OR video.video_priority_id IS NULL)
@@ -72,12 +162,14 @@ class PostgresVideoQueue {
         FROM video
         LEFT JOIN donation USING (donation_id)
         WHERE coalesce(video.user_id, donation.user_id) = ${userId}
+          AND video.video_queue_id = ${queueId}
       `,
       this.sql`
         SELECT coalesce(video.video_priority_id, 0) AS video_priority_id, count(*)::int AS count
         FROM video
         LEFT JOIN donation USING (donation_id)
         WHERE coalesce(video.user_id, donation.user_id) = ${userId}
+          AND video.video_queue_id = ${queueId}
           AND (
             ${input.videoStatus} = 'all'
             OR (${input.videoStatus} = 'notwatched' AND video.watched_at IS NULL)
@@ -97,6 +189,7 @@ class PostgresVideoQueue {
         FROM video_priority
         LEFT JOIN video USING (video_priority_id)
         WHERE video_priority.user_id = ${userId}
+          AND video_priority.video_queue_id = ${queueId}
         GROUP BY video_priority.video_priority_id
       `,
     ]);
@@ -111,6 +204,7 @@ class PostgresVideoQueue {
     const rows = await this.sql`
       SELECT
         video.video_id,
+        video.video_queue_id,
         video.video_priority_id,
         video.provider,
         video.provider_video_id,
@@ -162,6 +256,7 @@ class PostgresVideoQueue {
         ON "user".user_id = coalesce(video.user_id, donation.user_id)
       LEFT JOIN video_priority USING (video_priority_id)
       WHERE "user".user_id = ${userId}
+        AND video.video_queue_id = ${queueId}
         AND (${focusedVideoId}::bigint IS NULL OR video.video_id = ${focusedVideoId})
         AND (${priorityId}::int IS NULL OR video.video_priority_id = ${priorityId})
         AND (NOT ${unassigned} OR video.video_priority_id IS NULL)
@@ -197,6 +292,7 @@ class PostgresVideoQueue {
     });
 
     return {
+      queue,
       items: z.array(VideoSchema).parse(rows),
       page,
       pageSize: input.pageSize,
@@ -225,6 +321,7 @@ class PostgresVideoQueue {
       amount: MoneyAmount;
       startSeconds: number;
       endSeconds: number | null;
+      videoQueueId?: number;
     },
   ) {
     const providerVideoId = youtubeVideoId(input.url);
@@ -235,6 +332,7 @@ class PostgresVideoQueue {
     const rows = await this.sql`
       INSERT INTO video (
         user_id,
+        video_queue_id,
         added_at,
         provider,
         provider_video_id,
@@ -245,8 +343,9 @@ class PostgresVideoQueue {
         duration_seconds,
         title
       )
-      VALUES (
+      SELECT
         ${userId},
+        video_queue.video_queue_id,
         now(),
         'youtube',
         ${providerVideoId},
@@ -256,21 +355,26 @@ class PostgresVideoQueue {
         ${input.endSeconds},
         NULL,
         NULL
-      )
+      FROM video_queue
+      WHERE user_id = ${userId}
+        AND (${input.videoQueueId ?? null}::int IS NULL AND is_default OR video_queue_id = ${input.videoQueueId ?? null})
       RETURNING video_id
     `;
     const schema = z.object({
       videoId: VideoIdSchema,
     });
 
+    if (!rows.length) throw new VideoQueueError("video queue not found");
     return { videoId: schema.parse(rows[0]).videoId };
   }
 
-  async listPriorities(userId: UserId) {
+  async listPriorities(userId: UserId, videoQueueId?: number) {
     const rows = await this.sql`
       SELECT video_priority_id, label, is_default, min_price_per_minute
       FROM video_priority
       WHERE user_id = ${userId}
+        AND video_queue_id = coalesce(${videoQueueId ?? null}::int,
+          (SELECT video_queue_id FROM video_queue WHERE user_id = ${userId} AND is_default))
       ORDER BY min_price_per_minute DESC, video_priority_id ASC
     `;
     return z.array(VideoPrioritySchema).parse(rows);
@@ -288,7 +392,7 @@ class PostgresVideoQueue {
       UPDATE video_priority
       SET
         label = ${input.label},
-        min_price_per_minute = CASE WHEN is_default THEN 0 ELSE ${input.minPricePerMinute} END
+        min_price_per_minute = CASE WHEN is_default THEN 0::money_amount ELSE ${input.minPricePerMinute}::money_amount END
       WHERE user_id = ${userId}
         AND video_priority_id = ${input.videoPriorityId}
       RETURNING video_priority_id, label, is_default, min_price_per_minute
@@ -408,11 +512,12 @@ class PostgresVideoQueue {
 
   async listSharedPage(
     slug: Slug,
-    input: { page: number; pageSize: number; status: SharedVideoStatus },
+    input: { page: number; pageSize: number; status: SharedVideoStatus; videoQueueId?: number },
   ) {
     const summaryRows = await this.sql`
       SELECT
         "user".user_id,
+        video_queue.video_queue_id,
         "user".public_queue_enabled,
         "user".public_queue_show_amounts,
         "user".public_queue_show_watched,
@@ -421,6 +526,7 @@ class PostgresVideoQueue {
           FROM video
           LEFT JOIN donation USING (donation_id)
           WHERE coalesce(video.user_id, donation.user_id) = "user".user_id
+            AND video.video_queue_id = video_queue.video_queue_id
             AND CASE
               WHEN ${input.status} = 'watched' AND "user".public_queue_show_watched
                 THEN video.watched_at IS NOT NULL
@@ -428,10 +534,14 @@ class PostgresVideoQueue {
             END
         ) AS total
       FROM "user"
+      JOIN video_queue ON video_queue.user_id = "user".user_id
+        AND ((${input.videoQueueId ?? null}::int IS NULL AND video_queue.is_default)
+          OR video_queue.video_queue_id = ${input.videoQueueId ?? null})
       WHERE slug = ${slug}
     `;
     const summarySchema = z.object({
       userId: UserIdSchema,
+      videoQueueId: z.int().positive(),
       publicQueueEnabled: z.boolean(),
       publicQueueShowAmounts: z.boolean(),
       publicQueueShowWatched: z.boolean(),
@@ -484,6 +594,7 @@ class PostgresVideoQueue {
         JOIN "user"
           ON "user".user_id = coalesce(video.user_id, donation.user_id)
         WHERE "user".slug = ${slug}
+          AND video.video_queue_id = ${summary.videoQueueId}
           AND CASE
             WHEN ${status} = 'watched' THEN video.watched_at IS NOT NULL
             ELSE video.watched_at IS NULL
@@ -511,6 +622,7 @@ class PostgresVideoQueue {
         FROM video_priority
         LEFT JOIN video USING (video_priority_id)
         WHERE video_priority.user_id = ${summary.userId}
+          AND video_priority.video_queue_id = ${summary.videoQueueId}
         GROUP BY
           video_priority.video_priority_id,
           video_priority.label,
@@ -529,6 +641,8 @@ class PostgresVideoQueue {
 
     return {
       items: z.array(SharedVideoSchema).parse(rows),
+      videoQueueId: summary.videoQueueId,
+      queues: await this.listQueues(summary.userId),
       page,
       pageSize: input.pageSize,
       priorities: z.array(prioritySchema).parse(status === "queue" ? priorityRows : []),

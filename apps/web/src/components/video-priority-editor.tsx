@@ -19,6 +19,7 @@ type VideoPriorityFormValues = {
 };
 
 type Props = {
+  videoQueueId?: number;
   priority: VideoPriority;
   isSelected: boolean;
   remainingSeconds: number;
@@ -26,6 +27,7 @@ type Props = {
 };
 
 export default function VideoPriorityEditor({
+  videoQueueId,
   priority,
   isSelected,
   remainingSeconds,
@@ -85,6 +87,7 @@ export default function VideoPriorityEditor({
           aria-label={t("selectQueueFilter", { label: priority.label })}
           className="absolute inset-0 rounded-lg"
           search={(previous) => ({
+            videoQueueId,
             page: 1,
             videoPriorityId: priority.videoPriorityId,
             videoStatus: previous.videoStatus ?? "all",

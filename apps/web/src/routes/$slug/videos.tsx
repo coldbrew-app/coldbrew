@@ -5,6 +5,7 @@ import { EmptyState } from "@web/components/empty-state";
 import { Icons } from "@web/components/icons";
 import { VideoListSkeleton } from "@web/components/loading-skeletons";
 import { PagePagination } from "@web/components/page-pagination";
+import QueryErrorState from "@web/components/query-error-state";
 import { SharedVideoCard } from "@web/components/shared-video-card";
 import { buttonVariants } from "@web/components/ui/button";
 import { useSharedVideoPageQ } from "@web/hooks/api";
@@ -16,6 +17,7 @@ import { useEffect } from "react";
 import { z } from "zod";
 
 const SharedVideoPageDepsSchema = z.object({
+  videoQueueId: z.int().positive().optional(),
   page: z.int().positive(),
   status: z.enum(["queue", "watched"]),
 });
@@ -113,10 +115,15 @@ export const Route = createFileRoute("/$slug/videos")({
   }),
   params: slugParams,
   validateSearch: z.object({
+    videoQueueId: z.coerce.number().int().positive().optional().catch(undefined),
     page: z.coerce.number().int().positive().default(1).catch(1),
     status: z.enum(["queue", "watched"]).default("queue").catch("queue"),
   }),
-  loaderDeps: ({ search }) => ({ page: search.page, status: search.status }),
+  loaderDeps: ({ search }) => ({
+    page: search.page,
+    status: search.status,
+    videoQueueId: search.videoQueueId,
+  }),
   loader: ({ context, deps, params }) =>
     context.queryClient.ensureQueryData(
       context.trpc.sharedVideoPage.queryOptions({
@@ -128,25 +135,23 @@ export const Route = createFileRoute("/$slug/videos")({
 
 function SharedVideoQueue() {
   const { slug } = Route.useParams();
-  const { page, status } = Route.useSearch();
+  const { page, status, videoQueueId } = Route.useSearch();
   const navigate = Route.useNavigate();
-  const videosQ = useSharedVideoPageQ(slug, page, status);
+  const videosQ = useSharedVideoPageQ(slug, page, status, videoQueueId);
   const { t } = useI18n();
 
   useEffect(() => {
-    if (
-      videosQ.data &&
-      !videosQ.isPlaceholderData &&
-      (videosQ.data.page !== page || videosQ.data.status !== status)
-    ) {
+    const data = videosQ.data;
+    if (data && !videosQ.isPlaceholderData && (data.page !== page || data.status !== status)) {
       void navigate({
         replace: true,
-        search: { page: videosQ.data.page, status: videosQ.data.status },
+        search: (previous) => ({ ...previous, page: data.page, status: data.status }),
       });
     }
   }, [navigate, page, status, videosQ.data, videosQ.isPlaceholderData]);
 
   const displayedStatus = videosQ.data?.status ?? status;
+  const selectedQueueId = videosQ.data?.videoQueueId;
 
   return (
     <main className="relative h-dvh overflow-hidden bg-background p-0 text-foreground sm:p-3">
@@ -167,8 +172,35 @@ function SharedVideoQueue() {
         </header>
         {videosQ.isLoading ? (
           <VideoListSkeleton aria-busy="true" aria-label={t("loadingVideoQueue")} />
+        ) : videosQ.isError ? (
+          <QueryErrorState isRetrying={videosQ.isFetching} onRetry={() => void videosQ.refetch()} />
         ) : videosQ.data ? (
           <>
+            <nav
+              aria-label={t("videoQueues")}
+              className="flex shrink-0 flex-wrap gap-1 border-b border-border p-2"
+            >
+              {videosQ.data.queues.map((queue) => (
+                <Link
+                  key={queue.videoQueueId}
+                  to="/$slug/videos"
+                  params={{ slug }}
+                  search={(previous) => ({
+                    ...previous,
+                    videoQueueId: queue.videoQueueId,
+                    page: 1,
+                  })}
+                  aria-current={selectedQueueId === queue.videoQueueId ? "page" : undefined}
+                  className={buttonVariants({
+                    variant: selectedQueueId === queue.videoQueueId ? "secondary" : "ghost",
+                    size: "sm",
+                    className: "max-w-full",
+                  })}
+                >
+                  <span className="truncate">{queue.label}</span>
+                </Link>
+              ))}
+            </nav>
             <nav
               aria-label={t("publicQueueTabs")}
               className="flex shrink-0 gap-1 border-b border-border bg-secondary/35 p-2"
@@ -181,7 +213,7 @@ function SharedVideoQueue() {
                   variant: videosQ.data.status === "queue" ? "secondary" : "ghost",
                 })}
                 params={{ slug }}
-                search={{ page: 1, status: "queue" }}
+                search={{ page: 1, status: "queue", videoQueueId }}
                 to="/$slug/videos"
               >
                 <Icons.list aria-hidden="true" size={15} />
@@ -196,7 +228,7 @@ function SharedVideoQueue() {
                     variant: videosQ.data.status === "watched" ? "secondary" : "ghost",
                   })}
                   params={{ slug }}
-                  search={{ page: 1, status: "watched" }}
+                  search={{ page: 1, status: "watched", videoQueueId }}
                   to="/$slug/videos"
                 >
                   <Icons.watched aria-hidden="true" size={15} />
@@ -238,7 +270,9 @@ function SharedVideoQueue() {
                 isLoading={videosQ.isFetching}
                 loadingLabel={t("loadingVideoQueue")}
                 onPageChange={(nextPage) =>
-                  void navigate({ search: { page: nextPage, status: displayedStatus } })
+                  void navigate({
+                    search: { page: nextPage, status: displayedStatus, videoQueueId },
+                  })
                 }
                 page={videosQ.data.page}
                 pageSize={videosQ.data.pageSize}

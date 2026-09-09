@@ -3,7 +3,7 @@
 Videos are persisted before YouTube requests. Donation scanning and metadata
 lookups run independently in `apps/video`. An unknown duration is NULL, and an
 open segment has a NULL end until metadata arrives. Such videos remain visible
-under “Без очереди”. A known segment permits priority assignment even before
+under “Без приоритета” within their assigned video queue. A known segment permits priority assignment even before
 the full provider duration is known.
 
 Metadata comes from YouTube Data API v3 `videos.list`, requesting
