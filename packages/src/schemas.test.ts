@@ -26,6 +26,7 @@ const baseVideo = {
   metadataUnavailable: false,
   metadataRetryAt: null,
   videoId: "1",
+  videoQueueId: 1,
   videoPriorityId: 1,
   provider: "youtube",
   providerVideoId: "dQw4w9WgXcQ",

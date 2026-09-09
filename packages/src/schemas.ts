@@ -6,6 +6,13 @@ export type UserId = z.infer<typeof UserIdSchema>;
 export const VideoIdSchema = z.coerce.bigint().positive().brand("video id");
 export type VideoId = z.infer<typeof VideoIdSchema>;
 
+export const VideoQueueSchema = z.object({
+  videoQueueId: z.int().positive(),
+  label: z.string().trim().min(1).max(64),
+  isDefault: z.boolean(),
+});
+export type VideoQueue = z.infer<typeof VideoQueueSchema>;
+
 export const VideoPriorityIdSchema = z.int().positive().brand("video priority id");
 export type VideoPriorityId = z.infer<typeof VideoPriorityIdSchema>;
 
@@ -69,6 +76,7 @@ const VideoBaseSchema = z.object({
   metadataUnavailable: z.boolean(),
   metadataRetryAt: z.coerce.date().nullable(),
   videoId: VideoIdSchema,
+  videoQueueId: z.int().positive(),
   videoPriorityId: VideoPriorityIdSchema.nullable(),
   provider: z.literal("youtube"),
   providerVideoId: z.string().min(1),

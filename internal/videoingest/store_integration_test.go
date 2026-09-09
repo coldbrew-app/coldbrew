@@ -257,8 +257,11 @@ func seedDonationWithoutScan(t *testing.T, pool *pgxpool.Pool, donationID int64)
 	ctx := context.Background()
 	_, err := pool.Exec(ctx, `INSERT INTO auth_user (id, name, email, "emailVerified") VALUES ('test', 'Test', 'test@example.com', true) ON CONFLICT DO NOTHING;
         INSERT INTO "user" (user_id, auth_user_id, queue_currency) VALUES (1, 'test', 'RUB') ON CONFLICT DO NOTHING;
-        INSERT INTO video_priority (user_id, label, min_price_per_minute, is_default)
-        VALUES (1, 'Default', 0, true) ON CONFLICT DO NOTHING`)
+        INSERT INTO video_queue (user_id, label, is_default)
+        VALUES (1, 'Main', true) ON CONFLICT DO NOTHING;
+        INSERT INTO video_priority (user_id, video_queue_id, label, min_price_per_minute, is_default)
+        SELECT 1, video_queue_id, 'Default', 0, true FROM video_queue WHERE user_id = 1 AND is_default
+        ON CONFLICT DO NOTHING`)
 	if err == nil {
 		_, err = pool.Exec(ctx, `INSERT INTO donation (donation_id, user_id, amount, currency, source, source_donation_id, source_created_at, occurred_at)
         OVERRIDING SYSTEM VALUE VALUES ($1, 1, 10, 'RUB', 'donationalerts', $1::bigint::text, 'test', now())`, donationID)

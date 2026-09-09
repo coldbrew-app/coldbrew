@@ -351,6 +351,9 @@ deployment job exits before changing containers.
 
 Apply the exact blocked revision manually:
 
+For the independent-video-queues transition, run the [queue backfill](video-queues.md#existing-installation-migration)
+before applying the final schema to populated tables.
+
 ```sh
 cd /opt/coldbrew
 git fetch --prune --tags origin

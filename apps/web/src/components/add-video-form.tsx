@@ -1,17 +1,21 @@
-import { MoneyAmountSchema } from "@coldbrew/packages/schemas.js";
+import { MoneyAmountSchema, type VideoQueue } from "@coldbrew/packages/schemas.js";
 import { youtubeVideoId } from "@coldbrew/packages/youtube.js";
 import { useAddVideoM, useUserInfoSafe } from "@web/hooks/api";
 import { formatMoneyInputValue } from "@web/lib/fmt";
 import { useI18n } from "@web/lib/i18n";
+import { useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 
 import { Icons } from "./icons";
 import { Button } from "./ui/button";
 import { Field, FieldDescription, FieldError, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
+import { VideoQueueSelect } from "./video-queue-controls";
 import { parseVideoTiming, VideoTimingFields, type VideoTimingValues } from "./video-timing-fields";
 
 type Props = {
+  videoQueueId: number;
+  queues: VideoQueue[];
   onCancel: () => void;
 };
 
@@ -20,7 +24,8 @@ type AddVideoFormValues = VideoTimingValues & {
   amount: string;
 };
 
-export function AddVideoForm({ onCancel }: Props) {
+export function AddVideoForm({ onCancel, videoQueueId, queues }: Props) {
+  const [selectedQueueId, setSelectedQueueId] = useState(videoQueueId);
   const { t } = useI18n();
   const userInfo = useUserInfoSafe();
   const addVideoM = useAddVideoM();
@@ -45,7 +50,12 @@ export function AddVideoForm({ onCancel }: Props) {
     }
 
     try {
-      await addVideoM.mutateAsync({ url: url.trim(), amount, ...timing });
+      await addVideoM.mutateAsync({
+        url: url.trim(),
+        amount,
+        videoQueueId: selectedQueueId,
+        ...timing,
+      });
       reset();
       onCancel();
     } catch {
@@ -60,6 +70,13 @@ export function AddVideoForm({ onCancel }: Props) {
           className="flex flex-col gap-3"
           onSubmit={(event) => void handleSubmit(addVideo)(event)}
         >
+          <VideoQueueSelect
+            queues={queues}
+            value={selectedQueueId}
+            onChange={setSelectedQueueId}
+            disabled={addVideoM.isPending}
+            label={t("videoQueue")}
+          />
           <div className="grid gap-3 md:grid-cols-2 md:items-end xl:grid-cols-[minmax(0,1fr)_11rem_16rem_auto]">
             <Field className="min-w-0" data-invalid={Boolean(formState.errors.url)}>
               <FieldLabel htmlFor="manual-video-url">{t("manualVideoUrl")}</FieldLabel>

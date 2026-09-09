@@ -2,6 +2,8 @@ export type VideoQueueErrorType =
   | "invalid youtube url"
   | "youtube timing unavailable"
   | "video not found"
+  | "video queue not found"
+  | "video queue name taken"
   | "video priority not found";
 
 export class VideoQueueError extends Error {
