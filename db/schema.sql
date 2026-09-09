@@ -1,4 +1,4 @@
-\restrict dbmate
+\restrict YKJR2cD2KS86S9o9Uop7figgSFVKUzbzJnLjVzsIvc2sjsiOdd10fk2e8emPS2m
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -91,7 +91,40 @@ $$;
 CREATE FUNCTION public.set_video_priority_id() RETURNS trigger
 LANGUAGE plpgsql
 AS $$
+DECLARE
+  owner_id int;
 BEGIN
+  owner_id := coalesce(
+    NEW.user_id,
+    (SELECT user_id FROM donation WHERE donation_id = NEW.donation_id)
+  );
+
+  IF NEW.video_queue_id IS NULL THEN
+    SELECT video_queue_id
+    INTO NEW.video_queue_id
+    FROM video_queue
+    WHERE user_id = owner_id
+      AND is_default;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM video_queue
+    WHERE video_queue_id = NEW.video_queue_id
+      AND user_id = owner_id
+  ) THEN
+    RAISE EXCEPTION 'video queue does not belong to video owner';
+  END IF;
+
+  IF NEW.video_priority_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1
+    FROM video_priority
+    WHERE video_priority_id = NEW.video_priority_id
+      AND user_id = owner_id
+  ) THEN
+    RAISE EXCEPTION 'video priority does not belong to video owner';
+  END IF;
+
   IF NEW.queue_amount IS NULL OR NEW.end_seconds IS NULL OR
      (NEW.duration_seconds IS NOT NULL AND NEW.start_seconds >= NEW.duration_seconds) THEN
     NEW.video_priority_id := NULL;
@@ -104,6 +137,7 @@ BEGIN
      NEW.end_seconds IS NOT DISTINCT FROM OLD.end_seconds AND
      NEW.donation_id IS NOT DISTINCT FROM OLD.donation_id AND
      NEW.user_id IS NOT DISTINCT FROM OLD.user_id AND
+     NEW.video_priority_id IS NOT DISTINCT FROM OLD.video_priority_id AND
      OLD.video_priority_id IS NOT NULL THEN
     RETURN NEW;
   END IF;
@@ -111,12 +145,7 @@ BEGIN
   SELECT video_priority.video_priority_id
   INTO NEW.video_priority_id
   FROM video_priority
-  WHERE video_priority.user_id = coalesce(
-      NEW.user_id,
-      (SELECT donation.user_id
-       FROM donation
-       WHERE donation.donation_id = NEW.donation_id)
-    )
+  WHERE video_priority.user_id = owner_id
     AND video_priority.min_price_per_minute <=
       NEW.queue_amount * 60 / (NEW.end_seconds - NEW.start_seconds)
   ORDER BY video_priority.min_price_per_minute DESC, video_priority.video_priority_id ASC
@@ -124,13 +153,7 @@ BEGIN
 
   IF NEW.video_priority_id IS NULL THEN
     RAISE EXCEPTION 'no video priority for user %, amount %, start %, end %',
-      coalesce(
-        NEW.user_id,
-        (SELECT donation.user_id
-         FROM donation
-         WHERE donation.donation_id = NEW.donation_id)
-      ),
-      NEW.queue_amount, NEW.start_seconds, NEW.end_seconds;
+      owner_id, NEW.queue_amount, NEW.start_seconds, NEW.end_seconds;
   END IF;
 
   RETURN NEW;
@@ -219,16 +242,14 @@ CREATE TABLE public.chat_oauth_attempt (
   return_url               text                 NOT NULL,
   expires_at               public.js_date       NOT NULL,
   created_at               public.js_date       DEFAULT now() NOT NULL,
-  CONSTRAINT chat_oauth_attempt_state_hash_check
-    CHECK ((state_hash ~ '^[0-9a-f]{64}$'::text))
+  CONSTRAINT chat_oauth_attempt_state_hash_check CHECK ((state_hash ~ '^[0-9a-f]{64}$'::text))
 );
 
 CREATE TABLE public.chat_overlay (
   user_id    integer        NOT NULL,
   token_hash character(64),
   updated_at public.js_date DEFAULT now() NOT NULL,
-  CONSTRAINT chat_overlay_token_hash_check
-    CHECK ((token_hash ~ '^[0-9a-f]{64}$'::text))
+  CONSTRAINT chat_overlay_token_hash_check CHECK ((token_hash ~ '^[0-9a-f]{64}$'::text))
 );
 
 CREATE TABLE public.chat_overlay_source (
@@ -238,15 +259,8 @@ CREATE TABLE public.chat_overlay_source (
   source_identifier      text                   NOT NULL,
   source_url             text                   NOT NULL,
   "position"             public.nonnegative_int NOT NULL,
-  CONSTRAINT chat_overlay_source_position_check
-    CHECK ((("position")::integer < 8)),
-  CONSTRAINT chat_overlay_source_source_identifier_check
-    CHECK (
-      (
-        (char_length(source_identifier) >= 1)
-        AND (char_length(source_identifier) <= 100)
-      )
-    )
+  CONSTRAINT chat_overlay_source_position_check CHECK ((("position")::integer < 8)),
+  CONSTRAINT chat_overlay_source_source_identifier_check CHECK (((char_length(source_identifier) >= 1) AND (char_length(source_identifier) <= 100)))
 );
 
 CREATE SEQUENCE public.chat_overlay_source_chat_overlay_source_id_seq
@@ -281,17 +295,9 @@ CREATE TABLE public.chat_provider_connection (
   token_version               public.positive_int                    DEFAULT 1 NOT NULL,
   connected_at                public.js_date                         DEFAULT now() NOT NULL,
   updated_at                  public.js_date                         DEFAULT now() NOT NULL,
-  CONSTRAINT chat_provider_connection_display_name_check
-    CHECK (((char_length(display_name) >= 1) AND (char_length(display_name) <= 200))),
-  CONSTRAINT chat_provider_connection_oauth_device_id_check
-    CHECK (((char_length(oauth_device_id) >= 1) AND (char_length(oauth_device_id) <= 200))),
-  CONSTRAINT chat_provider_connection_provider_user_id_check
-    CHECK (
-      (
-        (char_length(provider_user_id) >= 1)
-        AND (char_length(provider_user_id) <= 200)
-      )
-    )
+  CONSTRAINT chat_provider_connection_display_name_check CHECK (((char_length(display_name) >= 1) AND (char_length(display_name) <= 200))),
+  CONSTRAINT chat_provider_connection_oauth_device_id_check CHECK (((char_length(oauth_device_id) >= 1) AND (char_length(oauth_device_id) <= 200))),
+  CONSTRAINT chat_provider_connection_provider_user_id_check CHECK (((char_length(provider_user_id) >= 1) AND (char_length(provider_user_id) <= 200)))
 );
 
 CREATE TABLE public.chat_source (
@@ -307,16 +313,9 @@ CREATE TABLE public.chat_source (
   show_in_overlay             boolean                DEFAULT TRUE NOT NULL,
   created_at                  public.js_date         DEFAULT now() NOT NULL,
   updated_at                  public.js_date         DEFAULT now() NOT NULL,
-  CONSTRAINT chat_source_display_name_check
-    CHECK (((char_length(display_name) >= 1) AND (char_length(display_name) <= 200))),
+  CONSTRAINT chat_source_display_name_check CHECK (((char_length(display_name) >= 1) AND (char_length(display_name) <= 200))),
   CONSTRAINT chat_source_position_check CHECK ((("position")::integer < 20)),
-  CONSTRAINT chat_source_provider_source_id_check
-    CHECK (
-      (
-        (char_length(provider_source_id) >= 1)
-        AND (char_length(provider_source_id) <= 200)
-      )
-    )
+  CONSTRAINT chat_source_provider_source_id_check CHECK (((char_length(provider_source_id) >= 1) AND (char_length(provider_source_id) <= 200)))
 );
 
 CREATE TABLE public.donation (
@@ -350,11 +349,9 @@ CREATE TABLE public.donation_video_scan (
   lease_expires_at public.js_date,
   completed_at     public.js_date,
   last_error       text,
-  CONSTRAINT donation_video_scan_check
-    CHECK (((completed_at IS NULL) OR (lease_expires_at IS NULL))),
+  CONSTRAINT donation_video_scan_check CHECK (((completed_at IS NULL) OR (lease_expires_at IS NULL))),
   CONSTRAINT donation_video_scan_generation_check CHECK ((generation >= 0)),
-  CONSTRAINT donation_video_scan_last_error_check
-    CHECK ((char_length(last_error) <= 1000))
+  CONSTRAINT donation_video_scan_last_error_check CHECK ((char_length(last_error) <= 1000))
 );
 
 CREATE TABLE public.donationalerts_connection (
@@ -366,8 +363,7 @@ CREATE TABLE public.donationalerts_connection (
   history_checkpoint text,
   connected_at       public.js_date DEFAULT now() NOT NULL,
   updated_at         public.js_date DEFAULT now() NOT NULL,
-  CONSTRAINT donationalerts_connection_token_version_check
-    CHECK ((token_version > 0))
+  CONSTRAINT donationalerts_connection_token_version_check CHECK ((token_version > 0))
 );
 
 CREATE TABLE public.schema_migrations (
@@ -382,8 +378,7 @@ CREATE TABLE public."user" (
   public_queue_enabled      boolean               DEFAULT TRUE NOT NULL,
   public_queue_show_amounts boolean               DEFAULT TRUE NOT NULL,
   public_queue_show_watched boolean               DEFAULT TRUE NOT NULL,
-  CONSTRAINT user_slug_check
-    CHECK (((slug)::text ~ '^[a-zA-Z0-9\-]{3,47}$'::text))
+  CONSTRAINT user_slug_check CHECK (((slug)::text ~ '^[a-zA-Z0-9\-]{3,47}$'::text))
 );
 
 CREATE SEQUENCE public.user_user_id_seq
@@ -412,12 +407,10 @@ CREATE TABLE public.video (
   watched_at        public.js_date,
   bookmarked_at     public.js_date,
   video_priority_id integer,
-  CONSTRAINT video_check
-    CHECK ((((donation_id IS NOT NULL) AND (user_id IS NULL) AND (added_at IS NULL)) OR ((donation_id IS NULL) AND (user_id IS NOT NULL) AND (added_at IS NOT NULL)))),
-  CONSTRAINT video_check1
-    CHECK (((end_seconds)::integer > (start_seconds)::integer)),
-  CONSTRAINT video_title_check
-    CHECK (((title IS NULL) OR (btrim(title) <> ''::text)))
+  video_queue_id    integer                NOT NULL,
+  CONSTRAINT video_check CHECK ((((donation_id IS NOT NULL) AND (user_id IS NULL) AND (added_at IS NULL)) OR ((donation_id IS NULL) AND (user_id IS NOT NULL) AND (added_at IS NOT NULL)))),
+  CONSTRAINT video_check1 CHECK (((end_seconds)::integer > (start_seconds)::integer)),
+  CONSTRAINT video_title_check CHECK (((title IS NULL) OR (btrim(title) <> ''::text)))
 );
 
 CREATE TABLE public.video_metadata_job (
@@ -430,13 +423,10 @@ CREATE TABLE public.video_metadata_job (
   last_attempt_at  public.js_date,
   last_error_code  text,
   last_http_status integer,
-  CONSTRAINT video_metadata_job_check
-    CHECK (((completed_at IS NULL) OR (lease_expires_at IS NULL))),
+  CONSTRAINT video_metadata_job_check CHECK (((completed_at IS NULL) OR (lease_expires_at IS NULL))),
   CONSTRAINT video_metadata_job_generation_check CHECK ((generation >= 0)),
-  CONSTRAINT video_metadata_job_last_error_code_check
-    CHECK ((char_length(last_error_code) <= 64)),
-  CONSTRAINT video_metadata_job_last_http_status_check
-    CHECK (((last_http_status >= 100) AND (last_http_status <= 599)))
+  CONSTRAINT video_metadata_job_last_error_code_check CHECK ((char_length(last_error_code) <= 64)),
+  CONSTRAINT video_metadata_job_last_http_status_check CHECK (((last_http_status >= 100) AND (last_http_status <= 599)))
 );
 
 CREATE TABLE public.video_priority (
@@ -445,15 +435,8 @@ CREATE TABLE public.video_priority (
   label                text                NOT NULL,
   min_price_per_minute public.money_amount NOT NULL,
   is_default           boolean             DEFAULT FALSE NOT NULL,
-  CONSTRAINT video_priority_check
-    CHECK (((is_default AND ((min_price_per_minute)::numeric = (0)::numeric)) OR ((NOT is_default) AND ((min_price_per_minute)::numeric > (0)::numeric)))),
-  CONSTRAINT video_priority_label_check
-    CHECK (
-      (
-        (char_length(trim(BOTH FROM label)) >= 1)
-        AND (char_length(trim(BOTH FROM label)) <= 64)
-      )
-    )
+  CONSTRAINT video_priority_check CHECK (((is_default AND ((min_price_per_minute)::numeric = (0)::numeric)) OR ((NOT is_default) AND ((min_price_per_minute)::numeric > (0)::numeric)))),
+  CONSTRAINT video_priority_label_check CHECK (((char_length(trim(BOTH FROM label)) >= 1) AND (char_length(trim(BOTH FROM label)) <= 64)))
 );
 
 CREATE SEQUENCE public.video_priority_video_priority_id_seq
@@ -466,6 +449,24 @@ CACHE 1;
 
 ALTER SEQUENCE public.video_priority_video_priority_id_seq OWNED BY public.video_priority.video_priority_id;
 
+CREATE TABLE public.video_queue (
+  video_queue_id integer NOT NULL,
+  user_id        integer NOT NULL,
+  label          text    NOT NULL,
+  is_default     boolean DEFAULT FALSE NOT NULL,
+  CONSTRAINT video_queue_label_check CHECK (((char_length(trim(BOTH FROM label)) >= 1) AND (char_length(trim(BOTH FROM label)) <= 64)))
+);
+
+CREATE SEQUENCE public.video_queue_video_queue_id_seq
+AS integer
+START WITH 1
+INCREMENT BY 1
+NO MINVALUE
+NO MAXVALUE
+CACHE 1;
+
+ALTER SEQUENCE public.video_queue_video_queue_id_seq OWNED BY public.video_queue.video_queue_id;
+
 ALTER TABLE public.video ALTER COLUMN video_id ADD GENERATED ALWAYS AS IDENTITY (
   SEQUENCE NAME public.video_video_id_seq
   START WITH 1
@@ -475,17 +476,13 @@ ALTER TABLE public.video ALTER COLUMN video_id ADD GENERATED ALWAYS AS IDENTITY 
   CACHE 1
 );
 
-ALTER TABLE ONLY public.chat_overlay_source ALTER COLUMN chat_overlay_source_id SET DEFAULT nextval(
-  'public.chat_overlay_source_chat_overlay_source_id_seq'::regclass
-);
+ALTER TABLE ONLY public.chat_overlay_source ALTER COLUMN chat_overlay_source_id SET DEFAULT nextval('public.chat_overlay_source_chat_overlay_source_id_seq'::regclass);
 
-ALTER TABLE ONLY public."user" ALTER COLUMN user_id SET DEFAULT nextval(
-  'public.user_user_id_seq'::regclass
-);
+ALTER TABLE ONLY public."user" ALTER COLUMN user_id SET DEFAULT nextval('public.user_user_id_seq'::regclass);
 
-ALTER TABLE ONLY public.video_priority ALTER COLUMN video_priority_id SET DEFAULT nextval(
-  'public.video_priority_video_priority_id_seq'::regclass
-);
+ALTER TABLE ONLY public.video_priority ALTER COLUMN video_priority_id SET DEFAULT nextval('public.video_priority_video_priority_id_seq'::regclass);
+
+ALTER TABLE ONLY public.video_queue ALTER COLUMN video_queue_id SET DEFAULT nextval('public.video_queue_video_queue_id_seq'::regclass);
 
 ALTER TABLE ONLY public.auth_account
 ADD CONSTRAINT auth_account_pkey PRIMARY KEY (id);
@@ -506,8 +503,7 @@ ALTER TABLE ONLY public.auth_verification
 ADD CONSTRAINT auth_verification_pkey PRIMARY KEY (id);
 
 ALTER TABLE ONLY public.chat_moderation_action
-ADD CONSTRAINT chat_moderation_action_pkey
-  PRIMARY KEY (chat_moderation_action_id);
+ADD CONSTRAINT chat_moderation_action_pkey PRIMARY KEY (chat_moderation_action_id);
 
 ALTER TABLE ONLY public.chat_oauth_attempt
 ADD CONSTRAINT chat_oauth_attempt_pkey PRIMARY KEY (state_hash);
@@ -519,35 +515,28 @@ ALTER TABLE ONLY public.chat_overlay_source
 ADD CONSTRAINT chat_overlay_source_pkey PRIMARY KEY (chat_overlay_source_id);
 
 ALTER TABLE ONLY public.chat_overlay_source
-ADD CONSTRAINT chat_overlay_source_user_id_position_key
-  UNIQUE (user_id, "position");
+ADD CONSTRAINT chat_overlay_source_user_id_position_key UNIQUE (user_id, "position");
 
 ALTER TABLE ONLY public.chat_overlay_source
-ADD CONSTRAINT chat_overlay_source_user_id_provider_source_identifier_key
-  UNIQUE (user_id, provider, source_identifier);
+ADD CONSTRAINT chat_overlay_source_user_id_provider_source_identifier_key UNIQUE (user_id, provider, source_identifier);
 
 ALTER TABLE ONLY public.chat_overlay
 ADD CONSTRAINT chat_overlay_token_hash_key UNIQUE (token_hash);
 
 ALTER TABLE ONLY public.chat_provider_ban
-ADD CONSTRAINT chat_provider_ban_pkey
-  PRIMARY KEY (chat_source_id, provider_user_id);
+ADD CONSTRAINT chat_provider_ban_pkey PRIMARY KEY (chat_source_id, provider_user_id);
 
 ALTER TABLE ONLY public.chat_provider_connection
-ADD CONSTRAINT chat_provider_connection_chat_provider_connection_id_user_i_key
-  UNIQUE (chat_provider_connection_id, user_id, provider);
+ADD CONSTRAINT chat_provider_connection_chat_provider_connection_id_user_i_key UNIQUE (chat_provider_connection_id, user_id, provider);
 
 ALTER TABLE ONLY public.chat_provider_connection
-ADD CONSTRAINT chat_provider_connection_pkey
-  PRIMARY KEY (chat_provider_connection_id);
+ADD CONSTRAINT chat_provider_connection_pkey PRIMARY KEY (chat_provider_connection_id);
 
 ALTER TABLE ONLY public.chat_provider_connection
-ADD CONSTRAINT chat_provider_connection_provider_provider_user_id_key
-  UNIQUE (provider, provider_user_id);
+ADD CONSTRAINT chat_provider_connection_provider_provider_user_id_key UNIQUE (provider, provider_user_id);
 
 ALTER TABLE ONLY public.chat_source
-ADD CONSTRAINT chat_source_chat_source_id_user_id_key
-  UNIQUE (chat_source_id, user_id);
+ADD CONSTRAINT chat_source_chat_source_id_user_id_key UNIQUE (chat_source_id, user_id);
 
 ALTER TABLE ONLY public.chat_source
 ADD CONSTRAINT chat_source_pkey PRIMARY KEY (chat_source_id);
@@ -556,15 +545,13 @@ ALTER TABLE ONLY public.chat_source
 ADD CONSTRAINT chat_source_user_id_position_key UNIQUE (user_id, "position");
 
 ALTER TABLE ONLY public.chat_source
-ADD CONSTRAINT chat_source_user_id_provider_provider_source_id_key
-  UNIQUE (user_id, provider, provider_source_id);
+ADD CONSTRAINT chat_source_user_id_provider_provider_source_id_key UNIQUE (user_id, provider, provider_source_id);
 
 ALTER TABLE ONLY public.donation
 ADD CONSTRAINT donation_pkey PRIMARY KEY (donation_id);
 
 ALTER TABLE ONLY public.donation
-ADD CONSTRAINT donation_user_id_source_source_donation_id_key
-  UNIQUE (user_id, source, source_donation_id);
+ADD CONSTRAINT donation_user_id_source_source_donation_id_key UNIQUE (user_id, source, source_donation_id);
 
 ALTER TABLE ONLY public.donation_video_scan
 ADD CONSTRAINT donation_video_scan_pkey PRIMARY KEY (donation_id);
@@ -573,8 +560,7 @@ ALTER TABLE ONLY public.donationalerts_connection
 ADD CONSTRAINT donationalerts_connection_pkey PRIMARY KEY (user_id);
 
 ALTER TABLE ONLY public.donationalerts_connection
-ADD CONSTRAINT donationalerts_connection_source_user_id_key
-  UNIQUE (source_user_id);
+ADD CONSTRAINT donationalerts_connection_source_user_id_key UNIQUE (source_user_id);
 
 ALTER TABLE ONLY public.schema_migrations
 ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
@@ -589,8 +575,7 @@ ALTER TABLE ONLY public."user"
 ADD CONSTRAINT user_slug_key UNIQUE (slug);
 
 ALTER TABLE ONLY public.video
-ADD CONSTRAINT video_donation_id_provider_provider_video_id_key
-  UNIQUE (donation_id, provider, provider_video_id);
+ADD CONSTRAINT video_donation_id_provider_provider_video_id_key UNIQUE (donation_id, provider, provider_video_id);
 
 ALTER TABLE ONLY public.video_metadata_job
 ADD CONSTRAINT video_metadata_job_pkey PRIMARY KEY (video_id);
@@ -604,69 +589,50 @@ ADD CONSTRAINT video_priority_pkey PRIMARY KEY (video_priority_id);
 ALTER TABLE ONLY public.video_priority
 ADD CONSTRAINT video_priority_user_id_label_key UNIQUE (user_id, label);
 
-CREATE INDEX "auth_account_userId_idx" ON public.auth_account USING btree (
-  "userId"
-);
+ALTER TABLE ONLY public.video_queue
+ADD CONSTRAINT video_queue_pkey PRIMARY KEY (video_queue_id);
 
-CREATE INDEX "auth_session_userId_idx" ON public.auth_session USING btree (
-  "userId"
-);
+ALTER TABLE ONLY public.video_queue
+ADD CONSTRAINT video_queue_user_id_label_key UNIQUE (user_id, label);
 
-CREATE INDEX auth_verification_identifier_idx ON public.auth_verification USING btree (
-  identifier
-);
+ALTER TABLE ONLY public.video_queue
+ADD CONSTRAINT video_queue_video_queue_id_user_id_key UNIQUE (video_queue_id, user_id);
 
-CREATE INDEX chat_moderation_action_user_occurred_idx ON public.chat_moderation_action USING btree (
-  user_id, occurred_at DESC, chat_moderation_action_id DESC
-);
+CREATE INDEX "auth_account_userId_idx" ON public.auth_account USING btree ("userId");
 
-CREATE INDEX chat_oauth_attempt_expires_idx ON public.chat_oauth_attempt USING btree (
-  expires_at
-);
+CREATE INDEX "auth_session_userId_idx" ON public.auth_session USING btree ("userId");
 
-CREATE INDEX chat_overlay_source_user_position_idx ON public.chat_overlay_source USING btree (
-  user_id, "position"
-);
+CREATE INDEX auth_verification_identifier_idx ON public.auth_verification USING btree (identifier);
 
-CREATE INDEX chat_provider_connection_user_idx ON public.chat_provider_connection USING btree (
-  user_id, connected_at
-);
+CREATE INDEX chat_moderation_action_user_occurred_idx ON public.chat_moderation_action USING btree (user_id, occurred_at DESC, chat_moderation_action_id DESC);
 
-CREATE INDEX chat_source_connection_idx ON public.chat_source USING btree (
-  chat_provider_connection_id, "position"
-);
+CREATE INDEX chat_oauth_attempt_expires_idx ON public.chat_oauth_attempt USING btree (expires_at);
 
-CREATE INDEX chat_source_user_enabled_idx ON public.chat_source USING btree (
-  user_id, "position"
-) WHERE enabled;
+CREATE INDEX chat_overlay_source_user_position_idx ON public.chat_overlay_source USING btree (user_id, "position");
 
-CREATE INDEX donation_user_occurred_idx ON public.donation USING btree (
-  user_id, occurred_at DESC, donation_id DESC
-);
+CREATE INDEX chat_provider_connection_user_idx ON public.chat_provider_connection USING btree (user_id, connected_at);
 
-CREATE INDEX donation_video_scan_available_idx ON public.donation_video_scan USING btree (
-  available_at, lease_expires_at, donation_id
-) WHERE (completed_at IS NULL);
+CREATE INDEX chat_source_connection_idx ON public.chat_source USING btree (chat_provider_connection_id, "position");
 
-CREATE INDEX donation_videos_unparsed_idx ON public.donation USING btree (
-  occurred_at
-) WHERE (videos_parsed_at IS NULL);
+CREATE INDEX chat_source_user_enabled_idx ON public.chat_source USING btree (user_id, "position") WHERE enabled;
 
-CREATE INDEX video_bookmarked_idx ON public.video USING btree (
-  bookmarked_at DESC, video_id DESC
-) WHERE (bookmarked_at IS NOT NULL);
+CREATE INDEX donation_user_occurred_idx ON public.donation USING btree (user_id, occurred_at DESC, donation_id DESC);
 
-CREATE INDEX video_metadata_job_available_idx ON public.video_metadata_job USING btree (
-  available_at, video_id
-) WHERE (completed_at IS NULL);
+CREATE INDEX donation_video_scan_available_idx ON public.donation_video_scan USING btree (available_at, lease_expires_at, donation_id) WHERE (completed_at IS NULL);
 
-CREATE UNIQUE INDEX video_priority_default_idx ON public.video_priority USING btree (
-  user_id
-) WHERE is_default;
+CREATE INDEX donation_videos_unparsed_idx ON public.donation USING btree (occurred_at) WHERE (videos_parsed_at IS NULL);
 
-CREATE INDEX video_watched_idx ON public.video USING btree (
-  watched_at DESC, video_id DESC
-) WHERE (watched_at IS NOT NULL);
+CREATE INDEX video_bookmarked_idx ON public.video USING btree (bookmarked_at DESC, video_id DESC) WHERE (bookmarked_at IS NOT NULL);
+
+CREATE INDEX video_metadata_job_available_idx ON public.video_metadata_job USING btree (available_at, video_id) WHERE (completed_at IS NULL);
+
+CREATE UNIQUE INDEX video_priority_default_idx ON public.video_priority USING btree (user_id) WHERE is_default;
+
+CREATE UNIQUE INDEX video_queue_default_idx ON public.video_queue USING btree (user_id) WHERE is_default;
+
+CREATE INDEX video_queue_idx ON public.video USING btree (video_queue_id, video_id DESC);
+
+CREATE INDEX video_watched_idx ON public.video USING btree (watched_at DESC, video_id DESC) WHERE (watched_at IS NOT NULL);
 
 CREATE TRIGGER enqueue_donation_video_scan AFTER INSERT ON public.donation FOR EACH ROW EXECUTE FUNCTION public.enqueue_donation_video_scan();
 
@@ -677,85 +643,76 @@ start_seconds,
 end_seconds,
 duration_seconds,
 donation_id,
-user_id ON public.video FOR EACH ROW EXECUTE FUNCTION public.set_video_priority_id();
+user_id,
+video_queue_id,
+video_priority_id ON public.video FOR EACH ROW EXECUTE FUNCTION public.set_video_priority_id();
 
 ALTER TABLE ONLY public.auth_account
-ADD CONSTRAINT "auth_account_userId_fkey"
-  FOREIGN KEY ("userId") REFERENCES public.auth_user (id) ON DELETE CASCADE;
+ADD CONSTRAINT "auth_account_userId_fkey" FOREIGN KEY ("userId") REFERENCES public.auth_user (id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.auth_session
-ADD CONSTRAINT "auth_session_userId_fkey"
-  FOREIGN KEY ("userId") REFERENCES public.auth_user (id) ON DELETE CASCADE;
+ADD CONSTRAINT "auth_session_userId_fkey" FOREIGN KEY ("userId") REFERENCES public.auth_user (id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.chat_moderation_action
-ADD CONSTRAINT chat_moderation_action_user_id_fkey
-  FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
+ADD CONSTRAINT chat_moderation_action_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.chat_oauth_attempt
-ADD CONSTRAINT chat_oauth_attempt_user_id_fkey
-  FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
+ADD CONSTRAINT chat_oauth_attempt_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.chat_overlay_source
-ADD CONSTRAINT chat_overlay_source_user_id_fkey
-  FOREIGN KEY (user_id) REFERENCES public.chat_overlay (user_id) ON DELETE CASCADE;
+ADD CONSTRAINT chat_overlay_source_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.chat_overlay (user_id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.chat_overlay
-ADD CONSTRAINT chat_overlay_user_id_fkey
-  FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
+ADD CONSTRAINT chat_overlay_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.chat_provider_ban
-ADD CONSTRAINT chat_provider_ban_chat_source_id_fkey
-  FOREIGN KEY (chat_source_id) REFERENCES public.chat_source (chat_source_id) ON DELETE CASCADE;
+ADD CONSTRAINT chat_provider_ban_chat_source_id_fkey FOREIGN KEY (chat_source_id) REFERENCES public.chat_source (chat_source_id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.chat_provider_connection
-ADD CONSTRAINT chat_provider_connection_user_id_fkey
-  FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
+ADD CONSTRAINT chat_provider_connection_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.chat_source
 ADD CONSTRAINT chat_source_chat_provider_connection_id_user_id_provider_fkey
   FOREIGN KEY (chat_provider_connection_id, user_id, provider) REFERENCES public.chat_provider_connection (chat_provider_connection_id, user_id, provider) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.chat_source
-ADD CONSTRAINT chat_source_user_id_fkey
-  FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
+ADD CONSTRAINT chat_source_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.donation
-ADD CONSTRAINT donation_user_id_fkey
-  FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
+ADD CONSTRAINT donation_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.donation_video_scan
-ADD CONSTRAINT donation_video_scan_donation_id_fkey
-  FOREIGN KEY (donation_id) REFERENCES public.donation (donation_id) ON DELETE CASCADE;
+ADD CONSTRAINT donation_video_scan_donation_id_fkey FOREIGN KEY (donation_id) REFERENCES public.donation (donation_id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.donationalerts_connection
-ADD CONSTRAINT donationalerts_connection_user_id_fkey
-  FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
+ADD CONSTRAINT donationalerts_connection_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public."user"
-ADD CONSTRAINT user_auth_user_id_fkey
-  FOREIGN KEY (auth_user_id) REFERENCES public.auth_user (id);
+ADD CONSTRAINT user_auth_user_id_fkey FOREIGN KEY (auth_user_id) REFERENCES public.auth_user (id);
 
 ALTER TABLE ONLY public.video
-ADD CONSTRAINT video_donation_id_fkey
-  FOREIGN KEY (donation_id) REFERENCES public.donation (donation_id) ON DELETE CASCADE;
+ADD CONSTRAINT video_donation_id_fkey FOREIGN KEY (donation_id) REFERENCES public.donation (donation_id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.video_metadata_job
-ADD CONSTRAINT video_metadata_job_video_id_fkey
-  FOREIGN KEY (video_id) REFERENCES public.video (video_id) ON DELETE CASCADE;
+ADD CONSTRAINT video_metadata_job_video_id_fkey FOREIGN KEY (video_id) REFERENCES public.video (video_id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.video_priority
-ADD CONSTRAINT video_priority_user_id_fkey
-  FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
+ADD CONSTRAINT video_priority_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.video_queue
+ADD CONSTRAINT video_queue_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.video
-ADD CONSTRAINT video_user_id_fkey
-  FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
+ADD CONSTRAINT video_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.video
-ADD CONSTRAINT video_video_priority_id_fkey
-  FOREIGN KEY (video_priority_id) REFERENCES public.video_priority (video_priority_id);
+ADD CONSTRAINT video_video_priority_id_fkey FOREIGN KEY (video_priority_id) REFERENCES public.video_priority (video_priority_id);
 
-\unrestrict dbmate
+ALTER TABLE ONLY public.video
+ADD CONSTRAINT video_video_queue_id_fkey FOREIGN KEY (video_queue_id) REFERENCES public.video_queue (video_queue_id);
+
+\unrestrict YKJR2cD2KS86S9o9Uop7figgSFVKUzbzJnLjVzsIvc2sjsiOdd10fk2e8emPS2m
 
 INSERT INTO public.schema_migrations (version) VALUES
-('20260909000000');
+('20260909000000'),
+('20260909195358');

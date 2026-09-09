@@ -46,26 +46,15 @@ class PostgresVideoQueue {
   }
 
   async createQueue(userId: UserId, label: string) {
-    return await this.sql.begin(async (sql) => {
-      // Serialize with currency changes so the new thresholds use the current currency.
-      await sql`SELECT user_id FROM "user" WHERE user_id = ${userId} FOR UPDATE`;
-      const rows = await sql`
-        INSERT INTO video_queue (user_id, label)
-        VALUES (${userId}, ${label})
-        ON CONFLICT (user_id, label) DO NOTHING
-        RETURNING video_queue_id, label, is_default
-      `;
-      const queue = VideoQueueSchema.optional().parse(rows[0]);
-      if (!queue) throw new VideoQueueError("video queue name taken");
-      await sql`
-        INSERT INTO video_priority (user_id, video_queue_id, label, min_price_per_minute, is_default)
-        SELECT ${userId}, ${queue.videoQueueId}, priority.label, priority.min_price_per_minute, priority.is_default
-        FROM video_priority AS priority
-        JOIN video_queue USING (video_queue_id)
-        WHERE video_queue.user_id = ${userId} AND video_queue.is_default
-      `;
-      return queue;
-    });
+    const rows = await this.sql`
+      INSERT INTO video_queue (user_id, label)
+      VALUES (${userId}, ${label})
+      ON CONFLICT (user_id, label) DO NOTHING
+      RETURNING video_queue_id, label, is_default
+    `;
+    const queue = VideoQueueSchema.optional().parse(rows[0]);
+    if (!queue) throw new VideoQueueError("video queue name taken");
+    return queue;
   }
 
   async updateQueue(
@@ -187,9 +176,10 @@ class PostgresVideoQueue {
             0
           )::bigint AS remaining_seconds
         FROM video_priority
-        LEFT JOIN video USING (video_priority_id)
+        LEFT JOIN video
+          ON video.video_priority_id = video_priority.video_priority_id
+          AND video.video_queue_id = ${queueId}
         WHERE video_priority.user_id = ${userId}
-          AND video_priority.video_queue_id = ${queueId}
         GROUP BY video_priority.video_priority_id
       `,
     ]);
@@ -368,13 +358,11 @@ class PostgresVideoQueue {
     return { videoId: schema.parse(rows[0]).videoId };
   }
 
-  async listPriorities(userId: UserId, videoQueueId?: number) {
+  async listPriorities(userId: UserId) {
     const rows = await this.sql`
       SELECT video_priority_id, label, is_default, min_price_per_minute
       FROM video_priority
       WHERE user_id = ${userId}
-        AND video_queue_id = coalesce(${videoQueueId ?? null}::int,
-          (SELECT video_queue_id FROM video_queue WHERE user_id = ${userId} AND is_default))
       ORDER BY min_price_per_minute DESC, video_priority_id ASC
     `;
     return z.array(VideoPrioritySchema).parse(rows);
@@ -620,9 +608,10 @@ class PostgresVideoQueue {
             0
           )::bigint AS remaining_seconds
         FROM video_priority
-        LEFT JOIN video USING (video_priority_id)
+        LEFT JOIN video
+          ON video.video_priority_id = video_priority.video_priority_id
+          AND video.video_queue_id = ${summary.videoQueueId}
         WHERE video_priority.user_id = ${summary.userId}
-          AND video_priority.video_queue_id = ${summary.videoQueueId}
         GROUP BY
           video_priority.video_priority_id,
           video_priority.label,

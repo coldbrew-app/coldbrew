@@ -201,13 +201,7 @@ function createVideoProcedures(queue: VideoQueue) {
         }
       }),
 
-    videoPriorities: authenticatedProcedure
-      .input(
-        z.object({
-          videoQueueId: z.int().positive().optional(),
-        }),
-      )
-      .query(({ ctx, input }) => queue.listPriorities(ctx.userId, input.videoQueueId)),
+    videoPriorities: authenticatedProcedure.query(({ ctx }) => queue.listPriorities(ctx.userId)),
 
     updateVideoPriority: authenticatedProcedure
       .input(

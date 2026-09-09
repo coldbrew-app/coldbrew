@@ -70,10 +70,7 @@ export const Route = createFileRoute("/_authenticated/videos")({
     const videoPageInput = VideoPageInputSchema.parse(deps);
     await Promise.all([
       preloadRouteQuery(context.queryClient, context.trpc.videoPage.queryOptions(videoPageInput)),
-      preloadRouteQuery(
-        context.queryClient,
-        context.trpc.videoPriorities.queryOptions({ videoQueueId: videoPageInput.videoQueueId }),
-      ),
+      preloadRouteQuery(context.queryClient, context.trpc.videoPriorities.queryOptions()),
       preloadRouteQuery(context.queryClient, context.trpc.videoQueues.queryOptions()),
     ]);
   },

@@ -5,11 +5,11 @@ Mode: Operate. Extend the existing Coldbrew working surface.
 
 ## Direction contract
 
-THESIS: Independent queues remain visible while choosing videos and configuring priorities.
+THESIS: Independent queues remain visible while configuring their shared priorities.
 
 OWN-WORLD: Existing cream/plum surfaces, violet selection, Bitter headings and Geist controls.
 
-STORY: Choose a queue, inspect its videos and thresholds, add or move a video, share its public view.
+STORY: Choose a queue, inspect its videos alongside shared thresholds, add or move a video, share its public view.
 
 FIRST VIEWPORT: Compact queue tabs below the existing header; creation and settings alongside them.
 Inline settings reveal name and default destination. Video cards expose a labeled destination selector.

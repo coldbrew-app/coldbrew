@@ -23,13 +23,13 @@ Apply each language's casing conventions: SQL uses `snake_case`, TypeScript uses
 | video source        | источник видео                   | `Video.source`                               | Whether a video came from a `donation` or was added `manual` by the streamer.                                                      |
 | manual video        | видео, добавленное вручную       | `video.user_id` / `video.added_at`           | A video added directly by the streamer without creating a donation.                                                                |
 | queue amount        | сумма для очереди                | `video.queue_amount` / `queueAmount`         | The amount used to assign a video priority, expressed in the current user queue currency. `NULL` means it cannot be queued.        |
-| video queue         | очередь видео                    | `video_queue` / `VideoQueue`                 | A user's named collection of videos with its own independent video priorities. Every video belongs to exactly one video queue.     |
-| video priority      | приоритет видео                  | `video_priority` / `VideoPriority`           | A threshold and label that groups videos within one video queue.                                                                   |
+| video queue         | очередь видео                    | `video_queue` / `VideoQueue`                 | A user's named collection of videos. Every video belongs to exactly one video queue.                                               |
+| video priority      | приоритет видео                  | `video_priority` / `VideoPriority`           | A user-defined threshold and label shared by all of the user's video queues.                                                       |
 | queue threshold     | порог очереди                    | `min_price_per_minute` / `minPricePerMinute` | The minimum queue amount per minute of watch time required for a video priority.                                                   |
 | default queue       | очередь по умолчанию             | `video_queue.is_default` / `isDefault`       | The user's single queue for incoming donation videos and manual videos without an explicit queue selection.                        |
-| default priority    | приоритет по умолчанию           | `video_priority.is_default` / `isDefault`    | The single zero-threshold priority within a video queue, used when no higher threshold applies.                                    |
+| default priority    | приоритет по умолчанию           | `video_priority.is_default` / `isDefault`    | The user's single zero-threshold priority, used when no higher threshold applies.                                                  |
 | queue assignment    | назначение в очередь             | `video_queue_id` / `videoQueueId`            | The queue selected for a video, including while metadata is pending.                                                               |
-| priority assignment | назначение приоритета            | `video_priority_id` / `videoPriorityId`      | The priority selected within the video's queue. Moving queues recalculates it; changing queue currency preserves it.               |
+| priority assignment | назначение приоритета            | `video_priority_id` / `videoPriorityId`      | The user's priority selected for a video. Moving queues and changing queue currency preserve it.                                   |
 | unparsed donation   | необработанный донат             | `videos_parsed_at IS NULL`                   | A donation whose message has not yet been scanned for supported video links.                                                       |
 | parsed donation     | обработанный донат               | `videos_parsed_at`                           | A donation whose video-link scan has completed, including when it produced no videos.                                              |
 | watched video       | просмотренное видео              | `watched_at` / `watchedAt`                   | A video marked as watched by its owner.                                                                                            |
@@ -46,10 +46,10 @@ Apply each language's casing conventions: SQL uses `snake_case`, TypeScript uses
 - Do not add a currency field to videos or priorities. Their currency is the owning user's `queue_currency`.
 - A video may have unknown duration and ending (`duration_seconds` / `end_seconds` are NULL). Persist it before fetching metadata; missing watch time leaves `video_priority_id` NULL without discarding its `queue_amount`.
 - Completing a donation scan means its supported links were persisted. Metadata retries belong to `video_metadata_job`, not to donation parsing.
-- Every video queue belongs to the video's owner. Its assigned priority, when present, belongs to that same queue.
-- Every user has one default video queue; every video queue has one default priority. Changing the default queue affects future incoming videos only.
-- Moving a video preserves its amount, timing, donation, watched and bookmarked state, and recalculates its priority in the destination queue.
-- Use **video queue** for an independent collection and **video priority** for a threshold level within it. `/videos` switches between video queues.
+- Every video queue belongs to the video's owner. Its assigned priority, when present, belongs to that same owner.
+- Every user has one default video queue and one shared set of video priorities with one default priority. Changing the default queue affects future incoming videos only.
+- Moving a video preserves its priority, amount, timing, donation, watched and bookmarked state.
+- Use **video queue** for an independent collection and **video priority** for a user-wide threshold level. `/videos` switches between video queues.
 
 ## Repository structure
 
