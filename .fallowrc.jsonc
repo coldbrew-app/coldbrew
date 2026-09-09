@@ -1,0 +1,20 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "minimumVersion": "3.24.0",
+  "entry": ["scripts/**/*.ts"],
+  "ignorePatterns": ["apps/alerts/**", "apps/chat/**", "apps/donations/**", "apps/video/**"],
+  "ignoreFindings": ["apps/web/src/components/ui/**"],
+  // These tools are invoked from justfile recipes rather than imported by TypeScript.
+  "ignoreDependencies": [
+    "@tanstack/intent",
+    "concurrently",
+    "dbmate",
+    "oxfmt",
+    "oxlint",
+    "oxlint-tsgolint",
+  ],
+  "rules": {
+    "boundary-violation": "off",
+    "policy-violation": "off",
+  },
+}
