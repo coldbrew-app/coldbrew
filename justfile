@@ -66,19 +66,14 @@ typecheck: typecheck-scripts typecheck-web typecheck-go typecheck-packages
 
 
 fmt-sql:
-  perl -ni -e 'if (/^\s*-- migrate:(?:up|down)\s*$/) { print; next } s/\s*--.*$//; print' db/*.sql db/migrations/*.sql
-  perl -0pi -e 's/\n{3,}/\n\n/g' db/*.sql db/migrations/*.sql
-  sqruff fix db
+  bun scripts/format-sql.ts db/schema.sql db/migrations/*.sql
 
 fmt: fmt-sql
   bunx oxfmt
   go fmt ./...
 
 fmt-check-sql:
-  ! rg -- '--' db/schema.sql
-  ! rg --pcre2 '^(?!\s*-- migrate:(?:up|down)\s*$).*--' db/migrations
-  ! rg --multiline '\n\n\n' db
-  sqruff lint db
+  bun scripts/format-sql.ts --check db/schema.sql db/migrations/*.sql
 
 fmt-check: fmt-check-sql
   bunx oxfmt --check
