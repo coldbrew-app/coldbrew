@@ -29,7 +29,7 @@ function PrivacyPolicy() {
             <h1 className="max-w-2xl font-heading text-[clamp(1.625rem,4vw,2.75rem)] leading-tight font-medium tracking-tight [overflow-wrap:anywhere]">
               {t("privacyPolicy")}
             </h1>
-            <p className="text-sm text-muted-foreground">{t("legalEffectiveDate")}</p>
+            <p className="text-sm text-muted-foreground">{t("privacyEffectiveDate")}</p>
           </div>
           <CosmicArt
             variant="orbit"
@@ -55,6 +55,12 @@ function PrivacyPolicy() {
               {t("privacySharingTitle")}
             </h2>
             <p>{t("privacySharingDescription")}</p>
+          </section>
+          <section className="flex flex-col gap-2">
+            <h2 className="font-heading text-xl font-medium text-foreground sm:text-2xl">
+              {t("privacyProtectionTitle")}
+            </h2>
+            <p>{t("privacyProtectionDescription")}</p>
           </section>
           <section className="flex flex-col gap-2">
             <h2 className="font-heading text-xl font-medium text-foreground sm:text-2xl">
