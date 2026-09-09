@@ -16,11 +16,19 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/lebedev-nikita/coldbrew/internal/chat"
+	"github.com/lebedev-nikita/coldbrew/internal/observability"
 )
 
 func main() {
-	if err := run(); err != nil {
+	shutdownLogs := observability.ConfigureDefault("chat")
+	err := run()
+	if err != nil {
 		slog.Error("Chat service stopped", "error", err)
+	}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	shutdownLogs(shutdownCtx)
+	if err != nil {
 		os.Exit(1)
 	}
 }

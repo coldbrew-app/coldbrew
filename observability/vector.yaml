@@ -19,7 +19,7 @@ transforms:
       type: vrl
       source: |-
         service = to_string(.label."com.docker.compose.service") ?? ""
-        includes(["web", "donationalerts", "video"], service)
+        includes(["web", "chat", "donations", "video", "alerts"], service)
 
 sinks:
   axiom:

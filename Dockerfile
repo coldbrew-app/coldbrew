@@ -25,11 +25,13 @@ RUN go mod download
 COPY apps/video ./apps/video
 COPY apps/donations ./apps/donations
 COPY apps/chat ./apps/chat
+COPY apps/alerts ./apps/alerts
 COPY internal ./internal
 
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/video ./apps/video
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/donations ./apps/donations
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/chat ./apps/chat
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/alerts ./apps/alerts
 
 FROM oven/bun:1.3.14 AS runtime
 
@@ -43,6 +45,7 @@ COPY --from=build --chown=bun:bun /app/packages ./packages
 COPY --from=build --chown=bun:bun /app/apps/web/package.json ./apps/web/package.json
 COPY --from=build --chown=bun:bun /app/apps/web/.output ./apps/web/.output
 COPY --from=go-build --chown=bun:bun /out/chat ./bin/chat
+COPY --from=go-build --chown=bun:bun /out/alerts ./bin/alerts
 COPY --from=go-build --chown=bun:bun /out/donations ./bin/donations
 COPY --from=go-build --chown=bun:bun /out/video ./bin/video
 COPY --from=go-build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt

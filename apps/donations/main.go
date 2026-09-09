@@ -15,11 +15,19 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/lebedev-nikita/coldbrew/internal/donationalerts"
 	"github.com/lebedev-nikita/coldbrew/internal/donations"
+	"github.com/lebedev-nikita/coldbrew/internal/observability"
 )
 
 func main() {
-	if err := run(); err != nil {
+	shutdownLogs := observability.ConfigureDefault("donations")
+	err := run()
+	if err != nil {
 		slog.Error("Donations service stopped", "error", err)
+	}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	shutdownLogs(shutdownCtx)
+	if err != nil {
 		os.Exit(1)
 	}
 }
