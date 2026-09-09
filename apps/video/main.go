@@ -14,12 +14,20 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/lebedev-nikita/coldbrew/internal/observability"
 	"github.com/lebedev-nikita/coldbrew/internal/videoingest"
 )
 
 func main() {
-	if err := run(); err != nil {
+	shutdownLogs := observability.ConfigureDefault("video")
+	err := run()
+	if err != nil {
 		slog.Error("video service stopped", "error", err)
+	}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	shutdownLogs(shutdownCtx)
+	if err != nil {
 		os.Exit(1)
 	}
 }

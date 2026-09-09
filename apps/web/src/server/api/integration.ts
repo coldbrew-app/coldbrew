@@ -1,3 +1,4 @@
+import { logError } from "@coldbrew/packages/server-logger.js";
 import { rurl } from "@lebedevna/readonly-url";
 import { z } from "zod";
 
@@ -27,7 +28,7 @@ export async function handleDonationAlertsCallback(request: Request): Promise<Re
 
     return Response.redirect(appUrl.withSearchParam("success", true).href, 302);
   } catch (error) {
-    console.error(error);
+    logError("DonationAlerts callback failed", error, { userId });
     return Response.redirect(appUrl.withSearchParam("success", false).href, 302);
   }
 }
