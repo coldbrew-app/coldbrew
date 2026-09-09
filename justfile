@@ -101,10 +101,10 @@ lint-go:
     exit 1
   fi
 
-lint-knip:
-  bunx knip
+lint-fallow:
+  bunx fallow dead-code --fail-on-issues
 
-lint: fmt-check lint-ts lint-go lint-knip
+lint: fmt-check lint-ts lint-go lint-fallow
 
 build-web: install
   cd apps/web && bunx vite build
