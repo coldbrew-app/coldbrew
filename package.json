@@ -16,7 +16,7 @@
     "@types/node": "^24.13.3",
     "concurrently": "^10.0.4",
     "dbmate": "2.35.1",
-    "knip": "^6.34.0",
+    "fallow": "3.24.0",
     "oxfmt": "^0.60.0",
     "oxlint-tsgolint": "^7.0.2001",
     "typescript": "^7.0.2",
