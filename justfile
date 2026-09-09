@@ -40,6 +40,9 @@ dev-video:
 dev-chat:
   bunx dotenvx run -f .env --overload -- go run ./apps/chat
 
+dev-alerts:
+  bunx dotenvx run -f .env --overload -- go run ./apps/alerts
+
 dev-web:
   bunx dotenvx run -f .env --overload -- sh -c 'cd apps/web && bun run dev'
 
@@ -56,13 +59,15 @@ typecheck-video: test-video
 
 typecheck-chat: test-chat
 
+typecheck-alerts: test-alerts
+
 typecheck-packages:
   bunx tsc --noEmit -p packages/tsconfig.json
 
 typecheck-scripts:
   bunx tsc --noEmit -p scripts/tsconfig.json
 
-typecheck: typecheck-scripts typecheck-web typecheck-chat typecheck-donations typecheck-video typecheck-packages
+typecheck: typecheck-scripts typecheck-web typecheck-chat typecheck-donations typecheck-video typecheck-alerts typecheck-packages
 
 
 fmt:
@@ -258,10 +263,13 @@ test-video: install
 test-chat: install
   go test ./apps/chat ./internal/chat
 
+test-alerts: install
+  go test ./apps/alerts ./internal/alerts ./internal/observability
+
 test-packages: install
   bunx dotenvx run -f .env --overload -- bunx vitest --run packages
 
-test: test-env-init test-web test-chat test-donations test-video test-packages
+test: test-env-init test-web test-chat test-donations test-video test-alerts test-packages
 
 check: lint fmt-check test
 

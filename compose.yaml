@@ -113,12 +113,15 @@ services:
     environment:
       CHAT_SERVICE_URL: http://chat:3001
       DONATIONS_SERVICE_URL: http://donations:3002
+      NATS_SERVERS: nats://nats:4222
     depends_on:
       postgres:
         condition: service_healthy
       chat:
         condition: service_healthy
       donations:
+        condition: service_healthy
+      nats:
         condition: service_healthy
     healthcheck:
       test:
@@ -178,6 +181,12 @@ services:
     command: ["/app/bin/donations"]
     environment:
       DONATIONS_PORT: 3002
+      NATS_SERVERS: nats://nats:4222
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
     healthcheck:
       test:
         [
@@ -194,8 +203,26 @@ services:
   video:
     <<: *app
     command: ["/app/bin/video"]
+    environment:
+      NATS_SERVERS: nats://nats:4222
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
     mem_limit: 256m
     cpus: 0.5
+
+  alerts:
+    <<: *app
+    command: ["/app/bin/alerts"]
+    environment:
+      NATS_SERVERS: nats://nats:4222
+    depends_on:
+      nats:
+        condition: service_healthy
+    mem_limit: 128m
+    cpus: 0.25
 
   vector:
     image: timberio/vector:0.58.0-alpine
