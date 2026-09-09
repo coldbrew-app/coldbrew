@@ -335,6 +335,7 @@ const en = {
   privacyPolicy: "Privacy policy",
   termsOfService: "Terms of service",
   legalEffectiveDate: "Effective as of September 2, 2026.",
+  privacyEffectiveDate: "Effective as of September 9, 2026.",
   privacyDataTitle: "Data we process",
   privacyDataDescription:
     "We process account data: name, email address, and profile image. When you connect YouTube chat, Coldbrew receives OAuth access and refresh tokens, your channel identity, active-broadcast information, live chat messages, and identifiers needed for moderation. Connected donation sources provide the account, donation, and token data needed to operate those integrations.",
@@ -344,6 +345,9 @@ const en = {
   privacySharingTitle: "Sharing and access",
   privacySharingDescription:
     "We do not sell personal or Google user data, use it for advertising, or share it except as needed to operate an integration you connected. If you enable a public queue or chat overlay, the information selected for that feature is available to visitors through its public link.",
+  privacyProtectionTitle: "How we protect your data",
+  privacyProtectionDescription:
+    "We protect sensitive data in transit with HTTPS/TLS. Google OAuth access and refresh tokens are encrypted at rest using authenticated AES-256-GCM encryption, and the encryption secret is kept separately from the database. Access to non-public account and Google user data is restricted to the authenticated account owner and to service components that need it to provide the requested features; internal service requests are authenticated with separate credentials. We do not expose OAuth tokens to public pages or client-side application code. Administrative access is limited to authorized personnel who need it to operate or secure Coldbrew.",
   privacyRetentionTitle: "Retention and your rights",
   privacyRetentionDescription:
     "YouTube OAuth tokens are encrypted at rest and retained only while the connection is active. Live chat message text is processed transiently and is not stored in the Coldbrew database. Disconnecting YouTube removes its stored tokens and connection data from Coldbrew; you can also revoke access in your Google Account. When you delete your Coldbrew account, its related data is deleted subject to applicable law.",
@@ -692,6 +696,7 @@ const ru = defineTranslations({
   privacyPolicy: "Политика конфиденциальности",
   termsOfService: "Условия использования",
   legalEffectiveDate: "Действует с 2 сентября 2026 года.",
+  privacyEffectiveDate: "Действует с 9 сентября 2026 года.",
   privacyDataTitle: "Какие данные мы обрабатываем",
   privacyDataDescription:
     "Мы обрабатываем данные учётной записи: имя, адрес электронной почты и изображение профиля. При подключении чата YouTube Coldbrew получает токены доступа и обновления OAuth, сведения о вашем канале и активной трансляции, сообщения чата и идентификаторы для модерации. Подключённые источники донатов передают данные аккаунта, донатов и токенов, необходимые для работы этих интеграций.",
@@ -701,6 +706,9 @@ const ru = defineTranslations({
   privacySharingTitle: "Передача и доступ",
   privacySharingDescription:
     "Мы не продаём персональные данные или данные пользователей Google, не используем их для рекламы и не передаём иначе, чем для работы подключённой вами интеграции. Если вы включили публичную очередь или чат-оверлей, выбранные для этой функции сведения доступны посетителям по публичной ссылке.",
+  privacyProtectionTitle: "Как мы защищаем данные",
+  privacyProtectionDescription:
+    "Мы защищаем чувствительные данные при передаче с помощью HTTPS/TLS. Токены доступа и обновления Google OAuth хранятся в зашифрованном виде с использованием аутентифицированного шифрования AES-256-GCM, а секрет шифрования хранится отдельно от базы данных. Доступ к непубличным данным аккаунта и данным пользователей Google ограничен владельцем аккаунта, прошедшим аутентификацию, и компонентами сервиса, которым эти данные нужны для запрошенных функций; запросы между компонентами сервиса аутентифицируются отдельными учётными данными. Мы не передаём OAuth-токены на публичные страницы или в клиентский код приложения. Административный доступ предоставляется только уполномоченным лицам, которым он необходим для работы или защиты Coldbrew.",
   privacyRetentionTitle: "Хранение и ваши права",
   privacyRetentionDescription:
     "Токены OAuth YouTube хранятся в зашифрованном виде только пока подключение активно. Текст сообщений чата обрабатывается временно и не сохраняется в базе данных Coldbrew. Отключение YouTube удаляет его токены и данные подключения из Coldbrew; доступ также можно отозвать в аккаунте Google. При удалении аккаунта Coldbrew связанные с ним данные удаляются с учётом требований закона.",
