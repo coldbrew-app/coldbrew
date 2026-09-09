@@ -20,6 +20,7 @@ type fakeRepository struct {
 	sources []ConnectedSource
 	mu      sync.Mutex
 	audit   []AuditEntry
+	enabled map[string]bool
 }
 
 func (repository *fakeRepository) GetConfig(context.Context, int) (Config, error) {
@@ -36,6 +37,19 @@ func (repository *fakeRepository) GetSource(_ context.Context, _ int, sourceID s
 		}
 	}
 	return nil, nil
+}
+func (repository *fakeRepository) SetSourceEnabled(_ context.Context, _ int, sourceID string, enabled bool) (bool, error) {
+	for index, source := range repository.sources {
+		if source.Source.SourceID == sourceID {
+			repository.sources[index].Source.Enabled = enabled
+			if repository.enabled == nil {
+				repository.enabled = make(map[string]bool)
+			}
+			repository.enabled[sourceID] = enabled
+			return true, nil
+		}
+	}
+	return false, nil
 }
 func (repository *fakeRepository) GetProviderBanID(context.Context, string, string) (string, error) {
 	return "", nil
@@ -216,6 +230,25 @@ func TestApplicationRequestsVKVideoRefresh(t *testing.T) {
 	}
 	if !reflect.DeepEqual(control.refreshes, []string{vkVideoSourceID}) {
 		t.Fatalf("refreshes = %v", control.refreshes)
+	}
+}
+
+func TestApplicationDisablesSourceAndReconcilesCollector(t *testing.T) {
+	application, repository, _, control, _ := setupApplication()
+	if err := application.SetSourceEnabled(context.Background(), 42, youtubeSourceID, false); err != nil {
+		t.Fatal(err)
+	}
+	if repository.enabled[youtubeSourceID] || !reflect.DeepEqual(control.refreshes, []string{youtubeSourceID}) {
+		t.Fatalf("enabled=%v refreshes=%v", repository.enabled, control.refreshes)
+	}
+}
+
+func TestApplicationRejectsUnknownSourceToggle(t *testing.T) {
+	application, _, _, control, _ := setupApplication()
+	err := application.SetSourceEnabled(context.Background(), 42, "00000000-0000-4000-8000-000000000099", false)
+	var applicationError *ApplicationError
+	if !errors.As(err, &applicationError) || applicationError.Type != "chat source not found" || len(control.refreshes) != 0 {
+		t.Fatalf("error=%v refreshes=%v", err, control.refreshes)
 	}
 }
 

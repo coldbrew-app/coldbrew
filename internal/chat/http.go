@@ -18,6 +18,7 @@ type ChatAPI interface {
 	Config(context.Context, int) (Config, error)
 	Stream(context.Context, int) <-chan StreamEvent
 	RefreshSource(context.Context, int, string) error
+	SetSourceEnabled(context.Context, int, string, bool) error
 	Broadcast(context.Context, int, string) (BroadcastResult, error)
 	Moderate(context.Context, int, ModerationCommand) (CommandResult, error)
 }
@@ -74,6 +75,8 @@ func (handler *HTTPHandler) ServeHTTP(response http.ResponseWriter, request *htt
 		handler.handleDisconnect(response, request)
 	case request.URL.Path == "/internal/sources/refresh" && request.Method == http.MethodPost:
 		handler.handleRefreshSource(response, request)
+	case request.URL.Path == "/internal/sources/enabled" && request.Method == http.MethodPost:
+		handler.handleSetSourceEnabled(response, request)
 	case request.URL.Path == "/internal/broadcast" && request.Method == http.MethodPost:
 		handler.handleBroadcast(response, request)
 	case request.URL.Path == "/internal/moderate" && request.Method == http.MethodPost:
@@ -221,6 +224,22 @@ func (handler *HTTPHandler) handleRefreshSource(response http.ResponseWriter, re
 		return
 	}
 	writeResult(response, nil, handler.application.RefreshSource(request.Context(), input.UserID, input.SourceID))
+}
+
+func (handler *HTTPHandler) handleSetSourceEnabled(response http.ResponseWriter, request *http.Request) {
+	var input struct {
+		UserID   int    `json:"userId"`
+		SourceID string `json:"sourceId"`
+		Enabled  bool   `json:"enabled"`
+	}
+	if !decodeInput(response, request, &input) || !validUserID(response, input.UserID) {
+		return
+	}
+	if !validUUID(input.SourceID) {
+		writeError(response, http.StatusBadRequest, "invalid source id")
+		return
+	}
+	writeResult(response, nil, handler.application.SetSourceEnabled(request.Context(), input.UserID, input.SourceID, input.Enabled))
 }
 
 func (handler *HTTPHandler) handleBroadcast(response http.ResponseWriter, request *http.Request) {

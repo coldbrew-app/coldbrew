@@ -11,6 +11,11 @@ Multiple accounts from the same provider are supported. The old arbitrary live-s
 is no longer used. Its legacy PostgreSQL table remains during the non-destructive rollout, but no
 application path reads or writes it.
 
+A streamer may disable an individual chat source without disconnecting its provider account. A
+disabled source keeps its credentials and configuration, but does not collect messages, receive
+broadcast sends, or allow moderation until it is enabled again. Source changes trigger collector
+reconciliation immediately; the periodic reconciliation remains a fallback.
+
 ## Runtime shape
 
 ```text
