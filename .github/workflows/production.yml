@@ -11,8 +11,8 @@ on:
         required: true
         default: master
         type: string
-      schema_applied:
-        description: Confirm that db/schema.sql was applied manually
+      migrations_applied:
+        description: Confirm that pending database migrations were applied manually
         required: true
         default: false
         type: boolean
@@ -133,7 +133,7 @@ jobs:
       DEPLOY_PATH: ${{ vars.SSH_DEPLOY_PATH }}
       POSTGRES_IMAGE: ghcr.io/${{ github.repository_owner }}/coldbrew-postgres-walg:${{ needs.resolve.outputs.postgres_tag }}
       REMOTE_ENV_FILE: .coldbrew-production-env-${{ github.run_id }}-${{ github.run_attempt }}
-      SCHEMA_APPLIED: ${{ github.event_name == 'workflow_dispatch' && inputs.schema_applied || false }}
+      MIGRATIONS_APPLIED: ${{ github.event_name == 'workflow_dispatch' && inputs.migrations_applied || false }}
       SSH_HOST: ${{ vars.SSH_HOST }}
       SSH_PORT: ${{ vars.SSH_PORT }}
       SSH_USER: ${{ vars.SSH_USER }}
@@ -307,7 +307,7 @@ jobs:
               "$TARGET_SHA" \
               "$APP_IMAGE" \
               "$POSTGRES_IMAGE" \
-              "$SCHEMA_APPLIED" \
+              "$MIGRATIONS_APPLIED" \
               "$REMOTE_ENV_FILE" <<'REMOTE'
           set -euo pipefail
 
@@ -315,7 +315,7 @@ jobs:
           target_sha="$2"
           app_image="$3"
           postgres_image="$4"
-          schema_applied="$5"
+          migrations_applied="$5"
           production_env="$HOME/$6"
 
           cleanup() {
@@ -388,15 +388,15 @@ jobs:
             git cat-file -e "${previous_sha}^{commit}"
           fi
 
-          schema_changed=true
-          if [[ -n "$previous_sha" ]] && git diff --quiet "$previous_sha" "$target_sha" -- db/schema.sql; then
-            schema_changed=false
+          migrations_changed=true
+          if [[ -n "$previous_sha" ]] && git diff --quiet "$previous_sha" "$target_sha" -- db/migrations; then
+            migrations_changed=false
           fi
 
-          if [[ "$schema_changed" == true && "$schema_applied" != true ]]; then
-            echo "db/schema.sql differs from the deployed revision." >&2
-            echo "Apply the target schema on the VPS, then manually run this workflow" >&2
-            echo "for revision $target_sha with schema_applied=true." >&2
+          if [[ "$migrations_changed" == true && "$migrations_applied" != true ]]; then
+            echo "db/migrations differs from the deployed revision." >&2
+            echo "Apply the target migrations on the VPS, then manually run this workflow" >&2
+            echo "for revision $target_sha with migrations_applied=true." >&2
             exit 42
           fi
 
@@ -404,7 +404,7 @@ jobs:
 
           # Schema transitions must not mix old web readers with new workers.
           # Pull first to keep the coordinated application pause short.
-          if [[ "$schema_changed" == true ]]; then
+          if [[ "$migrations_changed" == true ]]; then
             docker pull "$app_image"
             docker compose stop web video
           fi

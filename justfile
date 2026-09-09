@@ -26,7 +26,7 @@ t3-worktree-init $source_worktree:
   bun install
   just dev-db-up
   just dev-db-copy "$source_worktree"
-  just schema-apply
+  just db-migrate
 
 dev-donations:
   bunx dotenvx run -f .env --overload -- go run ./apps/donations
@@ -53,13 +53,8 @@ typecheck-web:
   bunx tsc --noEmit -p apps/web/tsconfig.node.json
   bunx tsc --noEmit -p apps/web/tsconfig.json
 
-typecheck-donations: test-donations
-
-typecheck-video: test-video
-
-typecheck-chat: test-chat
-
-typecheck-alerts: test-alerts
+typecheck-go:
+  go build ./apps/... ./internal/...
 
 typecheck-packages:
   bunx tsc --noEmit -p packages/tsconfig.json
@@ -67,14 +62,25 @@ typecheck-packages:
 typecheck-scripts:
   bunx tsc --noEmit -p scripts/tsconfig.json
 
-typecheck: typecheck-scripts typecheck-web typecheck-chat typecheck-donations typecheck-video typecheck-alerts typecheck-packages
+typecheck: typecheck-scripts typecheck-web typecheck-go typecheck-packages
 
 
-fmt:
+fmt-sql:
+  perl -ni -e 'if (/^\s*-- migrate:(?:up|down)\s*$/) { print; next } s/\s*--.*$//; print' db/*.sql db/migrations/*.sql
+  perl -0pi -e 's/\n{3,}/\n\n/g' db/*.sql db/migrations/*.sql
+  sqruff fix db
+
+fmt: fmt-sql
   bunx oxfmt
   go fmt ./...
 
-fmt-check:
+fmt-check-sql:
+  ! rg -- '--' db/schema.sql
+  ! rg --pcre2 '^(?!\s*-- migrate:(?:up|down)\s*$).*--' db/migrations
+  ! rg --multiline '\n\n\n' db
+  sqruff lint db
+
+fmt-check: fmt-check-sql
   bunx oxfmt --check
   gofmt -l apps internal | awk '{ print; found = 1 } END { exit found }'
 
@@ -103,7 +109,7 @@ lint-go:
 lint-knip:
   bunx knip
 
-lint: lint-ts lint-go lint-knip
+lint: fmt-check lint-ts lint-go lint-knip
 
 build-web: install
   cd apps/web && bunx vite build
@@ -266,19 +272,29 @@ test-chat: install
 test-alerts: install
   go test ./apps/alerts ./internal/alerts ./internal/observability
 
-test-packages: install
-  bunx dotenvx run -f .env --overload -- bunx vitest --run packages
+test-packages $env_file=".env": install
+  bunx dotenvx run -f $env_file --overload -- bunx vitest --run packages
 
 test: test-env-init test-web test-chat test-donations test-video test-alerts test-packages
 
-check: lint fmt-check test
+check: lint test
 
-schema-apply $env_file=".env":
-  bunx dotenvx run -f "$env_file" --overload -- pgschema apply --auto-approve --file db/schema.sql
+db-migrate $env_file=".env":
+  bunx dotenvx run -f $env_file --overload -- bunx dbmate up
 
-schema-reset:
-  bunx dotenvx run -f .env --overload -- pgschema apply --auto-approve --file db/empty.sql
-  just schema-apply
+db-migration-new name:
+  bunx dbmate new {{quote(name)}}
+
+db-migration-status $env_file=".env":
+  bunx dotenvx run -f $env_file --overload -- bunx dbmate status
+
+db-dump $env_file=".env":
+  bunx dotenvx run -f $env_file --overload -- bunx dbmate dump
+
+[confirm("Drop and recreate the configured database?")]
+db-reset $env_file=".env":
+  bunx dotenvx run -f $env_file --overload -- bunx dbmate drop
+  bunx dotenvx run -f $env_file --overload -- bunx dbmate up
 
 
 # Count production code and TypeScript tests in one report.

@@ -62,14 +62,16 @@ multiple replicas could subscribe and refresh tokens for the same users.
 
 ## One-time VPS setup
 
-Install Git, Docker with the Compose plugin, Bun, `just`, `dotenvx`, `pgschema`,
-and `curl`. Create a dedicated deployment user that can use Docker without
-`sudo`, owns `/opt/coldbrew`, and can log in only with an SSH key. Clone the
-public repository into that directory:
+Install Git, Docker with the Compose plugin, Bun, `just`, and `curl`. The
+repository installs `dotenvx` and `dbmate` with Bun. Create a dedicated
+deployment user that can use Docker without `sudo`, owns `/opt/coldbrew`, and
+can log in only with an SSH key. Clone the public repository into that
+directory:
 
 ```sh
 git clone https://github.com/lebedev-nikita/coldbrew.git /opt/coldbrew
 cd /opt/coldbrew
+bun install --frozen-lockfile
 ```
 
 Verify the runtime commands as that same deployment user, not as `root`:
@@ -161,18 +163,21 @@ Development subjects and streams include `NATS_NAMESPACE`, so worktree logs do
 not enter the production stream. Run `just dev-alerts` after configuring
 `TELEGRAM_BOT_TOKEN` in the local environment.
 
-For a new database volume, first run the `Production` workflow. Its schema gate
+For a new database volume, first run the `Production` workflow. Its migration gate
 will stop the initial deployment, but the workflow will already have generated
-`/opt/coldbrew/.env` from GitHub. Then start PostgreSQL, apply the schema using
-the host-side port, and rerun the workflow with `schema_applied` enabled:
+`/opt/coldbrew/.env` from GitHub. Then start PostgreSQL, apply the migrations using
+the host-side port, and rerun the workflow with `migrations_applied` enabled:
 
 ```sh
 just compose-db-up
-dotenvx run -f .env -- just schema-apply
+DBMATE_NO_DUMP_SCHEMA=true just db-migrate
 ```
 
+Production disables the dump because its checkout must remain unchanged.
+Developers use plain `just db-migrate`, which refreshes `db/schema.sql`.
+
 Record the commit represented by the running database and application. This
-becomes the base used by the CI schema gate:
+becomes the base used by the CI migration gate:
 
 ```sh
 git rev-parse HEAD > .deployed-sha
@@ -299,11 +304,11 @@ A push or merge to `master` runs the complete workflow:
 1. formatting, lint, type checking, and tests;
 2. application and, when its source tree changed, PostgreSQL/WAL-G image builds;
 3. immutable GHCR publication under the commit or source-tree SHA;
-4. schema-gate check against `.deployed-sha`;
+4. migration-gate check against `.deployed-sha`;
 5. remote Compose pull, recreation, and health checks.
 
 Only one production deployment runs at a time. Every attempt refreshes `.env`
-from GitHub before checking the schema gate; a successful deployment writes the
+from GitHub before checking the migration gate; a successful deployment writes the
 target SHA to `/opt/coldbrew/.deployed-sha`. Named PostgreSQL, NATS, Vector, and
 Caddy volumes are preserved. Updating a production Variable or Secret and rerunning the
 workflow recreates the affected containers with the new values; `docker compose
@@ -338,9 +343,9 @@ To rotate the Axiom credential, replace the `AXIOM_TOKEN` secret in the GitHub
 `Production` environment and rerun the production workflow. The workflow
 regenerates `.env`, and Compose recreates Vector with the new environment value.
 
-## Database schema gate
+## Database migration gate
 
-CI never applies `db/schema.sql` to production. If the file differs between
+CI never applies `db/migrations` to production. If the directory differs between
 `.deployed-sha` and the target commit, image publication succeeds but the
 deployment job exits before changing containers.
 
@@ -350,12 +355,13 @@ Apply the exact blocked revision manually:
 cd /opt/coldbrew
 git fetch --prune --tags origin
 git checkout --detach <target-sha>
-just schema-apply
+bun install --frozen-lockfile
+DBMATE_NO_DUMP_SCHEMA=true just db-migrate
 ```
 
 After it succeeds, open **Actions → Production → Run workflow**, set `revision`
-to the same full SHA, enable `schema_applied`, and run it. Do not enable the
-confirmation when schema application failed or was performed for another
+to the same full SHA, enable `migrations_applied`, and run it. Do not enable the
+confirmation when migration application failed or was performed for another
 revision.
 
 ## Rollback
@@ -365,9 +371,9 @@ the previous `.deployed-sha` and starts its SHA-tagged images automatically.
 The failed SHA is not recorded as deployed.
 
 To roll back manually, run the Production workflow with the previous SHA in
-`revision`. If `db/schema.sql` differs, the schema gate blocks the rollback;
+`revision`. If `db/migrations` differs, the migration gate blocks the rollback;
 database changes are deliberately never reversed automatically. Decide and
-perform the database recovery separately, then use `schema_applied` only after
+perform the database recovery separately, then use `migrations_applied` only after
 the database is compatible with the chosen application revision.
 
 ## Backups
