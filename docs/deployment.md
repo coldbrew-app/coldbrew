@@ -37,15 +37,17 @@ Coldbrew authentication and the public OAuth routes.
 - `caddy` listens on TCP ports 80 and 443 and UDP port 443, terminates TLS, and proxies all public
   requests to `web:3000`. The web container reaches `chat:3001` and `donations:3002` through the
   private network.
-- `web`, `chat`, `donations`, and `video` share one SHA-tagged GHCR image.
+- `web`, `chat`, `donations`, `video`, and `alerts` share one SHA-tagged GHCR image.
   `web`, `chat`, and `donations` have HTTP health checks; `video` runs independent
   donation-scan and metadata-retry loops. See [video metadata operations](video-metadata.md)
   for nullable-timing rollout and historical donation recovery.
-- `vector` reads the four application services' Docker logs and forwards them
+- `vector` reads the application services' Docker logs and forwards them
   to the `coldbrew-logs` Axiom dataset. Infrastructure and Vector's own
   logs remain local.
-- `nats` carries transient chat events and collector leases through JetStream,
-  with state stored in the `nats_data` volume.
+- `nats` carries transient chat events, collector leases, and operational log
+  events through JetStream, with state stored in the `nats_data` volume.
+- `alerts` consumes operational logs from JetStream and forwards them to the
+  configured Telegram chat. Producers keep logging to stdout if NATS is unavailable.
 - `postgres` stores data in the `postgres_data` volume. Application containers
   connect to `postgres:5432` through the private `internal` network. The host
   and remote PostgreSQL clients can reach it at `<VPS-IP>:${PGPORT:-5432}`.
@@ -104,6 +106,8 @@ The GitHub Variables and Secrets described below provide:
 - optionally, the reserved `BOOSTY_CLIENT_ID` / `BOOSTY_CLIENT_SECRET` pair;
 - `DONATION_ALERTS_CLIENT_ID` and `DONATION_ALERTS_CLIENT_SECRET`;
 - `DONATIONS_SERVICE_SECRET`, shared only by web and donations;
+- `TELEGRAM_BOT_TOKEN` for the operational bot and optional
+  `TELEGRAM_ADMIN_CHAT_ID` for log notifications;
 - `AXIOM_TOKEN`, an ingest-only API token scoped to the `coldbrew-logs` dataset;
 - `WALG_S3_PREFIX` and `AWS_REGION`, plus AWS credentials unless the VPS uses
   an IAM role or another supported credential provider.
@@ -129,6 +133,33 @@ tools use `PGHOST=127.0.0.1`; remote tools use the VPS address; application
 containers must set `PGHOST=postgres`. The workflow generates `DATABASE_URL`
 from `PGUSER`, `PGPASSWORD`, `PGHOST`, and `PGDATABASE`, safely URL-encoding
 each component; do not add a separate `DATABASE_URL` secret.
+
+## Operational log notifications
+
+The application logger writes structured records to stdout and publishes the
+same `info`, `warn`, and `error` records to the `OPERATIONAL_LOGS` JetStream.
+The Go services use the shared `slog` handler; server-side web code uses
+`@coldbrew/packages/server-logger.js`. Fields whose names contain `token`,
+`secret`, `password`, `authorization`, or `cookie` are redacted from the NATS
+record.
+
+Publishing is best-effort. Producers use a bounded in-memory queue and keep
+running when NATS is unavailable; queued records can be lost during an abrupt
+shutdown. JetStream retains accepted records for seven days, up to 128 MiB.
+The `alerts` process consumes them durably and acknowledges each record after
+Telegram accepts it. Telegram rate limits and temporary failures cause delayed
+redelivery; malformed records and permanent Telegram client errors are
+terminated and remain visible in the application logs.
+
+The bot starts with `TELEGRAM_BOT_TOKEN` alone and replies to `/myid` with the
+requesting chat's ID. Until `TELEGRAM_ADMIN_CHAT_ID` is configured, it does not
+consume or forward operational logs. The first configured consumer starts with
+new records, so enabling notifications does not replay the accumulated setup
+backlog; subsequent restarts resume its durable position.
+
+Development subjects and streams include `NATS_NAMESPACE`, so worktree logs do
+not enter the production stream. Run `just dev-alerts` after configuring
+`TELEGRAM_BOT_TOKEN` in the local environment.
 
 For a new database volume, first run the `Production` workflow. Its schema gate
 will stop the initial deployment, but the workflow will already have generated
@@ -190,6 +221,7 @@ Add these environment variables:
 | `KICK_CLIENT_ID`               | Kick OAuth client ID               | no       |
 | `KICK_WEBHOOK_PUBLIC_KEY`      | Kick webhook RSA public key        | no       |
 | `TWITCH_CLIENT_ID`             | Twitch OAuth client ID             | no       |
+| `TELEGRAM_ADMIN_CHAT_ID`       | Telegram notification chat ID      | no       |
 | `VK_VIDEO_CLIENT_ID`           | VK Video OAuth client ID           | no       |
 | `YOUTUBE_CLIENT_ID`            | YouTube chat OAuth client ID       | no       |
 | `PGDATABASE`                   | `coldbrew`                         | yes      |
@@ -222,6 +254,7 @@ Add these environment secrets:
 | `GOOGLE_CLIENT_SECRET`          | Google OAuth client secret                                  | yes      |
 | `KICK_CLIENT_SECRET`            | Kick OAuth client secret                                    | no       |
 | `TWITCH_CLIENT_SECRET`          | Twitch OAuth client secret                                  | no       |
+| `TELEGRAM_BOT_TOKEN`            | Telegram bot token                                          | yes      |
 | `VK_VIDEO_CLIENT_SECRET`        | VK Video OAuth client secret                                | no       |
 | `YOUTUBE_API_KEY`               | YouTube Data API key restricted to `youtube.googleapis.com` | yes      |
 | `YOUTUBE_CLIENT_SECRET`         | YouTube chat OAuth client secret                            | no       |
@@ -284,7 +317,7 @@ Useful checks on the VPS are:
 
 ```sh
 docker compose ps
-docker compose logs --tail=100 web chat donations video postgres nats wal-g caddy
+docker compose logs --tail=100 web chat donations video alerts postgres nats wal-g caddy
 docker compose logs --tail=100 vector
 ```
 
@@ -293,7 +326,7 @@ Vector checks that the Axiom destination is reachable when it starts. A missing
 is reported in Vector's logs when delivery is attempted. Neither failure prevents the application
 services from running. After deployment, confirm that events arrive in Axiom's
 `coldbrew-logs` dataset. Filter by `label.com.docker.compose.service` to
-separate `web`, `chat`, `donations`, and `video`. Each event also includes its
+separate `web`, `chat`, `donations`, `video`, and `alerts`. Each event also includes its
 Docker timestamp, container name, image, and stdout/stderr stream.
 
 Vector keeps up to 256 MiB of unsent events in the `vector_data` volume during a

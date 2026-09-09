@@ -9,6 +9,7 @@
     "@lebedevna/readonly-url": "^0.4.1",
     "json-bigint": "^1.0.0",
     "linkify-it": "^6.1.0",
+    "nats": "^2.29.3",
     "postgres": "^3.4.9",
     "zod": "^4.4.3"
   },
