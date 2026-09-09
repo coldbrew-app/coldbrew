@@ -1,10 +1,6 @@
 name: CI
 
 on:
-  push:
-    # Production calls this workflow for pushes to master.
-    branches-ignore:
-      - master
   pull_request:
     branches:
       - master
