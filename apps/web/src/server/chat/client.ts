@@ -112,6 +112,10 @@ export const chatService = {
     return request("/internal/sources/refresh", z.null(), { sourceId, userId });
   },
 
+  setSourceEnabled(userId: number, sourceId: string, enabled: boolean) {
+    return request("/internal/sources/enabled", z.null(), { enabled, sourceId, userId });
+  },
+
   broadcast(userId: number, text: string) {
     return request("/internal/broadcast", ChatBroadcastResultSchema, { text, userId });
   },

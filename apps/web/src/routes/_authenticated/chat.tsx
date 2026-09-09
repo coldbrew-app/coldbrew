@@ -13,6 +13,7 @@ import { Icons, PlatformIcons } from "@web/components/icons";
 import { Button } from "@web/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@web/components/ui/dialog";
 import { Input } from "@web/components/ui/input";
+import { Switch } from "@web/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@web/components/ui/tooltip";
 import { useChatServiceMutations, useChatServiceQueries } from "@web/hooks/chat-service";
 import { useChatServiceStream } from "@web/hooks/use-chat-service-stream";
@@ -69,6 +70,9 @@ const copy = {
     send: "Отправить всем",
     noConnections: "Пока нет подключённых каналов",
     disconnect: "Отключить",
+    disconnectAccount: "Отключить аккаунт",
+    enableSource: "Включить источник",
+    disableSource: "Выключить источник",
     connect: "Подключить",
     unavailable: "Недоступно",
     readOnly: "Только чтение",
@@ -93,6 +97,9 @@ const copy = {
     send: "Send to all",
     noConnections: "No connected channels yet",
     disconnect: "Disconnect",
+    disconnectAccount: "Disconnect account",
+    enableSource: "Enable source",
+    disableSource: "Disable source",
     connect: "Connect",
     unavailable: "Unavailable",
     readOnly: "Read only",
@@ -173,20 +180,27 @@ function ChatPage() {
   const [overlayUrl, setOverlayUrl] = useState<string | null>(null);
   const [overlayCopied, setOverlayCopied] = useState(false);
 
-  const { broadcast, disconnect, moderate, refreshSource, rotateOverlay, startOauth } =
-    useChatServiceMutations({
-      onBroadcastSuccess: (result) => {
-        setBroadcastResult(result);
-        if (result.results.some(({ status }) => status === "succeeded")) {
-          setMessage("");
-        }
-      },
-      onMessageDeleted: (sourceId, messageId) => stream.removeMessage(sourceId, messageId),
-      onOverlayUrlChanged: (nextOverlayUrl) => {
-        setOverlayUrl(nextOverlayUrl);
-        setOverlayCopied(false);
-      },
-    });
+  const {
+    broadcast,
+    disconnect,
+    moderate,
+    refreshSource,
+    rotateOverlay,
+    setSourceEnabled,
+    startOauth,
+  } = useChatServiceMutations({
+    onBroadcastSuccess: (result) => {
+      setBroadcastResult(result);
+      if (result.results.some(({ status }) => status === "succeeded")) {
+        setMessage("");
+      }
+    },
+    onMessageDeleted: (sourceId, messageId) => stream.removeMessage(sourceId, messageId),
+    onOverlayUrlChanged: (nextOverlayUrl) => {
+      setOverlayUrl(nextOverlayUrl);
+      setOverlayCopied(false);
+    },
+  });
 
   const config = configQuery.data;
   const connectionsById = new Map(
@@ -198,13 +212,18 @@ function ChatPage() {
   const sourceById = new Map(config?.sources.map((source) => [source.sourceId, source]));
   const capabilitiesForSource = (sourceId: ChatSourceId) => {
     const source = sourceById.get(sourceId);
-    return source ? (connectionsById.get(source.connectionId)?.capabilities ?? []) : [];
+    return source?.enabled ? (connectionsById.get(source.connectionId)?.capabilities ?? []) : [];
   };
   const availability: ChatProviderAvailability[] = availabilityQuery.data ?? [];
   const writableConnectionCount =
-    config?.connections.filter(
-      ({ capabilities, status }) => status === "connected" && capabilities.includes("send_message"),
-    ).length ?? 0;
+    config?.sources.filter((source) => {
+      const connection = connectionsById.get(source.connectionId);
+      return (
+        source.enabled &&
+        connection?.status === "connected" &&
+        connection.capabilities.includes("send_message")
+      );
+    }).length ?? 0;
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -368,36 +387,39 @@ function ChatPage() {
                 refreshSource.variables?.sourceId === source.sourceId;
               return (
                 <article
-                  className="relative flex shrink-0 flex-col gap-2 overflow-hidden rounded-xl border border-border bg-muted/30 p-3"
+                  className={cn(
+                    "relative flex shrink-0 flex-col gap-2 overflow-hidden rounded-xl border border-border p-3 transition-colors",
+                    source?.enabled === false ? "bg-muted/55" : "bg-muted/30",
+                  )}
                   key={connection.connectionId}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex min-w-0 flex-1 flex-col gap-1">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <Tooltip>
-                          <TooltipTrigger
-                            aria-label={providerMeta[connection.provider].label}
-                            className="shrink-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <Tooltip>
+                        <TooltipTrigger
+                          aria-label={providerMeta[connection.provider].label}
+                          className="shrink-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                        >
+                          <ProviderMark provider={connection.provider} />
+                        </TooltipTrigger>
+                        <TooltipContent>{providerMeta[connection.provider].label}</TooltipContent>
+                      </Tooltip>
+                      <div className="flex min-w-0 items-center">
+                        {source ? (
+                          <a
+                            className="min-w-0 rounded-sm break-words text-sm font-semibold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                            href={source.sourceUrl}
+                            rel="noopener noreferrer"
+                            target="_blank"
                           >
-                            <ProviderMark provider={connection.provider} />
-                          </TooltipTrigger>
-                          <TooltipContent>{providerMeta[connection.provider].label}</TooltipContent>
-                        </Tooltip>
-                        <div className="flex min-w-0 items-center">
-                          {source ? (
-                            <a
-                              className="min-w-0 rounded-sm break-words text-sm font-semibold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                              href={source.sourceUrl}
-                              rel="noopener noreferrer"
-                              target="_blank"
-                            >
-                              {connection.displayName}
-                            </a>
-                          ) : (
-                            <p className="min-w-0 break-words text-sm font-semibold">
-                              {connection.displayName}
-                            </p>
-                          )}
+                            {connection.displayName}
+                          </a>
+                        ) : (
+                          <p className="min-w-0 break-words text-sm font-semibold">
+                            {connection.displayName}
+                          </p>
+                        )}
+                        {source?.enabled !== false && (
                           <SourceState
                             {...(source
                               ? sourceState
@@ -406,71 +428,90 @@ function ChatPage() {
                               : { state: "error" })}
                             locale={locale}
                           />
-                        </div>
-                      </div>
-                      {!connection.capabilities.includes("send_message") && (
-                        <span className="self-start whitespace-nowrap rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
-                          {text.readOnly}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end">
-                      <Tooltip>
-                        <TooltipTrigger
-                          render={
-                            <Button
-                              aria-label={text.disconnect}
-                              disabled={disconnect.isPending}
-                              onClick={() => {
-                                disconnect.reset();
-                                setConnectionToDisconnect(connection);
-                              }}
-                              size="icon-xs"
-                              variant="ghost"
-                            />
-                          }
-                        >
-                          <Icons.removeSource aria-hidden="true" />
-                        </TooltipTrigger>
-                        <TooltipContent>{text.disconnect}</TooltipContent>
-                      </Tooltip>
-                      {(connection.provider === "youtube" || connection.provider === "vk_video") &&
-                        source && (
-                          <Tooltip>
-                            <TooltipTrigger
-                              render={
-                                <Button
-                                  aria-label={isRefreshing ? text.checkingStream : text.checkStream}
-                                  disabled={
-                                    refreshSource.isPending ||
-                                    sourceState === "live" ||
-                                    sourceState === "connecting"
-                                  }
-                                  onClick={() =>
-                                    refreshSource.mutate({ sourceId: source.sourceId })
-                                  }
-                                  size="icon-xs"
-                                  variant="ghost"
-                                />
-                              }
-                            >
-                              {isRefreshing ? (
-                                <Icons.loader aria-hidden="true" className="animate-spin" />
-                              ) : (
-                                <Icons.retry aria-hidden="true" />
-                              )}
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              {isRefreshing ? text.checkingStream : text.checkStream}
-                            </TooltipContent>
-                          </Tooltip>
                         )}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <div className="flex items-center gap-1">
+                        {(connection.provider === "youtube" ||
+                          connection.provider === "vk_video") &&
+                          source?.enabled && (
+                            <Tooltip>
+                              <TooltipTrigger
+                                render={
+                                  <Button
+                                    aria-label={
+                                      isRefreshing ? text.checkingStream : text.checkStream
+                                    }
+                                    disabled={
+                                      refreshSource.isPending ||
+                                      sourceState === "live" ||
+                                      sourceState === "connecting"
+                                    }
+                                    onClick={() =>
+                                      refreshSource.mutate({ sourceId: source.sourceId })
+                                    }
+                                    size="icon-xs"
+                                    variant="ghost"
+                                  />
+                                }
+                              >
+                                {isRefreshing ? (
+                                  <Icons.loader aria-hidden="true" className="animate-spin" />
+                                ) : (
+                                  <Icons.retry aria-hidden="true" />
+                                )}
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {isRefreshing ? text.checkingStream : text.checkStream}
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <Button
+                                aria-label={text.disconnectAccount}
+                                disabled={disconnect.isPending}
+                                onClick={() => {
+                                  disconnect.reset();
+                                  setConnectionToDisconnect(connection);
+                                }}
+                                size="icon-xs"
+                                variant="ghost"
+                              />
+                            }
+                          >
+                            <Icons.removeSource aria-hidden="true" />
+                          </TooltipTrigger>
+                          <TooltipContent>{text.disconnectAccount}</TooltipContent>
+                        </Tooltip>
+                      </div>
+                      {source && (
+                        <Switch
+                          aria-label={`${source.enabled ? text.disableSource : text.enableSource}: ${connection.displayName}`}
+                          checked={source.enabled}
+                          className="data-checked:bg-emerald-500 dark:data-checked:bg-emerald-500"
+                          disabled={setSourceEnabled.isPending}
+                          onCheckedChange={(enabled) =>
+                            setSourceEnabled.mutate({ enabled, sourceId: source.sourceId })
+                          }
+                          size="sm"
+                        />
+                      )}
                     </div>
                   </div>
                   {source &&
                     refreshSource.isError &&
                     refreshSource.variables?.sourceId === source.sourceId && (
                       <p className="text-[11px] text-destructive">{refreshSource.error.message}</p>
+                    )}
+                  {source &&
+                    setSourceEnabled.isError &&
+                    setSourceEnabled.variables?.sourceId === source.sourceId && (
+                      <p role="alert" className="text-[11px] text-destructive">
+                        {setSourceEnabled.error.message}
+                      </p>
                     )}
                 </article>
               );
@@ -513,10 +554,10 @@ function ChatPage() {
                     <span className="flex min-w-0 grow flex-col items-start">
                       <span>{meta.label}</span>
                       <span className="max-w-full truncate text-[10px] font-normal text-muted-foreground">
-                        {connectable
-                          ? text.connect
-                          : provider.access === "read_only"
-                            ? text.readOnly
+                        {provider.access === "read_only"
+                          ? text.readOnly
+                          : connectable
+                            ? text.connect
                             : text.unavailable}
                       </span>
                     </span>

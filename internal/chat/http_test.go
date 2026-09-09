@@ -16,6 +16,7 @@ type httpTestApplication struct {
 	config    Config
 	configErr error
 	events    <-chan StreamEvent
+	toggled   *Source
 }
 
 func (application *httpTestApplication) Config(context.Context, int) (Config, error) {
@@ -25,6 +26,10 @@ func (application *httpTestApplication) Stream(context.Context, int) <-chan Stre
 	return application.events
 }
 func (*httpTestApplication) RefreshSource(context.Context, int, string) error { return nil }
+func (application *httpTestApplication) SetSourceEnabled(_ context.Context, _ int, sourceID string, enabled bool) error {
+	application.toggled = &Source{SourceID: sourceID, Enabled: enabled}
+	return nil
+}
 func (*httpTestApplication) Broadcast(_ context.Context, _ int, text string) (BroadcastResult, error) {
 	return BroadcastResult{Results: []CommandResult{{SourceID: "019c58be-a09e-7000-8000-000000000001", Status: "succeeded", Detail: text}}}, nil
 }
@@ -137,6 +142,17 @@ func TestHTTPHandlerDecodesInternalMutation(t *testing.T) {
 	handler.ServeHTTP(response, authorizedRequest(http.MethodPost, "/internal/broadcast", `{"userId":42,"text":"hello"}`))
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"detail":"hello"`) {
 		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
+	}
+}
+
+func TestHTTPHandlerSetsSourceEnabled(t *testing.T) {
+	application := &httpTestApplication{}
+	handler, _ := newHTTPTestHandler(application)
+	response := httptest.NewRecorder()
+	sourceID := "019c58be-a09e-7000-8000-000000000001"
+	handler.ServeHTTP(response, authorizedRequest(http.MethodPost, "/internal/sources/enabled", `{"userId":42,"sourceId":"`+sourceID+`","enabled":false}`))
+	if response.Code != http.StatusOK || application.toggled == nil || application.toggled.SourceID != sourceID || application.toggled.Enabled {
+		t.Fatalf("status=%d toggled=%+v body=%s", response.Code, application.toggled, response.Body.String())
 	}
 }
 
