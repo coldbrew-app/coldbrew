@@ -29,14 +29,14 @@ the job. They never reset attempt history.
 
 ## Deployment
 
-Apply the reviewed `db/schema.sql` and deploy its matching application revision
+Apply the reviewed migrations in `db/migrations` and deploy their matching application revision
 using the [deployment workflow](deployment.md). Coordinate the transition:
 old web code cannot parse NULL timing. Pause the old video worker during the
-transition, apply the schema, and start all application services on the matching
+transition, apply the migrations, and start all application services on the matching
 new revision. Do not leave mixed old/new web and worker versions running.
 
 The worker backfills missing metadata jobs for videos with unknown duration at
-startup. Existing known durations are retained. Applying the schema or deploying
+startup. Existing known durations are retained. Applying migrations or deploying
 does not automatically recover historical donations previously completed without
 videos.
 

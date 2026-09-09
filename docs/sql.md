@@ -2,6 +2,12 @@
 
 Follow this guide for `db/*.sql` and SQL embedded in Go or TypeScript. The naming and layout rules apply to both languages; language-specific rules are called out below.
 
+Run `just fmt-sql` to format migrations and `db/schema.sql` with sqruff. Run
+`just fmt-check-sql` to check all SQL files after generating a new schema dump.
+The repository-wide `just fmt` and `just fmt-check` recipes include these checks.
+Formatting removes SQL comments except for dbmate's required `migrate:up` and
+`migrate:down` directives.
+
 ## Naming and syntax
 
 - Write SQL keywords in uppercase and built-in types in lowercase. Use lowercase `snake_case` for tables, columns, constraints, functions, and CTEs; SQL function calls are lowercase.

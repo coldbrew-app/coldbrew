@@ -5,5 +5,16 @@
       "command": "bunx",
       "arguments": ["oxfmt", "--stdin-filepath", "{buffer_path}"]
     }
+  },
+  "languages": {
+    "SQL": {
+      "format_on_save": "on",
+      "formatter": {
+        "external": {
+          "command": "bun",
+          "arguments": ["scripts/format-sql.ts", "--stdin"]
+        }
+      }
+    }
   }
 }

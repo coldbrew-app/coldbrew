@@ -30,13 +30,14 @@ Install these tools on the host:
 - Go 1.27.1, as declared by `go.mod`, for the Go services;
 - [just](https://just.systems/) for repository tasks;
 - Docker with the Compose plugin for PostgreSQL and NATS;
-- [pgschema](https://github.com/pgschema/pgschema) to apply `db/schema.sql`;
-- [ripgrep](https://github.com/BurntSushi/ripgrep) for the Go lint task.
+- PostgreSQL 18 client tools for `pg_dump`;
+- [ripgrep](https://github.com/BurntSushi/ripgrep) for the Go lint task;
+- [sqruff](https://github.com/quarylabs/sqruff) 0.40.0 for SQL formatting and linting.
 
-`just install` installs workspace tools such as `dotenvx`; they do not need a
+`just install` installs workspace tools such as `dotenvx` and `dbmate`; they do not need a
 separate global installation. `cloc` is only needed for the optional
-`just count-lines` task. The repository's normal setup and migration tasks do
-not require a host-side PostgreSQL client.
+`just count-lines` task. Keep the PostgreSQL client version at least as new as
+the database server so `dbmate` can refresh the schema dump.
 
 ## Start locally
 
@@ -48,9 +49,19 @@ Then run:
 just install
 just env-init
 just dev-db-up
-just schema-apply
+just db-migrate
 just dev
 ```
+
+Database changes live in `db/migrations`. Create one with
+`just db-migration-new <name>`, write its up and down SQL, and run
+`just db-migrate`. Use `just db-migration-status` to inspect pending migrations.
+Successful migrations automatically refresh the tracked `db/schema.sql` dump;
+`just db-dump` refreshes it without running migrations. Run `just fmt-sql` after
+either command to format both the dump and migrations with sqruff.
+Formatting also removes SQL comments other than dbmate migration directives.
+The initial migration recognizes databases created before versioned migrations
+and records their existing schema as its baseline.
 
 The environment and development infrastructure scripts are written in TypeScript, live in `scripts/`,
 and run through Bun Shell. `just typecheck-scripts` checks their types and is included in `just typecheck`.
@@ -82,7 +93,7 @@ T3 Code's setup action in `t3.json` runs
 `just t3-worktree-init "$T3CODE_PROJECT_ROOT"`. It copies `.env.keys` from the
 primary checkout, initializes the worktree environment, installs dependencies,
 starts the shared development infrastructure, creates and copies the
-worktree's database from the primary checkout, and applies the schema. The same
+worktree's database from the primary checkout, and applies pending migrations. The same
 recipe can be run manually with the source worktree path. The source worktree must have an
 initialized `.env` and a running development PostgreSQL container; a copy
 failure stops setup. Run `just dev` after the worktree is ready to start the
@@ -115,7 +126,7 @@ Production is deployed to a VPS by the `Production` GitHub Actions workflow.
 It builds immutable application and PostgreSQL/WAL-G images, generates the
 server's untracked `.env` from the GitHub `Production` environment, deploys the
 Compose stack, and verifies its health. Do not replace that environment with a
-hand-written subset of variables: the complete setup, first-deployment, schema,
+hand-written subset of variables: the complete setup, first-deployment, migrations,
 rollback, networking, and backup guidance lives in
 [the deployment guide](docs/deployment.md).
 
