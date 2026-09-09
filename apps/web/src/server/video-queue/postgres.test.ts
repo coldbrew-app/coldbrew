@@ -33,6 +33,7 @@ const amount = MoneyAmountSchema.parse("120");
 function manualVideoRow() {
   return {
     videoId: "41",
+    videoQueueId: 1,
     videoPriorityId: 3,
     provider: "youtube",
     providerVideoId: "youtube-id",
@@ -191,6 +192,8 @@ describe("PostgresVideoQueue", () => {
 
   it("clamps private pagination and returns all counts", async () => {
     const database = createSqlMock((query) => {
+      if (query.text.startsWith("SELECT video_queue_id, label, is_default"))
+        return [{ videoQueueId: 1, label: "Main", isDefault: true }];
       if (query.text.startsWith("SELECT count(*)::int AS total")) return [{ total: 51 }];
       if (query.text.includes("AS all")) {
         return [{ all: 60, notwatched: 40, watched: 20, bookmarked: 5 }];
@@ -227,6 +230,8 @@ describe("PostgresVideoQueue", () => {
 
   it("filters both the count and records by exact video ID while retaining ownership checks", async () => {
     const database = createSqlMock((query) => {
+      if (query.text.startsWith("SELECT video_queue_id, label, is_default"))
+        return [{ videoQueueId: 1, label: "Main", isDefault: true }];
       if (query.text.startsWith("SELECT count(*)::int AS total")) return [{ total: 1 }];
       if (query.text.includes("AS all"))
         return [{ all: 1, notwatched: 0, watched: 1, bookmarked: 0 }];
@@ -259,6 +264,7 @@ describe("PostgresVideoQueue", () => {
     const database = createSqlMock(() => [
       {
         userId: 7,
+        videoQueueId: 1,
         publicQueueEnabled: false,
         publicQueueShowAmounts: true,
         publicQueueShowWatched: true,
@@ -283,6 +289,7 @@ describe("PostgresVideoQueue", () => {
         return [
           {
             userId: 7,
+            videoQueueId: 1,
             publicQueueEnabled: true,
             publicQueueShowAmounts: true,
             publicQueueShowWatched: false,
@@ -290,6 +297,8 @@ describe("PostgresVideoQueue", () => {
           },
         ];
       }
+      if (query.text.startsWith("SELECT video_queue_id, label, is_default"))
+        return [{ videoQueueId: 1, label: "Main", isDefault: true }];
       if (query.text.includes("video.duration_seconds")) {
         return [
           {

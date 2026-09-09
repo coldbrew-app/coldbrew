@@ -15,6 +15,7 @@ import VideoCard from "./video-card";
 
 const base = {
   videoId: "1",
+  videoQueueId: 1,
   videoPriorityId: null,
   provider: "youtube",
   url: "https://www.youtube.com/watch?v=_JXL6Fn99l8&t=13s",
@@ -41,7 +42,7 @@ describe("videos awaiting metadata", () => {
     });
     const html = renderToStaticMarkup(<VideoCard video={video} onRetryMetadata={() => {}} />);
     expect(html).toContain("Длительность уточняется");
-    expect(html).toContain("Без очереди");
+    expect(html).toContain("Без приоритета");
     expect(html).toContain("Повторить получение данных");
     expect(html).toContain('aria-label="Повторить получение данных"');
     expect(html).toContain("/embed/_JXL6Fn99l8?start=0");

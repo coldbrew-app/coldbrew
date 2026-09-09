@@ -4,6 +4,7 @@ import {
   SharedVideoSchema,
   SlugSchema,
   VideoIdSchema,
+  VideoQueueSchema,
 } from "@coldbrew/packages/schemas.js";
 import { youtubeVideoId } from "@coldbrew/packages/youtube.js";
 import { TRPCError } from "@trpc/server";
@@ -24,6 +25,10 @@ type VideoQueue = Pick<
   | "updateStatus"
   | "updateVideo"
   | "retryMetadata"
+  | "listQueues"
+  | "createQueue"
+  | "updateQueue"
+  | "moveVideo"
 >;
 
 const PAGE_SIZE = 25;
@@ -33,6 +38,8 @@ const SharedVideoStatusSchema = z.enum(["queue", "watched"]);
 const SharedVideoPageSchema = z
   .object({
     items: z.array(SharedVideoSchema),
+    videoQueueId: z.int().positive(),
+    queues: z.array(VideoQueueSchema),
     page: PageSchema,
     pageSize: PageSchema,
     priorities: z.array(
@@ -56,6 +63,14 @@ function translateVideoQueueError(error: unknown): never {
   }
 
   switch (error.type) {
+    case "video queue not found":
+      throw new TRPCError({ code: "NOT_FOUND", message: "Video queue not found.", cause: error });
+    case "video queue name taken":
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "Video queue name already exists.",
+        cause: error,
+      });
     case "invalid youtube url":
       throw new TRPCError({
         code: "BAD_REQUEST",
@@ -85,6 +100,52 @@ function translateVideoQueueError(error: unknown): never {
 
 function createVideoProcedures(queue: VideoQueue) {
   return {
+    videoQueues: authenticatedProcedure.query(({ ctx }) => queue.listQueues(ctx.userId)),
+
+    createVideoQueue: authenticatedProcedure
+      .input(
+        z.object({
+          label: z.string().trim().min(1).max(64),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        try {
+          return await queue.createQueue(ctx.userId, input.label);
+        } catch (error) {
+          translateVideoQueueError(error);
+        }
+      }),
+
+    updateVideoQueue: authenticatedProcedure
+      .input(
+        z.object({
+          videoQueueId: z.int().positive(),
+          label: z.string().trim().min(1).max(64),
+          isDefault: z.boolean(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        try {
+          return await queue.updateQueue(ctx.userId, input);
+        } catch (error) {
+          translateVideoQueueError(error);
+        }
+      }),
+
+    moveVideo: authenticatedProcedure
+      .input(
+        z.object({
+          videoId: VideoIdSchema,
+          videoQueueId: z.int().positive(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        try {
+          await queue.moveVideo(ctx.userId, input.videoId, input.videoQueueId);
+        } catch (error) {
+          translateVideoQueueError(error);
+        }
+      }),
     updateQueueCurrency: authenticatedProcedure
       .input(
         z.object({
@@ -103,13 +164,15 @@ function createVideoProcedures(queue: VideoQueue) {
           videoPriorityId: z.union([z.int().positive(), z.literal("unassigned")]).nullable(),
           videoStatus: VideoStatusSchema,
           videoId: VideoIdSchema.optional(),
+          videoQueueId: z.int().positive().optional(),
         }),
       )
       .query(async ({ ctx, input }) => {
-        return await queue.listPage(ctx.userId, {
-          ...input,
-          pageSize: PAGE_SIZE,
-        });
+        try {
+          return await queue.listPage(ctx.userId, { ...input, pageSize: PAGE_SIZE });
+        } catch (error) {
+          translateVideoQueueError(error);
+        }
       }),
 
     addVideo: authenticatedProcedure
@@ -117,6 +180,7 @@ function createVideoProcedures(queue: VideoQueue) {
         z
           .object({
             url: z.url().refine((url) => youtubeVideoId(url) !== null),
+            videoQueueId: z.int().positive().optional(),
             amount: MoneyAmountSchema,
             startSeconds: z.int().nonnegative(),
             endSeconds: z.int().positive().nullable(),
@@ -137,9 +201,7 @@ function createVideoProcedures(queue: VideoQueue) {
         }
       }),
 
-    videoPriorities: authenticatedProcedure.query(async ({ ctx }) => {
-      return await queue.listPriorities(ctx.userId);
-    }),
+    videoPriorities: authenticatedProcedure.query(({ ctx }) => queue.listPriorities(ctx.userId)),
 
     updateVideoPriority: authenticatedProcedure
       .input(
@@ -219,6 +281,7 @@ function createVideoProcedures(queue: VideoQueue) {
         z.object({
           page: PageSchema,
           slug: SlugSchema,
+          videoQueueId: z.int().positive().optional(),
           status: SharedVideoStatusSchema,
         }),
       )
@@ -228,6 +291,7 @@ function createVideoProcedures(queue: VideoQueue) {
           page: input.page,
           pageSize: PAGE_SIZE,
           status: input.status,
+          videoQueueId: input.videoQueueId,
         });
       }),
   };
