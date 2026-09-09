@@ -164,6 +164,8 @@ jobs:
           BOOSTY_CLIENT_SECRET: ${{ secrets.BOOSTY_CLIENT_SECRET }}
           CHAT_SERVICE_SECRET: ${{ secrets.CHAT_SERVICE_SECRET }}
           CHAT_TOKEN_ENCRYPTION_SECRET: ${{ secrets.CHAT_TOKEN_ENCRYPTION_SECRET }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ADMIN_CHAT_ID: ${{ vars.TELEGRAM_ADMIN_CHAT_ID }}
           DONATION_ALERTS_CLIENT_ID: ${{ vars.DONATION_ALERTS_CLIENT_ID }}
           DONATION_ALERTS_CLIENT_SECRET: ${{ secrets.DONATION_ALERTS_CLIENT_SECRET }}
           DONATIONS_SERVICE_SECRET: ${{ secrets.DONATIONS_SERVICE_SECRET }}
@@ -201,6 +203,7 @@ jobs:
             "BETTER_AUTH_SECRET",
             "CHAT_SERVICE_SECRET",
             "CHAT_TOKEN_ENCRYPTION_SECRET",
+            "TELEGRAM_BOT_TOKEN",
             "DONATION_ALERTS_CLIENT_ID",
             "DONATION_ALERTS_CLIENT_SECRET",
             "DONATIONS_SERVICE_SECRET",
@@ -213,6 +216,7 @@ jobs:
             "WALG_S3_PREFIX",
           ]
           const optional = [
+            "TELEGRAM_ADMIN_CHAT_ID",
             "ADMIN_EMAILS",
             "AWS_ACCESS_KEY_ID",
             "AWS_ENDPOINT",
@@ -346,6 +350,7 @@ jobs:
             BETTER_AUTH_SECRET
             CHAT_SERVICE_SECRET
             CHAT_TOKEN_ENCRYPTION_SECRET
+            TELEGRAM_BOT_TOKEN
             GOOGLE_CLIENT_ID
             GOOGLE_CLIENT_SECRET
             DONATION_ALERTS_CLIENT_ID

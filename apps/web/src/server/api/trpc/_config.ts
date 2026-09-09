@@ -1,3 +1,4 @@
+import { logError } from "@coldbrew/packages/server-logger.js";
 import { initTRPC, TRPCError } from "@trpc/server";
 import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
 import { SuperJSON } from "superjson";
@@ -16,7 +17,7 @@ type Context = Omit<Awaited<ReturnType<typeof createContext>>, "viewer"> & {
 const t = initTRPC.context<Context>().create({
   transformer: SuperJSON,
   errorFormatter({ shape, error }) {
-    console.error(error.stack ?? error.message);
+    logError("tRPC request failed", error, { code: error.code });
     return shape;
   },
 });
