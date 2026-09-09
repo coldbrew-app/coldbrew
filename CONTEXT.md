@@ -3,6 +3,15 @@
 The product glossary and invariants live in `AGENTS.md`. This file adds domain language for the
 chat integration modules.
 
+## Video queues
+
+**Video queue**: A streamer's named collection of videos. Each video belongs to exactly one queue,
+including before its duration is known.
+_Avoid_: Tag, streaming platform
+
+**Video priority**: A streamer-wide threshold level shared by every video queue.
+_Avoid_: Queue (when referring only to a priority level)
+
 ## Chat integration
 
 - **chat provider connection** — one OAuth grant from a Coldbrew user to one provider account.

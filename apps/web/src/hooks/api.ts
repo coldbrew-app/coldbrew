@@ -91,6 +91,7 @@ export function useDonationOverviewQ() {
 }
 
 export type VideoPageInput = {
+  videoQueueId?: number;
   videoId?: string;
   page: number;
   videoPriorityId: number | "unassigned" | null;
@@ -101,7 +102,6 @@ export function useVideoPageQ(input: VideoPageInput) {
   const { trpc } = useApi();
   return useQuery({
     ...trpc.videoPage.queryOptions(input),
-    placeholderData: input.videoId ? undefined : keepPreviousData,
     refetchInterval: 15000,
   });
 }
@@ -131,6 +131,28 @@ export function useAddVideoM() {
 export function useVideoPrioritiesQ() {
   const { trpc } = useApi();
   return useQuery(trpc.videoPriorities.queryOptions());
+}
+
+export function useVideoQueuesQ() {
+  const { trpc } = useApi();
+  return useQuery(trpc.videoQueues.queryOptions());
+}
+
+export function useVideoQueueMutations() {
+  const { trpc, queryClient } = useApi();
+  const onSuccess = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: trpc.videoQueues.queryKey() }),
+      queryClient.invalidateQueries({ queryKey: trpc.videoPage.queryKey() }),
+      queryClient.invalidateQueries({ queryKey: trpc.videoPriorities.queryKey() }),
+      queryClient.invalidateQueries({ queryKey: trpc.sharedVideoPage.queryKey() }),
+      queryClient.invalidateQueries({ queryKey: trpc.donationPage.queryKey() }),
+    ]);
+  };
+  const create = useMutation(trpc.createVideoQueue.mutationOptions({ onSuccess }));
+  const update = useMutation(trpc.updateVideoQueue.mutationOptions({ onSuccess }));
+  const move = useMutation(trpc.moveVideo.mutationOptions({ onSuccess }));
+  return { create, update, move };
 }
 
 export function useUpdateVideoPriorityM() {
@@ -176,12 +198,16 @@ export function useUpdateVideoM() {
   );
 }
 
-export function useSharedVideoPageQ(slug: Slug, page: number, status: "queue" | "watched") {
+export function useSharedVideoPageQ(
+  slug: Slug,
+  page: number,
+  status: "queue" | "watched",
+  videoQueueId?: number,
+) {
   const { trpc } = useApi();
   return useQuery({
-    ...trpc.sharedVideoPage.queryOptions({ page, slug, status }),
+    ...trpc.sharedVideoPage.queryOptions({ page, slug, status, videoQueueId }),
     refetchInterval: 15000,
-    placeholderData: keepPreviousData,
   });
 }
 

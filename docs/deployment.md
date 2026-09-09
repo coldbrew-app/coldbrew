@@ -351,6 +351,10 @@ deployment job exits before changing containers.
 
 Apply the exact blocked revision manually:
 
+For the independent-video-queues transition, review its
+[migration behavior](video-queues.md#existing-installation-migration) before applying the pending
+dbmate migration.
+
 ```sh
 cd /opt/coldbrew
 git fetch --prune --tags origin

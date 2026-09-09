@@ -8,8 +8,10 @@ import { PagePagination } from "@web/components/page-pagination";
 import QueryErrorState from "@web/components/query-error-state";
 import { SlugEditor } from "@web/components/slug-editor";
 import { Button, buttonVariants } from "@web/components/ui/button";
+import { FieldError } from "@web/components/ui/field";
 import VideoCard from "@web/components/video-card";
 import VideoPriorities from "@web/components/video-priorities";
+import { VideoQueueControls, VideoQueueSelect } from "@web/components/video-queue-controls";
 import { preloadRouteQuery } from "@web/lib/trpc";
 import { useEffect, useState } from "react";
 import { z } from "zod";
@@ -19,10 +21,13 @@ import {
   useUpdateVideoStatusM,
   useVideoPageQ,
   useRetryVideoMetadataM,
+  useVideoQueuesQ,
+  useVideoQueueMutations,
 } from "../../hooks/api";
 import { createTranslator, useI18n } from "../../lib/i18n";
 
 const VideoPageInputSchema = z.object({
+  videoQueueId: z.int().positive().optional(),
   page: z.int().positive(),
   videoId: z.string().optional(),
   videoPriorityId: z.union([z.int().positive(), z.literal("unassigned")]).nullable(),
@@ -35,6 +40,7 @@ export const Route = createFileRoute("/_authenticated/videos")({
     meta: [{ title: `${createTranslator(match.context.locale)("videoQueue")} · Coldbrew` }],
   }),
   validateSearch: z.object({
+    videoQueueId: z.coerce.number().int().positive().optional().catch(undefined),
     videoId: z
       .string()
       .regex(/^[1-9][0-9]*$/)
@@ -51,6 +57,7 @@ export const Route = createFileRoute("/_authenticated/videos")({
       .catch("notwatched"),
   }),
   loaderDeps: ({ search }) => ({
+    videoQueueId: search.videoQueueId,
     page: search.page,
     videoId: search.videoId,
     videoPriorityId: search.videoPriorityId === "all" ? null : search.videoPriorityId,
@@ -64,6 +71,7 @@ export const Route = createFileRoute("/_authenticated/videos")({
     await Promise.all([
       preloadRouteQuery(context.queryClient, context.trpc.videoPage.queryOptions(videoPageInput)),
       preloadRouteQuery(context.queryClient, context.trpc.videoPriorities.queryOptions()),
+      preloadRouteQuery(context.queryClient, context.trpc.videoQueues.queryOptions()),
     ]);
   },
 });
@@ -76,10 +84,13 @@ function VideoQueue() {
   const updateVideoStatusM = useUpdateVideoStatusM();
   const updateVideoM = useUpdateVideoM();
   const retryMetadataM = useRetryVideoMetadataM();
+  const queuesQ = useVideoQueuesQ();
+  const { move } = useVideoQueueMutations();
   const { t } = useI18n();
   const selectedVideoPriorityId = search.videoPriorityId === "all" ? null : search.videoPriorityId;
   const activeTab = search.videoStatus;
   const videosQ = useVideoPageQ({
+    videoQueueId: search.videoQueueId,
     page: search.page,
     videoId: search.videoId,
     videoPriorityId: selectedVideoPriorityId,
@@ -94,13 +105,21 @@ function VideoQueue() {
   };
 
   useEffect(() => {
-    if (videosQ.data && !videosQ.isPlaceholderData && videosQ.data.page !== search.page) {
+    if (
+      videosQ.data &&
+      !videosQ.isPlaceholderData &&
+      (videosQ.data.page !== search.page || search.videoQueueId === undefined)
+    ) {
       void navigate({
         replace: true,
-        search: (previous) => ({ ...previous, page: videosQ.data.page }),
+        search: (previous) => ({
+          ...previous,
+          page: videosQ.data.page,
+          videoQueueId: videosQ.data.queue.videoQueueId,
+        }),
       });
     }
-  }, [navigate, search.page, videosQ.data, videosQ.isPlaceholderData]);
+  }, [navigate, search.page, search.videoQueueId, videosQ.data, videosQ.isPlaceholderData]);
 
   const tabs = [
     {
@@ -148,6 +167,21 @@ function VideoQueue() {
           </Button>
         }
       />
+      <VideoQueueControls
+        videoQueueId={search.videoQueueId ?? videosQ.data?.queue.videoQueueId}
+        onSelect={(videoQueueId) =>
+          void navigate({
+            search: (previous) => ({
+              ...previous,
+              videoQueueId,
+              videoId: undefined,
+              page: 1,
+              videoPriorityId: "all",
+            }),
+          })
+        }
+      />
+      {move.error && <FieldError className="px-4 py-2">{t("videoMoveFailed")}</FieldError>}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
           <div className="order-2 min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain lg:order-1">
@@ -156,7 +190,14 @@ function VideoQueue() {
                 <p className="text-sm">{t("selectedVideo")}</p>
               </div>
             )}
-            {isAddingVideo && <AddVideoForm onCancel={() => setIsAddingVideo(false)} />}
+            {isAddingVideo && queuesQ.data && videosQ.data && (
+              <AddVideoForm
+                key={videosQ.data.queue.videoQueueId}
+                queues={queuesQ.data}
+                videoQueueId={videosQ.data.queue.videoQueueId}
+                onCancel={() => setIsAddingVideo(false)}
+              />
+            )}
             <div className={isQueueSettingsOpen ? "block" : "hidden lg:block"} id="queue-sharing">
               <SlugEditor showAllVideos={Boolean(search.videoId)} />
             </div>
@@ -175,6 +216,7 @@ function VideoQueue() {
                     isUpdating={
                       updateVideoStatusM.isPending ||
                       updateVideoM.isPending ||
+                      move.isPending ||
                       retryMetadataM.isPending
                     }
                     onRetryMetadata={() => retryMetadataM.mutate({ videoId: video.videoId })}
@@ -190,6 +232,19 @@ function VideoQueue() {
                     }
                     showSource
                     video={video}
+                    queueControl={
+                      queuesQ.data && queuesQ.data.length > 1 ? (
+                        <VideoQueueSelect
+                          queues={queuesQ.data}
+                          value={video.videoQueueId}
+                          label={t("moveToQueue")}
+                          disabled={move.isPending || updateVideoM.isPending}
+                          onChange={(videoQueueId) =>
+                            move.mutate({ videoId: video.videoId, videoQueueId })
+                          }
+                        />
+                      ) : undefined
+                    }
                   />
                 ))}
               </div>
@@ -236,6 +291,7 @@ function VideoQueue() {
                     })}
                     key={id}
                     search={(previous) => ({
+                      videoQueueId: videosQ.data?.queue.videoQueueId ?? previous.videoQueueId,
                       page: 1,
                       videoPriorityId: previous.videoPriorityId ?? "all",
                       videoStatus: id,
@@ -266,6 +322,7 @@ function VideoQueue() {
               id="queue-priorities"
             >
               <VideoPriorities
+                videoQueueId={search.videoQueueId ?? videosQ.data?.queue.videoQueueId}
                 remainingSecondsByPriorityId={videosQ.data?.remainingSecondsByPriorityId ?? {}}
                 selectedVideoPriorityId={selectedVideoPriorityId}
                 videoCountByPriorityId={videosQ.data?.priorityCounts ?? {}}

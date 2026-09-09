@@ -208,9 +208,12 @@ export class Store {
           });
           const userId = schema.parse(rows[0]).userId;
           await sql`
-            INSERT INTO video_priority (
-              user_id, label, min_price_per_minute, is_default
-            )
+            INSERT INTO video_queue (user_id, label, is_default)
+            VALUES (${userId}, 'Main', true)
+            ON CONFLICT (user_id) WHERE is_default DO UPDATE SET user_id = EXCLUDED.user_id
+          `;
+          await sql`
+            INSERT INTO video_priority (user_id, label, min_price_per_minute, is_default)
             VALUES
               (${userId}, 'queue 0', 0, true),
               (${userId}, 'queue 1', 50, false),

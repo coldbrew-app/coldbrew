@@ -8,12 +8,14 @@ import { useI18n } from "../lib/i18n";
 import VideoPriorityEditor from "./video-priority-editor";
 
 type Props = {
+  videoQueueId?: number;
   selectedVideoPriorityId: number | "unassigned" | null;
   remainingSecondsByPriorityId: Record<number, number>;
   videoCountByPriorityId: Record<number, number>;
 };
 
 export default function VideoPriorities({
+  videoQueueId,
   selectedVideoPriorityId,
   remainingSecondsByPriorityId,
   videoCountByPriorityId,
@@ -40,6 +42,7 @@ export default function VideoPriorities({
             : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
         )}
         search={(previous) => ({
+          videoQueueId,
           page: 1,
           videoPriorityId: "all",
           videoStatus: previous.videoStatus ?? "all",
@@ -60,6 +63,7 @@ export default function VideoPriorities({
         )}
         to="/videos"
         search={(previous) => ({
+          videoQueueId,
           page: 1,
           videoPriorityId: "unassigned",
           videoStatus: previous.videoStatus ?? "all",
@@ -80,6 +84,7 @@ export default function VideoPriorities({
       ) : prioritiesQ.data?.length ? (
         prioritiesQ.data.map((priority) => (
           <VideoPriorityEditor
+            videoQueueId={videoQueueId}
             isSelected={priority.videoPriorityId === selectedVideoPriorityId}
             key={priority.videoPriorityId}
             priority={priority}
