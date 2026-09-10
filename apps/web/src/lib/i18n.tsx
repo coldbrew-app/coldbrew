@@ -34,6 +34,7 @@ const en = {
   queueAmountUnavailable: "not calculated",
   goToVideo: "Go to video in queue",
   goToDonation: "Go to original donation",
+  openDonationSource: ({ source }: { source: string }) => `Open ${source}`,
 
   overview: "Overview",
   donations: "Donations",
@@ -405,6 +406,7 @@ const ru = defineTranslations({
   queueAmountUnavailable: "не рассчитана",
   goToVideo: "Перейти к видео в очереди",
   goToDonation: "Перейти к исходному донату",
+  openDonationSource: ({ source }: { source: string }) => `Открыть ${source}`,
 
   overview: "Главная",
   donations: "Донаты",

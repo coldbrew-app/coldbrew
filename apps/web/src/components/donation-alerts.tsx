@@ -1,8 +1,10 @@
 import { cn } from "@web/lib/utils";
 
 import { useI18n } from "../lib/i18n";
+import { Icons } from "./icons";
 
 export const DONATION_ALERTS_NAME = "DonationAlerts";
+export const DONATION_ALERTS_DONATIONS_URL = "https://www.donationalerts.com/dashboard/donations";
 
 type MarkProps = {
   className?: string;
@@ -43,14 +45,21 @@ export function DonationAlertsConnectionStatus({ connected }: { connected: boole
 }
 
 export function DonationAlertsSourceBadge({ className }: { className?: string }) {
+  const { t } = useI18n();
+
   return (
-    <span
+    <a
+      aria-label={t("openDonationSource", { source: DONATION_ALERTS_NAME })}
       className={cn(
-        "inline-flex items-center rounded-full border border-border bg-background/70 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground",
+        "inline-flex items-center gap-1 rounded-full border border-border bg-background/70 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground transition-colors outline-none hover:border-primary/30 hover:bg-secondary hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
         className,
       )}
+      href={DONATION_ALERTS_DONATIONS_URL}
+      rel="noopener noreferrer"
+      target="_blank"
     >
       {DONATION_ALERTS_NAME}
-    </span>
+      <Icons.externalLink aria-hidden="true" size={10} />
+    </a>
   );
 }
