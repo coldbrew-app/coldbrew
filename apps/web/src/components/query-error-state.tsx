@@ -2,9 +2,28 @@ import { Button } from "@web/components/ui/button";
 import { cn } from "@web/lib/utils";
 import type { ComponentProps } from "react";
 
-import { useI18n } from "../lib/i18n";
+import { createI18n, useI18n } from "../lib/i18n";
 import { CosmicArt } from "./cosmic-art";
 import { Icons } from "./icons";
+
+const i18n = createI18n({
+  dataLoadError: {
+    en: "Couldn't load data",
+    ru: "Не удалось загрузить данные",
+  },
+  dataLoadErrorDescription: {
+    en: "Check your connection and try again.",
+    ru: "Проверьте подключение и попробуйте ещё раз.",
+  },
+  tryAgain: {
+    en: "Try again",
+    ru: "Повторить",
+  },
+  retrying: {
+    en: "Retrying…",
+    ru: "Загружаем снова…",
+  },
+});
 
 type Props = ComponentProps<"div"> & {
   isRetrying?: boolean;
@@ -17,7 +36,7 @@ export default function QueryErrorState({
   onRetry,
   ...props
 }: Props) {
-  const { t } = useI18n();
+  const { t } = useI18n(i18n);
 
   return (
     <div

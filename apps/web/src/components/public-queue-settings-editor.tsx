@@ -3,10 +3,65 @@ import { buttonVariants, Button } from "@web/components/ui/button";
 import { FieldError } from "@web/components/ui/field";
 import { Switch } from "@web/components/ui/switch";
 import { useUpdatePublicQueueSettingsM, useUserInfo } from "@web/hooks/api";
-import { useI18n } from "@web/lib/i18n";
+import { createI18n, useI18n } from "@web/lib/i18n";
 import { Controller, useForm } from "react-hook-form";
 
 import { Icons } from "./icons";
+
+const i18n = createI18n({
+  publicQueueSettings: {
+    en: "Public video queue",
+    ru: "Доступ к очереди по ссылке",
+  },
+  publicQueueSettingsDescription: {
+    en: "Choose what viewers can see through your shared link.",
+    ru: "Настройте, что зрители увидят в публичной очереди.",
+  },
+  publicQueueEnabled: {
+    en: "Link enabled",
+    ru: "Доступ по ссылке включён",
+  },
+  publicQueueDisabled: {
+    en: "Link disabled",
+    ru: "Доступ по ссылке выключен",
+  },
+  publicQueueEnabledLabel: {
+    en: "Enable public link",
+    ru: "Открыть доступ по ссылке",
+  },
+  publicQueueEnabledDescription: {
+    en: "Anyone with the link can open your video queue.",
+    ru: "Все, у кого есть ссылка, смогут посмотреть очередь видео.",
+  },
+  publicQueueShowAmounts: {
+    en: "Show amounts",
+    ru: "Показывать суммы",
+  },
+  publicQueueShowAmountsDescription: {
+    en: "Show the amount assigned to each video.",
+    ru: "Показывать сумму для очереди у каждого видео.",
+  },
+  publicQueueShowWatched: {
+    en: "Show watched videos",
+    ru: "Показывать просмотренные видео",
+  },
+  publicQueueShowWatchedDescription: {
+    en: "Add a separate public history of watched videos.",
+    ru: "Добавить отдельный раздел с просмотренными видео.",
+  },
+  openPublicQueue: {
+    en: "Open public queue",
+    ru: "Посмотреть публичную очередь",
+  },
+  saving: {
+    en: "Saving…",
+    ru: "Сохраняем…",
+  },
+  save: {
+    en: "Save",
+    ru: "Сохранить",
+  },
+});
 
 type SettingRowProps = {
   checked: boolean;
@@ -48,7 +103,7 @@ function SettingRow({
 
 export function PublicQueueSettingsEditor() {
   const userInfo = useUserInfo();
-  const { t } = useI18n();
+  const { t } = useI18n(i18n);
   const updateSettingsM = useUpdatePublicQueueSettingsM();
   const { control, formState, handleSubmit, reset, watch } = useForm<PublicQueueSettings>({
     defaultValues: userInfo.publicQueueSettings,

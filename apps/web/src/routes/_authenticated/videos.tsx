@@ -24,7 +24,90 @@ import {
   useVideoQueuesQ,
   useVideoQueueMutations,
 } from "../../hooks/api";
-import { createTranslator, useI18n } from "../../lib/i18n";
+import { createI18n, createTranslator, useI18n } from "../../lib/i18n";
+
+const i18n = createI18n({
+  selectedVideo: {
+    en: "Selected video",
+    ru: "Выбранное видео",
+  },
+  showAllVideos: {
+    en: "Show all videos",
+    ru: "Показать все видео",
+  },
+  linkedVideoUnavailable: {
+    en: "Video not found or unavailable",
+    ru: "Видео не найдено или недоступно",
+  },
+  videoQueue: {
+    en: "Video queue",
+    ru: "Очередь видео",
+  },
+  moveToQueue: {
+    en: "Move to queue",
+    ru: "Перенести в очередь",
+  },
+  videoMoveFailed: {
+    en: "Couldn't move the video. Please try again.",
+    ru: "Не удалось перенести видео. Попробуйте ещё раз.",
+  },
+  videosForStream: {
+    en: "Videos ready to play on stream.",
+    ru: "Видео, которые можно показать на стриме.",
+  },
+  all: {
+    en: "All",
+    ru: "Все",
+  },
+  notWatched: {
+    en: "Not watched",
+    ru: "Не просмотрено",
+  },
+  watched: {
+    en: "Watched",
+    ru: "Просмотрено",
+  },
+  bookmarked: {
+    en: "Bookmarked",
+    ru: "В закладках",
+  },
+  loadingVideoQueue: {
+    en: "Loading video queue",
+    ru: "Загружаем очередь видео…",
+  },
+  noVideos: {
+    en: "No videos",
+    ru: "Нет видео",
+  },
+  noVideosInQueue: {
+    en: "No videos in the queue",
+    ru: "В очереди нет видео",
+  },
+  noFilteredVideos: {
+    en: ({ status }: { status: string }) => `No ${status} videos`,
+    ru: ({ status: _status }: { status: string }) => "По этому фильтру ничего не найдено",
+  },
+  filteredVideosWillAppear: {
+    en: "Videos matching this filter will appear here.",
+    ru: "Попробуйте выбрать другой фильтр.",
+  },
+  videoLinksWillAppear: {
+    en: "Videos from donations and videos you add will appear here.",
+    ru: "Здесь появятся видео из донатов и добавленные вручную.",
+  },
+  videoStatusFilters: {
+    en: "Video status filters",
+    ru: "Фильтр видео по статусу",
+  },
+  queueConfiguration: {
+    en: "Priorities and sharing",
+    ru: "Приоритеты и доступ по ссылке",
+  },
+  addVideo: {
+    en: "Add video",
+    ru: "Добавить видео",
+  },
+});
 
 const VideoPageInputSchema = z.object({
   videoQueueId: z.int().positive().optional(),
@@ -37,7 +120,7 @@ const VideoPageInputSchema = z.object({
 export const Route = createFileRoute("/_authenticated/videos")({
   component: VideoQueue,
   head: ({ match }) => ({
-    meta: [{ title: `${createTranslator(match.context.locale)("videoQueue")} · Coldbrew` }],
+    meta: [{ title: `${createTranslator(match.context.locale, i18n)("videoQueue")} · Coldbrew` }],
   }),
   validateSearch: z.object({
     videoQueueId: z.coerce.number().int().positive().optional().catch(undefined),
@@ -86,7 +169,7 @@ function VideoQueue() {
   const retryMetadataM = useRetryVideoMetadataM();
   const queuesQ = useVideoQueuesQ();
   const { move } = useVideoQueueMutations();
-  const { t } = useI18n();
+  const { t } = useI18n(i18n);
   const selectedVideoPriorityId = search.videoPriorityId === "all" ? null : search.videoPriorityId;
   const activeTab = search.videoStatus;
   const videosQ = useVideoPageQ({

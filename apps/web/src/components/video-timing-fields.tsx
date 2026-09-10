@@ -8,9 +8,71 @@ import { cn } from "@web/lib/utils";
 import { useId } from "react";
 import { useFormContext } from "react-hook-form";
 
-import { useI18n } from "../lib/i18n";
+import { createI18n, useI18n } from "../lib/i18n";
 import { Field, FieldDescription, FieldError, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
+
+type VideoTimeParts = {
+  hours: number;
+  minutes: number;
+  seconds: number;
+};
+
+type HourMinuteParts = {
+  hours: number;
+  minutes: number;
+};
+
+const i18n = createI18n({
+  videoStart: {
+    en: "Start",
+    ru: "Начало",
+  },
+  videoEnd: {
+    en: "End",
+    ru: "Конец",
+  },
+  videoEndPlaceholder: {
+    en: "Until the end",
+    ru: "До конца",
+  },
+  parsedVideoTime: {
+    en: ({ hours, minutes, seconds }: VideoTimeParts) =>
+      `${hours > 0 ? `${hours} hr ` : ""}${minutes} min ${seconds} sec`,
+    ru: ({ hours, minutes, seconds }: VideoTimeParts) =>
+      `${hours > 0 ? `${hours} ч ` : ""}${minutes} мин ${seconds} с`,
+  },
+  watchDuration: {
+    en: ({ hours, minutes }: HourMinuteParts) =>
+      `Watch time: ${hours > 0 ? `${hours} hr ` : ""}${minutes} min`,
+    ru: ({ hours, minutes }: HourMinuteParts) =>
+      `Время просмотра: ${hours > 0 ? `${hours} ч ` : ""}${minutes} мин`,
+  },
+  enterVideoTime: {
+    en: "Enter a timestamp.",
+    ru: "Укажите время.",
+  },
+  invalidVideoTime: {
+    en: "Use MM:SS or HH:MM:SS.",
+    ru: "Используйте формат ММ:СС или ЧЧ:ММ:СС.",
+  },
+  videoEndAfterStart: {
+    en: "The end must be after the start.",
+    ru: "Конец должен быть позже начала.",
+  },
+  videoEndWithinDuration: {
+    en: "The end cannot be later than the video duration.",
+    ru: "Конец не может быть позже длительности видео.",
+  },
+  videoTimingHelp: {
+    en: "Start and end determine the watch time and queue position.",
+    ru: "Выбранный отрезок влияет на длительность просмотра и очередь.",
+  },
+  manualVideoTimingHelp: {
+    en: "Leave the end empty to watch the video until it finishes.",
+    ru: "Оставьте поле «Конец» пустым, чтобы воспроизвести видео до конца.",
+  },
+});
 
 export type VideoTimingValues = {
   endTime: string;
@@ -64,7 +126,7 @@ export function VideoTimingFields({
   maximumEndSeconds = null,
   showOpenEndHelp = true,
 }: Props) {
-  const { t } = useI18n();
+  const { t } = useI18n(i18n);
   const { formState, getValues, register, trigger, watch } = useFormContext<VideoTimingValues>();
   const id = useId();
   const startId = `${id}-start`;

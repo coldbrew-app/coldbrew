@@ -3,17 +3,32 @@ import { CosmicPageHeader } from "@web/components/cosmic-page-header";
 import { DonationAlertsSourceBadge } from "@web/components/donation-alerts";
 import { Icons } from "@web/components/icons";
 
-import { createTranslator, useI18n } from "../../lib/i18n";
+import { createI18n, createTranslator, useI18n } from "../../lib/i18n";
+
+const i18n = createI18n({
+  donations: {
+    en: "Donations",
+    ru: "Донаты",
+  },
+  allDonations: {
+    en: "All donations",
+    ru: "Все донаты",
+  },
+  browseDonations: {
+    en: "Browse and search your supporters’ donations.",
+    ru: "Просматривайте донаты и находите нужные по имени или сообщению.",
+  },
+});
 
 export const Route = createFileRoute("/_authenticated/donations")({
   component: DonationsLayout,
   head: ({ match }) => ({
-    meta: [{ title: `${createTranslator(match.context.locale)("donations")} · Coldbrew` }],
+    meta: [{ title: `${createTranslator(match.context.locale, i18n)("donations")} · Coldbrew` }],
   }),
 });
 
 function DonationsLayout() {
-  const { t } = useI18n();
+  const { t } = useI18n(i18n);
 
   return (
     <section className="cosmic-panel flex h-full min-h-0 min-w-0 flex-col overflow-hidden">

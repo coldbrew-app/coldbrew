@@ -14,780 +14,66 @@ import { localeCookieName, type Locale, resolveLocale } from "./locale";
 export { resolveLocale };
 export type { Locale };
 
-type VideoTimeParts = {
-  hours: number;
-  minutes: number;
-  seconds: number;
+type TranslationValue = string | ((...args: never[]) => string);
+
+type LocalizedMessage = {
+  readonly en: TranslationValue;
+  readonly ru: TranslationValue;
 };
 
-type HourMinuteParts = Pick<VideoTimeParts, "hours" | "minutes">;
+export type I18nMessages = Readonly<Record<string, LocalizedMessage>>;
 
-const en = {
-  selectedDonation: "Selected donation",
-  selectedVideo: "Selected video",
-  showAllDonations: "Show all donations",
-  showAllVideos: "Show all videos",
-  linkedDonationUnavailable: "Donation not found or unavailable",
-  linkedVideoUnavailable: "Video not found or unavailable",
-  donationVideosPending: "Video links are awaiting processing",
-  donationVideoNumber: ({ number }: { number: number }) => `Video ${number}`,
-  queueAmountUnavailable: "not calculated",
-  goToVideo: "Go to video in queue",
-  goToDonation: "Go to original donation",
-  openDonationSource: ({ source }: { source: string }) => `Open ${source}`,
-
-  overview: "Overview",
-  donations: "Donations",
-  integrations: "Integrations",
-  alerts: "Alerts",
-  settings: "Settings",
-  adminPanel: "Admin panel",
-  deadLetters: "Dead letters",
-  deadLetterCount: ({ count }: { count: number }) => `${count} stored`,
-  noDeadLetters: "No dead letters",
-  noDeadLettersDescription: "Malformed NATS chat events will appear here for diagnosis.",
-  deadLetterPagination: "Dead letter pages",
-  deadLettersShown: ({ count }: { count: number }) => `${count} shown`,
-  newestDeadLetters: "Newest",
-  olderDeadLetters: "Older",
-  deadLetterPayload: "Original payload",
-  deadLetterPayloadTruncated: "Payload truncated to 64 KiB",
-  queueCurrency: "Queue currency",
-  queueCurrencyDescription: "Videos and queue thresholds use this currency.",
-  changeQueueCurrency: "Change currency",
-  queueCurrencyRate: ({ larger, smaller }: { larger: string; smaller: string }) =>
-    `1 ${larger} = amount in ${smaller}`,
-  queueCurrencyWarning:
-    "Changing currency converts existing video amounts and queue thresholds. Videos keep their current queue.",
-  enterExchangeRate: "Enter an exchange rate greater than zero.",
-  underConstruction: "Under construction",
-  signOut: "Sign out",
-  logOut: "Log out",
-  switchToLightMode: "Switch to light mode",
-  switchToDarkMode: "Switch to dark mode",
-  language: "Language",
-  openNavigation: "Open navigation",
-  english: "English",
-  russian: "Russian",
-  activeDevelopment:
-    "Coldbrew is under active development. Breaking changes and data loss are possible.",
-  dismissDevelopmentWarning: "Dismiss development warning",
-  dismissChatOauthNotification: "Dismiss connection notification",
-  greeting: ({ name }: { name: string }) => `Good evening, ${name}`,
-  streamUpdate: "Your stream is brewing. Here is the signal right now.",
-  brewStatus: "Live brew",
-  sidebarStory: "A long brew for bright moments.",
-  orbitCaption: "Donations arrive. Reactions take off.",
-  integrationsEyebrow: "Donation sources",
-  alertsEyebrow: "Stream reactions",
-  donationOrbit: "Supporter signal",
-  queueOrbit: "The Milky Way queue",
-  queueOrbitDescription: "Every video keeps its place on the route to your stream.",
-  settingsDescription: "Tune the rules that keep your stream queue moving.",
-  publicQueueEyebrow: "Live route to the stream",
-  streamStatistics: "Stream stats",
-  totalReceived: "Total received",
-  averageDonation: "Average donation",
-  versusPreviousPeriod: "vs. the previous period",
-  acrossPlatforms: "Across connected platforms",
-  recentActivity: "Recent activity",
-  everyDonation: "All your donations, in one place.",
-  viewAll: "View all",
-  donationTrends: "Donation trends",
-  earningsOverTime: "How your earnings have changed over time.",
-  revenue: "Revenue",
-  automaticSync: "Donations sync automatically.",
-  connectAllDonations: "Connect DonationAlerts to see all your donations here.",
-  manage: "Manage",
-  readyForOverlay: "Need an overlay for your stream?",
-  overlayDescription: "Set up a chat overlay for your stream in Multichat.",
-  createOverlay: "Set up chat overlay",
-  landingPageTitle: "Donations, video queue, and multichat for streamers",
-  signIn: "Sign in",
-  welcomeBack: "Welcome back",
-  signInDescription: "Sign in to manage your stream from one place.",
-  signInEyebrow: "A long brew for bright moments",
-  signInStory:
-    "Collect every supporter signal, keep videos in orbit, and react when they reach the front.",
-  landingHeadline: "A little coffee. A whole universe of moments.",
-  landingDescription:
-    "Coldbrew helps streamers collect donations, organise viewer-submitted videos, follow live chats, and share what is coming next — all in one place.",
-  landingSignInNote: "Google sign-in creates and protects your Coldbrew account.",
-  landingSignalEyebrow: "From supporter to stream",
-  landingWorkflowEyebrow: "One connected flow",
-  landingWorkflow: "Donation → video queue → on-stream reaction",
-  landingFeaturesEyebrow: "Built for live moments",
-  landingFeaturesTitle: "Keep every supporter signal within reach.",
-  landingFeaturesDescription:
-    "Connect the services you use, then manage the activity around your stream without switching between dashboards.",
-  landingDonationsTitle: "Donations in one feed",
-  landingDonationsDescription:
-    "Connect supported donation sources and browse supporter names, amounts, messages, and recent activity together.",
-  landingVideoQueueTitle: "A video queue you control",
-  landingVideoQueueDescription:
-    "Turn supported links from donation messages into videos, add videos manually, and organise them by your own priorities.",
-  landingMultichatTitle: "Live chats side by side",
-  landingMultichatDescription:
-    "Bring supported streaming chats into one feed so messages stay visible while you focus on the broadcast.",
-  landingSharingTitle: "Public views and overlays",
-  landingSharingDescription:
-    "Share a public video queue with viewers and use browser-source overlays to bring selected activity onto the stream.",
-  googleDataEyebrow: "Transparent Google sign-in",
-  googleDataTitle: "Your account data has one job.",
-  googleDataDescription:
-    "When you continue with Google, Google shares your name, email address, and profile image with Coldbrew. We use them to create your account, identify you when you return, and show your account details.",
-  googleDataNoExtraAccess:
-    "Google sign-in does not give Coldbrew access to Gmail, Google Drive, or Google Calendar. If you separately connect YouTube chat, Coldbrew requests YouTube permissions for chat messages and moderation.",
-  readPrivacyPolicy: "Read the Privacy policy",
-  landingFooter: "Coldbrew — tools for streamers.",
-  legalLinks: "Legal information",
-  redirecting: "Redirecting…",
-  continueWithGoogle: "Continue with Google",
-  integrationsDescription: "Connect services to keep all your donations in one place.",
-  connected: "Connected",
-  notConnected: "Not connected",
-  donationsSyncing: "New DonationAlerts donations sync automatically.",
-  importDonations: "Automatically import donations from DonationAlerts.",
-  disconnecting: "Disconnecting…",
-  disconnect: "Disconnect",
-  connectDonationAlerts: "Connect DonationAlerts",
-  secureAuthorization: "Sign in to DonationAlerts to securely grant Coldbrew access.",
-  secureConnection: "Coldbrew has secure access to your DonationAlerts account.",
-  moreIntegrationsSoon: "More integrations are coming soon.",
-  donationContent: "Donations section",
-  videos: "Videos",
-  chat: "Multichat",
-  boostyConnectTitle: "Connect Boosty",
-  boostyAuth: "auth",
-  boostyAuthInvalid: "Could not read auth. Copy its entire value from Boosty and paste it again.",
-  boostyDeviceId: "_clientId",
-  boostyConnecting: "Connecting…",
-  boostyTokenHelp:
-    "Read-only connection through an unofficial API. Follow these steps to copy your connection details.",
-  devtoolsApplication: "Application",
-  devtoolsStorage: "Storage",
-  boostyTokenStepSignIn:
-    "Create a separate browser profile for Coldbrew (without browser sync). In that profile, sign in to your account at",
-  boostyDedicatedSession:
-    "I used a separate browser profile and will close its Boosty tabs after copying the credentials",
-  boostyTokenStepFind: ({ application, storage }: { application: string; storage: string }) =>
-    `On the Boosty tab, open developer tools from the browser menu → ${application} (${storage} in Firefox or Safari). Find the auth entry in Cookies or Local Storage for Boosty.`,
-  boostyTokenStepChromium: ({ shortcut, panel }: { shortcut: string; panel: string }) =>
-    `On the Boosty tab, press ${shortcut} to open developer tools, then select ${panel} (it may be in the hidden tabs menu). Find the auth entry under Cookies or Local Storage → https://boosty.to.`,
-  boostyTokenStepFirefox: ({ shortcut, panel }: { shortcut: string; panel: string }) =>
-    `On the Boosty tab, press ${shortcut} to open ${panel}. If your keyboard uses F9 for a system action, also hold Fn. Find the auth entry under Cookies or Local Storage → https://boosty.to.`,
-  boostyTokenStepSafari: ({ shortcut, panel }: { shortcut: string; panel: string }) =>
-    `In Safari → Settings → Advanced, enable “Show features for web developers”. On the Boosty tab, press ${shortcut}, then select ${panel}. Find the auth entry under Cookies or Local Storage → https://boosty.to.`,
-  boostyTokenStepMobile: ({ application, storage }: { application: string; storage: string }) =>
-    `Get the token in a desktop browser: open Boosty there, then developer tools → ${application} (${storage} in Firefox or Safari). Find the auth entry under Cookies or Local Storage for Boosty.`,
-  boostyTokenStepCopy:
-    "Copy the entire value of auth into the auth field below without changing it. Copy _clientId from the same browser’s Cookies or Local Storage into the _clientId field.",
-  boostyTokenStorage:
-    "Close Boosty tabs in that profile without signing out. Use your usual profile to visit Boosty. Sharing one session with Coldbrew causes sign-outs and connection errors when either side renews it. Tokens are encrypted and renewed automatically.",
-  boostyConnectError:
-    "Could not connect Boosty. Check that the token is current and belongs to an account with a blog, then try again. Also check the channel limit and service availability.",
-  chatOauthSuccess: "Chat account connected.",
-  chatOauthInvalidCallback: "The authorization response was incomplete. Try connecting again.",
-  chatOauthExpired: "Authorization expired. Try connecting again.",
-  chatOauthProviderUnavailable: "This chat provider is not configured.",
-  chatOauthTokenExchangeFailed: "The provider rejected the authorization request.",
-  chatOauthProfileFailed: "Couldn't load or subscribe to the provider channel.",
-  chatOauthSourceLimitReached: "The connected chat channel limit has been reached.",
-  chatOauthUnknownError: "Couldn't connect the chat account. Try again.",
-  allDonations: "All donations",
-  videoQueue: "Video queue",
-  videoQueues: "Video queues",
-  loadingQueues: "Loading queues…",
-  createVideoQueue: "New queue",
-  queueSettings: "Queue settings",
-  queueName: "Queue name",
-  defaultVideoQueue: "Use for new videos from donations",
-  newQueuePrioritiesHelp: "The same priorities and thresholds apply to all your queues.",
-  queueNameTaken: "A queue with this name already exists. Choose another name.",
-  queueSaveFailed: "Couldn't save the queue. Please try again.",
-  moveToQueue: "Move to queue",
-  videoMoveFailed: "Couldn't move the video. Please try again.",
-  browseDonations: "Browse and search your supporters’ donations.",
-  videosForStream: "Videos ready to play on stream.",
-  searchDonations: "Search donations",
-  searchBySupporter: "Search by supporter name or message...",
-  dateRange: "Date range",
-  allTime: "All time",
-  sampleChart: "Example",
-  chatDisconnectTitle: "Disconnect channel?",
-  chatDisconnectDescription: ({ name, provider }: { name: string; provider: string }) =>
-    `Messages from ${name} on ${provider} will no longer appear in the chat. You can reconnect the channel later.`,
-  sampleChartDescription: "Illustrative chart. These values are not your donation history.",
-  last7Days: "Last 7 days",
-  last30Days: "Last 30 days",
-  loadingDonations: "Loading donations",
-  dataLoadError: "Couldn't load data",
-  dataLoadErrorDescription: "Check your connection and try again.",
-  tryAgain: "Try again",
-  retrying: "Retrying…",
-  loadingAuthorization: "Loading authorization…",
-  authorizationUnavailable: "Authorization is unavailable",
-  noMatchingDonations: "No results found",
-  noDonationsYet: "No donations yet",
-  tryAnotherSearch: "Try a different search or clear it.",
-  donationsWillAppear: "New donations will appear here.",
-  pagination: "Pagination",
-  previousPage: "Previous page",
-  nextPage: "Next page",
-  goToPage: ({ page }: { page: number }) => `Go to page ${page}`,
-  pageOf: ({ page, totalPages }: { page: number; totalPages: number }) =>
-    `Page ${page} of ${totalPages}`,
-  showingResults: ({ first, last, total }: { first: number; last: number; total: number }) =>
-    `Showing ${first}–${last} of ${total}`,
-  all: "All",
-  notWatched: "Not watched",
-  watched: "Watched",
-  bookmarked: "Bookmarked",
-  loadingVideoQueue: "Loading video queue",
-  noVideos: "No videos",
-  noVideosInQueue: "No videos in the queue",
-  noFilteredVideos: ({ status }: { status: string }) => `No ${status} videos`,
-  filteredVideosWillAppear: "Videos matching this filter will appear here.",
-  videoLinksWillAppear: "Videos from donations and videos you add will appear here.",
-  videoStatusFilters: "Video status filters",
-  queueConfiguration: "Priorities and sharing",
-  queues: "Priorities",
-  minimumDonation: "Shared across queues · minimum amount per video minute.",
-  loadingVideoPriorities: "Loading video priorities",
-  noQueuesYet: "No priorities yet.",
-  selectQueueFilter: ({ label }: { label: string }) => `Select ${label} priority filter`,
-  editQueue: "Edit priority",
-  cancelEditing: "Cancel editing",
-  cancel: "Cancel",
-  name: "Name",
-  minimumAmountPerMinute: "Minimum amount per minute",
-  enterQueueName: "Enter a priority name.",
-  enterMinimumAmount: "Enter a minimum amount.",
-  enterAmountZeroOrMore: "Enter an amount of zero or more.",
-  savingQueue: "Saving priority",
-  saveQueue: "Save priority",
-  publicVideoQueueSlug: "Public video queue handle",
-  slugHelp: "Use 3–47 lowercase letters, numbers, or hyphens.",
-  slugInvalid: "Use 3–47 lowercase letters, numbers, or hyphens.",
-  publicQueueSettings: "Public video queue",
-  publicQueueSettingsDescription: "Choose what viewers can see through your shared link.",
-  publicQueueEnabled: "Link enabled",
-  publicQueueDisabled: "Link disabled",
-  publicQueueEnabledLabel: "Enable public link",
-  publicQueueEnabledDescription: "Anyone with the link can open your video queue.",
-  publicQueueShowAmounts: "Show amounts",
-  publicQueueShowAmountsDescription: "Show the amount assigned to each video.",
-  publicQueueShowWatched: "Show watched videos",
-  publicQueueShowWatchedDescription: "Add a separate public history of watched videos.",
-  openPublicQueue: "Open public queue",
-  saving: "Saving…",
-  save: "Save",
-  copied: "Copied",
-  copy: "Copy",
-  anonymous: "Anonymous",
-  sentDonation: "A donation was sent",
-  video: "Video",
-  youtubeVideoFrom: ({ author }: { author: string }) => `YouTube video from ${author}`,
-  youtubeVideo: "YouTube video",
-  videoDurationPending: "Fetching duration",
-  videoDurationUnavailable: "Duration unavailable",
-  videoUnassigned: "Without priority",
-  videoRetryMetadata: "Retry metadata",
-  videoInvalidRange: "Check video boundaries",
-  videoNextRetry: ({ date }: { date: string }) => `Next attempt: ${date}`,
-  addVideo: "Add video",
-  addingVideo: "Adding video…",
-  manualVideoUrl: "YouTube link",
-  enterYoutubeUrl: "Enter a YouTube link.",
-  invalidYoutubeUrl: "Enter a supported YouTube link.",
-  videoCouldNotBeAdded:
-    "Couldn't read this video or the timestamps are outside its duration. Check the values and try again.",
-  fromDonation: "From donation",
-  addedManually: "Added manually",
-  openOnYoutube: "Open on YouTube",
-  minutes: ({ count }: { count: number }) => `${count} min`,
-  durationRemaining: ({ hours, minutes }: HourMinuteParts) =>
-    `${hours > 0 ? `${hours} hr ` : ""}${minutes} min`,
-  perMinute: "min",
-  editVideoDetails: "Edit video details",
-  amount: "Amount",
-  videoStart: "Start",
-  videoEnd: "End",
-  videoEndPlaceholder: "Until the end",
-  videoFromTime: ({ startTime }: { startTime: string }) => `From ${startTime}`,
-  videoUntilTime: ({ endTime }: { endTime: string }) => `Until ${endTime}`,
-  videoTimeRange: ({ startTime, endTime }: { startTime: string; endTime: string }) =>
-    `From ${startTime} until ${endTime}`,
-  parsedVideoTime: ({ hours, minutes, seconds }: VideoTimeParts) =>
-    `${hours > 0 ? `${hours} hr ` : ""}${minutes} min ${seconds} sec`,
-  watchDuration: ({ hours, minutes }: HourMinuteParts) =>
-    `Watch time: ${hours > 0 ? `${hours} hr ` : ""}${minutes} min`,
-  enterPriorityAmount: "Enter a priority amount.",
-  queueAmountHelp: "The amount and watch time determine the video’s queue position.",
-  enterVideoTime: "Enter a timestamp.",
-  invalidVideoTime: "Use MM:SS or HH:MM:SS.",
-  videoEndAfterStart: "The end must be after the start.",
-  videoEndWithinDuration: "The end cannot be later than the video duration.",
-  videoTimingHelp: "Start and end determine the watch time and queue position.",
-  manualVideoTimingHelp: "Leave the end empty to watch the video until it finishes.",
-  markVideoWatched: "Mark video as watched",
-  markVideoNotWatched: "Mark video as not watched",
-  bookmarkVideo: "Bookmark video",
-  removeVideoBookmark: "Remove video bookmark",
-  watchedOn: ({ date }: { date: string }) => `Watched ${date}`,
-  bookmarkedOn: ({ date }: { date: string }) => `Bookmarked ${date}`,
-  videoQueueBy: ({ slug }: { slug: string }) => `Video queue: ${slug}`,
-  videosSharedBySupporters: "Videos selected for the stream.",
-  publicQueueTabs: "Public video queue sections",
-  currentQueue: "Queue",
-  noWatchedVideos: "No watched videos",
-  watchedVideosWillAppear: "Videos will appear here after the streamer watches them.",
-  queueNotFound: "Queue not found",
-  sharedQueueUnavailable: "This video queue is unavailable.",
-  privacyPolicy: "Privacy policy",
-  termsOfService: "Terms of service",
-  legalEffectiveDate: "Effective as of September 2, 2026.",
-  privacyEffectiveDate: "Effective as of September 9, 2026.",
-  privacyDataTitle: "Data we process",
-  privacyDataDescription:
-    "We process account data: name, email address, and profile image. When you connect YouTube chat, Coldbrew receives OAuth access and refresh tokens, your channel identity, active-broadcast information, live chat messages, and identifiers needed for moderation. Connected donation sources provide the account, donation, and token data needed to operate those integrations.",
-  privacyPurposeTitle: "Why we use it",
-  privacyPurposeDescription:
-    "This data lets us create and protect your account, receive donations, build the video queue, and maintain the service. YouTube data is used only to show the connected live chat, send messages you request, perform moderation actions you initiate, and display chat in an overlay you enable.",
-  privacySharingTitle: "Sharing and access",
-  privacySharingDescription:
-    "We do not sell personal or Google user data, use it for advertising, or share it except as needed to operate an integration you connected. If you enable a public queue or chat overlay, the information selected for that feature is available to visitors through its public link.",
-  privacyProtectionTitle: "How we protect your data",
-  privacyProtectionDescription:
-    "We protect sensitive data in transit with HTTPS/TLS. Google OAuth access and refresh tokens are encrypted at rest using authenticated AES-256-GCM encryption, and the encryption secret is kept separately from the database. Access to non-public account and Google user data is restricted to the authenticated account owner and to service components that need it to provide the requested features; internal service requests are authenticated with separate credentials. We do not expose OAuth tokens to public pages or client-side application code. Administrative access is limited to authorized personnel who need it to operate or secure Coldbrew.",
-  privacyRetentionTitle: "Retention and your rights",
-  privacyRetentionDescription:
-    "YouTube OAuth tokens are encrypted at rest and retained only while the connection is active. Live chat message text is processed transiently and is not stored in the Coldbrew database. Disconnecting YouTube removes its stored tokens and connection data from Coldbrew; you can also revoke access in your Google Account. When you delete your Coldbrew account, its related data is deleted subject to applicable law.",
-  privacyAgreement:
-    "By using Coldbrew, you agree to this policy. For questions about data processing, contact the service owner through an available support channel.",
-  termsServiceTitle: "The service",
-  termsServiceDescription:
-    "Coldbrew helps streamers collect donation data from connected sources, build a video queue, and show it on stream. The service is provided as is and may be changed or extended.",
-  termsAccountTitle: "Account and integrations",
-  termsAccountDescription:
-    "You are responsible for keeping your account secure, for the legality of connected accounts, and for having the right to use them. By connecting a third-party platform, you also accept its terms. You can disconnect an integration in settings.",
-  termsAcceptableUseTitle: "Acceptable use",
-  termsAcceptableUseDescription:
-    "You may not use Coldbrew to break the law, infringe third-party rights or connected-platform rules, or attempt to disrupt the service or its security. You are responsible for the content of donations, messages, videos, and public pages created through the service.",
-  termsLiabilityTitle: "Limitation of liability",
-  termsLiabilityDescription:
-    "We aim to keep the service available and accurate, but do not guarantee uninterrupted operation, the preservation of third-party-platform data, or the absence of errors. To the extent permitted by law, Coldbrew is not liable for indirect losses arising from use of the service.",
-  termsAgreement: "By continuing to use Coldbrew, you accept these terms and the Privacy policy.",
-} as const;
-
-export type TranslationKey = keyof typeof en;
-
-type TranslationContract = {
-  [Key in TranslationKey]: (typeof en)[Key] extends (...args: infer Args) => string
-    ? (...args: Args) => string
-    : string;
-};
-
-function defineTranslations<const Translation extends TranslationContract>(
-  translation: Translation & Record<Exclude<keyof Translation, TranslationKey>, never>,
-) {
-  return translation;
-}
-
-const ru = defineTranslations({
-  selectedDonation: "Выбранный донат",
-  selectedVideo: "Выбранное видео",
-  showAllDonations: "Показать все донаты",
-  showAllVideos: "Показать все видео",
-  linkedDonationUnavailable: "Донат не найден или недоступен",
-  linkedVideoUnavailable: "Видео не найдено или недоступно",
-  donationVideosPending: "Ссылки на видео ожидают обработки",
-  donationVideoNumber: ({ number }: { number: number }) => `Видео ${number}`,
-  queueAmountUnavailable: "не рассчитана",
-  goToVideo: "Перейти к видео в очереди",
-  goToDonation: "Перейти к исходному донату",
-  openDonationSource: ({ source }: { source: string }) => `Открыть ${source}`,
-
-  overview: "Главная",
-  donations: "Донаты",
-  integrations: "Интеграции",
-  alerts: "Оповещения",
-  settings: "Настройки",
-  adminPanel: "Админская панель",
-  deadLetters: "Ошибочные сообщения",
-  deadLetterCount: ({ count }: { count: number }) => `Сохранено: ${count}`,
-  noDeadLetters: "Ошибочных сообщений нет",
-  noDeadLettersDescription: "Повреждённые события чата NATS появятся здесь для диагностики.",
-  deadLetterPagination: "Страницы необработанных сообщений",
-  deadLettersShown: ({ count }: { count: number }) => `Показано: ${count}`,
-  newestDeadLetters: "Новые",
-  olderDeadLetters: "Более ранние",
-  deadLetterPayload: "Исходные данные",
-  deadLetterPayloadTruncated: "Данные обрезаны до 64 КиБ",
-  queueCurrency: "Валюта очереди",
-  queueCurrencyDescription: "В этой валюте указаны суммы видео и пороги очередей.",
-  changeQueueCurrency: "Изменить валюту",
-  queueCurrencyRate: ({ larger, smaller }: { larger: string; smaller: string }) =>
-    `Количество ${smaller} за 1 ${larger}`,
-  queueCurrencyWarning:
-    "Суммы видео и пороги очередей пересчитаются по указанному курсу. Сами видео останутся в прежних очередях.",
-  enterExchangeRate: "Укажите курс больше нуля.",
-  underConstruction: "В разработке",
-  signOut: "Выйти",
-  logOut: "Выйти",
-  switchToLightMode: "Включить светлую тему",
-  switchToDarkMode: "Включить тёмную тему",
-  language: "Язык",
-  openNavigation: "Открыть меню",
-  english: "Английский",
-  russian: "Русский",
-  activeDevelopment:
-    "Coldbrew активно развивается. Некоторые функции могут измениться, а данные — потеряться.",
-  dismissDevelopmentWarning: "Скрыть предупреждение",
-  dismissChatOauthNotification: "Скрыть уведомление о подключении",
-  greeting: ({ name }: { name: string }) => `Рады вас видеть, ${name}`,
-  streamUpdate: "Всё важное о вашем стриме — на одном экране.",
-  brewStatus: "Сводка по стриму",
-  sidebarStory: "Настаиваем стрим. Собираем моменты.",
-  orbitCaption: "Получайте донаты. Создавайте яркие моменты.",
-  integrationsEyebrow: "Источники донатов",
-  alertsEyebrow: "Реакции на стриме",
-  donationOrbit: "Все донаты",
-  queueOrbit: "Управление очередью",
-  queueOrbitDescription: "Управляйте видео из донатов и добавляйте свои.",
-  settingsDescription: "Настройте публичный доступ и валюту очереди.",
-  publicQueueEyebrow: "Публичная очередь",
-  streamStatistics: "Статистика стрима",
-  totalReceived: "Всего получено",
-  averageDonation: "Средний донат",
-  versusPreviousPeriod: "к предыдущему периоду",
-  acrossPlatforms: "По всем подключённым платформам",
-  recentActivity: "Последние донаты",
-  everyDonation: "Свежие донаты со всех подключённых платформ.",
-  viewAll: "Посмотреть все",
-  donationTrends: "Динамика донатов",
-  earningsOverTime: "Изменение суммы донатов за выбранный период.",
-  revenue: "Доход",
-  automaticSync: "Новые донаты загружаются автоматически.",
-  connectAllDonations: "Подключите DonationAlerts, чтобы видеть все донаты здесь.",
-  manage: "Настроить",
-  readyForOverlay: "Нужен оверлей для стрима?",
-  overlayDescription: "Настройте чат-оверлей для стрима в разделе «Мультичат».",
-  createOverlay: "Настроить чат-оверлей",
-  landingPageTitle: "Донаты, очередь видео и мультичат для стримеров",
-  signIn: "Войти",
-  welcomeBack: "С возвращением",
-  signInDescription: "Войдите, чтобы управлять донатами и видео в одном месте.",
-  signInEyebrow: "Всё для вашего стрима",
-  signInStory:
-    "Собирайте донаты с разных платформ, управляйте очередью видео и не упускайте важное во время стрима.",
-  landingHeadline: "Чашка кофе. Целая вселенная моментов.",
-  landingDescription:
-    "Coldbrew помогает стримерам собирать донаты, управлять видео от зрителей, следить за чатами и показывать, что будет дальше, — в одном месте.",
-  landingSignInNote: "Вход через Google создаёт и защищает ваш аккаунт Coldbrew.",
-  landingSignalEyebrow: "От зрителя до стрима",
-  landingWorkflowEyebrow: "Единый процесс",
-  landingWorkflow: "Донат → очередь видео → реакция на стриме",
-  landingFeaturesEyebrow: "Для живых моментов",
-  landingFeaturesTitle: "Каждый сигнал от зрителей остаётся под рукой.",
-  landingFeaturesDescription:
-    "Подключите нужные сервисы и управляйте событиями вокруг стрима, не переключаясь между разными панелями.",
-  landingDonationsTitle: "Донаты в одной ленте",
-  landingDonationsDescription:
-    "Подключайте поддерживаемые источники донатов и просматривайте имена отправителей, суммы, сообщения и последние события вместе.",
-  landingVideoQueueTitle: "Управляемая очередь видео",
-  landingVideoQueueDescription:
-    "Превращайте поддерживаемые ссылки из сообщений к донатам в видео, добавляйте видео вручную и распределяйте их по своим очередям.",
-  landingMultichatTitle: "Чаты в одной ленте",
-  landingMultichatDescription:
-    "Объединяйте чаты поддерживаемых стриминговых платформ, чтобы видеть сообщения и не отвлекаться от трансляции.",
-  landingSharingTitle: "Публичные страницы и оверлеи",
-  landingSharingDescription:
-    "Делитесь со зрителями публичной очередью видео и выводите выбранные события на стрим через браузерные оверлеи.",
-  googleDataEyebrow: "Прозрачный вход через Google",
-  googleDataTitle: "Данные аккаунта используются только по назначению.",
-  googleDataDescription:
-    "При входе Google передаёт Coldbrew ваше имя, адрес электронной почты и изображение профиля. Они нужны, чтобы создать аккаунт, узнавать вас при повторном входе и показывать данные аккаунта.",
-  googleDataNoExtraAccess:
-    "Вход через Google не даёт Coldbrew доступ к Gmail, Google Диску или Google Календарю. Если вы отдельно подключите чат YouTube, Coldbrew запросит разрешения YouTube для работы с сообщениями и модерацией.",
-  readPrivacyPolicy: "Открыть Политику конфиденциальности",
-  landingFooter: "Coldbrew — инструменты для стримеров.",
-  legalLinks: "Юридическая информация",
-  redirecting: "Входим…",
-  continueWithGoogle: "Войти через Google",
-  integrationsDescription: "Подключите сервисы, чтобы собирать все донаты в одном месте.",
-  connected: "Подключено",
-  notConnected: "Не подключено",
-  donationsSyncing: "Новые донаты из DonationAlerts загружаются автоматически.",
-  importDonations: "Подключите DonationAlerts, чтобы донаты загружались автоматически.",
-  disconnecting: "Отключаем…",
-  disconnect: "Отключить",
-  connectDonationAlerts: "Подключить DonationAlerts",
-  secureAuthorization: "Войдите в DonationAlerts и разрешите Coldbrew получать ваши донаты.",
-  secureConnection: "Coldbrew получает донаты из вашего аккаунта DonationAlerts.",
-  moreIntegrationsSoon: "Скоро добавим другие сервисы.",
-  donationContent: "Донаты",
-  videos: "Видео",
-  chat: "Мультичат",
-  boostyConnectTitle: "Подключить Boosty",
-  boostyAuth: "auth",
-  boostyAuthInvalid:
-    "Не удалось прочитать auth. Скопируйте его значение из Boosty целиком и вставьте снова.",
-  boostyDeviceId: "_clientId",
-  boostyConnecting: "Подключаем…",
-  boostyTokenHelp:
-    "Подключение только для чтения через неофициальный API. Скопируйте данные для подключения по инструкции ниже.",
-  devtoolsApplication: "Приложение",
-  devtoolsStorage: "Хранилище",
-  boostyTokenStepSignIn:
-    "Создайте отдельный профиль браузера для Coldbrew без синхронизации. В нём войдите в свой аккаунт на",
-  boostyDedicatedSession:
-    "Я использую отдельный профиль браузера и закрою в нём вкладки Boosty после копирования данных",
-  boostyTokenStepFind: ({ application, storage }: { application: string; storage: string }) =>
-    `На вкладке Boosty откройте инструменты разработчика через меню браузера → ${application} (${storage} в Firefox или Safari). Найдите запись auth в Cookies или Local Storage для Boosty.`,
-  boostyTokenStepChromium: ({ shortcut, panel }: { shortcut: string; panel: string }) =>
-    `На вкладке Boosty нажмите ${shortcut}, чтобы открыть инструменты разработчика, затем выберите ${panel}. Вкладка может быть в меню скрытых вкладок. Найдите запись auth в Cookies или Local Storage → https://boosty.to.`,
-  boostyTokenStepFirefox: ({ shortcut, panel }: { shortcut: string; panel: string }) =>
-    `На вкладке Boosty нажмите ${shortcut}, чтобы открыть ${panel}. Если F9 выполняет системное действие, дополнительно удерживайте Fn. Найдите запись auth в Cookies или Local Storage → https://boosty.to.`,
-  boostyTokenStepSafari: ({ shortcut, panel }: { shortcut: string; panel: string }) =>
-    `В Safari → Настройки → Дополнения включите функции для веб-разработчиков. На вкладке Boosty нажмите ${shortcut}, затем выберите ${panel}. Найдите запись auth в Cookies или Local Storage → https://boosty.to.`,
-  boostyTokenStepMobile: ({ application, storage }: { application: string; storage: string }) =>
-    `Получите токен в браузере на компьютере: откройте там Boosty, затем инструменты разработчика → ${application} (${storage} в Firefox или Safari). Найдите запись auth в Cookies или Local Storage для Boosty.`,
-  boostyTokenStepCopy:
-    "Скопируйте значение auth целиком и без изменений в поле auth ниже. В поле _clientId вставьте значение _clientId из Cookies или Local Storage того же браузера.",
-  boostyTokenStorage:
-    "Закройте вкладки Boosty в отдельном профиле, не нажимая «Выйти». Пользуйтесь Boosty в обычном профиле. Общая с Coldbrew сессия приводит к выходам из аккаунта и ошибкам при обновлении токенов. Токены хранятся зашифрованными и обновляются автоматически.",
-  boostyConnectError:
-    "Не удалось подключить Boosty. Проверьте, что токен действителен и принадлежит аккаунту с блогом, затем повторите попытку. Также проверьте лимит каналов и доступность сервиса.",
-  chatOauthSuccess: "Аккаунт чата подключён.",
-  chatOauthInvalidCallback: "Ответ авторизации неполный. Попробуйте подключить аккаунт снова.",
-  chatOauthExpired: "Время авторизации истекло. Попробуйте подключить аккаунт снова.",
-  chatOauthProviderUnavailable: "Этот сервис чата не настроен.",
-  chatOauthTokenExchangeFailed: "Сервис отклонил запрос авторизации.",
-  chatOauthProfileFailed: "Не удалось получить канал или подписаться на его события.",
-  chatOauthSourceLimitReached: "Достигнут лимит подключённых каналов чата.",
-  chatOauthUnknownError: "Не удалось подключить аккаунт чата. Попробуйте снова.",
-  allDonations: "Все донаты",
-  videoQueue: "Очередь видео",
-  videoQueues: "Очереди видео",
-  loadingQueues: "Загружаем очереди…",
-  createVideoQueue: "Новая очередь",
-  queueSettings: "Настройки очереди",
-  queueName: "Название очереди",
-  defaultVideoQueue: "Для новых видео из донатов",
-  newQueuePrioritiesHelp: "Для всех очередей действуют единые приоритеты и пороги.",
-  queueNameTaken: "Очередь с таким названием уже есть. Выберите другое название.",
-  queueSaveFailed: "Не удалось сохранить очередь. Попробуйте ещё раз.",
-  moveToQueue: "Перенести в очередь",
-  videoMoveFailed: "Не удалось перенести видео. Попробуйте ещё раз.",
-  browseDonations: "Просматривайте донаты и находите нужные по имени или сообщению.",
-  videosForStream: "Видео, которые можно показать на стриме.",
-  searchDonations: "Поиск донатов",
-  searchBySupporter: "Имя отправителя или текст сообщения…",
-  dateRange: "Период",
-  allTime: "За всё время",
-  sampleChart: "Пример",
-  chatDisconnectTitle: "Отключить канал?",
-  chatDisconnectDescription: ({ name, provider }: { name: string; provider: string }) =>
-    `Сообщения канала «${name}» в ${provider} больше не будут появляться в чате. Канал можно подключить снова.`,
-  sampleChartDescription: "Демонстрационный график. Значения не отражают историю ваших донатов.",
-  last7Days: "Последние 7 дней",
-  last30Days: "Последние 30 дней",
-  loadingDonations: "Загружаем донаты…",
-  dataLoadError: "Не удалось загрузить данные",
-  dataLoadErrorDescription: "Проверьте подключение и попробуйте ещё раз.",
-  tryAgain: "Повторить",
-  retrying: "Загружаем снова…",
-  loadingAuthorization: "Получаем ссылку…",
-  authorizationUnavailable: "Не удалось получить ссылку",
-  noMatchingDonations: "По вашему запросу ничего не найдено",
-  noDonationsYet: "Донатов пока нет",
-  tryAnotherSearch: "Измените запрос или сбросьте фильтры.",
-  donationsWillAppear: "Новые донаты появятся здесь.",
-  pagination: "Навигация по страницам",
-  previousPage: "Предыдущая страница",
-  nextPage: "Следующая страница",
-  goToPage: ({ page }: { page: number }) => `Перейти на страницу ${page}`,
-  pageOf: ({ page, totalPages }: { page: number; totalPages: number }) =>
-    `Страница ${page} из ${totalPages}`,
-  showingResults: ({ first, last, total }: { first: number; last: number; total: number }) =>
-    `${first}–${last} из ${total}`,
-  all: "Все",
-  notWatched: "Не просмотрено",
-  watched: "Просмотрено",
-  bookmarked: "В закладках",
-  loadingVideoQueue: "Загружаем очередь видео…",
-  noVideos: "Нет видео",
-  noVideosInQueue: "В очереди нет видео",
-  noFilteredVideos: ({ status: _status }: { status: string }) =>
-    "По этому фильтру ничего не найдено",
-  filteredVideosWillAppear: "Попробуйте выбрать другой фильтр.",
-  videoLinksWillAppear: "Здесь появятся видео из донатов и добавленные вручную.",
-  videoStatusFilters: "Фильтр видео по статусу",
-  queueConfiguration: "Приоритеты и доступ по ссылке",
-  queues: "Приоритеты",
-  minimumDonation: "Едины для всех очередей · минимальная сумма за минуту просмотра.",
-  loadingVideoPriorities: "Загружаем приоритеты…",
-  noQueuesYet: "Приоритеты пока не настроены.",
-  selectQueueFilter: ({ label }: { label: string }) => `Показать приоритет «${label}»`,
-  editQueue: "Изменить приоритет",
-  cancelEditing: "Отменить",
-  cancel: "Отменить",
-  name: "Название",
-  minimumAmountPerMinute: "Минимальная сумма за минуту просмотра",
-  enterQueueName: "Укажите название приоритета.",
-  enterMinimumAmount: "Укажите минимальную сумму.",
-  enterAmountZeroOrMore: "Укажите число не меньше нуля.",
-  savingQueue: "Сохраняем приоритет…",
-  saveQueue: "Сохранить приоритет",
-  publicVideoQueueSlug: "Адрес публичной очереди видео",
-  slugHelp: "Используйте от 3 до 47 строчных латинских букв, цифр или дефисов.",
-  slugInvalid: "Введите от 3 до 47 строчных латинских букв, цифр или дефисов.",
-  publicQueueSettings: "Доступ к очереди по ссылке",
-  publicQueueSettingsDescription: "Настройте, что зрители увидят в публичной очереди.",
-  publicQueueEnabled: "Доступ по ссылке включён",
-  publicQueueDisabled: "Доступ по ссылке выключен",
-  publicQueueEnabledLabel: "Открыть доступ по ссылке",
-  publicQueueEnabledDescription: "Все, у кого есть ссылка, смогут посмотреть очередь видео.",
-  publicQueueShowAmounts: "Показывать суммы",
-  publicQueueShowAmountsDescription: "Показывать сумму для очереди у каждого видео.",
-  publicQueueShowWatched: "Показывать просмотренные видео",
-  publicQueueShowWatchedDescription: "Добавить отдельный раздел с просмотренными видео.",
-  openPublicQueue: "Посмотреть публичную очередь",
-  saving: "Сохраняем…",
-  save: "Сохранить",
-  copied: "Скопировано",
-  copy: "Скопировать",
-  anonymous: "Аноним",
-  sentDonation: "Без сообщения",
-  video: "Видео",
-  youtubeVideoFrom: ({ author }: { author: string }) => `Видео YouTube от ${author}`,
-  youtubeVideo: "Видео YouTube",
-  videoDurationPending: "Длительность уточняется",
-  videoDurationUnavailable: "Не удалось получить длительность",
-  videoUnassigned: "Без приоритета",
-  videoRetryMetadata: "Повторить получение данных",
-  videoInvalidRange: "Проверьте границы видео",
-  videoNextRetry: ({ date }: { date: string }) => `Следующая попытка: ${date}`,
-  addVideo: "Добавить видео",
-  addingVideo: "Добавляем видео…",
-  manualVideoUrl: "Ссылка на YouTube",
-  enterYoutubeUrl: "Введите ссылку на YouTube.",
-  invalidYoutubeUrl: "Ссылка не ведёт на поддерживаемое видео YouTube.",
-  videoCouldNotBeAdded: "Не удалось загрузить данные видео. Проверьте ссылку и таймкоды.",
-  fromDonation: "Из доната",
-  addedManually: "Добавлено вручную",
-  openOnYoutube: "Открыть на YouTube",
-  minutes: ({ count }: { count: number }) => `${count} мин`,
-  durationRemaining: ({ hours, minutes }: HourMinuteParts) =>
-    `${hours > 0 ? `${hours} ч ` : ""}${minutes} мин`,
-  perMinute: "мин",
-  editVideoDetails: "Изменить видео",
-  amount: "Сумма для очереди",
-  videoStart: "Начало",
-  videoEnd: "Конец",
-  videoEndPlaceholder: "До конца",
-  videoFromTime: ({ startTime }: { startTime: string }) => `С ${startTime}`,
-  videoUntilTime: ({ endTime }: { endTime: string }) => `До ${endTime}`,
-  videoTimeRange: ({ startTime, endTime }: { startTime: string; endTime: string }) =>
-    `С ${startTime} до ${endTime}`,
-  parsedVideoTime: ({ hours, minutes, seconds }: VideoTimeParts) =>
-    `${hours > 0 ? `${hours} ч ` : ""}${minutes} мин ${seconds} с`,
-  watchDuration: ({ hours, minutes }: HourMinuteParts) =>
-    `Время просмотра: ${hours > 0 ? `${hours} ч ` : ""}${minutes} мин`,
-  enterPriorityAmount: "Укажите сумму для очереди.",
-  queueAmountHelp: "Сумма и длительность определяют, в какую очередь попадёт видео.",
-  enterVideoTime: "Укажите время.",
-  invalidVideoTime: "Используйте формат ММ:СС или ЧЧ:ММ:СС.",
-  videoEndAfterStart: "Конец должен быть позже начала.",
-  videoEndWithinDuration: "Конец не может быть позже длительности видео.",
-  videoTimingHelp: "Выбранный отрезок влияет на длительность просмотра и очередь.",
-  manualVideoTimingHelp: "Оставьте поле «Конец» пустым, чтобы воспроизвести видео до конца.",
-  markVideoWatched: "Отметить видео просмотренным",
-  markVideoNotWatched: "Снять отметку о просмотре",
-  bookmarkVideo: "Добавить видео в закладки",
-  removeVideoBookmark: "Убрать видео из закладок",
-  watchedOn: ({ date }: { date: string }) => `Просмотрено: ${date}`,
-  bookmarkedOn: ({ date }: { date: string }) => `В закладках: ${date}`,
-  videoQueueBy: ({ slug }: { slug: string }) => `Очередь видео — ${slug}`,
-  videosSharedBySupporters: "Видео, которые стример планирует посмотреть.",
-  publicQueueTabs: "Разделы публичной очереди",
-  currentQueue: "Сейчас в очереди",
-  noWatchedVideos: "Просмотренных видео пока нет",
-  watchedVideosWillAppear: "После просмотра видео появятся здесь.",
-  queueNotFound: "Очередь недоступна",
-  sharedQueueUnavailable: "Возможно, ссылка неверна или владелец закрыл доступ.",
-  privacyPolicy: "Политика конфиденциальности",
-  termsOfService: "Условия использования",
-  legalEffectiveDate: "Действует с 2 сентября 2026 года.",
-  privacyEffectiveDate: "Действует с 9 сентября 2026 года.",
-  privacyDataTitle: "Какие данные мы обрабатываем",
-  privacyDataDescription:
-    "Мы обрабатываем данные учётной записи: имя, адрес электронной почты и изображение профиля. При подключении чата YouTube Coldbrew получает токены доступа и обновления OAuth, сведения о вашем канале и активной трансляции, сообщения чата и идентификаторы для модерации. Подключённые источники донатов передают данные аккаунта, донатов и токенов, необходимые для работы этих интеграций.",
-  privacyPurposeTitle: "Зачем это нужно",
-  privacyPurposeDescription:
-    "Эти данные нужны, чтобы создать и защитить учётную запись, получать донаты, формировать очередь видео и поддерживать работу сервиса. Данные YouTube используются только для показа подключённого чата, отправки запрошенных вами сообщений, выполнения инициированных вами действий модерации и вывода чата в включённый вами оверлей.",
-  privacySharingTitle: "Передача и доступ",
-  privacySharingDescription:
-    "Мы не продаём персональные данные или данные пользователей Google, не используем их для рекламы и не передаём иначе, чем для работы подключённой вами интеграции. Если вы включили публичную очередь или чат-оверлей, выбранные для этой функции сведения доступны посетителям по публичной ссылке.",
-  privacyProtectionTitle: "Как мы защищаем данные",
-  privacyProtectionDescription:
-    "Мы защищаем чувствительные данные при передаче с помощью HTTPS/TLS. Токены доступа и обновления Google OAuth хранятся в зашифрованном виде с использованием аутентифицированного шифрования AES-256-GCM, а секрет шифрования хранится отдельно от базы данных. Доступ к непубличным данным аккаунта и данным пользователей Google ограничен владельцем аккаунта, прошедшим аутентификацию, и компонентами сервиса, которым эти данные нужны для запрошенных функций; запросы между компонентами сервиса аутентифицируются отдельными учётными данными. Мы не передаём OAuth-токены на публичные страницы или в клиентский код приложения. Административный доступ предоставляется только уполномоченным лицам, которым он необходим для работы или защиты Coldbrew.",
-  privacyRetentionTitle: "Хранение и ваши права",
-  privacyRetentionDescription:
-    "Токены OAuth YouTube хранятся в зашифрованном виде только пока подключение активно. Текст сообщений чата обрабатывается временно и не сохраняется в базе данных Coldbrew. Отключение YouTube удаляет его токены и данные подключения из Coldbrew; доступ также можно отозвать в аккаунте Google. При удалении аккаунта Coldbrew связанные с ним данные удаляются с учётом требований закона.",
-  privacyAgreement:
-    "Используя Coldbrew, вы соглашаетесь с этой политикой. По вопросам обработки данных свяжитесь с владельцем сервиса через доступный канал поддержки.",
-  termsServiceTitle: "Сервис",
-  termsServiceDescription:
-    "Coldbrew помогает стримерам собирать данные о донатах из подключённых источников, формировать очередь видео и выводить их на стрим. Сервис предоставляется «как есть» и может изменяться или дополняться.",
-  termsAccountTitle: "Учётная запись и интеграции",
-  termsAccountDescription:
-    "Вы отвечаете за безопасность своей учётной записи, законность подключаемых аккаунтов и наличие прав на их использование. Подключая стороннюю платформу, вы также принимаете её правила и условия. Вы можете отключить интеграцию в настройках.",
-  termsAcceptableUseTitle: "Допустимое использование",
-  termsAcceptableUseDescription:
-    "Нельзя использовать Coldbrew для нарушения закона, прав третьих лиц, правил подключённых платформ, а также для попыток нарушить работу или безопасность сервиса. Вы несёте ответственность за контент донатов, сообщений, видео и публичных страниц, созданных с помощью сервиса.",
-  termsLiabilityTitle: "Ограничение ответственности",
-  termsLiabilityDescription:
-    "Мы стремимся поддерживать доступность и корректность сервиса, но не гарантируем его бесперебойную работу, сохранность данных сторонних платформ или отсутствие ошибок. Насколько это допускает закон, Coldbrew не отвечает за косвенные убытки, возникшие при использовании сервиса.",
-  termsAgreement:
-    "Продолжая пользоваться Coldbrew, вы принимаете эти условия и Политику конфиденциальности.",
-});
-
-const messages = { en, ru } as const;
-
-type TranslationArguments<Key extends TranslationKey> = (typeof en)[Key] extends (
+type TranslationContract<English extends TranslationValue> = English extends (
   ...args: infer Args
 ) => string
-  ? Args
-  : [];
+  ? (...args: Args) => string
+  : string;
 
-export type Translate = <Key extends TranslationKey>(
+type LocalizedMessageContract<Message extends LocalizedMessage> = {
+  readonly en: Message["en"];
+  readonly ru: TranslationContract<Message["en"]>;
+} & Readonly<Record<Exclude<keyof Message, Locale>, never>>;
+
+type I18nContract<Messages extends I18nMessages> = {
+  readonly [Key in keyof Messages]: LocalizedMessageContract<Messages[Key]>;
+};
+
+export function createI18n<const Messages extends I18nMessages>(
+  messages: Messages & I18nContract<Messages>,
+) {
+  return messages;
+}
+
+export type TranslationKey<Messages extends I18nMessages> = keyof Messages & string;
+type TranslationArguments<
+  Messages extends I18nMessages,
+  Key extends TranslationKey<Messages>,
+> = Messages[Key]["en"] extends (...args: infer Args) => string ? Args : [];
+export type Translate<Messages extends I18nMessages> = <Key extends TranslationKey<Messages>>(
   key: Key,
-  ...args: TranslationArguments<Key>
+  ...args: TranslationArguments<Messages, Key>
 ) => string;
 
-export function createTranslator(locale: Locale): Translate {
-  return (key: TranslationKey, ...args: unknown[]) => {
-    const message = messages[locale][key];
-    if (typeof message !== "function") {
-      return message;
-    }
+export function createTranslator<const Messages extends I18nMessages>(
+  locale: Locale,
+  messages: Messages,
+): Translate<Messages> {
+  return <Key extends TranslationKey<Messages>>(
+    key: Key,
+    ...args: TranslationArguments<Messages, Key>
+  ) => {
+    const message: unknown = messages[key][locale];
+    if (typeof message === "string") return message;
+    if (typeof message !== "function") throw new TypeError(`Translation ${key} is not a message.`);
     const translated: unknown = Reflect.apply(message, undefined, args);
-    if (typeof translated !== "string") {
+    if (typeof translated !== "string")
       throw new TypeError(`Translation ${key} did not return a string.`);
-    }
     return translated;
   };
 }
 
-type I18n = {
-  locale: Locale;
-  setLocale: (locale: Locale) => void;
-  t: Translate;
-};
-
-const I18nContext = createContext<I18n | null>(null);
+type I18nContextValue = { locale: Locale; setLocale: (locale: Locale) => void };
+const I18nContext = createContext<I18nContextValue | null>(null);
 
 export function I18nProvider({
   children,
@@ -798,42 +84,24 @@ export function I18nProvider({
 }) {
   const router = useRouter();
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
-
   const setLocale = useCallback(
     (nextLocale: Locale) => {
       setLocaleState(nextLocale);
       document.cookie = `${localeCookieName}=${nextLocale}; Path=/; Max-Age=31536000; SameSite=Lax`;
-      router.update({
-        context: {
-          ...router.options.context,
-          locale: nextLocale,
-        },
-      });
+      router.update({ context: { ...router.options.context, locale: nextLocale } });
       void router.invalidate();
     },
     [router],
   );
-
   useEffect(() => {
     document.documentElement.lang = locale;
   }, [locale]);
-
-  const value = useMemo<I18n>(
-    () => ({
-      locale,
-      setLocale,
-      t: createTranslator(locale),
-    }),
-    [locale, setLocale],
-  );
-
+  const value = useMemo<I18nContextValue>(() => ({ locale, setLocale }), [locale, setLocale]);
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 
-export function useI18n() {
+export function useI18n<const Messages extends I18nMessages>(messages: Messages) {
   const context = useContext(I18nContext);
-  if (!context) {
-    throw new Error("useI18n must be used within I18nProvider");
-  }
-  return context;
+  if (!context) throw new Error("useI18n must be used within I18nProvider");
+  return { ...context, t: createTranslator(context.locale, messages) };
 }

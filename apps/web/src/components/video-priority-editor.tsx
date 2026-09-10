@@ -7,11 +7,67 @@ import { cn } from "@web/lib/utils";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 
-import { useI18n } from "../lib/i18n";
+import { createI18n, useI18n } from "../lib/i18n";
 import { Icons } from "./icons";
 import { Button } from "./ui/button";
 import { Field, FieldError, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
+
+type HourMinuteParts = {
+  hours: number;
+  minutes: number;
+};
+
+const i18n = createI18n({
+  selectQueueFilter: {
+    en: ({ label }: { label: string }) => `Select ${label} priority filter`,
+    ru: ({ label }: { label: string }) => `Показать приоритет «${label}»`,
+  },
+  editQueue: {
+    en: "Edit priority",
+    ru: "Изменить приоритет",
+  },
+  cancelEditing: {
+    en: "Cancel editing",
+    ru: "Отменить",
+  },
+  name: {
+    en: "Name",
+    ru: "Название",
+  },
+  minimumAmountPerMinute: {
+    en: "Minimum amount per minute",
+    ru: "Минимальная сумма за минуту просмотра",
+  },
+  enterQueueName: {
+    en: "Enter a priority name.",
+    ru: "Укажите название приоритета.",
+  },
+  enterMinimumAmount: {
+    en: "Enter a minimum amount.",
+    ru: "Укажите минимальную сумму.",
+  },
+  enterAmountZeroOrMore: {
+    en: "Enter an amount of zero or more.",
+    ru: "Укажите число не меньше нуля.",
+  },
+  savingQueue: {
+    en: "Saving priority",
+    ru: "Сохраняем приоритет…",
+  },
+  saveQueue: {
+    en: "Save priority",
+    ru: "Сохранить приоритет",
+  },
+  durationRemaining: {
+    en: ({ hours, minutes }: HourMinuteParts) => `${hours > 0 ? `${hours} hr ` : ""}${minutes} min`,
+    ru: ({ hours, minutes }: HourMinuteParts) => `${hours > 0 ? `${hours} ч ` : ""}${minutes} мин`,
+  },
+  perMinute: {
+    en: "min",
+    ru: "мин",
+  },
+});
 
 type VideoPriorityFormValues = {
   label: string;
@@ -33,7 +89,7 @@ export default function VideoPriorityEditor({
   remainingSeconds,
   videoCount,
 }: Props) {
-  const { t } = useI18n();
+  const { t } = useI18n(i18n);
   const userInfo = useUserInfo();
   const [isEditing, setIsEditing] = useState(false);
   const updateVideoPriorityM = useUpdateVideoPriorityM();
