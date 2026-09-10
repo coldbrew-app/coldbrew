@@ -8,6 +8,7 @@ import QueryErrorState from "@web/components/query-error-state";
 import { Button } from "@web/components/ui/button";
 import { Skeleton } from "@web/components/ui/skeleton";
 import { useChatDeadLettersQ } from "@web/hooks/api";
+import { fmtListDate } from "@web/lib/fmt";
 import { createTranslator, useI18n } from "@web/lib/i18n";
 import { preloadRouteQuery } from "@web/lib/trpc";
 import { z } from "zod";
@@ -111,10 +112,7 @@ function DeadLettersPage() {
 function DeadLetterRow({ deadLetter }: { deadLetter: ChatDeadLetter }) {
   const { locale, t } = useI18n();
   const payload = decodeBase64(deadLetter.payload);
-  const failedAt = new Intl.DateTimeFormat(locale, {
-    dateStyle: "medium",
-    timeStyle: "medium",
-  }).format(deadLetter.failedAt);
+  const failedAt = fmtListDate(deadLetter.failedAt, locale);
 
   return (
     <details className="group px-4 py-4 open:bg-muted/30 sm:px-5">

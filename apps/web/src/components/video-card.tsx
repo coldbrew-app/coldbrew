@@ -6,7 +6,7 @@ import {
 } from "@coldbrew/packages/video-timing.js";
 import { rurl } from "@lebedevna/readonly-url";
 import { Link } from "@tanstack/react-router";
-import { fmtAmount, fmtDate, formatMoneyInputValue, formatRelativeDate } from "@web/lib/fmt";
+import { fmtAmount, fmtDate, fmtListDate, formatMoneyInputValue } from "@web/lib/fmt";
 import type { Video } from "@web/server/exports";
 import { clsx } from "clsx";
 import { useState, type ReactNode } from "react";
@@ -194,7 +194,7 @@ export default function VideoCard({
                 dateTime={video.createdAt.toISOString()}
                 title={fmtDate(video.createdAt, locale)}
               >
-                {formatRelativeDate(video.createdAt, locale)}
+                {fmtListDate(video.createdAt, locale)}
               </time>
             </div>
 
@@ -370,7 +370,7 @@ export default function VideoCard({
           {video.durationSeconds === null && onRetryMetadata && video.metadataRetryAt !== null && (
             <span className="text-xs text-muted-foreground">
               {t("videoNextRetry", {
-                date: fmtDate(video.metadataRetryAt, locale),
+                date: fmtListDate(video.metadataRetryAt, locale),
               })}
             </span>
           )}
@@ -419,7 +419,7 @@ export default function VideoCard({
                     dateTime={video.watchedAt.toISOString()}
                     title={fmtDate(video.watchedAt, locale)}
                   >
-                    {t("watchedOn", { date: fmtDate(video.watchedAt, locale) })}
+                    {t("watchedOn", { date: fmtListDate(video.watchedAt, locale) })}
                   </time>
                 )}
                 {video.bookmarkedAt && (
@@ -428,7 +428,7 @@ export default function VideoCard({
                     title={fmtDate(video.bookmarkedAt, locale)}
                   >
                     {t("bookmarkedOn", {
-                      date: fmtDate(video.bookmarkedAt, locale),
+                      date: fmtListDate(video.bookmarkedAt, locale),
                     })}
                   </time>
                 )}
