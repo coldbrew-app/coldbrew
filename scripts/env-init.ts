@@ -67,6 +67,6 @@ for (const [key, value] of Object.entries(settings)) {
 const { PGUSER = "", PGPASSWORD = "" }: { PGUSER?: string; PGPASSWORD?: string } = JSON.parse(
   await $`bunx dotenvx get -f .env --overload --include-key PGUSER PGPASSWORD`.text(),
 );
-const databaseUrl = `postgresql://${PGUSER}:${PGPASSWORD}@${settings.PGHOST}:${settings.PGPORT}/${settings.PGDATABASE}`;
+const databaseUrl = `postgresql://${PGUSER}:${PGPASSWORD}@${settings.PGHOST}:${settings.PGPORT}/${settings.PGDATABASE}?sslmode=${settings.PGSSLMODE}`;
 await $`bunx dotenvx set -f .env --plain DATABASE_URL ${databaseUrl}`;
 await chmod(".env", 0o600);
