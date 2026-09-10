@@ -14,21 +14,137 @@ import MockChart from "@web/components/mock-chart";
 import QueryErrorState from "@web/components/query-error-state";
 import { Button, buttonVariants } from "@web/components/ui/button";
 import { fmtRubles } from "@web/lib/fmt";
-import { createTranslator, useI18n } from "@web/lib/i18n";
+import { createI18n, createTranslator, useI18n } from "@web/lib/i18n";
 import { preloadRouteQuery } from "@web/lib/trpc";
 import { cn } from "@web/lib/utils";
 import { z } from "zod";
 
 import { useAuthUrlQ, useDonationOverviewQ, useUserInfoSafe } from "../../hooks/api";
 
+const i18n = createI18n({
+  overview: {
+    en: "Overview",
+    ru: "Главная",
+  },
+  donations: {
+    en: "Donations",
+    ru: "Донаты",
+  },
+  greeting: {
+    en: ({ name }: { name: string }) => `Good evening, ${name}`,
+    ru: ({ name }: { name: string }) => `Рады вас видеть, ${name}`,
+  },
+  streamUpdate: {
+    en: "Your stream is brewing. Here is the signal right now.",
+    ru: "Всё важное о вашем стриме — на одном экране.",
+  },
+  streamStatistics: {
+    en: "Stream stats",
+    ru: "Статистика стрима",
+  },
+  totalReceived: {
+    en: "Total received",
+    ru: "Всего получено",
+  },
+  averageDonation: {
+    en: "Average donation",
+    ru: "Средний донат",
+  },
+  acrossPlatforms: {
+    en: "Across connected platforms",
+    ru: "По всем подключённым платформам",
+  },
+  recentActivity: {
+    en: "Recent activity",
+    ru: "Последние донаты",
+  },
+  everyDonation: {
+    en: "All your donations, in one place.",
+    ru: "Свежие донаты со всех подключённых платформ.",
+  },
+  viewAll: {
+    en: "View all",
+    ru: "Посмотреть все",
+  },
+  donationTrends: {
+    en: "Donation trends",
+    ru: "Динамика донатов",
+  },
+  automaticSync: {
+    en: "Donations sync automatically.",
+    ru: "Новые донаты загружаются автоматически.",
+  },
+  connectAllDonations: {
+    en: "Connect DonationAlerts to see all your donations here.",
+    ru: "Подключите DonationAlerts, чтобы видеть все донаты здесь.",
+  },
+  manage: {
+    en: "Manage",
+    ru: "Настроить",
+  },
+  readyForOverlay: {
+    en: "Need an overlay for your stream?",
+    ru: "Нужен оверлей для стрима?",
+  },
+  overlayDescription: {
+    en: "Set up a chat overlay for your stream in Multichat.",
+    ru: "Настройте чат-оверлей для стрима в разделе «Мультичат».",
+  },
+  createOverlay: {
+    en: "Set up chat overlay",
+    ru: "Настроить чат-оверлей",
+  },
+  landingPageTitle: {
+    en: "Donations, video queue, and multichat for streamers",
+    ru: "Донаты, очередь видео и мультичат для стримеров",
+  },
+  connected: {
+    en: "Connected",
+    ru: "Подключено",
+  },
+  notConnected: {
+    en: "Not connected",
+    ru: "Не подключено",
+  },
+  allTime: {
+    en: "All time",
+    ru: "За всё время",
+  },
+  sampleChart: {
+    en: "Example",
+    ru: "Пример",
+  },
+  sampleChartDescription: {
+    en: "Illustrative chart. These values are not your donation history.",
+    ru: "Демонстрационный график. Значения не отражают историю ваших донатов.",
+  },
+  loadingDonations: {
+    en: "Loading donations",
+    ru: "Загружаем донаты…",
+  },
+  loadingAuthorization: {
+    en: "Loading authorization…",
+    ru: "Получаем ссылку…",
+  },
+  authorizationUnavailable: {
+    en: "Authorization is unavailable",
+    ru: "Не удалось получить ссылку",
+  },
+  anonymous: {
+    en: "Anonymous",
+    ru: "Аноним",
+  },
+});
+
 export const Route = createFileRoute("/_authenticated/")({
   component: Overview,
   head: ({ match }) => ({
     meta: [
       {
-        title: `${createTranslator(match.context.locale)(
-          match.context.viewer ? "overview" : "landingPageTitle",
-        )} · Coldbrew`,
+        title: `${createTranslator(
+          match.context.locale,
+          i18n,
+        )(match.context.viewer ? "overview" : "landingPageTitle")} · Coldbrew`,
       },
     ],
   }),
@@ -55,7 +171,7 @@ function Overview() {
   const donationOverviewQ = useDonationOverviewQ();
   const success = Route.useSearch({ select: (search) => search.success });
   const donationAlertsConnected = userInfo !== null && userInfo.hasDonationAlertsConnection;
-  const { locale, t } = useI18n();
+  const { locale, t } = useI18n(i18n);
 
   const total = donationOverviewQ.data?.totalAmount ?? 0;
   const donationsLength = donationOverviewQ.data?.donationCount ?? 0;

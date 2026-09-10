@@ -6,11 +6,58 @@ import { cn } from "@web/lib/utils";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 
-import { useI18n } from "../lib/i18n";
+import { createI18n, useI18n } from "../lib/i18n";
 import { Icons } from "./icons";
 import { Field, FieldDescription, FieldError, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
+
+const i18n = createI18n({
+  showAllVideos: {
+    en: "Show all videos",
+    ru: "Показать все видео",
+  },
+  settings: {
+    en: "Settings",
+    ru: "Настройки",
+  },
+  publicVideoQueueSlug: {
+    en: "Public video queue handle",
+    ru: "Адрес публичной очереди видео",
+  },
+  slugHelp: {
+    en: "Use 3–47 lowercase letters, numbers, or hyphens.",
+    ru: "Используйте от 3 до 47 строчных латинских букв, цифр или дефисов.",
+  },
+  slugInvalid: {
+    en: "Use 3–47 lowercase letters, numbers, or hyphens.",
+    ru: "Введите от 3 до 47 строчных латинских букв, цифр или дефисов.",
+  },
+  publicQueueEnabled: {
+    en: "Link enabled",
+    ru: "Доступ по ссылке включён",
+  },
+  publicQueueDisabled: {
+    en: "Link disabled",
+    ru: "Доступ по ссылке выключен",
+  },
+  saving: {
+    en: "Saving…",
+    ru: "Сохраняем…",
+  },
+  save: {
+    en: "Save",
+    ru: "Сохранить",
+  },
+  copied: {
+    en: "Copied",
+    ru: "Скопировано",
+  },
+  copy: {
+    en: "Copy",
+    ru: "Скопировать",
+  },
+});
 
 type Props = {
   className?: string;
@@ -22,7 +69,7 @@ type SlugFormValues = {
 };
 
 export function SlugEditor({ className, showAllVideos = false }: Props) {
-  const { t } = useI18n();
+  const { t } = useI18n(i18n);
   const [copied, setCopied] = useState(false);
   const userInfo = useUserInfo();
   const { slug } = userInfo;

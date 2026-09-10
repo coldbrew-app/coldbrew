@@ -9,9 +9,52 @@ import { Button } from "@web/components/ui/button";
 import { Skeleton } from "@web/components/ui/skeleton";
 import { useChatDeadLettersQ } from "@web/hooks/api";
 import { fmtListDate } from "@web/lib/fmt";
-import { createTranslator, useI18n } from "@web/lib/i18n";
+import { createI18n, createTranslator, useI18n } from "@web/lib/i18n";
 import { preloadRouteQuery } from "@web/lib/trpc";
 import { z } from "zod";
+
+const i18n = createI18n({
+  deadLetters: {
+    en: "Dead letters",
+    ru: "Ошибочные сообщения",
+  },
+  deadLetterCount: {
+    en: ({ count }: { count: number }) => `${count} stored`,
+    ru: ({ count }: { count: number }) => `Сохранено: ${count}`,
+  },
+  noDeadLetters: {
+    en: "No dead letters",
+    ru: "Ошибочных сообщений нет",
+  },
+  noDeadLettersDescription: {
+    en: "Malformed NATS chat events will appear here for diagnosis.",
+    ru: "Повреждённые события чата NATS появятся здесь для диагностики.",
+  },
+  deadLetterPagination: {
+    en: "Dead letter pages",
+    ru: "Страницы необработанных сообщений",
+  },
+  deadLettersShown: {
+    en: ({ count }: { count: number }) => `${count} shown`,
+    ru: ({ count }: { count: number }) => `Показано: ${count}`,
+  },
+  newestDeadLetters: {
+    en: "Newest",
+    ru: "Новые",
+  },
+  olderDeadLetters: {
+    en: "Older",
+    ru: "Более ранние",
+  },
+  deadLetterPayload: {
+    en: "Original payload",
+    ru: "Исходные данные",
+  },
+  deadLetterPayloadTruncated: {
+    en: "Payload truncated to 64 KiB",
+    ru: "Данные обрезаны до 64 КиБ",
+  },
+});
 
 export const Route = createFileRoute("/_authenticated/_admin/admin/dlq")({
   component: DeadLettersPage,
@@ -30,14 +73,14 @@ export const Route = createFileRoute("/_authenticated/_admin/admin/dlq")({
     );
   },
   head: ({ match }) => ({
-    meta: [{ title: `${createTranslator(match.context.locale)("deadLetters")} · Coldbrew` }],
+    meta: [{ title: `${createTranslator(match.context.locale, i18n)("deadLetters")} · Coldbrew` }],
   }),
 });
 
 function DeadLettersPage() {
   const search = Route.useSearch();
   const deadLettersQ = useChatDeadLettersQ(search.before);
-  const { t } = useI18n();
+  const { t } = useI18n(i18n);
 
   return (
     <section className="cosmic-panel flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
@@ -110,7 +153,7 @@ function DeadLettersPage() {
 }
 
 function DeadLetterRow({ deadLetter }: { deadLetter: ChatDeadLetter }) {
-  const { locale, t } = useI18n();
+  const { locale, t } = useI18n(i18n);
   const payload = decodeBase64(deadLetter.payload);
   const failedAt = fmtListDate(deadLetter.failedAt, locale);
 

@@ -1,9 +1,20 @@
 import { Link } from "@tanstack/react-router";
 import { Icons } from "@web/components/icons";
-import { useI18n } from "@web/lib/i18n";
+import { createI18n, useI18n } from "@web/lib/i18n";
+
+const i18n = createI18n({
+  adminPanel: {
+    en: "Admin panel",
+    ru: "Админская панель",
+  },
+  deadLetters: {
+    en: "Dead letters",
+    ru: "Ошибочные сообщения",
+  },
+});
 
 export function AdminTabs() {
-  const { t } = useI18n();
+  const { t } = useI18n(i18n);
 
   return (
     <nav

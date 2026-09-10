@@ -1,7 +1,22 @@
 import { cn } from "@web/lib/utils";
 
-import { useI18n } from "../lib/i18n";
+import { createI18n, useI18n } from "../lib/i18n";
 import { Icons } from "./icons";
+
+const i18n = createI18n({
+  connected: {
+    en: "Connected",
+    ru: "Подключено",
+  },
+  notConnected: {
+    en: "Not connected",
+    ru: "Не подключено",
+  },
+  openDonationSource: {
+    en: ({ source }: { source: string }) => `Open ${source}`,
+    ru: ({ source }: { source: string }) => `Открыть ${source}`,
+  },
+});
 
 export const DONATION_ALERTS_NAME = "DonationAlerts";
 export const DONATION_ALERTS_DONATIONS_URL = "https://www.donationalerts.com/dashboard/donations";
@@ -27,7 +42,7 @@ export function DonationAlertsMark({ className, size = "sm" }: MarkProps) {
 }
 
 export function DonationAlertsConnectionStatus({ connected }: { connected: boolean }) {
-  const { t } = useI18n();
+  const { t } = useI18n(i18n);
 
   return (
     <span
@@ -45,7 +60,7 @@ export function DonationAlertsConnectionStatus({ connected }: { connected: boole
 }
 
 export function DonationAlertsSourceBadge({ className }: { className?: string }) {
-  const { t } = useI18n();
+  const { t } = useI18n(i18n);
 
   return (
     <a

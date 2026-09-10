@@ -6,10 +6,33 @@ import type { Donation } from "@web/server/exports";
 import { clsx } from "clsx";
 
 import { useTextWithLinks } from "../hooks/use-text-with-links";
-import { useI18n } from "../lib/i18n";
+import { createI18n, useI18n } from "../lib/i18n";
 import { DonationAlertsSourceBadge } from "./donation-alerts";
 import { Icons } from "./icons";
 import { buttonVariants } from "./ui/button";
+
+const i18n = createI18n({
+  donationVideosPending: {
+    en: "Video links are awaiting processing",
+    ru: "Ссылки на видео ожидают обработки",
+  },
+  donationVideoNumber: {
+    en: ({ number }: { number: number }) => `Video ${number}`,
+    ru: ({ number }: { number: number }) => `Видео ${number}`,
+  },
+  goToVideo: {
+    en: "Go to video in queue",
+    ru: "Перейти к видео в очереди",
+  },
+  anonymous: {
+    en: "Anonymous",
+    ru: "Аноним",
+  },
+  sentDonation: {
+    en: "A donation was sent",
+    ru: "Без сообщения",
+  },
+});
 
 type Props = {
   className?: string;
@@ -36,7 +59,7 @@ export default function DonationCard({
   expandMessage = false,
   ...props
 }: Props) {
-  const { locale, t } = useI18n();
+  const { locale, t } = useI18n(i18n);
   const author = donation.author ?? t("anonymous");
   const messageChunks = useTextWithLinks(donation.message ?? t("sentDonation"));
 
