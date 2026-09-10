@@ -279,7 +279,7 @@ export default function VideoCard({
   };
 
   return (
-    <article className="group relative flex min-w-0 flex-col gap-4 px-4 py-5 transition-colors hover:bg-secondary/25 sm:px-5">
+    <article className="relative flex min-w-0 flex-col gap-4 px-4 py-5 sm:px-5">
       <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-start">
         <div className="flex flex-col gap-3 sm:shrink-0">
           {embedUrl !== null && (

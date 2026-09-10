@@ -66,11 +66,11 @@ export default function DonationCard({
   return (
     <div
       className={clsx(
-        "group relative grid min-w-0 grid-cols-[36px_minmax(0,1fr)_auto] items-start gap-3 overflow-hidden px-4 py-4 transition-colors hover:bg-secondary/35 sm:px-5",
+        "relative grid min-w-0 grid-cols-[36px_minmax(0,1fr)_auto] items-start gap-3 overflow-hidden px-4 py-4 sm:px-5",
         props.className,
       )}
     >
-      <div className="relative grid size-9 shrink-0 place-items-center rounded-full border border-primary/15 bg-secondary text-[10px] font-bold text-secondary-foreground transition-transform group-hover:-rotate-3 group-hover:scale-105">
+      <div className="relative grid size-9 shrink-0 place-items-center rounded-full border border-primary/15 bg-secondary text-[10px] font-bold text-secondary-foreground">
         {getInitials(author)}
       </div>
       <div className="flex min-w-0 flex-col gap-1.5">
