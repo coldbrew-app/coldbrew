@@ -94,6 +94,12 @@ func (source *Source) runSession(ctx context.Context, accessToken string, profil
 		if decoderErr != nil {
 			return emitted, decoderErr
 		}
+		if event.kind == "ping" {
+			if err := writeJSON(ctx, socket, struct{}{}); err != nil {
+				return emitted, err
+			}
+			continue
+		}
 		if event.kind == "step 1" {
 			token, err := source.client.ChannelToken(ctx, accessToken, channel, event.Result.Client)
 			if err != nil {
@@ -149,6 +155,14 @@ type socketEvent struct {
 }
 
 func decodeSocketEvent(body []byte) (socketEvent, error) {
+	var envelope map[string]json.RawMessage
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		return socketEvent{}, fmt.Errorf("invalid DonationAlerts websocket message: %w", err)
+	}
+	if envelope != nil && len(envelope) == 0 {
+		return socketEvent{kind: "ping"}, nil
+	}
+
 	var event socketEvent
 	if err := json.Unmarshal(body, &event); err != nil {
 		return socketEvent{}, fmt.Errorf("invalid DonationAlerts websocket message: %w", err)
