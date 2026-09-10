@@ -3,7 +3,7 @@ import {
   getWatchDurationSeconds,
 } from "@coldbrew/packages/video-timing.js";
 import { rurl } from "@lebedevna/readonly-url";
-import { fmtAmount, fmtDate, formatRelativeDate } from "@web/lib/fmt";
+import { fmtAmount, fmtDate, fmtListDate } from "@web/lib/fmt";
 import { getSharedVideoTimingParts } from "@web/lib/shared-video-timing";
 import type { SharedVideo } from "@web/server/exports";
 
@@ -88,7 +88,7 @@ export function SharedVideoCard({ showPriorityLabel = true, video }: Props) {
                 dateTime={video.createdAt.toISOString()}
                 title={fmtDate(video.createdAt, locale)}
               >
-                {formatRelativeDate(video.createdAt, locale)}
+                {fmtListDate(video.createdAt, locale)}
               </time>
             </div>
             <div className="flex shrink-0 flex-col items-end gap-0.5">
@@ -125,7 +125,7 @@ export function SharedVideoCard({ showPriorityLabel = true, video }: Props) {
               dateTime={video.watchedAt.toISOString()}
               title={fmtDate(video.watchedAt, locale)}
             >
-              {t("watchedOn", { date: fmtDate(video.watchedAt, locale) })}
+              {t("watchedOn", { date: fmtListDate(video.watchedAt, locale) })}
             </time>
           )}
         </div>
