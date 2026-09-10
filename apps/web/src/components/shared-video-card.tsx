@@ -104,7 +104,7 @@ export function SharedVideoCard({ showPriorityLabel = true, video }: Props) {
       : getRoundedWatchDurationParts(getWatchDurationSeconds(video.startSeconds, video.endSeconds));
 
   return (
-    <article className="group relative flex min-w-0 flex-col gap-4 px-4 py-5 transition-colors hover:bg-secondary/25 sm:px-5">
+    <article className="relative flex min-w-0 flex-col gap-4 px-4 py-5 sm:px-5">
       <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-start">
         {embedUrl !== null && (
           <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-muted sm:w-60 sm:shrink-0">

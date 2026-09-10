@@ -285,6 +285,7 @@ db-migration-status $env_file=".env":
 
 db-dump $env_file=".env":
   bunx dotenvx run -f $env_file --overload -- bunx dbmate dump
+  @just fmt-sql
 
 [confirm("Drop and recreate the configured database?")]
 db-reset $env_file=".env":
