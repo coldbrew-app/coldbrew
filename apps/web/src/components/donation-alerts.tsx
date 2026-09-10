@@ -19,7 +19,8 @@ const i18n = createI18n({
 });
 
 const DONATION_ALERTS_NAME = "DonationAlerts";
-export const DONATION_ALERTS_DONATIONS_URL = "https://www.donationalerts.com/dashboard/donations";
+export const DONATION_ALERTS_DONATIONS_URL =
+  "https://www.donationalerts.com/dashboard/activity-feed/donations";
 
 type MarkProps = {
   className?: string;
