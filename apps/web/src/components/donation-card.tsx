@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import type { inferRouterOutputs } from "@trpc/server";
-import { fmtAmount, fmtDate, formatRelativeDate } from "@web/lib/fmt";
+import { fmtAmount, fmtDate, fmtListDate } from "@web/lib/fmt";
 import type { AppRouter } from "@web/server/api/trpc";
 import type { Donation } from "@web/server/exports";
 import { clsx } from "clsx";
@@ -116,7 +116,7 @@ export default function DonationCard({
           dateTime={donation.occurredAt.toISOString()}
           title={fmtDate(donation.occurredAt, locale)}
         >
-          {formatRelativeDate(donation.occurredAt, locale)}
+          {fmtListDate(donation.occurredAt, locale)}
         </time>
       </div>
     </div>
