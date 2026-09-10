@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CosmicPageHeader } from "@web/components/cosmic-page-header";
 import {
-  DONATION_ALERTS_NAME,
   DonationAlertsConnectionStatus,
   DonationAlertsMark,
+  DonationAlertsNameLink,
 } from "@web/components/donation-alerts";
 import { Icons } from "@web/components/icons";
 import { Button } from "@web/components/ui/button";
@@ -103,14 +103,7 @@ function RouteComponent() {
             <div className="min-w-0 grow">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="font-heading text-lg font-semibold text-card-foreground">
-                  {/* TODO: add payment link */}
-                  <a
-                    href="https://donationalerts.com/dashboard"
-                    className="cursor-pointer hover:underline"
-                    target="_blank"
-                  >
-                    {DONATION_ALERTS_NAME}
-                  </a>
+                  <DonationAlertsNameLink />
                 </h2>
                 <DonationAlertsConnectionStatus connected={connected} />
               </div>

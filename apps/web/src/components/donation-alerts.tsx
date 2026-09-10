@@ -27,17 +27,41 @@ type MarkProps = {
 };
 
 export function DonationAlertsMark({ className, size = "sm" }: MarkProps) {
+  const { t } = useI18n(i18n);
+
   return (
-    <div
-      aria-hidden="true"
+    <a
+      aria-label={t("openDonationSource", { source: DONATION_ALERTS_NAME })}
       className={cn(
-        "grid shrink-0 place-items-center bg-linear-to-br from-orange-400 to-rose-500 font-bold text-white",
+        "grid shrink-0 place-items-center bg-linear-to-br from-orange-400 to-rose-500 font-bold text-white transition-transform outline-none hover:-rotate-2 hover:scale-105 focus-visible:ring-3 focus-visible:ring-ring/50",
         size === "sm" ? "size-9 rounded-lg text-[11px]" : "size-12 rounded-xl text-sm shadow-sm",
         className,
       )}
+      href={DONATION_ALERTS_DONATIONS_URL}
+      rel="noopener noreferrer"
+      target="_blank"
     >
       DA
-    </div>
+    </a>
+  );
+}
+
+export function DonationAlertsNameLink({ className }: { className?: string }) {
+  const { t } = useI18n(i18n);
+
+  return (
+    <a
+      aria-label={t("openDonationSource", { source: DONATION_ALERTS_NAME })}
+      className={cn(
+        "rounded-sm underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50",
+        className,
+      )}
+      href={DONATION_ALERTS_DONATIONS_URL}
+      rel="noopener noreferrer"
+      target="_blank"
+    >
+      {DONATION_ALERTS_NAME}
+    </a>
   );
 }
 
