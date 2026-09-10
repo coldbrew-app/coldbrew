@@ -5,10 +5,6 @@ default:
 install:
   bun install
 
-# Exercise environment initialization across real Git worktrees without Docker or secrets.
-test-env-init:
-  bun --no-env-file scripts/test-env-init.ts
-
 # Build the runtime environment for the current worktree from long-lived dev settings.
 env-init $source_env=".env.dev":
   bun --no-env-file scripts/env-init.ts "$source_env"
@@ -267,10 +263,13 @@ test-chat: install
 test-alerts: install
   go test ./apps/alerts ./internal/alerts ./internal/observability
 
+test-scripts: install
+  bun --no-env-file x --bun vitest --run scripts
+
 test-packages $env_file=".env": install
   bunx dotenvx run -f $env_file --overload -- bunx vitest --run packages
 
-test: test-env-init test-web test-chat test-donations test-video test-alerts test-packages
+test: test-scripts test-web test-chat test-donations test-video test-alerts test-packages
 
 check: lint test
 
