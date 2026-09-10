@@ -9,12 +9,53 @@ import { formatMoneyInputValue } from "@web/lib/fmt";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
-import { useI18n } from "../lib/i18n";
+import { createI18n, useI18n } from "../lib/i18n";
 import { Icons } from "./icons";
 import { Button } from "./ui/button";
 import { Field, FieldError, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
+
+const i18n = createI18n({
+  queueCurrency: {
+    en: "Queue currency",
+    ru: "Валюта очереди",
+  },
+  queueCurrencyDescription: {
+    en: "Videos and queue thresholds use this currency.",
+    ru: "В этой валюте указаны суммы видео и пороги очередей.",
+  },
+  changeQueueCurrency: {
+    en: "Change currency",
+    ru: "Изменить валюту",
+  },
+  queueCurrencyRate: {
+    en: ({ larger, smaller }: { larger: string; smaller: string }) =>
+      `1 ${larger} = amount in ${smaller}`,
+    ru: ({ larger, smaller }: { larger: string; smaller: string }) =>
+      `Количество ${smaller} за 1 ${larger}`,
+  },
+  queueCurrencyWarning: {
+    en: "Changing currency converts existing video amounts and queue thresholds. Videos keep their current queue.",
+    ru: "Суммы видео и пороги очередей пересчитаются по указанному курсу. Сами видео останутся в прежних очередях.",
+  },
+  enterExchangeRate: {
+    en: "Enter an exchange rate greater than zero.",
+    ru: "Укажите курс больше нуля.",
+  },
+  cancelEditing: {
+    en: "Cancel editing",
+    ru: "Отменить",
+  },
+  saving: {
+    en: "Saving…",
+    ru: "Сохраняем…",
+  },
+  save: {
+    en: "Save",
+    ru: "Сохранить",
+  },
+});
 
 type FormValues = {
   queueCurrency: QueueCurrency;
@@ -27,7 +68,7 @@ function largerCurrency(left: QueueCurrency, right: QueueCurrency) {
 }
 
 export function QueueCurrencyEditor() {
-  const { t } = useI18n();
+  const { t } = useI18n(i18n);
   const userInfo = useUserInfo();
   const updateQueueCurrencyM = useUpdateQueueCurrencyM();
   const [isEditing, setIsEditing] = useState(false);
@@ -164,7 +205,7 @@ export function QueueCurrencyEditor() {
 }
 
 function QueueCurrencyHeading() {
-  const { t } = useI18n();
+  const { t } = useI18n(i18n);
 
   return (
     <div className="flex items-center gap-1.5">

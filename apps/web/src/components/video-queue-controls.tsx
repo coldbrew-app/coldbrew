@@ -1,7 +1,7 @@
 import type { VideoQueue } from "@coldbrew/packages/schemas.js";
 import { Link } from "@tanstack/react-router";
 import { useVideoQueueMutations, useVideoQueuesQ } from "@web/hooks/api";
-import { useI18n } from "@web/lib/i18n";
+import { createI18n, useI18n } from "@web/lib/i18n";
 import { useState } from "react";
 
 import { Icons } from "./icons";
@@ -11,6 +11,57 @@ import { Field, FieldError, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
 import { Switch } from "./ui/switch";
 
+const i18n = createI18n({
+  videoQueues: {
+    en: "Video queues",
+    ru: "Очереди видео",
+  },
+  loadingQueues: {
+    en: "Loading queues…",
+    ru: "Загружаем очереди…",
+  },
+  createVideoQueue: {
+    en: "New queue",
+    ru: "Новая очередь",
+  },
+  queueSettings: {
+    en: "Queue settings",
+    ru: "Настройки очереди",
+  },
+  queueName: {
+    en: "Queue name",
+    ru: "Название очереди",
+  },
+  defaultVideoQueue: {
+    en: "Use for new videos from donations",
+    ru: "Для новых видео из донатов",
+  },
+  newQueuePrioritiesHelp: {
+    en: "The same priorities and thresholds apply to all your queues.",
+    ru: "Для всех очередей действуют единые приоритеты и пороги.",
+  },
+  queueNameTaken: {
+    en: "A queue with this name already exists. Choose another name.",
+    ru: "Очередь с таким названием уже есть. Выберите другое название.",
+  },
+  queueSaveFailed: {
+    en: "Couldn't save the queue. Please try again.",
+    ru: "Не удалось сохранить очередь. Попробуйте ещё раз.",
+  },
+  cancel: {
+    en: "Cancel",
+    ru: "Отменить",
+  },
+  saving: {
+    en: "Saving…",
+    ru: "Сохраняем…",
+  },
+  save: {
+    en: "Save",
+    ru: "Сохранить",
+  },
+});
+
 export function VideoQueueControls({
   videoQueueId,
   onSelect,
@@ -18,7 +69,7 @@ export function VideoQueueControls({
   videoQueueId?: number;
   onSelect: (videoQueueId: number) => void;
 }) {
-  const { t } = useI18n();
+  const { t } = useI18n(i18n);
   const queuesQ = useVideoQueuesQ();
   const [editing, setEditing] = useState<VideoQueue | "new" | null>(null);
   const queues = queuesQ.data ?? [];
@@ -111,7 +162,7 @@ function QueueForm({
   onCancel: () => void;
   onSaved: (queue: VideoQueue) => void;
 }) {
-  const { t } = useI18n();
+  const { t } = useI18n(i18n);
   const [label, setLabel] = useState(queue?.label ?? "");
   const [isDefault, setIsDefault] = useState(queue?.isDefault ?? false);
   const { create, update } = useVideoQueueMutations();

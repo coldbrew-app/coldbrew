@@ -17,10 +17,67 @@ import { Switch } from "@web/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@web/components/ui/tooltip";
 import { useChatServiceMutations, useChatServiceQueries } from "@web/hooks/chat-service";
 import { useChatServiceStream } from "@web/hooks/use-chat-service-stream";
-import { useI18n, type TranslationKey } from "@web/lib/i18n";
+import { createI18n, createTranslator, useI18n, type TranslationKey } from "@web/lib/i18n";
 import { cn } from "@web/lib/utils";
 import { useState, type FormEvent } from "react";
 import { z } from "zod";
+
+const i18n = createI18n({
+  chat: {
+    en: "Multichat",
+    ru: "Мультичат",
+  },
+  dismissChatOauthNotification: {
+    en: "Dismiss connection notification",
+    ru: "Скрыть уведомление о подключении",
+  },
+  chatOauthSuccess: {
+    en: "Chat account connected.",
+    ru: "Аккаунт чата подключён.",
+  },
+  chatOauthInvalidCallback: {
+    en: "The authorization response was incomplete. Try connecting again.",
+    ru: "Ответ авторизации неполный. Попробуйте подключить аккаунт снова.",
+  },
+  chatOauthExpired: {
+    en: "Authorization expired. Try connecting again.",
+    ru: "Время авторизации истекло. Попробуйте подключить аккаунт снова.",
+  },
+  chatOauthProviderUnavailable: {
+    en: "This chat provider is not configured.",
+    ru: "Этот сервис чата не настроен.",
+  },
+  chatOauthTokenExchangeFailed: {
+    en: "The provider rejected the authorization request.",
+    ru: "Сервис отклонил запрос авторизации.",
+  },
+  chatOauthProfileFailed: {
+    en: "Couldn't load or subscribe to the provider channel.",
+    ru: "Не удалось получить канал или подписаться на его события.",
+  },
+  chatOauthSourceLimitReached: {
+    en: "The connected chat channel limit has been reached.",
+    ru: "Достигнут лимит подключённых каналов чата.",
+  },
+  chatOauthUnknownError: {
+    en: "Couldn't connect the chat account. Try again.",
+    ru: "Не удалось подключить аккаунт чата. Попробуйте снова.",
+  },
+  chatDisconnectTitle: {
+    en: "Disconnect channel?",
+    ru: "Отключить канал?",
+  },
+  chatDisconnectDescription: {
+    en: ({ name, provider }: { name: string; provider: string }) =>
+      `Messages from ${name} on ${provider} will no longer appear in the chat. You can reconnect the channel later.`,
+    ru: ({ name, provider }: { name: string; provider: string }) =>
+      `Сообщения канала «${name}» в ${provider} больше не будут появляться в чате. Канал можно подключить снова.`,
+  },
+  cancel: {
+    en: "Cancel",
+    ru: "Отменить",
+  },
+});
 
 const chatOauthErrorSchema = z.enum([
   "invalid oauth callback",
@@ -40,7 +97,7 @@ const chatOauthErrorMessages = {
   "oauth profile failed": "chatOauthProfileFailed",
   "chat source limit reached": "chatOauthSourceLimitReached",
   unknown: "chatOauthUnknownError",
-} as const satisfies Record<z.infer<typeof chatOauthErrorSchema>, TranslationKey>;
+} as const satisfies Record<z.infer<typeof chatOauthErrorSchema>, TranslationKey<typeof i18n>>;
 
 export const Route = createFileRoute("/_authenticated/chat")({
   component: ChatPage,
@@ -49,7 +106,7 @@ export const Route = createFileRoute("/_authenticated/chat")({
     chat_oauth_error: chatOauthErrorSchema.optional().catch(undefined),
   }),
   head: ({ match }) => ({
-    meta: [{ title: `${match.context.locale === "ru" ? "Мультичат" : "Multichat"} · Coldbrew` }],
+    meta: [{ title: `${createTranslator(match.context.locale, i18n)("chat")} · Coldbrew` }],
   }),
 });
 
@@ -61,62 +118,108 @@ const providerMeta = {
   vk_video: { label: "VK Video", color: "#2688eb", logo: PlatformIcons.vk_video },
 } as const;
 
-const copy = {
-  ru: {
-    connections: "Каналы",
-    feed: "Чат",
-    empty: "Сообщения появятся здесь, когда подключённый канал выйдет в эфир.",
-    placeholder: "Сообщение",
-    send: "Отправить всем",
-    noConnections: "Пока нет подключённых каналов",
-    disconnect: "Отключить",
-    disconnectAccount: "Отключить аккаунт",
-    enableSource: "Включить источник",
-    disableSource: "Выключить источник",
-    connect: "Подключить",
-    unavailable: "Недоступно",
-    readOnly: "Только чтение",
-    live: "в эфире",
-    offline: "не в эфире",
-    connecting: "подключение",
-    error: "ошибка",
-    checkStream: "Проверить эфир",
-    checkingStream: "Проверяем",
-    overlay: "Ссылка для OBS",
-    rotateOverlay: "Обновить",
-    createOverlay: "Создать",
-    copied: "Скопировано",
-    copy: "Копировать",
-    loading: "Подключаем центр управления чатами…",
+const copy = createI18n({
+  connections: {
+    en: "Channels",
+    ru: "Каналы",
   },
-  en: {
-    connections: "Channels",
-    feed: "Chat",
-    empty: "Messages will appear when a connected channel goes live.",
-    placeholder: "Send to all chats…",
-    send: "Send to all",
-    noConnections: "No connected channels yet",
-    disconnect: "Disconnect",
-    disconnectAccount: "Disconnect account",
-    enableSource: "Enable source",
-    disableSource: "Disable source",
-    connect: "Connect",
-    unavailable: "Unavailable",
-    readOnly: "Read only",
-    live: "live",
-    offline: "offline",
-    connecting: "connecting",
-    error: "error",
-    checkStream: "Check stream",
-    checkingStream: "Checking",
-    overlay: "OBS link",
-    rotateOverlay: "Rotate",
-    createOverlay: "Create",
-    copied: "Copied",
-    copy: "Copy",
-    loading: "Connecting the chat control room…",
+  feed: {
+    en: "Chat",
+    ru: "Чат",
   },
-} as const;
+  empty: {
+    en: "Messages will appear when a connected channel goes live.",
+    ru: "Сообщения появятся здесь, когда подключённый канал выйдет в эфир.",
+  },
+  placeholder: {
+    en: "Send to all chats…",
+    ru: "Сообщение",
+  },
+  send: {
+    en: "Send to all",
+    ru: "Отправить всем",
+  },
+  noConnections: {
+    en: "No connected channels yet",
+    ru: "Пока нет подключённых каналов",
+  },
+  disconnect: {
+    en: "Disconnect",
+    ru: "Отключить",
+  },
+  disconnectAccount: {
+    en: "Disconnect account",
+    ru: "Отключить аккаунт",
+  },
+  enableSource: {
+    en: "Enable source",
+    ru: "Включить источник",
+  },
+  disableSource: {
+    en: "Disable source",
+    ru: "Выключить источник",
+  },
+  connect: {
+    en: "Connect",
+    ru: "Подключить",
+  },
+  unavailable: {
+    en: "Unavailable",
+    ru: "Недоступно",
+  },
+  readOnly: {
+    en: "Read only",
+    ru: "Только чтение",
+  },
+  live: {
+    en: "live",
+    ru: "в эфире",
+  },
+  offline: {
+    en: "offline",
+    ru: "не в эфире",
+  },
+  connecting: {
+    en: "connecting",
+    ru: "подключение",
+  },
+  error: {
+    en: "error",
+    ru: "ошибка",
+  },
+  checkStream: {
+    en: "Check stream",
+    ru: "Проверить эфир",
+  },
+  checkingStream: {
+    en: "Checking",
+    ru: "Проверяем",
+  },
+  overlay: {
+    en: "OBS link",
+    ru: "Ссылка для OBS",
+  },
+  rotateOverlay: {
+    en: "Rotate",
+    ru: "Обновить",
+  },
+  createOverlay: {
+    en: "Create",
+    ru: "Создать",
+  },
+  copied: {
+    en: "Copied",
+    ru: "Скопировано",
+  },
+  copy: {
+    en: "Copy",
+    ru: "Копировать",
+  },
+  loading: {
+    en: "Connecting the chat control room…",
+    ru: "Подключаем центр управления чатами…",
+  },
+});
 
 function ProviderMark({ provider }: { provider: ChatProvider }) {
   const meta = providerMeta[provider];
@@ -137,12 +240,12 @@ function SourceState({
   state?: "connecting" | "error" | "live" | "offline";
   locale: "ru" | "en";
 }) {
-  const text = copy[locale];
+  const t = createTranslator(locale, copy);
   const normalized = state ?? "offline";
   return (
     <Tooltip>
       <TooltipTrigger
-        aria-label={text[normalized]}
+        aria-label={t(normalized)}
         className="inline-flex size-6 shrink-0 items-center justify-center rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         <span aria-hidden="true" className="flex size-3 shrink-0 items-center justify-center">
@@ -160,16 +263,16 @@ function SourceState({
           />
         </span>
       </TooltipTrigger>
-      <TooltipContent>{text[normalized]}</TooltipContent>
+      <TooltipContent>{t(normalized)}</TooltipContent>
     </Tooltip>
   );
 }
 
 function ChatPage() {
-  const { locale, t } = useI18n();
+  const { locale, t } = useI18n(i18n);
   const { chat_oauth: chatOauth, chat_oauth_error: chatOauthError } = Route.useSearch();
   const navigate = Route.useNavigate();
-  const text = copy[locale];
+  const copyT = createTranslator(locale, copy);
   const { availabilityQuery, configQuery } = useChatServiceQueries();
   const stream = useChatServiceStream();
   const [boostyFormOpen, setBoostyFormOpen] = useState(false);
@@ -248,7 +351,7 @@ function ChatPage() {
         ) : (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Icons.loader className="animate-spin text-primary" />
-            {text.loading}
+            {copyT("loading")}
           </div>
         )}
       </section>
@@ -296,17 +399,17 @@ function ChatPage() {
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain xl:grid xl:grid-cols-[330px_minmax(0,1fr)] xl:grid-rows-[minmax(0,1fr)] xl:overflow-hidden">
         <article className="cosmic-panel isolate flex h-[max(24rem,55dvh)] min-h-0 min-w-0 shrink-0 flex-col overflow-hidden xl:h-auto">
           <header className="flex items-center gap-3 border-b border-border p-4">
-            <h2 className="min-w-0 grow font-heading text-xl font-semibold">{text.feed}</h2>
+            <h2 className="min-w-0 grow font-heading text-xl font-semibold">{copyT("feed")}</h2>
             <a
               href="#chat-connections"
               className="rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring xl:hidden"
             >
-              {text.connections}
+              {copyT("connections")}
             </a>
           </header>
           <ChatFeed
             capabilitiesForSource={capabilitiesForSource}
-            emptyLabel={stream.connectionError?.detail ?? text.empty}
+            emptyLabel={stream.connectionError?.detail ?? copyT("empty")}
             messages={stream.messages}
             onModerate={(command) => moderate.mutate(command)}
           />
@@ -318,11 +421,11 @@ function ChatPage() {
               <Input
                 maxLength={MAX_CHAT_MESSAGE_LENGTH}
                 onChange={(event) => setMessage(event.target.value)}
-                placeholder={text.placeholder}
+                placeholder={copyT("placeholder")}
                 value={message}
               />
               <Button
-                aria-label={text.send}
+                aria-label={copyT("send")}
                 disabled={!message.trim() || broadcast.isPending || writableConnectionCount === 0}
                 type="submit"
               >
@@ -331,7 +434,7 @@ function ChatPage() {
                 ) : (
                   <Icons.send aria-hidden="true" />
                 )}
-                <span className="hidden sm:inline">{text.send}</span>
+                <span className="hidden sm:inline">{copyT("send")}</span>
               </Button>
             </div>
             {broadcastResult && (
@@ -369,13 +472,13 @@ function ChatPage() {
           className="cosmic-panel flex min-h-0 shrink-0 scroll-mt-4 flex-col overflow-hidden xl:order-first"
         >
           <header className="border-b border-border p-4">
-            <h2 className="font-heading text-xl font-semibold">{text.connections}</h2>
+            <h2 className="font-heading text-xl font-semibold">{copyT("connections")}</h2>
           </header>
 
           <div className="flex min-h-0 grow flex-col gap-2 overflow-y-auto p-3">
             {config.connections.length === 0 && (
               <div className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
-                {text.noConnections}
+                {copyT("noConnections")}
               </div>
             )}
             {config.connections.map((connection) => {
@@ -441,7 +544,7 @@ function ChatPage() {
                                 render={
                                   <Button
                                     aria-label={
-                                      isRefreshing ? text.checkingStream : text.checkStream
+                                      isRefreshing ? copyT("checkingStream") : copyT("checkStream")
                                     }
                                     disabled={
                                       refreshSource.isPending ||
@@ -463,7 +566,7 @@ function ChatPage() {
                                 )}
                               </TooltipTrigger>
                               <TooltipContent>
-                                {isRefreshing ? text.checkingStream : text.checkStream}
+                                {isRefreshing ? copyT("checkingStream") : copyT("checkStream")}
                               </TooltipContent>
                             </Tooltip>
                           )}
@@ -471,7 +574,7 @@ function ChatPage() {
                           <TooltipTrigger
                             render={
                               <Button
-                                aria-label={text.disconnectAccount}
+                                aria-label={copyT("disconnectAccount")}
                                 disabled={disconnect.isPending}
                                 onClick={() => {
                                   disconnect.reset();
@@ -484,12 +587,12 @@ function ChatPage() {
                           >
                             <Icons.removeSource aria-hidden="true" />
                           </TooltipTrigger>
-                          <TooltipContent>{text.disconnectAccount}</TooltipContent>
+                          <TooltipContent>{copyT("disconnectAccount")}</TooltipContent>
                         </Tooltip>
                       </div>
                       {source && (
                         <Switch
-                          aria-label={`${source.enabled ? text.disableSource : text.enableSource}: ${connection.displayName}`}
+                          aria-label={`${source.enabled ? copyT("disableSource") : copyT("enableSource")}: ${connection.displayName}`}
                           checked={source.enabled}
                           className="data-checked:bg-emerald-500 dark:data-checked:bg-emerald-500"
                           disabled={setSourceEnabled.isPending}
@@ -555,10 +658,10 @@ function ChatPage() {
                       <span>{meta.label}</span>
                       <span className="max-w-full truncate text-[10px] font-normal text-muted-foreground">
                         {provider.access === "read_only"
-                          ? text.readOnly
+                          ? copyT("readOnly")
                           : connectable
-                            ? text.connect
-                            : text.unavailable}
+                            ? copyT("connect")
+                            : copyT("unavailable")}
                       </span>
                     </span>
                     <Icons.addSource aria-hidden="true" />
@@ -570,7 +673,7 @@ function ChatPage() {
 
           <footer className="flex flex-col gap-2 border-t border-border p-3">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-muted-foreground">{text.overlay}</span>
+              <span className="text-xs text-muted-foreground">{copyT("overlay")}</span>
               <Button
                 disabled={rotateOverlay.isPending}
                 onClick={() => rotateOverlay.mutate()}
@@ -578,7 +681,7 @@ function ChatPage() {
                 variant="ghost"
               >
                 <Icons.rotateToken aria-hidden="true" />
-                {config.hasOverlayToken ? text.rotateOverlay : text.createOverlay}
+                {config.hasOverlayToken ? copyT("rotateOverlay") : copyT("createOverlay")}
               </Button>
             </div>
             {overlayUrl !== null && (
@@ -591,7 +694,7 @@ function ChatPage() {
                 variant="outline"
               >
                 <Icons.copy aria-hidden="true" />
-                {overlayCopied ? text.copied : text.copy}
+                {overlayCopied ? copyT("copied") : copyT("copy")}
               </Button>
             )}
           </footer>
@@ -638,7 +741,7 @@ function ChatPage() {
               variant="destructive"
             >
               {disconnect.isPending && <Icons.loader aria-hidden="true" className="animate-spin" />}
-              {text.disconnect}
+              {copyT("disconnect")}
             </Button>
           </div>
         </DialogContent>

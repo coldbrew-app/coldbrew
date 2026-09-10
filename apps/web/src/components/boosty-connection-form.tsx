@@ -7,9 +7,98 @@ import { Switch } from "@web/components/ui/switch";
 import { useBoostyConnection } from "@web/hooks/chat-service";
 import { parseBoostyAuth } from "@web/lib/boosty-auth";
 import { getDevtoolsShortcut } from "@web/lib/devtools-shortcut";
-import { createTranslator, useI18n } from "@web/lib/i18n";
+import { createI18n, createTranslator, useI18n } from "@web/lib/i18n";
 import { resolveLocale } from "@web/lib/locale";
 import { Fragment, useState, type FormEvent } from "react";
+
+const i18n = createI18n({
+  boostyConnectTitle: {
+    en: "Connect Boosty",
+    ru: "Подключить Boosty",
+  },
+  boostyAuth: {
+    en: "auth",
+    ru: "auth",
+  },
+  boostyAuthInvalid: {
+    en: "Could not read auth. Copy its entire value from Boosty and paste it again.",
+    ru: "Не удалось прочитать auth. Скопируйте его значение из Boosty целиком и вставьте снова.",
+  },
+  boostyDeviceId: {
+    en: "_clientId",
+    ru: "_clientId",
+  },
+  boostyConnecting: {
+    en: "Connecting…",
+    ru: "Подключаем…",
+  },
+  boostyTokenHelp: {
+    en: "Read-only connection through an unofficial API. Follow these steps to copy your connection details.",
+    ru: "Подключение только для чтения через неофициальный API. Скопируйте данные для подключения по инструкции ниже.",
+  },
+  devtoolsApplication: {
+    en: "Application",
+    ru: "Приложение",
+  },
+  devtoolsStorage: {
+    en: "Storage",
+    ru: "Хранилище",
+  },
+  boostyTokenStepSignIn: {
+    en: "Create a separate browser profile for Coldbrew (without browser sync). In that profile, sign in to your account at",
+    ru: "Создайте отдельный профиль браузера для Coldbrew без синхронизации. В этом профиле войдите в свой аккаунт на сайте",
+  },
+  boostyDedicatedSession: {
+    en: "I used a separate browser profile and will close its Boosty tabs after copying the credentials",
+    ru: "Я использовал отдельный профиль браузера и закрою вкладки Boosty после копирования данных",
+  },
+  boostyTokenStepFind: {
+    en: ({ application, storage }: { application: string; storage: string }) =>
+      `On the Boosty tab, open developer tools from the browser menu → ${application} (${storage} in Firefox or Safari). Find the auth entry in Cookies or Local Storage for Boosty.`,
+    ru: ({ application, storage }: { application: string; storage: string }) =>
+      `На вкладке Boosty откройте инструменты разработчика через меню браузера → ${application} (${storage} в Firefox или Safari). Найдите запись auth в Cookies или Local Storage для Boosty.`,
+  },
+  boostyTokenStepChromium: {
+    en: ({ shortcut, panel }: { shortcut: string; panel: string }) =>
+      `On the Boosty tab, press ${shortcut} to open developer tools, then select ${panel} (it may be in the hidden tabs menu). Find the auth entry under Cookies or Local Storage → https://boosty.to.`,
+    ru: ({ shortcut, panel }: { shortcut: string; panel: string }) =>
+      `На вкладке Boosty нажмите ${shortcut}, чтобы открыть инструменты разработчика, затем выберите ${panel}. Вкладка может быть в меню скрытых вкладок. Найдите запись auth в Cookies или Local Storage → https://boosty.to.`,
+  },
+  boostyTokenStepFirefox: {
+    en: ({ shortcut, panel }: { shortcut: string; panel: string }) =>
+      `On the Boosty tab, press ${shortcut} to open ${panel}. If your keyboard uses F9 for a system action, also hold Fn. Find the auth entry under Cookies or Local Storage → https://boosty.to.`,
+    ru: ({ shortcut, panel }: { shortcut: string; panel: string }) =>
+      `На вкладке Boosty нажмите ${shortcut}, чтобы открыть ${panel}. Если F9 выполняет системное действие, дополнительно удерживайте Fn. Найдите запись auth в Cookies или Local Storage → https://boosty.to.`,
+  },
+  boostyTokenStepSafari: {
+    en: ({ shortcut, panel }: { shortcut: string; panel: string }) =>
+      `In Safari → Settings → Advanced, enable “Show features for web developers”. On the Boosty tab, press ${shortcut}, then select ${panel}. Find the auth entry under Cookies or Local Storage → https://boosty.to.`,
+    ru: ({ shortcut, panel }: { shortcut: string; panel: string }) =>
+      `В Safari → Настройки → Дополнения включите функции для веб-разработчиков. На вкладке Boosty нажмите ${shortcut}, затем выберите ${panel}. Найдите запись auth в Cookies или Local Storage → https://boosty.to.`,
+  },
+  boostyTokenStepMobile: {
+    en: ({ application, storage }: { application: string; storage: string }) =>
+      `Get the token in a desktop browser: open Boosty there, then developer tools → ${application} (${storage} in Firefox or Safari). Find the auth entry under Cookies or Local Storage for Boosty.`,
+    ru: ({ application, storage }: { application: string; storage: string }) =>
+      `Получите токен в браузере на компьютере: откройте там Boosty, затем инструменты разработчика → ${application} (${storage} в Firefox или Safari). Найдите запись auth в Cookies или Local Storage для Boosty.`,
+  },
+  boostyTokenStepCopy: {
+    en: "Copy the entire value of auth into the auth field below without changing it. Copy _clientId from the same browser’s Cookies or Local Storage into the _clientId field.",
+    ru: "Скопируйте значение auth целиком и без изменений в поле auth ниже. В поле _clientId вставьте значение _clientId из Cookies или Local Storage того же браузера.",
+  },
+  boostyTokenStorage: {
+    en: "Close Boosty tabs in that profile without signing out. Use your usual profile to visit Boosty. Sharing one session with Coldbrew causes sign-outs and connection errors when either side renews it. Tokens are encrypted and renewed automatically.",
+    ru: "Закройте вкладки Boosty в отдельном профиле, не нажимая «Выйти». Пользуйтесь Boosty в обычном профиле. Общая с Coldbrew сессия приводит к выходам из аккаунта и ошибкам при обновлении токенов. Токены хранятся зашифрованными и обновляются автоматически.",
+  },
+  boostyConnectError: {
+    en: "Could not connect Boosty. Check that the token is current and belongs to an account with a blog, then try again. Also check the channel limit and service availability.",
+    ru: "Не удалось подключить Boosty. Проверьте, что токен действителен и принадлежит аккаунту с блогом, затем повторите попытку. Также проверьте лимит каналов и доступность сервиса.",
+  },
+  cancel: {
+    en: "Cancel",
+    ru: "Отменить",
+  },
+});
 
 function BoostyInstructionText({ text }: { text: string }) {
   return text
@@ -38,13 +127,13 @@ function BoostyInstructionText({ text }: { text: string }) {
 }
 
 export function BoostyConnectionForm({ onClose }: { onClose: () => void }) {
-  const { t, locale } = useI18n();
+  const { t, locale } = useI18n(i18n);
   const hydrated = useHydrated();
   const devtools = hydrated
     ? getDevtoolsShortcut(navigator.userAgent, navigator.maxTouchPoints)
     : getDevtoolsShortcut("");
   const browserLanguage = hydrated ? navigator.language : undefined;
-  const browserT = createTranslator(resolveLocale(undefined, browserLanguage || locale));
+  const browserT = createTranslator(resolveLocale(undefined, browserLanguage || locale), i18n);
   const panels = {
     application: browserT("devtoolsApplication"),
     storage: browserT("devtoolsStorage"),

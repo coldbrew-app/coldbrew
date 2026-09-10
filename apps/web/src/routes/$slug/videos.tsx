@@ -10,11 +10,83 @@ import { SharedVideoCard } from "@web/components/shared-video-card";
 import { buttonVariants } from "@web/components/ui/button";
 import { useSharedVideoPageQ } from "@web/hooks/api";
 import { groupVideosByPriority } from "@web/lib/group-videos-by-priority";
-import { createTranslator, useI18n } from "@web/lib/i18n";
+import { createI18n, createTranslator, useI18n } from "@web/lib/i18n";
 import { slugParams } from "@web/lib/slug-params";
 import type { SharedVideo } from "@web/server/exports";
 import { useEffect } from "react";
 import { z } from "zod";
+
+type HourMinuteParts = {
+  hours: number;
+  minutes: number;
+};
+
+const i18n = createI18n({
+  publicQueueEyebrow: {
+    en: "Live route to the stream",
+    ru: "Публичная очередь",
+  },
+  videoQueues: {
+    en: "Video queues",
+    ru: "Очереди видео",
+  },
+  watched: {
+    en: "Watched",
+    ru: "Просмотрено",
+  },
+  loadingVideoQueue: {
+    en: "Loading video queue",
+    ru: "Загружаем очередь видео…",
+  },
+  noVideosInQueue: {
+    en: "No videos in the queue",
+    ru: "В очереди нет видео",
+  },
+  videoLinksWillAppear: {
+    en: "Videos from donations and videos you add will appear here.",
+    ru: "Здесь появятся видео из донатов и добавленные вручную.",
+  },
+  videoUnassigned: {
+    en: "Without priority",
+    ru: "Без приоритета",
+  },
+  durationRemaining: {
+    en: ({ hours, minutes }: HourMinuteParts) => `${hours > 0 ? `${hours} hr ` : ""}${minutes} min`,
+    ru: ({ hours, minutes }: HourMinuteParts) => `${hours > 0 ? `${hours} ч ` : ""}${minutes} мин`,
+  },
+  videoQueueBy: {
+    en: ({ slug }: { slug: string }) => `Video queue: ${slug}`,
+    ru: ({ slug }: { slug: string }) => `Очередь видео — ${slug}`,
+  },
+  videosSharedBySupporters: {
+    en: "Videos selected for the stream.",
+    ru: "Видео, которые стример планирует посмотреть.",
+  },
+  publicQueueTabs: {
+    en: "Public video queue sections",
+    ru: "Разделы публичной очереди",
+  },
+  currentQueue: {
+    en: "Queue",
+    ru: "Сейчас в очереди",
+  },
+  noWatchedVideos: {
+    en: "No watched videos",
+    ru: "Просмотренных видео пока нет",
+  },
+  watchedVideosWillAppear: {
+    en: "Videos will appear here after the streamer watches them.",
+    ru: "После просмотра видео появятся здесь.",
+  },
+  queueNotFound: {
+    en: "Queue not found",
+    ru: "Очередь недоступна",
+  },
+  sharedQueueUnavailable: {
+    en: "This video queue is unavailable.",
+    ru: "Возможно, ссылка неверна или владелец закрыл доступ.",
+  },
+});
 
 const SharedVideoPageDepsSchema = z.object({
   videoQueueId: z.int().positive().optional(),
@@ -29,7 +101,7 @@ type SharedPriority = {
 };
 
 function SharedPriorityHeader({ priority }: { priority: SharedPriority }) {
-  const { t } = useI18n();
+  const { t } = useI18n(i18n);
 
   return (
     <header className="flex items-center justify-between gap-4 border-y border-border bg-secondary/50 px-4 py-2.5 sm:px-5">
@@ -52,7 +124,7 @@ function SharedVideoGroups({
   isLastPage: boolean;
   priorities: Array<SharedPriority & { videoCount: number }>;
 }) {
-  const { t } = useI18n();
+  const { t } = useI18n(i18n);
   const { groups, unassignedVideos } = groupVideosByPriority(items);
   const emptyPriorities = isLastPage
     ? priorities.filter((priority) => priority.videoCount === 0)
@@ -109,7 +181,7 @@ export const Route = createFileRoute("/$slug/videos")({
   head: ({ match, params }) => ({
     meta: [
       {
-        title: `${createTranslator(match.context.locale)("videoQueueBy", { slug: `@${params.slug}` })} · Coldbrew`,
+        title: `${createTranslator(match.context.locale, i18n)("videoQueueBy", { slug: `@${params.slug}` })} · Coldbrew`,
       },
     ],
   }),
@@ -138,7 +210,7 @@ function SharedVideoQueue() {
   const { page, status, videoQueueId } = Route.useSearch();
   const navigate = Route.useNavigate();
   const videosQ = useSharedVideoPageQ(slug, page, status, videoQueueId);
-  const { t } = useI18n();
+  const { t } = useI18n(i18n);
 
   useEffect(() => {
     const data = videosQ.data;

@@ -13,13 +13,147 @@ import { useState, type ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 
 import { useTextWithLinks } from "../hooks/use-text-with-links";
-import { useI18n } from "../lib/i18n";
+import { createI18n, useI18n } from "../lib/i18n";
 import { Icons } from "./icons";
 import { Button } from "./ui/button";
 import { Field, FieldError, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { parseVideoTiming, VideoTimingFields, type VideoTimingValues } from "./video-timing-fields";
+
+type HourMinuteParts = {
+  hours: number;
+  minutes: number;
+};
+
+const i18n = createI18n({
+  queueAmountUnavailable: {
+    en: "not calculated",
+    ru: "не рассчитана",
+  },
+  goToDonation: {
+    en: "Go to original donation",
+    ru: "Перейти к исходному донату",
+  },
+  watched: {
+    en: "Watched",
+    ru: "Просмотрено",
+  },
+  bookmarked: {
+    en: "Bookmarked",
+    ru: "В закладках",
+  },
+  cancelEditing: {
+    en: "Cancel editing",
+    ru: "Отменить",
+  },
+  enterAmountZeroOrMore: {
+    en: "Enter an amount of zero or more.",
+    ru: "Укажите число не меньше нуля.",
+  },
+  save: {
+    en: "Save",
+    ru: "Сохранить",
+  },
+  anonymous: {
+    en: "Anonymous",
+    ru: "Аноним",
+  },
+  video: {
+    en: "Video",
+    ru: "Видео",
+  },
+  youtubeVideoFrom: {
+    en: ({ author }: { author: string }) => `YouTube video from ${author}`,
+    ru: ({ author }: { author: string }) => `Видео YouTube от ${author}`,
+  },
+  youtubeVideo: {
+    en: "YouTube video",
+    ru: "Видео YouTube",
+  },
+  videoDurationPending: {
+    en: "Fetching duration",
+    ru: "Длительность уточняется",
+  },
+  videoDurationUnavailable: {
+    en: "Duration unavailable",
+    ru: "Не удалось получить длительность",
+  },
+  videoUnassigned: {
+    en: "Without priority",
+    ru: "Без приоритета",
+  },
+  videoRetryMetadata: {
+    en: "Retry metadata",
+    ru: "Повторить получение данных",
+  },
+  videoInvalidRange: {
+    en: "Check video boundaries",
+    ru: "Проверьте границы видео",
+  },
+  videoNextRetry: {
+    en: ({ date }: { date: string }) => `Next attempt: ${date}`,
+    ru: ({ date }: { date: string }) => `Следующая попытка: ${date}`,
+  },
+  fromDonation: {
+    en: "From donation",
+    ru: "Из доната",
+  },
+  addedManually: {
+    en: "Added manually",
+    ru: "Добавлено вручную",
+  },
+  openOnYoutube: {
+    en: "Open on YouTube",
+    ru: "Открыть на YouTube",
+  },
+  editVideoDetails: {
+    en: "Edit video details",
+    ru: "Изменить видео",
+  },
+  amount: {
+    en: "Amount",
+    ru: "Сумма для очереди",
+  },
+  videoFromTime: {
+    en: ({ startTime }: { startTime: string }) => `From ${startTime}`,
+    ru: ({ startTime }: { startTime: string }) => `С ${startTime}`,
+  },
+  watchDuration: {
+    en: ({ hours, minutes }: HourMinuteParts) =>
+      `Watch time: ${hours > 0 ? `${hours} hr ` : ""}${minutes} min`,
+    ru: ({ hours, minutes }: HourMinuteParts) =>
+      `Время просмотра: ${hours > 0 ? `${hours} ч ` : ""}${minutes} мин`,
+  },
+  enterPriorityAmount: {
+    en: "Enter a priority amount.",
+    ru: "Укажите сумму для очереди.",
+  },
+  markVideoWatched: {
+    en: "Mark video as watched",
+    ru: "Отметить видео просмотренным",
+  },
+  markVideoNotWatched: {
+    en: "Mark video as not watched",
+    ru: "Снять отметку о просмотре",
+  },
+  bookmarkVideo: {
+    en: "Bookmark video",
+    ru: "Добавить видео в закладки",
+  },
+  removeVideoBookmark: {
+    en: "Remove video bookmark",
+    ru: "Убрать видео из закладок",
+  },
+  watchedOn: {
+    en: ({ date }: { date: string }) => `Watched ${date}`,
+    ru: ({ date }: { date: string }) => `Просмотрено: ${date}`,
+  },
+  bookmarkedOn: {
+    en: ({ date }: { date: string }) => `Bookmarked ${date}`,
+    ru: ({ date }: { date: string }) => `В закладках: ${date}`,
+  },
+});
 
 type Props = {
   queueControl?: ReactNode;
@@ -76,7 +210,7 @@ export default function VideoCard({
   isUpdating = false,
   onRetryMetadata,
 }: Props) {
-  const { locale, t } = useI18n();
+  const { locale, t } = useI18n(i18n);
   const author =
     video.source === "donation" ? (video.donation.author ?? t("anonymous")) : t("video");
   const messageChunks = useTextWithLinks(

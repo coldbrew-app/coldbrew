@@ -4,8 +4,35 @@ import QueryErrorState from "@web/components/query-error-state";
 import { useVideoPrioritiesQ } from "@web/hooks/api";
 import { cn } from "@web/lib/utils";
 
-import { useI18n } from "../lib/i18n";
+import { createI18n, useI18n } from "../lib/i18n";
 import VideoPriorityEditor from "./video-priority-editor";
+
+const i18n = createI18n({
+  all: {
+    en: "All",
+    ru: "Все",
+  },
+  queues: {
+    en: "Priorities",
+    ru: "Приоритеты",
+  },
+  minimumDonation: {
+    en: "Shared across queues · minimum amount per video minute.",
+    ru: "Едины для всех очередей · минимальная сумма за минуту просмотра.",
+  },
+  loadingVideoPriorities: {
+    en: "Loading video priorities",
+    ru: "Загружаем приоритеты…",
+  },
+  noQueuesYet: {
+    en: "No priorities yet.",
+    ru: "Приоритеты пока не настроены.",
+  },
+  videoUnassigned: {
+    en: "Without priority",
+    ru: "Без приоритета",
+  },
+});
 
 type Props = {
   videoQueueId?: number;
@@ -20,7 +47,7 @@ export default function VideoPriorities({
   remainingSecondsByPriorityId,
   videoCountByPriorityId,
 }: Props) {
-  const { t } = useI18n();
+  const { t } = useI18n(i18n);
   const prioritiesQ = useVideoPrioritiesQ();
   const videoCount = Object.values(videoCountByPriorityId).reduce(
     (total, count) => total + count,

@@ -25,7 +25,7 @@ import favicon from "../../assets/logo.png";
 import { Skeleton } from "../components/ui/skeleton";
 import { signOut } from "../lib/auth-client";
 import type { Locale } from "../lib/i18n";
-import { I18nProvider, useI18n } from "../lib/i18n";
+import { createI18n, I18nProvider, useI18n } from "../lib/i18n";
 import { localeCookieName, resolveLocale } from "../lib/locale";
 import type { Theme } from "../lib/theme";
 import { resolveTheme, themeCookieName } from "../lib/theme";
@@ -35,6 +35,89 @@ import { currentViewerQueryOptions } from "../server/viewer";
 import PageLoadingSkeleton from "./-components/page-loading-skeleton";
 
 import appCss from "../../styles.css?url";
+
+const i18n = createI18n({
+  overview: {
+    en: "Overview",
+    ru: "Главная",
+  },
+  donations: {
+    en: "Donations",
+    ru: "Донаты",
+  },
+  integrations: {
+    en: "Integrations",
+    ru: "Интеграции",
+  },
+  alerts: {
+    en: "Alerts",
+    ru: "Оповещения",
+  },
+  settings: {
+    en: "Settings",
+    ru: "Настройки",
+  },
+  adminPanel: {
+    en: "Admin panel",
+    ru: "Админская панель",
+  },
+  underConstruction: {
+    en: "Under construction",
+    ru: "В разработке",
+  },
+  signOut: {
+    en: "Sign out",
+    ru: "Выйти",
+  },
+  logOut: {
+    en: "Log out",
+    ru: "Выйти",
+  },
+  switchToLightMode: {
+    en: "Switch to light mode",
+    ru: "Включить светлую тему",
+  },
+  switchToDarkMode: {
+    en: "Switch to dark mode",
+    ru: "Включить тёмную тему",
+  },
+  language: {
+    en: "Language",
+    ru: "Язык",
+  },
+  openNavigation: {
+    en: "Open navigation",
+    ru: "Открыть меню",
+  },
+  english: {
+    en: "English",
+    ru: "Английский",
+  },
+  russian: {
+    en: "Russian",
+    ru: "Русский",
+  },
+  activeDevelopment: {
+    en: "Coldbrew is under active development. Breaking changes and data loss are possible.",
+    ru: "Coldbrew активно развивается. Некоторые функции могут измениться, а данные — потеряться.",
+  },
+  dismissDevelopmentWarning: {
+    en: "Dismiss development warning",
+    ru: "Скрыть предупреждение",
+  },
+  sidebarStory: {
+    en: "A long brew for bright moments.",
+    ru: "Настаиваем стрим. Собираем моменты.",
+  },
+  videos: {
+    en: "Videos",
+    ru: "Видео",
+  },
+  chat: {
+    en: "Multichat",
+    ru: "Мультичат",
+  },
+});
 
 const navItem =
   "group flex min-h-12 items-center gap-3 rounded-xl border border-transparent px-3 text-sm font-medium text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground [&_svg]:size-[18px]";
@@ -145,7 +228,7 @@ function AuthenticatedApplication() {
 function AuthenticatedApplicationContent() {
   const { theme, viewer } = Route.useRouteContext();
   const { isDark, toggleDark } = useDark(theme);
-  const { locale, setLocale, t } = useI18n();
+  const { locale, setLocale, t } = useI18n(i18n);
   const { setOpenMobile } = useSidebar();
   const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
   const [isDevelopmentWarningVisible, setIsDevelopmentWarningVisible] = useState(true);

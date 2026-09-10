@@ -12,7 +12,66 @@ import { useEffect, useState } from "react";
 import { z } from "zod";
 
 import { useDonationPageQ } from "../../hooks/api";
-import { useI18n } from "../../lib/i18n";
+import { createI18n, useI18n } from "../../lib/i18n";
+
+const i18n = createI18n({
+  selectedDonation: {
+    en: "Selected donation",
+    ru: "Выбранный донат",
+  },
+  showAllDonations: {
+    en: "Show all donations",
+    ru: "Показать все донаты",
+  },
+  linkedDonationUnavailable: {
+    en: "Donation not found or unavailable",
+    ru: "Донат не найден или недоступен",
+  },
+  searchDonations: {
+    en: "Search donations",
+    ru: "Поиск донатов",
+  },
+  searchBySupporter: {
+    en: "Search by supporter name or message...",
+    ru: "Имя отправителя или текст сообщения…",
+  },
+  dateRange: {
+    en: "Date range",
+    ru: "Период",
+  },
+  allTime: {
+    en: "All time",
+    ru: "За всё время",
+  },
+  last7Days: {
+    en: "Last 7 days",
+    ru: "Последние 7 дней",
+  },
+  last30Days: {
+    en: "Last 30 days",
+    ru: "Последние 30 дней",
+  },
+  loadingDonations: {
+    en: "Loading donations",
+    ru: "Загружаем донаты…",
+  },
+  noMatchingDonations: {
+    en: "No results found",
+    ru: "По вашему запросу ничего не найдено",
+  },
+  noDonationsYet: {
+    en: "No donations yet",
+    ru: "Донатов пока нет",
+  },
+  tryAnotherSearch: {
+    en: "Try a different search or clear it.",
+    ru: "Измените запрос или сбросьте фильтры.",
+  },
+  donationsWillAppear: {
+    en: "New donations will appear here.",
+    ru: "Новые донаты появятся здесь.",
+  },
+});
 
 const DonationPeriodSchema = z.enum(["all", "week", "month"]);
 
@@ -41,7 +100,7 @@ function DonationsIndex() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const donationsQ = useDonationPageQ(search);
-  const { t } = useI18n();
+  const { t } = useI18n(i18n);
   const [query, setQuery] = useState(search.query);
 
   useEffect(() => setQuery(search.query), [search.query]);
@@ -175,7 +234,7 @@ function DonationsIndex() {
 }
 
 function EmptyDonations({ query }: { query: string }) {
-  const { t } = useI18n();
+  const { t } = useI18n(i18n);
   return (
     <EmptyState
       description={query ? t("tryAnotherSearch") : t("donationsWillAppear")}

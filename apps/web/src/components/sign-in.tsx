@@ -4,14 +4,125 @@ import { signIn } from "@web/lib/auth-client";
 import { useState } from "react";
 
 import productMark from "../../assets/logo.png";
-import { useI18n } from "../lib/i18n";
+import { createI18n, useI18n } from "../lib/i18n";
 import { CosmicArt } from "./cosmic-art";
 import { Icons } from "./icons";
 import { Button } from "./ui/button";
 
+const i18n = createI18n({
+  orbitCaption: {
+    en: "Donations arrive. Reactions take off.",
+    ru: "Получайте донаты. Создавайте яркие моменты.",
+  },
+  signInStory: {
+    en: "Collect every supporter signal, keep videos in orbit, and react when they reach the front.",
+    ru: "Собирайте поддержку зрителей, управляйте очередью видео и создавайте яркие моменты в эфире.",
+  },
+  signIn: {
+    en: "Sign in",
+    ru: "Войти",
+  },
+  landingHeadline: {
+    en: "A little coffee. A whole universe of moments.",
+    ru: "Чашка кофе. Целая вселенная моментов.",
+  },
+  landingDescription: {
+    en: "Coldbrew helps streamers collect donations, organise viewer-submitted videos, follow live chats, and share what is coming next — all in one place.",
+    ru: "Coldbrew помогает стримерам собирать донаты, управлять видео от зрителей, следить за чатами и показывать, что будет дальше, — в одном месте.",
+  },
+  landingSignInNote: {
+    en: "Google sign-in creates and protects your Coldbrew account.",
+    ru: "Вход через Google создаёт и защищает ваш аккаунт Coldbrew.",
+  },
+  landingWorkflow: {
+    en: "Donation → video queue → on-stream reaction",
+    ru: "Донат → очередь видео → реакция на стриме",
+  },
+  landingFeaturesTitle: {
+    en: "Keep every supporter signal within reach.",
+    ru: "Каждый сигнал от зрителей остаётся под рукой.",
+  },
+  landingFeaturesDescription: {
+    en: "Connect the services you use, then manage the activity around your stream without switching between dashboards.",
+    ru: "Подключите нужные сервисы и управляйте событиями вокруг стрима, не переключаясь между разными панелями.",
+  },
+  landingDonationsTitle: {
+    en: "Donations in one feed",
+    ru: "Донаты в одной ленте",
+  },
+  landingDonationsDescription: {
+    en: "Connect supported donation sources and browse supporter names, amounts, messages, and recent activity together.",
+    ru: "Подключайте поддерживаемые источники донатов и просматривайте имена отправителей, суммы, сообщения и последние события вместе.",
+  },
+  landingVideoQueueTitle: {
+    en: "A video queue you control",
+    ru: "Управляемая очередь видео",
+  },
+  landingVideoQueueDescription: {
+    en: "Turn supported links from donation messages into videos, add videos manually, and organise them by your own priorities.",
+    ru: "Превращайте поддерживаемые ссылки из сообщений к донатам в видео, добавляйте видео вручную и распределяйте их по своим очередям.",
+  },
+  landingMultichatTitle: {
+    en: "Live chats side by side",
+    ru: "Чаты в одной ленте",
+  },
+  landingMultichatDescription: {
+    en: "Bring supported streaming chats into one feed so messages stay visible while you focus on the broadcast.",
+    ru: "Объединяйте чаты поддерживаемых стриминговых платформ, чтобы видеть сообщения и не отвлекаться от трансляции.",
+  },
+  landingSharingTitle: {
+    en: "Public views and overlays",
+    ru: "Публичные страницы и оверлеи",
+  },
+  landingSharingDescription: {
+    en: "Share a public video queue with viewers and use browser-source overlays to bring selected activity onto the stream.",
+    ru: "Делитесь со зрителями публичной очередью видео и выводите выбранные события на стрим через браузерные оверлеи.",
+  },
+  googleDataTitle: {
+    en: "Your account data has one job.",
+    ru: "Данные аккаунта используются только по назначению.",
+  },
+  googleDataDescription: {
+    en: "When you continue with Google, Google shares your name, email address, and profile image with Coldbrew. We use them to create your account, identify you when you return, and show your account details.",
+    ru: "При входе Google передаёт Coldbrew ваше имя, адрес электронной почты и изображение профиля. Они нужны, чтобы создать аккаунт, узнавать вас при повторном входе и показывать данные аккаунта.",
+  },
+  googleDataNoExtraAccess: {
+    en: "Google sign-in does not give Coldbrew access to Gmail, Google Drive, or Google Calendar. If you separately connect YouTube chat, Coldbrew requests YouTube permissions for chat messages and moderation.",
+    ru: "Вход через Google не даёт Coldbrew доступ к Gmail, Google Диску или Google Календарю. Если вы отдельно подключите чат YouTube, Coldbrew запросит разрешения YouTube для работы с сообщениями и модерацией.",
+  },
+  readPrivacyPolicy: {
+    en: "Read the Privacy policy",
+    ru: "Открыть Политику конфиденциальности",
+  },
+  landingFooter: {
+    en: "Coldbrew — tools for streamers.",
+    ru: "Coldbrew — инструменты для стримеров.",
+  },
+  legalLinks: {
+    en: "Legal information",
+    ru: "Юридическая информация",
+  },
+  redirecting: {
+    en: "Redirecting…",
+    ru: "Входим…",
+  },
+  continueWithGoogle: {
+    en: "Continue with Google",
+    ru: "Войти через Google",
+  },
+  privacyPolicy: {
+    en: "Privacy policy",
+    ru: "Политика конфиденциальности",
+  },
+  termsOfService: {
+    en: "Terms of service",
+    ru: "Условия использования",
+  },
+});
+
 export default function SignIn() {
   const [isSigningIn, setIsSigningIn] = useState(false);
-  const { t } = useI18n();
+  const { t } = useI18n(i18n);
 
   const handleSignIn = async () => {
     setIsSigningIn(true);
