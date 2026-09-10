@@ -123,6 +123,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: read
     environment:
       name: Production
     concurrency:
@@ -133,7 +134,9 @@ jobs:
       DEPLOY_PATH: ${{ vars.SSH_DEPLOY_PATH }}
       POSTGRES_IMAGE: ghcr.io/${{ github.repository_owner }}/coldbrew-postgres-walg:${{ needs.resolve.outputs.postgres_tag }}
       REMOTE_ENV_FILE: .coldbrew-production-env-${{ github.run_id }}-${{ github.run_attempt }}
+      REMOTE_GHCR_TOKEN_FILE: .coldbrew-ghcr-token-${{ github.run_id }}-${{ github.run_attempt }}
       MIGRATIONS_APPLIED: ${{ github.event_name == 'workflow_dispatch' && inputs.migrations_applied || false }}
+      GHCR_USERNAME: ${{ github.actor }}
       SSH_HOST: ${{ vars.SSH_HOST }}
       SSH_PORT: ${{ vars.SSH_PORT }}
       SSH_USER: ${{ vars.SSH_USER }}
@@ -171,6 +174,7 @@ jobs:
           DONATIONS_SERVICE_SECRET: ${{ secrets.DONATIONS_SERVICE_SECRET }}
           GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           KICK_CLIENT_ID: ${{ vars.KICK_CLIENT_ID }}
           KICK_CLIENT_SECRET: ${{ secrets.KICK_CLIENT_SECRET }}
           KICK_WEBHOOK_PUBLIC_KEY: ${{ vars.KICK_WEBHOOK_PUBLIC_KEY }}
@@ -294,6 +298,16 @@ jobs:
             "$RUNNER_TEMP/production.env" \
             "$SSH_USER@$SSH_HOST:$REMOTE_ENV_FILE"
 
+          printf '%s' "$GHCR_TOKEN" > "$RUNNER_TEMP/ghcr-token"
+          chmod 600 "$RUNNER_TEMP/ghcr-token"
+          scp \
+            -i "$RUNNER_TEMP/deploy_key" \
+            -P "$SSH_PORT" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            "$RUNNER_TEMP/ghcr-token" \
+            "$SSH_USER@$SSH_HOST:$REMOTE_GHCR_TOKEN_FILE"
+
       - name: Deploy immutable images
         run: |
           ssh \
@@ -308,6 +322,8 @@ jobs:
               "$APP_IMAGE" \
               "$POSTGRES_IMAGE" \
               "$MIGRATIONS_APPLIED" \
+              "$GHCR_USERNAME" \
+              "$REMOTE_GHCR_TOKEN_FILE" \
               "$REMOTE_ENV_FILE" <<'REMOTE'
           set -euo pipefail
 
@@ -316,10 +332,16 @@ jobs:
           app_image="$3"
           postgres_image="$4"
           migrations_applied="$5"
-          production_env="$HOME/$6"
+          ghcr_username="$6"
+          ghcr_token="$HOME/$7"
+          production_env="$HOME/$8"
+          docker_config=""
 
           cleanup() {
-            rm -f "$production_env" "$deploy_path/.env.next"
+            rm -f "$production_env" "$ghcr_token" "$deploy_path/.env.next"
+            if [[ -n "$docker_config" ]]; then
+              rm -rf "$docker_config"
+            fi
           }
           trap cleanup EXIT
 
@@ -338,6 +360,15 @@ jobs:
             echo "The uploaded production environment file is unavailable." >&2
             exit 1
           fi
+          if [[ ! -f "$ghcr_token" ]]; then
+            echo "The uploaded GHCR token is unavailable." >&2
+            exit 1
+          fi
+
+          docker_config="$(mktemp -d)"
+          export DOCKER_CONFIG="$docker_config"
+          docker login ghcr.io --username "$ghcr_username" --password-stdin < "$ghcr_token"
+          rm -f "$ghcr_token"
 
           required_env=(
             YOUTUBE_API_KEY
@@ -419,9 +450,11 @@ jobs:
             echo "Rolling application containers back to $previous_sha." >&2
             git checkout --quiet --detach "$previous_sha"
             previous_postgres_tag="$(git rev-parse "${previous_sha}:docker/postgres-walg")"
+            app_repository="${app_image%:*}"
+            postgres_repository="${postgres_image%:*}"
             just production-deploy \
-              "ghcr.io/lebedev-nikita/coldbrew:${previous_sha}" \
-              "ghcr.io/lebedev-nikita/coldbrew-postgres-walg:${previous_postgres_tag}" || \
+              "${app_repository}:${previous_sha}" \
+              "${postgres_repository}:${previous_postgres_tag}" || \
               echo "Automatic rollback also failed; inspect the VPS immediately." >&2
           else
             echo "No previous CI/CD deployment is recorded; automatic rollback is unavailable." >&2
@@ -439,7 +472,7 @@ jobs:
             -o BatchMode=yes \
             -o IdentitiesOnly=yes \
             "$SSH_USER@$SSH_HOST" \
-            bash -s -- "$REMOTE_ENV_FILE" <<'REMOTE'
+            bash -s -- "$REMOTE_ENV_FILE" "$REMOTE_GHCR_TOKEN_FILE" <<'REMOTE'
           set -euo pipefail
-          rm -f "$HOME/$1"
+          rm -f "$HOME/$1" "$HOME/$2"
           REMOTE

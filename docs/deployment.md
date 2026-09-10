@@ -14,12 +14,17 @@ before publishing images. This avoids duplicate checks on pushes to `master`.
 CI uses its own temporary PostgreSQL service and test configuration; only the
 deployment job references the `Production` GitHub environment.
 
-The workflow publishes these public packages as immutable images:
+The workflow publishes these private packages as immutable images:
 
-- `ghcr.io/lebedev-nikita/coldbrew`, tagged with the full commit SHA;
-- `ghcr.io/lebedev-nikita/coldbrew-postgres-walg`, tagged with the Git tree SHA
+- `ghcr.io/coldbrew-app/coldbrew`, tagged with the full commit SHA;
+- `ghcr.io/coldbrew-app/coldbrew-postgres-walg`, tagged with the Git tree SHA
   of `docker/postgres-walg` so application-only changes do not restart the
   database.
+
+The deployment job grants its short-lived `GITHUB_TOKEN` read access to packages,
+uploads it alongside the generated environment, and uses it with an isolated
+Docker configuration on the VPS. Both the token and Docker configuration are
+removed when the deployment command exits.
 
 The `Production` GitHub environment is the source of truth for application
 configuration. Each deployment combines its individual GitHub Variables and
@@ -288,10 +293,8 @@ Generate `SSH_KNOWN_HOSTS` with `ssh-keyscan -p <port> <host>`, but verify the
 reported host-key fingerprint through the VPS provider console before saving
 it. Never replace this value merely because an unexpected SSH key is reported.
 
-The repository is public, so the production images are public too. After the
-first workflow publishes each GHCR package, open its package settings, change
-visibility to public, and rerun the failed deployment job. No registry token is
-then stored on the VPS.
+Keep the production GHCR packages private. The workflow's job-scoped registry
+token is sufficient for deployment and is not retained on the VPS.
 
 Disconnect the old Vercel project from this GitHub repository and disable its
 production and preview deployments. The `Production` environment is owned by
