@@ -17,6 +17,27 @@ export function fmtDate(date: Date, locale: Locale) {
   }).format(date);
 }
 
+export function fmtListDate(date: Date, locale: Locale, now = new Date()) {
+  const dateDay = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  const nowDay = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const dayDifference = (dateDay - nowDay) / 86_400_000;
+  const time = new Intl.DateTimeFormat(localeTag[locale], {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+
+  if (dayDifference === 0) {
+    return time;
+  }
+  if (dayDifference === -1) {
+    const yesterday = new Intl.RelativeTimeFormat(localeTag[locale], {
+      numeric: "auto",
+    }).format(-1, "day");
+    return `${yesterday}, ${time}`;
+  }
+  return fmtDate(date, locale);
+}
+
 export function fmtAmount(amount: MoneyAmount, currency: CurrencyCode, locale: Locale) {
   const numericAmount = Number(amount);
   const fractionDigits = amount.endsWith(".00") ? 0 : 2;
@@ -36,18 +57,4 @@ export function fmtRubles(amount: number, locale: Locale) {
     maximumFractionDigits: fractionDigits,
     minimumFractionDigits: fractionDigits,
   }).format(amount)} ₽`;
-}
-
-export function formatRelativeDate(date: Date, locale: Locale) {
-  const { round, abs } = Math;
-  const minutes = round((date.getTime() - Date.now()) / 60_000);
-  const relativeTime = new Intl.RelativeTimeFormat(localeTag[locale], { numeric: "auto" });
-
-  if (abs(minutes) < 60) {
-    return relativeTime.format(minutes, "minute");
-  }
-  if (abs(minutes) < 24 * 60) {
-    return relativeTime.format(round(minutes / 60), "hour");
-  }
-  return relativeTime.format(round(minutes / (24 * 60)), "day");
 }
