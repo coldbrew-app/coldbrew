@@ -14,15 +14,26 @@ vi.mock("../lib/i18n", async (importOriginal) => {
   };
 });
 
-import { DONATION_ALERTS_DONATIONS_URL, DonationAlertsSourceBadge } from "./donation-alerts";
+import {
+  DONATION_ALERTS_DONATIONS_URL,
+  DonationAlertsMark,
+  DonationAlertsNameLink,
+  DonationAlertsSourceBadge,
+} from "./donation-alerts";
 
-describe("DonationAlerts source badge", () => {
-  it("opens the donation source dashboard in a separate tab", () => {
-    const html = renderToStaticMarkup(<DonationAlertsSourceBadge />);
+describe("DonationAlerts source links", () => {
+  it("opens every source representation on the donation list in a separate tab", () => {
+    const html = renderToStaticMarkup(
+      <>
+        <DonationAlertsMark />
+        <DonationAlertsNameLink />
+        <DonationAlertsSourceBadge />
+      </>,
+    );
 
-    expect(html).toContain(`href="${DONATION_ALERTS_DONATIONS_URL}"`);
-    expect(html).toContain('target="_blank"');
-    expect(html).toContain('rel="noopener noreferrer"');
-    expect(html).toContain('aria-label="Открыть DonationAlerts"');
+    expect(html.match(new RegExp(`href="${DONATION_ALERTS_DONATIONS_URL}"`, "g"))).toHaveLength(3);
+    expect(html.match(/target="_blank"/g)).toHaveLength(3);
+    expect(html.match(/rel="noopener noreferrer"/g)).toHaveLength(3);
+    expect(html.match(/aria-label="Открыть DonationAlerts"/g)).toHaveLength(3);
   });
 });

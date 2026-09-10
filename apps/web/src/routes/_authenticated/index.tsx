@@ -3,9 +3,9 @@ import { CosmicArt } from "@web/components/cosmic-art";
 import { CosmicPageHeader } from "@web/components/cosmic-page-header";
 import { Metric } from "@web/components/dashboard/metric";
 import {
-  DONATION_ALERTS_NAME,
   DonationAlertsConnectionStatus,
   DonationAlertsMark,
+  DonationAlertsNameLink,
 } from "@web/components/donation-alerts";
 import DonationCard from "@web/components/donation-card";
 import { Icons } from "@web/components/icons";
@@ -299,7 +299,7 @@ function Overview() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <h2 className="text-[13px] font-semibold text-card-foreground">
-                        {DONATION_ALERTS_NAME}
+                        <DonationAlertsNameLink />
                       </h2>
                       <DonationAlertsConnectionStatus connected={donationAlertsConnected} />
                     </div>
