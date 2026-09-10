@@ -31,6 +31,9 @@ describe("DonationAlerts source links", () => {
       </>,
     );
 
+    expect(DONATION_ALERTS_DONATIONS_URL).toBe(
+      "https://www.donationalerts.com/dashboard/activity-feed/donations",
+    );
     expect(html.match(new RegExp(`href="${DONATION_ALERTS_DONATIONS_URL}"`, "g"))).toHaveLength(3);
     expect(html.match(/target="_blank"/g)).toHaveLength(3);
     expect(html.match(/rel="noopener noreferrer"/g)).toHaveLength(3);
