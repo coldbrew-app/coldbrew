@@ -7,8 +7,60 @@ import { fmtAmount, fmtDate, fmtListDate } from "@web/lib/fmt";
 import { getSharedVideoTimingParts } from "@web/lib/shared-video-timing";
 import type { SharedVideo } from "@web/server/exports";
 
-import { useI18n } from "../lib/i18n";
+import { createI18n, useI18n } from "../lib/i18n";
 import { Icons } from "./icons";
+
+type HourMinuteParts = {
+  hours: number;
+  minutes: number;
+};
+
+const i18n = createI18n({
+  video: {
+    en: "Video",
+    ru: "Видео",
+  },
+  youtubeVideo: {
+    en: "YouTube video",
+    ru: "Видео YouTube",
+  },
+  videoDurationPending: {
+    en: "Fetching duration",
+    ru: "Длительность уточняется",
+  },
+  videoDurationUnavailable: {
+    en: "Duration unavailable",
+    ru: "Не удалось получить длительность",
+  },
+  openOnYoutube: {
+    en: "Open on YouTube",
+    ru: "Открыть на YouTube",
+  },
+  videoFromTime: {
+    en: ({ startTime }: { startTime: string }) => `From ${startTime}`,
+    ru: ({ startTime }: { startTime: string }) => `С ${startTime}`,
+  },
+  videoUntilTime: {
+    en: ({ endTime }: { endTime: string }) => `Until ${endTime}`,
+    ru: ({ endTime }: { endTime: string }) => `До ${endTime}`,
+  },
+  videoTimeRange: {
+    en: ({ startTime, endTime }: { startTime: string; endTime: string }) =>
+      `From ${startTime} until ${endTime}`,
+    ru: ({ startTime, endTime }: { startTime: string; endTime: string }) =>
+      `С ${startTime} до ${endTime}`,
+  },
+  watchDuration: {
+    en: ({ hours, minutes }: HourMinuteParts) =>
+      `Watch time: ${hours > 0 ? `${hours} hr ` : ""}${minutes} min`,
+    ru: ({ hours, minutes }: HourMinuteParts) =>
+      `Время просмотра: ${hours > 0 ? `${hours} ч ` : ""}${minutes} мин`,
+  },
+  watchedOn: {
+    en: ({ date }: { date: string }) => `Watched ${date}`,
+    ru: ({ date }: { date: string }) => `Просмотрено: ${date}`,
+  },
+});
 
 type Props = {
   showPriorityLabel?: boolean;
@@ -35,7 +87,7 @@ const getYoutubeEmbedUrl = (url: string, startSeconds: number, endSeconds: numbe
 };
 
 export function SharedVideoCard({ showPriorityLabel = true, video }: Props) {
-  const { locale, t } = useI18n();
+  const { locale, t } = useI18n(i18n);
   const embedUrl = getYoutubeEmbedUrl(video.url, video.startSeconds, video.endSeconds);
   const { startTime, endTime } = getSharedVideoTimingParts(video);
   const timingLabel =

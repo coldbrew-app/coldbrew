@@ -1,11 +1,16 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+import type { I18nMessages } from "../lib/i18n";
+
 vi.mock("../lib/i18n", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/i18n")>();
   return {
     ...actual,
-    useI18n: () => ({ locale: "ru", t: actual.createTranslator("ru") }),
+    useI18n: (messages: I18nMessages) => ({
+      locale: "ru",
+      t: actual.createTranslator("ru", messages),
+    }),
   };
 });
 

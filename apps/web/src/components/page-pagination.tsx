@@ -1,7 +1,38 @@
-import { useI18n } from "@web/lib/i18n";
+import { createI18n, useI18n } from "@web/lib/i18n";
 
 import { Icons } from "./icons";
 import { Button } from "./ui/button";
+
+const i18n = createI18n({
+  pagination: {
+    en: "Pagination",
+    ru: "Навигация по страницам",
+  },
+  previousPage: {
+    en: "Previous page",
+    ru: "Предыдущая страница",
+  },
+  nextPage: {
+    en: "Next page",
+    ru: "Следующая страница",
+  },
+  goToPage: {
+    en: ({ page }: { page: number }) => `Go to page ${page}`,
+    ru: ({ page }: { page: number }) => `Перейти на страницу ${page}`,
+  },
+  pageOf: {
+    en: ({ page, totalPages }: { page: number; totalPages: number }) =>
+      `Page ${page} of ${totalPages}`,
+    ru: ({ page, totalPages }: { page: number; totalPages: number }) =>
+      `Страница ${page} из ${totalPages}`,
+  },
+  showingResults: {
+    en: ({ first, last, total }: { first: number; last: number; total: number }) =>
+      `Showing ${first}–${last} of ${total}`,
+    ru: ({ first, last, total }: { first: number; last: number; total: number }) =>
+      `${first}–${last} из ${total}`,
+  },
+});
 
 export type PaginationItem = number | "ellipsis";
 
@@ -41,7 +72,7 @@ export function PagePagination({
   total,
   totalPages,
 }: Props) {
-  const { t } = useI18n();
+  const { t } = useI18n(i18n);
   if (total === 0) {
     return null;
   }

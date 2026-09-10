@@ -2,7 +2,7 @@ import { MoneyAmountSchema, type VideoQueue } from "@coldbrew/packages/schemas.j
 import { youtubeVideoId } from "@coldbrew/packages/youtube.js";
 import { useAddVideoM, useUserInfoSafe } from "@web/hooks/api";
 import { formatMoneyInputValue } from "@web/lib/fmt";
-import { useI18n } from "@web/lib/i18n";
+import { createI18n, useI18n } from "@web/lib/i18n";
 import { useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 
@@ -12,6 +12,57 @@ import { Field, FieldDescription, FieldError, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
 import { VideoQueueSelect } from "./video-queue-controls";
 import { parseVideoTiming, VideoTimingFields, type VideoTimingValues } from "./video-timing-fields";
+
+const i18n = createI18n({
+  videoQueue: {
+    en: "Video queue",
+    ru: "Очередь видео",
+  },
+  cancel: {
+    en: "Cancel",
+    ru: "Отменить",
+  },
+  enterAmountZeroOrMore: {
+    en: "Enter an amount of zero or more.",
+    ru: "Укажите число не меньше нуля.",
+  },
+  addVideo: {
+    en: "Add video",
+    ru: "Добавить видео",
+  },
+  addingVideo: {
+    en: "Adding video…",
+    ru: "Добавляем видео…",
+  },
+  manualVideoUrl: {
+    en: "YouTube link",
+    ru: "Ссылка на YouTube",
+  },
+  enterYoutubeUrl: {
+    en: "Enter a YouTube link.",
+    ru: "Введите ссылку на YouTube.",
+  },
+  invalidYoutubeUrl: {
+    en: "Enter a supported YouTube link.",
+    ru: "Ссылка не ведёт на поддерживаемое видео YouTube.",
+  },
+  videoCouldNotBeAdded: {
+    en: "Couldn't read this video or the timestamps are outside its duration. Check the values and try again.",
+    ru: "Не удалось загрузить данные видео. Проверьте ссылку и таймкоды.",
+  },
+  amount: {
+    en: "Amount",
+    ru: "Сумма для очереди",
+  },
+  enterPriorityAmount: {
+    en: "Enter a priority amount.",
+    ru: "Укажите сумму для очереди.",
+  },
+  queueAmountHelp: {
+    en: "The amount and watch time determine the video’s queue position.",
+    ru: "Сумма и длительность определяют, в какую очередь попадёт видео.",
+  },
+});
 
 type Props = {
   videoQueueId: number;
@@ -26,7 +77,7 @@ type AddVideoFormValues = VideoTimingValues & {
 
 export function AddVideoForm({ onCancel, videoQueueId, queues }: Props) {
   const [selectedQueueId, setSelectedQueueId] = useState(videoQueueId);
-  const { t } = useI18n();
+  const { t } = useI18n(i18n);
   const userInfo = useUserInfoSafe();
   const addVideoM = useAddVideoM();
   const urlErrorId = "manual-video-url-error";

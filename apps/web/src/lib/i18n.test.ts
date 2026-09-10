@@ -2,7 +2,40 @@ import { CurrencyCodeSchema, MoneyAmountSchema } from "@coldbrew/packages/schema
 import { describe, expect, it } from "vitest";
 
 import { fmtAmount, fmtDate, fmtListDate, fmtRubles, formatMoneyInputValue } from "./fmt";
-import { resolveLocale } from "./i18n";
+import { createI18n, createTranslator, resolveLocale } from "./i18n";
+
+const testMessages = createI18n({
+  save: {
+    en: "Save",
+    ru: "Сохранить",
+  },
+  greeting: {
+    en: ({ name }: { name: string }) => `Hello, ${name}`,
+    ru: ({ name }: { name: string }) => `Привет, ${name}`,
+  },
+});
+
+createI18n({
+  // @ts-expect-error Every message must define both supported locales.
+  save: { en: "Save" },
+});
+
+createI18n({
+  save: {
+    en: "Save",
+    ru: "Сохранить",
+    // @ts-expect-error A message cannot introduce an unsupported locale.
+    de: "Speichern",
+  },
+});
+
+createI18n({
+  greeting: {
+    en: ({ name }: { name: string }) => `Hello, ${name}`,
+    // @ts-expect-error Dynamic messages must accept the same arguments in every locale.
+    ru: ({ count }: { count: number }) => `Привет, ${count}`,
+  },
+});
 
 describe("resolveLocale", () => {
   it("uses a persisted supported locale", () => {
@@ -15,6 +48,15 @@ describe("resolveLocale", () => {
 
   it("falls back to English for other browser locales", () => {
     expect(resolveLocale(null, "de-DE")).toBe("en");
+  });
+});
+
+describe("createTranslator", () => {
+  it("translates a local type-safe catalog", () => {
+    const t = createTranslator("ru", testMessages);
+
+    expect(t("save")).toBe("Сохранить");
+    expect(t("greeting", { name: "Мира" })).toBe("Привет, Мира");
   });
 });
 

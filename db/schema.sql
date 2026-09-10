@@ -1,4 +1,4 @@
-\restrict YKJR2cD2KS86S9o9Uop7figgSFVKUzbzJnLjVzsIvc2sjsiOdd10fk2e8emPS2m
+\restrict dbmate
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -288,13 +288,13 @@ CREATE TABLE public.chat_provider_connection (
   display_name                text                                   NOT NULL,
   access_token_ciphertext     bytea,
   refresh_token_ciphertext    bytea,
-  oauth_device_id             text,
   access_token_expires_at     public.js_date,
   scopes                      text[]                                 DEFAULT '{}'::text[] NOT NULL,
   status                      public.chat_provider_connection_status DEFAULT 'connected'::public.chat_provider_connection_status NOT NULL,
   token_version               public.positive_int                    DEFAULT 1 NOT NULL,
   connected_at                public.js_date                         DEFAULT now() NOT NULL,
   updated_at                  public.js_date                         DEFAULT now() NOT NULL,
+  oauth_device_id             text,
   CONSTRAINT chat_provider_connection_display_name_check CHECK (((char_length(display_name) >= 1) AND (char_length(display_name) <= 200))),
   CONSTRAINT chat_provider_connection_oauth_device_id_check CHECK (((char_length(oauth_device_id) >= 1) AND (char_length(oauth_device_id) <= 200))),
   CONSTRAINT chat_provider_connection_provider_user_id_check CHECK (((char_length(provider_user_id) >= 1) AND (char_length(provider_user_id) <= 200)))
@@ -398,7 +398,6 @@ CREATE TABLE public.video (
   added_at          public.js_date,
   provider          public.video_provider  NOT NULL,
   provider_video_id text                   NOT NULL,
-  title             text,
   url               text                   NOT NULL,
   queue_amount      public.money_amount,
   start_seconds     public.nonnegative_int NOT NULL,
@@ -407,6 +406,7 @@ CREATE TABLE public.video (
   watched_at        public.js_date,
   bookmarked_at     public.js_date,
   video_priority_id integer,
+  title             text,
   video_queue_id    integer                NOT NULL,
   CONSTRAINT video_check CHECK ((((donation_id IS NOT NULL) AND (user_id IS NULL) AND (added_at IS NULL)) OR ((donation_id IS NULL) AND (user_id IS NOT NULL) AND (added_at IS NOT NULL)))),
   CONSTRAINT video_check1 CHECK (((end_seconds)::integer > (start_seconds)::integer)),
@@ -711,7 +711,7 @@ ADD CONSTRAINT video_video_priority_id_fkey FOREIGN KEY (video_priority_id) REFE
 ALTER TABLE ONLY public.video
 ADD CONSTRAINT video_video_queue_id_fkey FOREIGN KEY (video_queue_id) REFERENCES public.video_queue (video_queue_id);
 
-\unrestrict YKJR2cD2KS86S9o9Uop7figgSFVKUzbzJnLjVzsIvc2sjsiOdd10fk2e8emPS2m
+\unrestrict dbmate
 
 INSERT INTO public.schema_migrations (version) VALUES
 ('20260909000000'),
