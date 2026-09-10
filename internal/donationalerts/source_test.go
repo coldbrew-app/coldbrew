@@ -99,6 +99,33 @@ func TestSourceAuthorizesSubscribesAndEmitsDonation(t *testing.T) {
 	}
 }
 
+func TestSourceRespondsToPingAndKeepsSessionOpen(t *testing.T) {
+	client, closeClient := testClient(t, func(writer http.ResponseWriter, request *http.Request) {
+		if request.URL.Path != "/api/v1/centrifuge/subscribe" {
+			t.Fatalf("unexpected channel request: %s", request.URL)
+		}
+		_, _ = writer.Write([]byte(`{"channels":[{"channel":"$alerts:donation_42","token":"channel-token"}]}`))
+	})
+	defer closeClient()
+	socket := &fakeSocket{reads: make(chan []byte, 3)}
+	socket.reads <- []byte(`{"id":1,"result":{"client":"d558c046-c679-43e3-a62d-65989ab55f7c","version":"2.2.1"}}`)
+	socket.reads <- []byte(`{}`)
+	socket.reads <- []byte(`{"result":{"channel":"$alerts:donation_42","data":{"data":{"id":1,"username":"Streamer","message":"Thank you","amount":"10.00","currency":"USD","created_at":"2026-08-22 12:00:00"}}}}`)
+	source := NewSource(client)
+	source.dial = func(context.Context, string) (Socket, error) { return socket, nil }
+	ctx, cancel := context.WithCancel(context.Background())
+	emitted, err := source.runSession(ctx, "access-token", SocketProfile{UserID: "42", SocketConnectionToken: "socket-token"}, func(Donation) error {
+		cancel()
+		return nil
+	})
+	if err != nil || !emitted {
+		t.Fatalf("runSession() emitted=%v err=%v", emitted, err)
+	}
+	if len(socket.writes) != 3 || string(socket.writes[2]) != `{}` {
+		t.Fatalf("websocket writes = %q; want pong as third write", socket.writes)
+	}
+}
+
 func TestSourcePropagatesUnauthorizedChannelToken(t *testing.T) {
 	client, closeClient := testClient(t, func(writer http.ResponseWriter, _ *http.Request) { writer.WriteHeader(http.StatusUnauthorized) })
 	defer closeClient()
