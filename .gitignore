@@ -12,3 +12,9 @@ dist
 *.local.*
 .env.keys
 .deployed-sha
+
+# Only durable Impeccable surface briefs belong in the repository.
+.impeccable/*
+!.impeccable/surface-briefs/
+.impeccable/surface-briefs/*
+!.impeccable/surface-briefs/*.md

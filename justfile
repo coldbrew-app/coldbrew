@@ -276,6 +276,7 @@ check: lint test
 
 db-migrate $env_file=".env":
   bunx dotenvx run -f $env_file --overload -- bunx dbmate up
+  @just fmt-sql
 
 db-migration-new name:
   bunx dbmate new {{quote(name)}}
