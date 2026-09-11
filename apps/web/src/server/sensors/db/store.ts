@@ -215,10 +215,10 @@ export class Store {
           await sql`
             INSERT INTO video_priority (user_id, label, min_price_per_minute, is_default)
             VALUES
-              (${userId}, 'queue 0', 0, true),
-              (${userId}, 'queue 1', 50, false),
-              (${userId}, 'queue 2', 100, false),
-              (${userId}, 'queue 3', 200, false)
+              (${userId}, 'priority 0', 0, true),
+              (${userId}, 'priority 1', 50, false),
+              (${userId}, 'priority 2', 100, false),
+              (${userId}, 'priority 3', 200, false)
             ON CONFLICT DO NOTHING
           `;
           return userId;

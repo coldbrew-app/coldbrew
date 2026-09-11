@@ -81,6 +81,12 @@ describe.skipIf(!databaseUrl)("video queues in PostgreSQL", () => {
     const second = await queue.createQueue(owner.id, "Kick");
     const initial = await queue.listPriorities(owner.id);
     expect(initial).toHaveLength(4);
+    expect(initial.map(({ label }) => label)).toEqual([
+      "priority 3",
+      "priority 2",
+      "priority 1",
+      "priority 0",
+    ]);
     await queue.updatePriority(owner.id, {
       videoPriorityId: initial[0]!.videoPriorityId,
       label: "Urgent",
