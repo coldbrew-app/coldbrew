@@ -70,6 +70,22 @@ export function useDisconnectM() {
   );
 }
 
+export function useConnectDonateStreamM() {
+  const { queryClient, trpc } = useApi();
+
+  return useMutation(
+    trpc.integration.connectDonateStream.mutationOptions({
+      async onSuccess() {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: trpc.userInfo.queryKey() }),
+          queryClient.invalidateQueries({ queryKey: trpc.donationPage.queryKey() }),
+          queryClient.invalidateQueries({ queryKey: trpc.donationOverview.queryKey() }),
+        ]);
+      },
+    }),
+  );
+}
+
 export type DonationPageInput = {
   donationId?: string;
   page: number;

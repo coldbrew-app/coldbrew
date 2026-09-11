@@ -32,6 +32,39 @@ describe("donation integration client", () => {
         },
       }),
     );
+    const request = fetchMock.mock.calls[0]?.[1];
+    const body = request?.body;
+    expect(typeof body).toBe("string");
+    if (typeof body !== "string") throw new Error("expected a string request body");
+    expect(JSON.parse(body)).toEqual({
+      authCode: "auth-code",
+      redirectUri: "https://coldbrew.test/api/integration/donationalerts/callback",
+      source: "donationalerts",
+      userId: 42,
+      widgetUrl: "",
+    });
+  });
+
+  it("sends donate.stream widget URLs only to the private donations service", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ connected: true }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const widgetUrl = "https://donate.stream/widget-alert?uid=group&token=1234567890abcdef";
+    await expect(donationIntegration.connectDonateStream(42, widgetUrl)).resolves.toEqual({
+      connected: true,
+    });
+
+    const request = fetchMock.mock.calls[0]?.[1];
+    const body = request?.body;
+    expect(typeof body).toBe("string");
+    if (typeof body !== "string") throw new Error("expected a string request body");
+    expect(JSON.parse(body)).toEqual({
+      authCode: "",
+      redirectUri: "",
+      source: "donate_stream",
+      userId: 42,
+      widgetUrl,
+    });
   });
 
   it("rejects invalid service responses", async () => {

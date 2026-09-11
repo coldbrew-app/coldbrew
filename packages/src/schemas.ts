@@ -28,7 +28,7 @@ export type Slug = z.infer<typeof SlugSchema>;
 export const AuthUserIdSchema = z.string().min(1).brand("auth user id");
 export type AuthUserId = z.infer<typeof AuthUserIdSchema>;
 
-export const DonationSourceSchema = z.enum(["donationalerts"]);
+export const DonationSourceSchema = z.enum(["donationalerts", "donate_stream"]);
 export type DonationSource = z.infer<typeof DonationSourceSchema>;
 
 export const VideoSourceSchema = z.enum(["donation", "manual"]);
@@ -157,6 +157,7 @@ export const UserInfoSchema = z.object({
   slug: SlugSchema,
   queueCurrency: QueueCurrencySchema,
   hasDonationAlertsConnection: z.boolean(),
+  hasDonateStreamConnection: z.boolean(),
   publicQueueSettings: PublicQueueSettingsSchema,
 });
 export type UserInfo = z.infer<typeof UserInfoSchema>;

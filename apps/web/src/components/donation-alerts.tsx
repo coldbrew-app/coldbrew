@@ -66,7 +66,7 @@ export function DonationAlertsNameLink({ className }: { className?: string }) {
   );
 }
 
-export function DonationAlertsConnectionStatus({ connected }: { connected: boolean }) {
+export function DonationConnectionStatus({ connected }: { connected: boolean }) {
   const { t } = useI18n(i18n);
 
   return (
@@ -83,6 +83,8 @@ export function DonationAlertsConnectionStatus({ connected }: { connected: boole
     </span>
   );
 }
+
+export const DonationAlertsConnectionStatus = DonationConnectionStatus;
 
 export function DonationAlertsSourceBadge({ className }: { className?: string }) {
   const { t } = useI18n(i18n);

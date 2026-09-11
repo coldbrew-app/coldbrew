@@ -11,23 +11,29 @@ import (
 	"strings"
 )
 
-type httpApplication interface {
+type httpDonationAlertsApplication interface {
 	AuthorizationURL(string) string
 	Connect(context.Context, int, string, string) error
 	Disconnect(context.Context, int) error
 }
 
+type httpDonateStreamApplication interface {
+	Connect(context.Context, int, string) error
+	Disconnect(context.Context, int) error
+}
+
 type HTTPHandler struct {
-	application   httpApplication
-	serviceSecret string
+	donationAlerts httpDonationAlertsApplication
+	donateStream   httpDonateStreamApplication
+	serviceSecret  string
 }
 
-func NewHTTPHandler(application *Application, serviceSecret string) *HTTPHandler {
-	return newHTTPHandler(application, serviceSecret)
+func NewHTTPHandler(donationAlerts *Application, donateStream *DonateStreamApplication, serviceSecret string) *HTTPHandler {
+	return newHTTPHandler(donationAlerts, donateStream, serviceSecret)
 }
 
-func newHTTPHandler(application httpApplication, serviceSecret string) *HTTPHandler {
-	return &HTTPHandler{application: application, serviceSecret: serviceSecret}
+func newHTTPHandler(donationAlerts httpDonationAlertsApplication, donateStream httpDonateStreamApplication, serviceSecret string) *HTTPHandler {
+	return &HTTPHandler{donationAlerts: donationAlerts, donateStream: donateStream, serviceSecret: serviceSecret}
 }
 
 func (handler *HTTPHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
@@ -63,7 +69,7 @@ func (handler *HTTPHandler) handleAuthorizationURL(response http.ResponseWriter,
 		return
 	}
 	writeJSON(response, http.StatusOK, map[string]string{
-		"authorizationUrl": handler.application.AuthorizationURL(input.RedirectURI),
+		"authorizationUrl": handler.donationAlerts.AuthorizationURL(input.RedirectURI),
 	})
 }
 
@@ -74,25 +80,48 @@ func (handler *HTTPHandler) authenticated(request *http.Request) bool {
 }
 
 type userInput struct {
-	UserID int `json:"userId"`
+	UserID int    `json:"userId"`
+	Source string `json:"source"`
 }
 
 func (handler *HTTPHandler) handleConnect(response http.ResponseWriter, request *http.Request) {
 	var input struct {
 		UserID      int    `json:"userId"`
+		Source      string `json:"source"`
 		AuthCode    string `json:"authCode"`
 		RedirectURI string `json:"redirectUri"`
+		WidgetURL   string `json:"widgetUrl"`
 	}
 	if !decodeInput(response, request, &input) || !validUserID(response, input.UserID) {
 		return
 	}
-	if len(input.AuthCode) == 0 || len(input.AuthCode) > 4096 || !validRedirectURI(input.RedirectURI) {
-		writeError(response, http.StatusBadRequest, "invalid OAuth connection request")
-		return
-	}
-	if err := handler.application.Connect(request.Context(), input.UserID, input.AuthCode, input.RedirectURI); err != nil {
-		slog.Error("DonationAlerts connection failed", "userId", input.UserID, "error", err)
-		writeError(response, http.StatusBadGateway, "DonationAlerts connection failed")
+	switch input.Source {
+	case "donationalerts":
+		if len(input.AuthCode) == 0 || len(input.AuthCode) > 4096 || input.WidgetURL != "" || !validRedirectURI(input.RedirectURI) {
+			writeError(response, http.StatusBadRequest, "invalid OAuth connection request")
+			return
+		}
+		if err := handler.donationAlerts.Connect(request.Context(), input.UserID, input.AuthCode, input.RedirectURI); err != nil {
+			slog.Error("DonationAlerts connection failed", "userId", input.UserID, "error", err)
+			writeError(response, http.StatusBadGateway, "DonationAlerts connection failed")
+			return
+		}
+	case "donate_stream":
+		if len(input.WidgetURL) == 0 || len(input.WidgetURL) > 4096 || input.AuthCode != "" || input.RedirectURI != "" {
+			writeError(response, http.StatusBadRequest, "invalid widget connection request")
+			return
+		}
+		if err := handler.donateStream.Connect(request.Context(), input.UserID, input.WidgetURL); err != nil {
+			slog.Error("donate.stream connection failed", "userId", input.UserID, "error", err)
+			if donateStreamInvalidInput(err) || donateStreamUnauthorized(err) {
+				writeError(response, http.StatusBadRequest, "invalid donate.stream widget URL")
+				return
+			}
+			writeError(response, http.StatusBadGateway, "donate.stream connection failed")
+			return
+		}
+	default:
+		writeError(response, http.StatusBadRequest, "invalid donation source")
 		return
 	}
 	writeJSON(response, http.StatusOK, map[string]bool{"connected": true})
@@ -103,8 +132,18 @@ func (handler *HTTPHandler) handleDisconnect(response http.ResponseWriter, reque
 	if !decodeInput(response, request, &input) || !validUserID(response, input.UserID) {
 		return
 	}
-	if err := handler.application.Disconnect(request.Context(), input.UserID); err != nil {
-		slog.Error("disconnect DonationAlerts", "userId", input.UserID, "error", err)
+	var err error
+	switch input.Source {
+	case "donationalerts":
+		err = handler.donationAlerts.Disconnect(request.Context(), input.UserID)
+	case "donate_stream":
+		err = handler.donateStream.Disconnect(request.Context(), input.UserID)
+	default:
+		writeError(response, http.StatusBadRequest, "invalid donation source")
+		return
+	}
+	if err != nil {
+		slog.Error("disconnect donation source", "source", input.Source, "userId", input.UserID, "error", err)
 		writeError(response, http.StatusInternalServerError, "internal server error")
 		return
 	}
@@ -149,4 +188,5 @@ func writeJSON(response http.ResponseWriter, status int, value any) {
 }
 
 var _ http.Handler = (*HTTPHandler)(nil)
-var _ httpApplication = (*Application)(nil)
+var _ httpDonationAlertsApplication = (*Application)(nil)
+var _ httpDonateStreamApplication = (*DonateStreamApplication)(nil)

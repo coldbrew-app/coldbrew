@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { CosmicPageHeader } from "@web/components/cosmic-page-header";
+import { DonateStreamSourceBadge } from "@web/components/donate-stream";
 import { DonationAlertsSourceBadge } from "@web/components/donation-alerts";
 import { Icons } from "@web/components/icons";
 
@@ -39,6 +40,7 @@ function DonationsLayout() {
           <div className="flex items-center gap-2">
             <Icons.filter aria-hidden="true" size={15} />
             <DonationAlertsSourceBadge />
+            <DonateStreamSourceBadge />
           </div>
         }
       />

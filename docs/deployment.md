@@ -31,11 +31,12 @@ configuration. Each deployment combines its individual GitHub Variables and
 Secrets into the untracked `/opt/coldbrew/.env` on the VPS before running
 Compose.
 
-`apps/donations` is the donation integration module. Its DonationAlerts
-integration owns OAuth mechanics and connection lifecycle, refreshes tokens,
-imports donation history, keeps one outgoing WebSocket connection per connected
-Coldbrew user, and writes received donations to PostgreSQL. `apps/web` owns
-Coldbrew authentication and the public OAuth routes.
+`apps/donations` is the donation integration module. It owns DonationAlerts OAuth,
+donate.stream alert-widget authentication, connection lifecycles, DonationAlerts history imports,
+and one outgoing WebSocket connection per connected Coldbrew user and source. It writes received
+donations to PostgreSQL. `apps/web` owns Coldbrew authentication, the public OAuth routes, and the
+integration settings UI. The donate.stream protocol and widget-address setup are documented in
+[donate-stream.md](donate-stream.md).
 
 ## Runtime layout
 
@@ -404,7 +405,7 @@ a restore into a separate empty volume before relying on the backup setup.
 
 ## Current scaling constraints
 
-The practical capacity depends on DonationAlerts rate limits, donation history,
+The practical capacity depends on donation-source rate limits, DonationAlerts history imports,
 PostgreSQL latency, and the number of simultaneously active streamers. Monitor
 container memory and CPU, database latency and connections, WebSocket reconnect
 rate, and WAL-G failures instead of treating a VPS size as a guaranteed user
@@ -412,9 +413,8 @@ limit.
 
 The main known constraints in the current implementation are:
 
-- the hourly history sync processes users sequentially but fetches every page
-  of every user's lifetime donation history, despite the schema already having
-  a `history_checkpoint` field;
+- the hourly DonationAlerts history sync processes users sequentially and fetches every page
+  of every connected user's lifetime DonationAlerts history;
 - listener startup has no explicit concurrency limit or reconnect jitter;
 - the donation integration exposes a process health endpoint but no per-listener
   heartbeat;

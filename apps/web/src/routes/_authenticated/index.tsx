@@ -3,6 +3,11 @@ import { CosmicArt } from "@web/components/cosmic-art";
 import { CosmicPageHeader } from "@web/components/cosmic-page-header";
 import { Metric } from "@web/components/dashboard/metric";
 import {
+  DONATE_STREAM_NAME,
+  DonateStreamConnectionStatus,
+  DonateStreamMark,
+} from "@web/components/donate-stream";
+import {
   DonationAlertsConnectionStatus,
   DonationAlertsMark,
   DonationAlertsNameLink,
@@ -12,14 +17,14 @@ import { Icons } from "@web/components/icons";
 import { DashboardSkeleton } from "@web/components/loading-skeletons";
 import MockChart from "@web/components/mock-chart";
 import QueryErrorState from "@web/components/query-error-state";
-import { Button, buttonVariants } from "@web/components/ui/button";
+import { buttonVariants } from "@web/components/ui/button";
 import { fmtRubles } from "@web/lib/fmt";
 import { createI18n, createTranslator, useI18n } from "@web/lib/i18n";
 import { preloadRouteQuery } from "@web/lib/trpc";
 import { cn } from "@web/lib/utils";
 import { z } from "zod";
 
-import { useAuthUrlQ, useDonationOverviewQ, useUserInfoSafe } from "../../hooks/api";
+import { useDonationOverviewQ, useUserInfoSafe } from "../../hooks/api";
 
 const i18n = createI18n({
   overview: {
@@ -75,8 +80,12 @@ const i18n = createI18n({
     ru: "Новые донаты загружаются автоматически.",
   },
   connectAllDonations: {
-    en: "Connect DonationAlerts to see all your donations here.",
-    ru: "Подключите DonationAlerts, чтобы видеть все донаты здесь.",
+    en: "Connect your donation platforms to see everything here.",
+    ru: "Подключите платформы, чтобы видеть все донаты здесь.",
+  },
+  donationSources: {
+    en: "Donation sources",
+    ru: "Источники донатов",
   },
   manage: {
     en: "Manage",
@@ -122,14 +131,6 @@ const i18n = createI18n({
     en: "Loading donations",
     ru: "Загружаем донаты…",
   },
-  loadingAuthorization: {
-    en: "Loading authorization…",
-    ru: "Получаем ссылку…",
-  },
-  authorizationUnavailable: {
-    en: "Authorization is unavailable",
-    ru: "Не удалось получить ссылку",
-  },
   anonymous: {
     en: "Anonymous",
     ru: "Аноним",
@@ -152,10 +153,7 @@ export const Route = createFileRoute("/_authenticated/")({
     if (!context.viewer) {
       return;
     }
-    await Promise.all([
-      preloadRouteQuery(context.queryClient, context.trpc.donationOverview.queryOptions()),
-      preloadRouteQuery(context.queryClient, context.trpc.authUrls.queryOptions()),
-    ]);
+    await preloadRouteQuery(context.queryClient, context.trpc.donationOverview.queryOptions());
   },
   validateSearch: z.object({
     success: z.boolean().optional(),
@@ -167,10 +165,11 @@ const panel = "cosmic-panel overflow-hidden";
 function Overview() {
   const { viewer } = Route.useRouteContext();
   const userInfo = useUserInfoSafe();
-  const authUrlQ = useAuthUrlQ();
   const donationOverviewQ = useDonationOverviewQ();
   const success = Route.useSearch({ select: (search) => search.success });
   const donationAlertsConnected = userInfo !== null && userInfo.hasDonationAlertsConnection;
+  const donateStreamConnected = userInfo !== null && userInfo.hasDonateStreamConnection;
+  const hasDonationConnection = donationAlertsConnected || donateStreamConnected;
   const { locale, t } = useI18n(i18n);
 
   const total = donationOverviewQ.data?.totalAmount ?? 0;
@@ -237,7 +236,7 @@ function Overview() {
               <section className="grid gap-4 xl:grid-cols-[1.03fr_.97fr]">
                 <article className={panel} id="donations">
                   <div className="flex items-start justify-between p-5">
-                    <div>
+                    <div className="flex flex-col gap-1">
                       <h2 className="font-heading text-lg font-semibold text-card-foreground">
                         {t("recentActivity")}
                       </h2>
@@ -292,45 +291,41 @@ function Overview() {
               </section>
               <section className="grid gap-4 xl:grid-cols-2">
                 <article
-                  className={`${panel} flex min-h-[120px] flex-wrap items-center gap-3 p-5`}
+                  className={`${panel} flex min-h-[120px] flex-col gap-4 p-5`}
                   id="integrations"
                 >
-                  <DonationAlertsMark />
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-[13px] font-semibold text-card-foreground">
-                        <DonationAlertsNameLink />
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h2 className="font-heading text-base font-semibold text-card-foreground">
+                        {t("donationSources")}
                       </h2>
-                      <DonationAlertsConnectionStatus connected={donationAlertsConnected} />
+                      <p className="text-xs text-muted-foreground">
+                        {t(hasDonationConnection ? "automaticSync" : "connectAllDonations")}
+                      </p>
                     </div>
-                    <p className="mt-1.5 text-xs text-muted-foreground">
-                      {donationAlertsConnected ? t("automaticSync") : t("connectAllDonations")}
-                    </p>
-                  </div>
-                  {authUrlQ.data ? (
-                    <a
-                      className="ml-auto flex items-center gap-1 rounded-lg border border-border px-2.5 py-2 text-[11px] font-bold text-foreground transition hover:bg-muted"
-                      href={authUrlQ.data.donationAlerts}
+                    <Link
+                      className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-2 text-[11px] font-bold text-foreground transition hover:bg-muted"
+                      to="/integrations"
                     >
                       {t("manage")} <Icons.chevronRight aria-hidden="true" size={16} />
-                    </a>
-                  ) : (
-                    <Button
-                      className="ml-auto h-auto px-2.5 py-2 text-[11px] font-bold"
-                      disabled={authUrlQ.isLoading}
-                      onClick={() => void authUrlQ.refetch()}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      {authUrlQ.isLoading ? (
-                        <Icons.loader aria-hidden="true" className="animate-spin" />
-                      ) : (
-                        <Icons.retry aria-hidden="true" />
-                      )}
-                      {t(authUrlQ.isLoading ? "loadingAuthorization" : "authorizationUnavailable")}
-                    </Button>
-                  )}
+                    </Link>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="flex min-w-0 items-center gap-2 rounded-xl bg-muted/55 p-2.5">
+                      <DonationAlertsMark />
+                      <span className="truncate text-xs font-semibold text-card-foreground">
+                        <DonationAlertsNameLink />
+                      </span>
+                      <DonationAlertsConnectionStatus connected={donationAlertsConnected} />
+                    </div>
+                    <div className="flex min-w-0 items-center gap-2 rounded-xl bg-muted/55 p-2.5">
+                      <DonateStreamMark />
+                      <span className="truncate text-xs font-semibold text-card-foreground">
+                        {DONATE_STREAM_NAME}
+                      </span>
+                      <DonateStreamConnectionStatus connected={donateStreamConnected} />
+                    </div>
+                  </div>
                 </article>
                 <article className="relative flex min-h-[120px] flex-wrap items-center gap-3 overflow-hidden rounded-2xl bg-[#51405e] p-5 text-[#fff8ed]">
                   <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/15">

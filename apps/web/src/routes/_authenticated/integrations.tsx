@@ -1,6 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CosmicPageHeader } from "@web/components/cosmic-page-header";
 import {
+  DONATE_STREAM_NAME,
+  DonateStreamConnectionStatus,
+  DonateStreamMark,
+} from "@web/components/donate-stream";
+import { DonateStreamConnectionForm } from "@web/components/donate-stream-connection-form";
+import {
   DonationAlertsConnectionStatus,
   DonationAlertsMark,
   DonationAlertsNameLink,
@@ -8,6 +14,7 @@ import {
 import { Icons } from "@web/components/icons";
 import { Button } from "@web/components/ui/button";
 import { preloadRouteQuery } from "@web/lib/trpc";
+import { useState } from "react";
 
 import { useAuthUrlQ, useDisconnectM, useUserInfoSafe } from "../../hooks/api";
 import { createI18n, createTranslator, useI18n } from "../../lib/i18n";
@@ -29,9 +36,17 @@ const i18n = createI18n({
     en: "New DonationAlerts donations sync automatically.",
     ru: "Новые донаты из DonationAlerts загружаются автоматически.",
   },
+  donateStreamSyncing: {
+    en: "New donate.stream donations sync automatically.",
+    ru: "Новые донаты из donate.stream загружаются автоматически.",
+  },
   importDonations: {
     en: "Automatically import donations from DonationAlerts.",
     ru: "Подключите DonationAlerts, чтобы донаты загружались автоматически.",
+  },
+  importDonateStream: {
+    en: "Connect donate.stream to receive new donations in real time.",
+    ru: "Подключите donate.stream, чтобы получать новые донаты в реальном времени.",
   },
   disconnecting: {
     en: "Disconnecting…",
@@ -45,6 +60,10 @@ const i18n = createI18n({
     en: "Connect DonationAlerts",
     ru: "Подключить DonationAlerts",
   },
+  connectDonateStream: {
+    en: "Connect donate.stream",
+    ru: "Подключить donate.stream",
+  },
   secureAuthorization: {
     en: "Sign in to DonationAlerts to securely grant Coldbrew access.",
     ru: "Войдите в DonationAlerts и разрешите Coldbrew получать ваши донаты.",
@@ -52,6 +71,14 @@ const i18n = createI18n({
   secureConnection: {
     en: "Coldbrew has secure access to your DonationAlerts account.",
     ru: "Coldbrew получает донаты из вашего аккаунта DonationAlerts.",
+  },
+  tokenConnection: {
+    en: "Connection via your donate.stream alert widget address.",
+    ru: "Подключение по адресу виджета оповещений donate.stream.",
+  },
+  donateStreamConnected: {
+    en: "Coldbrew receives donations from your donate.stream account.",
+    ru: "Coldbrew получает донаты из вашего аккаунта donate.stream.",
   },
   moreIntegrationsSoon: {
     en: "More integrations are coming soon.",
@@ -82,8 +109,10 @@ export const Route = createFileRoute("/_authenticated/integrations")({
 
 function RouteComponent() {
   const userInfo = useUserInfoSafe();
-  const connected = userInfo !== null && userInfo.hasDonationAlertsConnection;
-  const authUrlQ = useAuthUrlQ(!connected);
+  const donationAlertsConnected = userInfo !== null && userInfo.hasDonationAlertsConnection;
+  const donateStreamConnected = userInfo !== null && userInfo.hasDonateStreamConnection;
+  const authUrlQ = useAuthUrlQ(!donationAlertsConnected);
+  const [showDonateStreamForm, setShowDonateStreamForm] = useState(false);
 
   const disconnectM = useDisconnectM();
   const { t } = useI18n(i18n);
@@ -105,13 +134,13 @@ function RouteComponent() {
                 <h2 className="font-heading text-lg font-semibold text-card-foreground">
                   <DonationAlertsNameLink />
                 </h2>
-                <DonationAlertsConnectionStatus connected={connected} />
+                <DonationAlertsConnectionStatus connected={donationAlertsConnected} />
               </div>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                {connected ? t("donationsSyncing") : t("importDonations")}
+                {donationAlertsConnected ? t("donationsSyncing") : t("importDonations")}
               </p>
             </div>
-            {connected ? (
+            {donationAlertsConnected ? (
               <Button
                 variant="destructive"
                 size="lg"
@@ -149,7 +178,55 @@ function RouteComponent() {
           </div>
           <div className="flex items-center gap-2 border-t border-border bg-muted/55 px-5 py-3 text-xs text-muted-foreground sm:px-6">
             <Icons.secure aria-hidden="true" size={15} className="shrink-0 text-primary" />
-            {t(connected ? "secureConnection" : "secureAuthorization")}
+            {t(donationAlertsConnected ? "secureConnection" : "secureAuthorization")}
+          </div>
+        </article>
+
+        <article className="cosmic-panel shrink-0 overflow-hidden">
+          <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-6">
+            <DonateStreamMark size="lg" />
+            <div className="min-w-0 grow">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="font-heading text-lg font-semibold text-card-foreground">
+                  <a
+                    href="https://lk.donate.stream/donate-alerts"
+                    className="cursor-pointer hover:underline"
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    {DONATE_STREAM_NAME}
+                  </a>
+                </h2>
+                <DonateStreamConnectionStatus connected={donateStreamConnected} />
+              </div>
+              <p className="mt-1.5 text-sm text-muted-foreground">
+                {t(donateStreamConnected ? "donateStreamSyncing" : "importDonateStream")}
+              </p>
+            </div>
+            {donateStreamConnected ? (
+              <Button
+                variant="destructive"
+                size="lg"
+                disabled={disconnectM.isPending}
+                onClick={() => disconnectM.mutate({ source: "donate_stream" })}
+              >
+                {t(disconnectM.isPending ? "disconnecting" : "disconnect")}
+              </Button>
+            ) : (
+              <Button
+                className="w-full shrink-0 sm:w-auto"
+                onClick={() => setShowDonateStreamForm(true)}
+                size="lg"
+                type="button"
+              >
+                {t("connectDonateStream")}
+                <Icons.chevronRight aria-hidden="true" size={16} />
+              </Button>
+            )}
+          </div>
+          <div className="flex items-center gap-2 border-t border-border bg-muted/55 px-5 py-3 text-xs text-muted-foreground sm:px-6">
+            <Icons.secure aria-hidden="true" size={15} className="shrink-0 text-primary" />
+            {t(donateStreamConnected ? "donateStreamConnected" : "tokenConnection")}
           </div>
         </article>
 
@@ -158,6 +235,9 @@ function RouteComponent() {
           {t("moreIntegrationsSoon")}
         </div>
       </div>
+      {showDonateStreamForm && (
+        <DonateStreamConnectionForm onClose={() => setShowDonateStreamForm(false)} />
+      )}
     </section>
   );
 }

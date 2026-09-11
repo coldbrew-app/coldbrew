@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/lebedev-nikita/coldbrew/internal/donatestream"
 	"github.com/lebedev-nikita/coldbrew/internal/donationalerts"
 	"github.com/lebedev-nikita/coldbrew/internal/donations"
 	"github.com/lebedev-nikita/coldbrew/internal/observability"
@@ -49,20 +50,23 @@ func run() error {
 	}
 
 	httpClient := &http.Client{Timeout: 30 * time.Second}
-	client := donationalerts.NewClient(httpClient)
-	provider := donations.NewDonationAlertsAdapter(client, donationalerts.NewSource(client))
-	application := donations.NewApplication(
-		donations.NewStore(pool),
-		provider,
+	store := donations.NewStore(pool)
+	donationAlertsClient := donationalerts.NewClient(httpClient)
+	donationAlertsProvider := donations.NewDonationAlertsAdapter(donationAlertsClient, donationalerts.NewSource(donationAlertsClient))
+	donationAlertsApplication := donations.NewApplication(
+		store,
+		donationAlertsProvider,
 		donationalerts.Config{ClientID: config.clientID, ClientSecret: config.clientSecret},
 	)
+	donateStreamApplication := donations.NewDonateStreamApplication(store, donatestream.NewSource())
 	server := &http.Server{
 		Addr:              ":" + strconv.Itoa(config.port),
-		Handler:           donations.NewHTTPHandler(application, config.serviceSecret),
+		Handler:           donations.NewHTTPHandler(donationAlertsApplication, donateStreamApplication, config.serviceSecret),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
-	workerErrors := make(chan error, 1)
-	go func() { workerErrors <- application.Run(ctx) }()
+	workerErrors := make(chan error, 2)
+	go func() { workerErrors <- donationAlertsApplication.Run(ctx) }()
+	go func() { workerErrors <- donateStreamApplication.Run(ctx) }()
 	serverErrors := make(chan error, 1)
 	go func() {
 		slog.Info("Donations service listening", "address", server.Addr)
@@ -70,11 +74,11 @@ func run() error {
 	}()
 
 	var runErr error
-	workerFinished := false
+	workersFinished := 0
 	select {
 	case <-ctx.Done():
 	case err := <-workerErrors:
-		workerFinished = true
+		workersFinished++
 		if err != nil {
 			runErr = fmt.Errorf("run donation integration worker: %w", err)
 		}
@@ -90,10 +94,11 @@ func run() error {
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		shutdownErr = fmt.Errorf("shutdown donations HTTP: %w", err)
 	}
-	if !workerFinished {
+	for workersFinished < 2 {
 		if err := <-workerErrors; err != nil {
 			runErr = errors.Join(runErr, fmt.Errorf("stop donation integration worker: %w", err))
 		}
+		workersFinished++
 	}
 	return errors.Join(runErr, shutdownErr)
 }
