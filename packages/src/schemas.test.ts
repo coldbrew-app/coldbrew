@@ -1,11 +1,18 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DonationSourceSchema,
   MoneyAmountSchema,
   PublicQueueSettingsSchema,
   SharedVideoSchema,
   VideoSchema,
 } from "./schemas.js";
+
+describe("DonationSourceSchema", () => {
+  it("accepts all configured donation sources", () => {
+    expect(DonationSourceSchema.options).toEqual(["donationalerts", "donate_stream", "streamlabs"]);
+  });
+});
 
 describe("MoneyAmountSchema", () => {
   it.each([

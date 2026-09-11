@@ -40,7 +40,7 @@ export const integrationRouter = router({
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
       try {
-        await donationIntegration.disconnect(ctx.userId, input.source);
+        await donationIntegration.disconnect(input.source, ctx.userId);
       } catch (cause) {
         if (cause instanceof DonationIntegrationError) {
           throw new TRPCError({

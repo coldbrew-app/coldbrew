@@ -7,8 +7,7 @@ import { clsx } from "clsx";
 
 import { useTextWithLinks } from "../hooks/use-text-with-links";
 import { createI18n, useI18n } from "../lib/i18n";
-import { DonateStreamSourceBadge } from "./donate-stream";
-import { DonationAlertsSourceBadge } from "./donation-alerts";
+import { DonationSourceBadge } from "./donation-source";
 import { Icons } from "./icons";
 import { buttonVariants } from "./ui/button";
 
@@ -54,15 +53,6 @@ function getInitials(author: string) {
     .toUpperCase();
 }
 
-function DonationSourceBadge({ source }: Pick<Donation, "source">) {
-  switch (source) {
-    case "donationalerts":
-      return <DonationAlertsSourceBadge className="text-[9px]" />;
-    case "donate_stream":
-      return <DonateStreamSourceBadge className="text-[9px]" />;
-  }
-}
-
 export default function DonationCard({
   donation,
   videoParsing,
@@ -86,7 +76,7 @@ export default function DonationCard({
       <div className="flex min-w-0 flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <strong className="text-[13px] text-card-foreground">{author}</strong>
-          <DonationSourceBadge source={donation.source} />
+          <DonationSourceBadge className="text-[9px]" source={donation.source} />
         </div>
         <p
           className={clsx(

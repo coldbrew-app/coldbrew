@@ -7,22 +7,13 @@ import (
 	"log/slog"
 	"sync"
 	"time"
-
-	"github.com/lebedev-nikita/coldbrew/internal/donationalerts"
 )
-
-type donationAlerts interface {
-	IssueConnection(context.Context, donationalerts.Config, string, string) (donationalerts.Connection, error)
-	RefreshTokens(context.Context, donationalerts.Config, string) (donationalerts.Tokens, error)
-	GetDonations(context.Context, string) ([]donationalerts.Donation, error)
-	Run(context.Context, string, func(donationalerts.Donation) error) error
-}
 
 type persistence interface {
 	Connections(context.Context) ([]Connection, error)
-	SaveConnectionWithDonations(context.Context, int, donationalerts.Connection, []donationalerts.Donation) error
-	InsertDonations(context.Context, int, []donationalerts.Donation) error
-	SetTokensIfVersion(context.Context, int, int, donationalerts.Tokens) (bool, error)
+	SaveConnectionWithDonations(context.Context, int, ProviderConnection, DonationBatch) error
+	SaveDonations(context.Context, int, int, DonationBatch) error
+	SetTokensIfVersion(context.Context, int, int, Tokens) (bool, error)
 	Disconnect(context.Context, int) error
 	DisconnectIfVersion(context.Context, int, int) (bool, error)
 }
@@ -36,47 +27,115 @@ type Connection struct {
 	HistoryCheckpoint *string
 }
 
-type Application struct {
+type integration struct {
 	store        persistence
-	provider     donationAlerts
-	config       donationalerts.Config
+	provider     provider
 	refreshEvery time.Duration
 	historyEvery time.Duration
 }
 
-func NewApplication(store *Store, provider *DonationAlertsAdapter, config donationalerts.Config) *Application {
-	return newApplication(store, provider, config)
-}
-
-func newApplication(store persistence, provider donationAlerts, config donationalerts.Config) *Application {
-	return &Application{
-		store: store, provider: provider, config: config,
+func newIntegration(store persistence, provider provider) *integration {
+	return &integration{
+		store: store, provider: provider,
 		refreshEvery: 10 * time.Second,
 		historyEvery: time.Hour,
 	}
 }
 
-func (application *Application) Connect(ctx context.Context, userID int, authCode, redirectURI string) error {
-	connection, err := application.provider.IssueConnection(ctx, application.config, authCode, redirectURI)
-	if err != nil {
-		return fmt.Errorf("issue DonationAlerts connection: %w", err)
+type Application struct {
+	integrations map[Source]*integration
+	order        []Source
+}
+
+func NewApplication(store *Store, providers ...provider) *Application {
+	application := &Application{integrations: make(map[Source]*integration, len(providers))}
+	for _, configured := range providers {
+		source := configured.Source()
+		if _, exists := application.integrations[source]; exists {
+			panic("duplicate donation provider: " + source)
+		}
+		application.integrations[source] = newIntegration(store.forSource(source), configured)
+		application.order = append(application.order, source)
 	}
-	donations, err := application.provider.GetDonations(ctx, connection.AccessToken)
+	return application
+}
+
+func (application *Application) AuthorizationURL(source Source, redirectURI, state string) (string, error) {
+	integration, err := application.integration(source)
 	if err != nil {
-		return fmt.Errorf("import initial DonationAlerts history: %w", err)
+		return "", err
 	}
-	if err := application.store.SaveConnectionWithDonations(ctx, userID, connection, donations); err != nil {
-		return fmt.Errorf("save DonationAlerts connection and history: %w", err)
+	return integration.provider.AuthorizationURL(redirectURI, state), nil
+}
+
+func (application *Application) Connect(ctx context.Context, source Source, userID int, authCode, redirectURI string) error {
+	integration, err := application.integration(source)
+	if err != nil {
+		return err
+	}
+	return integration.connect(ctx, userID, authCode, redirectURI)
+}
+
+func (application *Application) Disconnect(ctx context.Context, source Source, userID int) error {
+	integration, err := application.integration(source)
+	if err != nil {
+		return err
+	}
+	return integration.store.Disconnect(ctx, userID)
+}
+
+func (application *Application) integration(source Source) (*integration, error) {
+	configured, ok := application.integrations[source]
+	if !ok {
+		return nil, fmt.Errorf("donations: provider %q is not configured", source)
+	}
+	return configured, nil
+}
+
+func (application *Application) Run(ctx context.Context) error {
+	workerCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	results := make(chan error, len(application.order))
+	var workers sync.WaitGroup
+	for _, source := range application.order {
+		configured := application.integrations[source]
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			results <- configured.run(workerCtx)
+		}()
+	}
+
+	select {
+	case <-ctx.Done():
+		cancel()
+		workers.Wait()
+		return nil
+	case err := <-results:
+		cancel()
+		workers.Wait()
+		if err == nil {
+			return errors.New("donation provider worker stopped unexpectedly")
+		}
+		return err
+	}
+}
+
+func (integration *integration) connect(ctx context.Context, userID int, authCode, redirectURI string) error {
+	name := integration.provider.Source().displayName()
+	connection, err := integration.provider.IssueConnection(ctx, authCode, redirectURI)
+	if err != nil {
+		return fmt.Errorf("issue %s connection: %w", name, err)
+	}
+	batch, err := integration.provider.GetDonations(ctx, connection.AccessToken, nil)
+	if err != nil {
+		return fmt.Errorf("import initial %s history: %w", name, err)
+	}
+	if err := integration.store.SaveConnectionWithDonations(ctx, userID, connection, batch); err != nil {
+		return fmt.Errorf("save %s connection and history: %w", name, err)
 	}
 	return nil
-}
-
-func (application *Application) AuthorizationURL(redirectURI string) string {
-	return donationalerts.AuthorizationURL(application.config.ClientID, redirectURI)
-}
-
-func (application *Application) Disconnect(ctx context.Context, userID int) error {
-	return application.store.Disconnect(ctx, userID)
 }
 
 type runningListener struct {
@@ -90,7 +149,7 @@ type listenerCompletion struct {
 	err          error
 }
 
-func (application *Application) Run(ctx context.Context) error {
+func (integration *integration) run(ctx context.Context) error {
 	running := make(map[int]runningListener)
 	completed := make(chan listenerCompletion)
 	var listeners sync.WaitGroup
@@ -101,12 +160,12 @@ func (application *Application) Run(ctx context.Context) error {
 		listeners.Wait()
 	}()
 
-	if err := application.refreshListeners(ctx, running, completed, &listeners); err != nil {
+	if err := integration.refreshListeners(ctx, running, completed, &listeners); err != nil {
 		return err
 	}
-	refreshTicker := time.NewTicker(application.refreshEvery)
+	refreshTicker := time.NewTicker(integration.refreshEvery)
 	defer refreshTicker.Stop()
-	historyTicker := time.NewTicker(application.historyEvery)
+	historyTicker := time.NewTicker(integration.historyEvery)
 	defer historyTicker.Stop()
 
 	for {
@@ -119,22 +178,22 @@ func (application *Application) Run(ctx context.Context) error {
 				delete(running, completion.userID)
 			}
 			if completion.err != nil {
-				slog.Error("DonationAlerts listener exited", "userId", completion.userID, "error", completion.err)
+				slog.Error(integration.provider.Source().displayName()+" listener exited", "userId", completion.userID, "error", completion.err)
 			}
 		case <-refreshTicker.C:
-			if err := application.refreshListeners(ctx, running, completed, &listeners); err != nil {
-				slog.Error("refresh DonationAlerts listeners", "error", err)
+			if err := integration.refreshListeners(ctx, running, completed, &listeners); err != nil {
+				slog.Error("refresh "+integration.provider.Source().displayName()+" listeners", "error", err)
 			}
 		case <-historyTicker.C:
-			application.syncHistory(ctx)
+			integration.syncHistory(ctx)
 		}
 	}
 }
 
-func (application *Application) refreshListeners(ctx context.Context, running map[int]runningListener, completed chan<- listenerCompletion, listeners *sync.WaitGroup) error {
-	connections, err := application.store.Connections(ctx)
+func (integration *integration) refreshListeners(ctx context.Context, running map[int]runningListener, completed chan<- listenerCompletion, listeners *sync.WaitGroup) error {
+	connections, err := integration.store.Connections(ctx)
 	if err != nil {
-		return fmt.Errorf("get DonationAlerts connections: %w", err)
+		return fmt.Errorf("get %s connections: %w", integration.provider.Source().displayName(), err)
 	}
 	byUserID := make(map[int]Connection, len(connections))
 	for _, connection := range connections {
@@ -156,7 +215,7 @@ func (application *Application) refreshListeners(ctx context.Context, running ma
 		listeners.Add(1)
 		go func(connection Connection) {
 			defer listeners.Done()
-			err := application.listen(listenerCtx, connection)
+			err := integration.listen(listenerCtx, connection)
 			select {
 			case completed <- listenerCompletion{userID: connection.UserID, tokenVersion: connection.TokenVersion, err: err}:
 			case <-ctx.Done():
@@ -166,34 +225,39 @@ func (application *Application) refreshListeners(ctx context.Context, running ma
 	return nil
 }
 
-var ErrStaleCredentials = errors.New("donationalerts: stale credentials")
+var ErrStaleCredentials = errors.New("donations: stale credentials")
 
-func (application *Application) listen(ctx context.Context, connection Connection) error {
+func (integration *integration) listen(ctx context.Context, connection Connection) error {
 	accessToken := connection.AccessToken
 	refreshToken := connection.RefreshToken
 	tokenVersion := connection.TokenVersion
+	checkpoint := connection.HistoryCheckpoint
 	for ctx.Err() == nil {
-		err := application.provider.Run(ctx, accessToken, func(donation donationalerts.Donation) error {
-			return application.store.InsertDonations(ctx, connection.UserID, []donationalerts.Donation{donation})
+		err := integration.provider.Run(ctx, accessToken, checkpoint, func(batch DonationBatch) error {
+			if err := integration.store.SaveDonations(ctx, connection.UserID, tokenVersion, batch); err != nil {
+				return err
+			}
+			checkpoint = batch.Checkpoint
+			return nil
 		})
 		if err == nil || ctx.Err() != nil {
 			return nil
 		}
-		if !unauthorized(err) {
+		if !integration.provider.Unauthorized(err) {
 			return err
 		}
-		tokens, refreshErr := application.provider.RefreshTokens(ctx, application.config, refreshToken)
+		tokens, refreshErr := integration.provider.RefreshTokens(ctx, refreshToken)
 		if refreshErr != nil {
-			if unauthorized(refreshErr) {
-				if _, disconnectErr := application.store.DisconnectIfVersion(ctx, connection.UserID, tokenVersion); disconnectErr != nil {
+			if integration.provider.Unauthorized(refreshErr) {
+				if _, disconnectErr := integration.store.DisconnectIfVersion(ctx, connection.UserID, tokenVersion); disconnectErr != nil {
 					return errors.Join(refreshErr, disconnectErr)
 				}
 			}
-			return fmt.Errorf("refresh DonationAlerts tokens: %w", refreshErr)
+			return fmt.Errorf("refresh %s tokens: %w", integration.provider.Source().displayName(), refreshErr)
 		}
-		updated, err := application.store.SetTokensIfVersion(ctx, connection.UserID, tokenVersion, tokens)
+		updated, err := integration.store.SetTokensIfVersion(ctx, connection.UserID, tokenVersion, tokens)
 		if err != nil {
-			return fmt.Errorf("save refreshed DonationAlerts tokens: %w", err)
+			return fmt.Errorf("save refreshed %s tokens: %w", integration.provider.Source().displayName(), err)
 		}
 		if !updated {
 			return ErrStaleCredentials
@@ -205,25 +269,21 @@ func (application *Application) listen(ctx context.Context, connection Connectio
 	return nil
 }
 
-func (application *Application) syncHistory(ctx context.Context) {
-	connections, err := application.store.Connections(ctx)
+func (integration *integration) syncHistory(ctx context.Context) {
+	name := integration.provider.Source().displayName()
+	connections, err := integration.store.Connections(ctx)
 	if err != nil {
-		slog.Error("get connections for DonationAlerts history", "error", err)
+		slog.Error("get connections for "+name+" history", "error", err)
 		return
 	}
 	for _, connection := range connections {
-		donations, err := application.provider.GetDonations(ctx, connection.AccessToken)
+		batch, err := integration.provider.GetDonations(ctx, connection.AccessToken, connection.HistoryCheckpoint)
 		if err != nil {
-			slog.Error("fetch DonationAlerts history", "userId", connection.UserID, "error", err)
+			slog.Error("fetch "+name+" history", "userId", connection.UserID, "error", err)
 			continue
 		}
-		if err := application.store.InsertDonations(ctx, connection.UserID, donations); err != nil {
-			slog.Error("insert DonationAlerts history", "userId", connection.UserID, "error", err)
+		if err := integration.store.SaveDonations(ctx, connection.UserID, connection.TokenVersion, batch); err != nil {
+			slog.Error("insert "+name+" history", "userId", connection.UserID, "error", err)
 		}
 	}
-}
-
-func unauthorized(err error) bool {
-	var requestError *donationalerts.RequestError
-	return errors.As(err, &requestError) && requestError.Unauthorized
 }

@@ -18,6 +18,7 @@ describe("donation integration client", () => {
 
     await expect(
       donationIntegration.connect(
+        "donationalerts",
         42,
         "auth-code",
         "https://coldbrew.test/api/integration/donationalerts/callback",
@@ -32,16 +33,15 @@ describe("donation integration client", () => {
         },
       }),
     );
-    const request = fetchMock.mock.calls[0]?.[1];
-    const body = request?.body;
-    expect(typeof body).toBe("string");
-    if (typeof body !== "string") throw new Error("expected a string request body");
-    expect(JSON.parse(body)).toEqual({
+    const options = fetchMock.mock.calls[0]?.[1];
+    if (typeof options?.body !== "string") {
+      throw new TypeError("expected a JSON string request body");
+    }
+    expect(JSON.parse(options.body)).toEqual({
       authCode: "auth-code",
       redirectUri: "https://coldbrew.test/api/integration/donationalerts/callback",
       source: "donationalerts",
       userId: 42,
-      widgetUrl: "",
     });
   });
 
@@ -54,11 +54,11 @@ describe("donation integration client", () => {
       connected: true,
     });
 
-    const request = fetchMock.mock.calls[0]?.[1];
-    const body = request?.body;
-    expect(typeof body).toBe("string");
-    if (typeof body !== "string") throw new Error("expected a string request body");
-    expect(JSON.parse(body)).toEqual({
+    const options = fetchMock.mock.calls[0]?.[1];
+    if (typeof options?.body !== "string") {
+      throw new TypeError("expected a JSON string request body");
+    }
+    expect(JSON.parse(options.body)).toEqual({
       authCode: "",
       redirectUri: "",
       source: "donate_stream",
@@ -74,7 +74,7 @@ describe("donation integration client", () => {
     );
 
     await expect(
-      donationIntegration.connect(42, "code", "https://coldbrew.test/callback"),
+      donationIntegration.connect("streamlabs", 42, "code", "https://coldbrew.test/callback"),
     ).rejects.toBeInstanceOf(DonationIntegrationError);
   });
 });

@@ -7,10 +7,18 @@ const donationAlertsCallbackURL = new URL(
 ).href;
 
 export async function donationAlertsAuthorizationURL() {
-  const result = await donationIntegration.authorizationUrl(donationAlertsCallbackURL);
+  const result = await donationIntegration.authorizationUrl(
+    "donationalerts",
+    donationAlertsCallbackURL,
+  );
   return result.authorizationUrl;
 }
 
 export async function authorizeDonationAlerts(userId: number, code: string) {
-  await donationIntegration.connect(userId, code, donationAlertsCallbackURL);
+  await donationIntegration.connect("donationalerts", userId, code, donationAlertsCallbackURL);
 }
+
+export const donationAlertsAuthorizationStartURL = new URL(
+  "/api/integration/donationalerts/authorize",
+  env.APP_DOMAIN,
+).href;

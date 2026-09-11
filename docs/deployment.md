@@ -31,12 +31,14 @@ configuration. Each deployment combines its individual GitHub Variables and
 Secrets into the untracked `/opt/coldbrew/.env` on the VPS before running
 Compose.
 
-`apps/donations` is the donation integration module. It owns DonationAlerts OAuth,
-donate.stream alert-widget authentication, connection lifecycles, DonationAlerts history imports,
-and one outgoing WebSocket connection per connected Coldbrew user and source. It writes received
-donations to PostgreSQL. `apps/web` owns Coldbrew authentication, the public OAuth routes, and the
-integration settings UI. The donate.stream protocol and widget-address setup are documented in
-[donate-stream.md](donate-stream.md).
+`apps/donations` is the donation integration module. Its DonationAlerts and
+Streamlabs adapters own OAuth mechanics, connection lifecycles, token refresh,
+history imports, and outgoing realtime connections. The donate.stream adapter
+authenticates alert-widget addresses and receives realtime donations without a
+history import. All three sources write received donations to PostgreSQL.
+`apps/web` owns Coldbrew authentication, the public OAuth routes, and the
+integration settings UI. The donate.stream protocol and widget-address setup
+are documented in [donate-stream.md](donate-stream.md).
 
 ## Runtime layout
 
@@ -113,6 +115,7 @@ The GitHub Variables and Secrets described below provide:
 - optionally, `VK_VIDEO_CLIENT_ID` and `VK_VIDEO_CLIENT_SECRET` for read-only VK Video multichat;
 - optionally, the reserved `BOOSTY_CLIENT_ID` / `BOOSTY_CLIENT_SECRET` pair;
 - `DONATION_ALERTS_CLIENT_ID` and `DONATION_ALERTS_CLIENT_SECRET`;
+- `STREAMLABS_CLIENT_ID` and `STREAMLABS_CLIENT_SECRET`;
 - `DONATIONS_SERVICE_SECRET`, shared only by web and donations;
 - `TELEGRAM_BOT_TOKEN` for the operational bot and optional
   `TELEGRAM_ADMIN_CHAT_ID` for log notifications;
@@ -201,6 +204,7 @@ OAuth callback URLs:
 
 - `https://<domain>/api/auth/callback/google`
 - `https://<domain>/api/integration/donationalerts/callback`
+- `https://<domain>/api/integration/streamlabs/callback`
 - `https://<domain>/api/chat/oauth/youtube/callback`
 - `https://<domain>/api/chat/oauth/twitch/callback`
 - `https://<domain>/api/chat/oauth/kick/callback`
@@ -228,6 +232,7 @@ Add these environment variables:
 | `AWS_REGION`                   | `eu-central-1`                     | yes      |
 | `BOOSTY_CLIENT_ID`             | Boosty OAuth client ID             | no       |
 | `DONATION_ALERTS_CLIENT_ID`    | `12345`                            | yes      |
+| `STREAMLABS_CLIENT_ID`         | Streamlabs OAuth client ID         | yes      |
 | `GOOGLE_CLIENT_ID`             | OAuth client ID                    | yes      |
 | `KICK_CLIENT_ID`               | Kick OAuth client ID               | no       |
 | `KICK_WEBHOOK_PUBLIC_KEY`      | Kick webhook RSA public key        | no       |
@@ -262,6 +267,7 @@ Add these environment secrets:
 | `CHAT_TOKEN_ENCRYPTION_SECRET`  | At least 32 random characters                               | yes      |
 | `DONATIONS_SERVICE_SECRET`      | At least 32 random characters                               | yes      |
 | `DONATION_ALERTS_CLIENT_SECRET` | DonationAlerts OAuth client secret                          | yes      |
+| `STREAMLABS_CLIENT_SECRET`      | Streamlabs OAuth client secret                              | yes      |
 | `GOOGLE_CLIENT_SECRET`          | Google OAuth client secret                                  | yes      |
 | `KICK_CLIENT_SECRET`            | Kick OAuth client secret                                    | no       |
 | `TWITCH_CLIENT_SECRET`          | Twitch OAuth client secret                                  | no       |
@@ -405,16 +411,17 @@ a restore into a separate empty volume before relying on the backup setup.
 
 ## Current scaling constraints
 
-The practical capacity depends on donation-source rate limits, DonationAlerts history imports,
-PostgreSQL latency, and the number of simultaneously active streamers. Monitor
-container memory and CPU, database latency and connections, WebSocket reconnect
-rate, and WAL-G failures instead of treating a VPS size as a guaranteed user
-limit.
+The practical capacity depends on DonationAlerts and Streamlabs rate limits,
+donation history, donate.stream event volume, PostgreSQL latency, and the number of simultaneously active
+streamers. Monitor container memory and CPU, database latency and connections,
+realtime reconnect rate, and WAL-G failures instead of treating a VPS size as a
+guaranteed user limit.
 
 The main known constraints in the current implementation are:
 
-- the hourly DonationAlerts history sync processes users sequentially and fetches every page
-  of every connected user's lifetime DonationAlerts history;
+- the hourly history sync processes users sequentially; DonationAlerts fetches
+  every page of each connected user's history, while Streamlabs walks only back
+  to its saved checkpoint;
 - listener startup has no explicit concurrency limit or reconnect jitter;
 - the donation integration exposes a process health endpoint but no per-listener
   heartbeat;

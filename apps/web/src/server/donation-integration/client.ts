@@ -49,17 +49,20 @@ async function request<Output>(path: string, schema: z.ZodType<Output>, body: un
 }
 
 export const donationIntegration = {
-  authorizationUrl(redirectUri: string) {
-    return request("/internal/authorization-url", AuthorizationURLSchema, { redirectUri });
+  authorizationUrl(source: DonationSource, redirectUri: string, state = "") {
+    return request("/internal/authorization-url", AuthorizationURLSchema, {
+      redirectUri,
+      source,
+      state,
+    });
   },
 
-  connect(userId: number, authCode: string, redirectUri: string) {
+  connect(source: DonationSource, userId: number, authCode: string, redirectUri: string) {
     return request("/internal/connect", ConnectResponseSchema, {
       authCode,
       redirectUri,
-      source: "donationalerts",
+      source,
       userId,
-      widgetUrl: "",
     });
   },
 
@@ -73,7 +76,7 @@ export const donationIntegration = {
     });
   },
 
-  disconnect(userId: number, source: DonationSource) {
+  disconnect(source: DonationSource, userId: number) {
     return request("/internal/disconnect", z.null(), { source, userId });
   },
 };
