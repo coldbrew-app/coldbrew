@@ -18,6 +18,7 @@ import { SharedVideoCard } from "./shared-video-card";
 import VideoCard from "./video-card";
 
 const base = {
+  title: "Кто останется нужным в мире ИИ?",
   videoId: "1",
   videoQueueId: 1,
   videoPriorityId: null,
@@ -33,7 +34,7 @@ const base = {
 };
 
 describe("videos awaiting metadata", () => {
-  it("renders the owner card and playback without inventing an end", () => {
+  it("renders the owner card preview as an external link without inventing an end", () => {
     const video = VideoSchema.parse({
       ...base,
       providerVideoId: "_JXL6Fn99l8",
@@ -49,7 +50,11 @@ describe("videos awaiting metadata", () => {
     expect(html).toContain("Без приоритета");
     expect(html).toContain("Повторить получение данных");
     expect(html).toContain('aria-label="Повторить получение данных"');
-    expect(html).toContain("/embed/_JXL6Fn99l8?start=0");
+    expect(html).toContain('aria-label="Открыть видео YouTube в новой вкладке"');
+    expect(html).toContain('target="_blank"');
+    expect(html).toContain("i.ytimg.com/vi/_JXL6Fn99l8/hqdefault.jpg");
+    expect(html).toContain("Кто останется нужным в мире ИИ?");
+    expect(html).not.toContain("youtube-nocookie.com/embed");
     expect(html).not.toContain("end=null");
     expect(html).not.toContain("NaN");
   });
@@ -63,6 +68,9 @@ describe("videos awaiting metadata", () => {
     });
     const html = renderToStaticMarkup(<SharedVideoCard video={video} />);
     expect(html).toContain("Не удалось получить длительность");
+    expect(html).toContain('aria-label="Открыть видео YouTube в новой вкладке"');
+    expect(html).toContain("i.ytimg.com/vi/_JXL6Fn99l8/hqdefault.jpg");
+    expect(html).not.toContain("youtube-nocookie.com/embed");
     expect(html).not.toContain("Повторить получение данных");
     expect(html).not.toContain("end=null");
   });

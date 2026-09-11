@@ -29,6 +29,7 @@ describe("MoneyAmountSchema", () => {
 });
 
 const baseVideo = {
+  title: "A video title",
   durationSeconds: 213,
   metadataUnavailable: false,
   metadataRetryAt: null,
@@ -115,6 +116,7 @@ describe("PublicQueueSettingsSchema", () => {
 describe("SharedVideoSchema", () => {
   it("keeps only fields intended for the public queue", () => {
     const video = SharedVideoSchema.parse({
+      title: "A video title",
       metadataUnavailable: false,
       videoId: "1",
       videoPriorityId: 1,
@@ -138,6 +140,7 @@ describe("SharedVideoSchema", () => {
 
   it("requires display amount and currency together", () => {
     const result = SharedVideoSchema.safeParse({
+      title: "A video title",
       metadataUnavailable: false,
       videoId: "1",
       videoPriorityId: null,

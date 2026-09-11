@@ -33,8 +33,8 @@ const i18n = createI18n({
     ru: "Название очереди",
   },
   defaultVideoQueue: {
-    en: "Use for new videos from donations",
-    ru: "Для новых видео из донатов",
+    en: "Default queue",
+    ru: "Очередь по умолчанию",
   },
   newQueuePrioritiesHelp: {
     en: "The same priorities and thresholds apply to all your queues.",
@@ -180,43 +180,47 @@ function QueueForm({
         else create.mutate({ label: label.trim() }, { onSuccess: onSaved });
       }}
     >
-      <Field>
-        <FieldLabel htmlFor="video-queue-name">{t("queueName")}</FieldLabel>
-        <Input
-          id="video-queue-name"
-          required
-          maxLength={64}
-          value={label}
-          disabled={mutation.isPending}
-          onChange={(event) => setLabel(event.target.value)}
-        />
-      </Field>
-      {queue ? (
-        <Field orientation="horizontal">
-          <Switch
-            id="default-video-queue"
-            checked={isDefault}
-            disabled={queue.isDefault || mutation.isPending}
-            onCheckedChange={setIsDefault}
+      <div className="grid gap-3 md:grid-cols-[minmax(12rem,1fr)_auto_auto] md:items-end">
+        <Field>
+          <FieldLabel htmlFor="video-queue-name">{t("queueName")}</FieldLabel>
+          <Input
+            id="video-queue-name"
+            required
+            maxLength={64}
+            value={label}
+            disabled={mutation.isPending}
+            onChange={(event) => setLabel(event.target.value)}
           />
-          <FieldLabel htmlFor="default-video-queue">{t("defaultVideoQueue")}</FieldLabel>
         </Field>
-      ) : (
-        <p className="text-xs text-muted-foreground">{t("newQueuePrioritiesHelp")}</p>
-      )}
+        {queue ? (
+          <Field className="min-h-8" orientation="horizontal">
+            <Switch
+              id="default-video-queue"
+              checked={isDefault}
+              disabled={queue.isDefault || mutation.isPending}
+              onCheckedChange={setIsDefault}
+            />
+            <FieldLabel htmlFor="default-video-queue">{t("defaultVideoQueue")}</FieldLabel>
+          </Field>
+        ) : (
+          <p className="flex min-h-8 items-center text-xs text-muted-foreground">
+            {t("newQueuePrioritiesHelp")}
+          </p>
+        )}
+        <div className="flex min-h-8 flex-wrap items-center justify-end gap-2">
+          <Button type="button" variant="ghost" disabled={mutation.isPending} onClick={onCancel}>
+            {t("cancel")}
+          </Button>
+          <Button type="submit" disabled={!label.trim() || mutation.isPending}>
+            {t(mutation.isPending ? "saving" : "save")}
+          </Button>
+        </div>
+      </div>
       {mutation.error && (
         <FieldError>
           {t(mutation.error.data?.code === "CONFLICT" ? "queueNameTaken" : "queueSaveFailed")}
         </FieldError>
       )}
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button type="button" variant="ghost" disabled={mutation.isPending} onClick={onCancel}>
-          {t("cancel")}
-        </Button>
-        <Button type="submit" disabled={!label.trim() || mutation.isPending}>
-          {t(mutation.isPending ? "saving" : "save")}
-        </Button>
-      </div>
     </form>
   );
 }

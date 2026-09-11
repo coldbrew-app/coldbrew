@@ -72,6 +72,7 @@ export const DonationSchema = z.object({
 export type Donation = z.infer<typeof DonationSchema>;
 
 const VideoBaseSchema = z.object({
+  title: z.string().trim().min(1).nullable(),
   durationSeconds: z.int().positive().nullable(),
   metadataUnavailable: z.boolean(),
   metadataRetryAt: z.coerce.date().nullable(),
@@ -125,6 +126,7 @@ export type PublicQueueSettings = z.infer<typeof PublicQueueSettingsSchema>;
 
 export const SharedVideoSchema = z
   .object({
+    title: z.string().trim().min(1).nullable(),
     metadataUnavailable: z.boolean(),
     videoId: VideoIdSchema,
     videoPriorityId: VideoPriorityIdSchema.nullable(),

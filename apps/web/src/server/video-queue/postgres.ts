@@ -194,6 +194,7 @@ class PostgresVideoQueue {
     const rows = await this.sql`
       SELECT
         video.video_id,
+        video.title,
         video.video_queue_id,
         video.video_priority_id,
         video.provider,
@@ -549,6 +550,7 @@ class PostgresVideoQueue {
       this.sql`
         SELECT
           video.video_id,
+          video.title,
           video.video_priority_id,
           video.provider,
           video.url,
