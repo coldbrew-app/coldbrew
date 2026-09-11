@@ -1,12 +1,15 @@
 package donationalerts
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -24,6 +27,13 @@ type failingSocket struct {
 	closed chan struct{}
 }
 
+type scriptedSocket struct {
+	reads  [][]byte
+	err    error
+	index  int
+	closed int
+}
+
 func (socket *failingSocket) Read(context.Context) ([]byte, error) { return nil, socket.err }
 func (*failingSocket) Write(context.Context, []byte) error         { return nil }
 func (socket *failingSocket) Close() error {
@@ -32,6 +42,21 @@ func (socket *failingSocket) Close() error {
 	default:
 		close(socket.closed)
 	}
+	return nil
+}
+
+func (socket *scriptedSocket) Read(context.Context) ([]byte, error) {
+	if socket.index < len(socket.reads) {
+		body := socket.reads[socket.index]
+		socket.index++
+		return body, nil
+	}
+	return nil, socket.err
+}
+
+func (*scriptedSocket) Write(context.Context, []byte) error { return nil }
+func (socket *scriptedSocket) Close() error {
+	socket.closed++
 	return nil
 }
 
@@ -73,13 +98,13 @@ func TestSourceAuthorizesSubscribesAndEmitsDonation(t *testing.T) {
 	source.dial = func(context.Context, string) (Socket, error) { return socket, nil }
 	ctx, cancel := context.WithCancel(context.Background())
 	var received Donation
-	emitted, err := source.runSession(ctx, "access-token", SocketProfile{UserID: "42", SocketConnectionToken: "socket-token"}, func(donation Donation) error {
+	result, err := source.runSession(ctx, "access-token", SocketProfile{UserID: "42", SocketConnectionToken: "socket-token"}, func(donation Donation) error {
 		received = donation
 		cancel()
 		return nil
 	})
-	if err != nil || !emitted {
-		t.Fatalf("runSession() emitted=%v err=%v", emitted, err)
+	if err != nil || !result.emitted {
+		t.Fatalf("runSession() result=%+v err=%v", result, err)
 	}
 	if received.SourceDonationID != "1" || received.Amount != "10.00" {
 		t.Fatalf("unexpected donation: %#v", received)
@@ -114,12 +139,12 @@ func TestSourceRespondsToPingAndKeepsSessionOpen(t *testing.T) {
 	source := NewSource(client)
 	source.dial = func(context.Context, string) (Socket, error) { return socket, nil }
 	ctx, cancel := context.WithCancel(context.Background())
-	emitted, err := source.runSession(ctx, "access-token", SocketProfile{UserID: "42", SocketConnectionToken: "socket-token"}, func(Donation) error {
+	result, err := source.runSession(ctx, "access-token", SocketProfile{UserID: "42", SocketConnectionToken: "socket-token"}, func(Donation) error {
 		cancel()
 		return nil
 	})
-	if err != nil || !emitted {
-		t.Fatalf("runSession() emitted=%v err=%v", emitted, err)
+	if err != nil || !result.emitted {
+		t.Fatalf("runSession() result=%+v err=%v", result, err)
 	}
 	if len(socket.writes) != 3 || string(socket.writes[2]) != `{}` {
 		t.Fatalf("websocket writes = %q; want pong as third write", socket.writes)
@@ -140,16 +165,66 @@ func TestSourcePropagatesUnauthorizedChannelToken(t *testing.T) {
 	}
 }
 
-func TestSourceRejectsUnknownMessage(t *testing.T) {
+func TestSourceReportsUnhandledMessageAndKeepsSessionOpen(t *testing.T) {
+	client, closeClient := testClient(t, func(http.ResponseWriter, *http.Request) {})
+	defer closeClient()
+	leave := `{"result":{"type":2,"channel":"$alerts:donation_42","data":{"info":{"user":"42","client":"d558c046-c679-43e3-a62d-65989ab55f7c"}}}}`
+	socket := &fakeSocket{reads: make(chan []byte, 2)}
+	socket.reads <- []byte(leave)
+	socket.reads <- []byte(`{"result":{"channel":"$alerts:donation_42","data":{"data":{"id":1,"username":"Streamer","message":"Thank you","amount":"10.00","currency":"USD","created_at":"2026-08-22 12:00:00"}}}}`)
+	source := NewSource(client)
+	source.dial = func(context.Context, string) (Socket, error) { return socket, nil }
+	var logs bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, nil)))
+	defer slog.SetDefault(previousLogger)
+	ctx, cancel := context.WithCancel(context.Background())
+	result, err := source.runSession(ctx, "access-token", SocketProfile{UserID: "42", SocketConnectionToken: "socket-token"}, func(Donation) error {
+		cancel()
+		return nil
+	})
+	if err != nil || !result.emitted {
+		t.Fatalf("runSession() result=%+v err=%v", result, err)
+	}
+	var event map[string]any
+	if err := json.Unmarshal(logs.Bytes(), &event); err != nil {
+		t.Fatalf("decode warning: %v; log=%s", err, logs.String())
+	}
+	if event["level"] != "WARN" || event["msg"] != "DonationAlerts websocket message ignored" || event["rawMessage"] != leave || event["type"] != float64(2) || event["channel"] != "$alerts:donation_42" {
+		t.Fatalf("unexpected warning: %#v", event)
+	}
+}
+
+func TestSourceReportsMalformedMessageBody(t *testing.T) {
 	client, closeClient := testClient(t, func(http.ResponseWriter, *http.Request) {})
 	defer closeClient()
 	socket := &fakeSocket{reads: make(chan []byte, 1)}
-	socket.reads <- []byte(`{"result":{}}`)
+	socket.reads <- []byte(`{"result":`)
 	source := NewSource(client)
 	source.dial = func(context.Context, string) (Socket, error) { return socket, nil }
 	_, err := source.runSession(context.Background(), "access-token", SocketProfile{UserID: "42", SocketConnectionToken: "socket-token"}, func(Donation) error { return nil })
-	if err == nil || err.Error() != "invalid DonationAlerts websocket message" {
-		t.Fatalf("expected invalid message error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), `raw message: {"result":`) {
+		t.Fatalf("error does not contain raw message: %v", err)
+	}
+}
+
+func TestSourceProcessesBatchedMessages(t *testing.T) {
+	client, closeClient := testClient(t, func(writer http.ResponseWriter, _ *http.Request) {
+		_, _ = writer.Write([]byte(`{"channels":[{"channel":"$alerts:donation_42","token":"channel-token"}]}`))
+	})
+	defer closeClient()
+	socket := &fakeSocket{reads: make(chan []byte, 1)}
+	socket.reads <- []byte("{\"id\":1,\"result\":{\"client\":\"d558c046-c679-43e3-a62d-65989ab55f7c\",\"version\":\"2.2.1\"}}\n" +
+		`{"result":{"channel":"$alerts:donation_42","data":{"data":{"id":1,"username":"Streamer","message":"Thank you","amount":"10.00","currency":"USD","created_at":"2026-08-22 12:00:00"}}}}`)
+	source := NewSource(client)
+	source.dial = func(context.Context, string) (Socket, error) { return socket, nil }
+	ctx, cancel := context.WithCancel(context.Background())
+	result, err := source.runSession(ctx, "access-token", SocketProfile{UserID: "42", SocketConnectionToken: "socket-token"}, func(Donation) error {
+		cancel()
+		return nil
+	})
+	if err != nil || !result.emitted {
+		t.Fatalf("runSession() result=%+v err=%v", result, err)
 	}
 }
 
@@ -190,7 +265,7 @@ func TestSourceUsesExponentialBackoff(t *testing.T) {
 	}
 }
 
-func TestSourceUsesExponentialBackoffForInvalidSocketMessages(t *testing.T) {
+func TestSourceUsesExponentialBackoffForMalformedSocketMessages(t *testing.T) {
 	client, closeClient := testClient(t, func(writer http.ResponseWriter, _ *http.Request) {
 		_, _ = writer.Write([]byte(`{"data":{"id":42,"socket_connection_token":"socket-token"}}`))
 	})
@@ -198,7 +273,7 @@ func TestSourceUsesExponentialBackoffForInvalidSocketMessages(t *testing.T) {
 	source := NewSource(client)
 	source.dial = func(context.Context, string) (Socket, error) {
 		socket := &fakeSocket{reads: make(chan []byte, 1)}
-		socket.reads <- []byte(`{"result":{}}`)
+		socket.reads <- []byte(`{"result":`)
 		return socket, nil
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -215,6 +290,47 @@ func TestSourceUsesExponentialBackoffForInvalidSocketMessages(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected := []time.Duration{5 * time.Second, 10 * time.Second, 20 * time.Second}
+	if !reflect.DeepEqual(waits, expected) {
+		t.Fatalf("backoff = %v; want %v", waits, expected)
+	}
+}
+
+func TestSourceResetsBackoffAfterSuccessfulSubscription(t *testing.T) {
+	client, closeClient := testClient(t, func(writer http.ResponseWriter, request *http.Request) {
+		if request.URL.Path == "/api/v1/centrifuge/subscribe" {
+			_, _ = writer.Write([]byte(`{"channels":[{"channel":"$alerts:donation_42","token":"channel-token"}]}`))
+			return
+		}
+		_, _ = writer.Write([]byte(`{"data":{"id":42,"socket_connection_token":"socket-token"}}`))
+	})
+	defer closeClient()
+	source := NewSource(client)
+	sockets := []Socket{
+		&failingSocket{err: io.EOF, closed: make(chan struct{})},
+		&scriptedSocket{reads: [][]byte{
+			[]byte(`{"id":1,"result":{"client":"d558c046-c679-43e3-a62d-65989ab55f7c","version":"2.2.1"}}`),
+			[]byte(`{"id":2,"result":{"recoverable":true,"seq":1,"epoch":"epoch","offset":1}}`),
+		}, err: io.EOF},
+	}
+	source.dial = func(context.Context, string) (Socket, error) {
+		socket := sockets[0]
+		sockets = sockets[1:]
+		return socket, nil
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	waits := make([]time.Duration, 0, 2)
+	source.wait = func(_ context.Context, duration time.Duration) error {
+		waits = append(waits, duration)
+		if len(waits) == 2 {
+			cancel()
+			return context.Canceled
+		}
+		return nil
+	}
+	if err := source.Run(ctx, "access-token", func(Donation) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	expected := []time.Duration{5 * time.Second, 5 * time.Second}
 	if !reflect.DeepEqual(waits, expected) {
 		t.Fatalf("backoff = %v; want %v", waits, expected)
 	}
