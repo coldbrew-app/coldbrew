@@ -1,5 +1,6 @@
 import {
   DonationIdSchema,
+  DonationSourceSchema,
   PublicQueueSettingsSchema,
   SlugSchema,
 } from "@coldbrew/packages/schemas.js";
@@ -56,6 +57,7 @@ export const appRouter = router({
         period: DonationPeriodSchema,
         donationId: DonationIdSchema.optional(),
         query: z.string().trim().max(200),
+        source: DonationSourceSchema.optional(),
       }),
     )
     .query(async ({ ctx, input }) => {

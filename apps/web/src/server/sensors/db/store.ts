@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import {
   DonationSchema,
+  type DonationSource,
   DonationIdSchema,
   VideoIdSchema,
   MoneyAmountSchema,
@@ -41,16 +42,19 @@ export class Store {
       query: string;
       occurredAfter: Date | null;
       donationId?: DonationId;
+      source?: DonationSource;
     },
   ) {
     const focusedDonationId = input.donationId?.toString() ?? null;
     const searchPattern = `%${input.query}%`;
+    const source = input.source ?? null;
     const countRows = await this.sql`
       SELECT count(*)::int AS total
       FROM donation
       WHERE user_id = ${userId}
         AND (${focusedDonationId}::bigint IS NULL OR donation_id = ${focusedDonationId})
         AND (${input.occurredAfter}::timestamptz IS NULL OR occurred_at >= ${input.occurredAfter})
+        AND (${source}::donation_source IS NULL OR source = ${source}::donation_source)
         AND (
           ${input.query} = ''
           OR coalesce(author, '') ILIKE ${searchPattern}
@@ -70,6 +74,7 @@ export class Store {
       WHERE user_id = ${userId}
         AND (${focusedDonationId}::bigint IS NULL OR donation_id = ${focusedDonationId})
         AND (${input.occurredAfter}::timestamptz IS NULL OR occurred_at >= ${input.occurredAfter})
+        AND (${source}::donation_source IS NULL OR source = ${source}::donation_source)
         AND (
           ${input.query} = ''
           OR coalesce(author, '') ILIKE ${searchPattern}

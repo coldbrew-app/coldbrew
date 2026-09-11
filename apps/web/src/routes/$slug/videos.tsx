@@ -1,6 +1,6 @@
 import { getRoundedWatchDurationParts } from "@coldbrew/packages/video-timing.js";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { CosmicArt } from "@web/components/cosmic-art";
+import { CosmicPageHeader } from "@web/components/cosmic-page-header";
 import { EmptyState } from "@web/components/empty-state";
 import { Icons } from "@web/components/icons";
 import { VideoListSkeleton } from "@web/components/loading-skeletons";
@@ -22,10 +22,6 @@ type HourMinuteParts = {
 };
 
 const i18n = createI18n({
-  publicQueueEyebrow: {
-    en: "Live route to the stream",
-    ru: "Публичная очередь",
-  },
   videoQueues: {
     en: "Video queues",
     ru: "Очереди видео",
@@ -57,10 +53,6 @@ const i18n = createI18n({
   videoQueueBy: {
     en: ({ slug }: { slug: string }) => `Video queue: ${slug}`,
     ru: ({ slug }: { slug: string }) => `Очередь видео — ${slug}`,
-  },
-  videosSharedBySupporters: {
-    en: "Videos selected for the stream.",
-    ru: "Видео, которые стример планирует посмотреть.",
   },
   publicQueueTabs: {
     en: "Public video queue sections",
@@ -229,19 +221,7 @@ function SharedVideoQueue() {
     <main className="relative h-dvh overflow-hidden bg-background p-0 text-foreground sm:p-3">
       <div className="cosmic-starlight pointer-events-none absolute inset-0" />
       <section className="cosmic-panel relative mx-auto flex h-full min-h-0 w-full max-w-4xl flex-col overflow-hidden">
-        <header className="cosmic-page-scene relative flex shrink-0 flex-col justify-center gap-1 overflow-hidden px-4 py-3 text-white sm:px-5 sm:py-4">
-          <span className="sr-only text-[#e6bf96]">{t("publicQueueEyebrow")}</span>
-          <h1 className="relative z-10 max-w-xl sm:pr-28 font-heading text-xl leading-tight font-semibold">
-            {t("videoQueueBy", { slug: `@${slug}` })}
-          </h1>
-          <p className="relative z-10 max-w-md text-xs leading-relaxed text-[#dec9bf]">
-            {t("videosSharedBySupporters")}
-          </p>
-          <CosmicArt
-            className="pointer-events-none absolute -right-8 -bottom-14 w-48 opacity-30 sm:w-72 sm:opacity-80"
-            variant="orbit"
-          />
-        </header>
+        <CosmicPageHeader title={t("videoQueueBy", { slug: `@${slug}` })} />
         {videosQ.isLoading ? (
           <VideoListSkeleton aria-busy="true" aria-label={t("loadingVideoQueue")} />
         ) : videosQ.isError ? (

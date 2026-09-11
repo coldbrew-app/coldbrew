@@ -40,14 +40,6 @@ const i18n = createI18n({
     en: "Donations",
     ru: "Донаты",
   },
-  greeting: {
-    en: ({ name }: { name: string }) => `Good evening, ${name}`,
-    ru: ({ name }: { name: string }) => `Рады вас видеть, ${name}`,
-  },
-  streamUpdate: {
-    en: "Your stream is brewing. Here is the signal right now.",
-    ru: "Всё важное о вашем стриме — на одном экране.",
-  },
   streamStatistics: {
     en: "Stream stats",
     ru: "Статистика стрима",
@@ -136,10 +128,6 @@ const i18n = createI18n({
     en: "Loading donations",
     ru: "Загружаем донаты…",
   },
-  anonymous: {
-    en: "Anonymous",
-    ru: "Аноним",
-  },
 });
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -168,7 +156,6 @@ export const Route = createFileRoute("/_authenticated/")({
 const panel = "cosmic-panel overflow-hidden";
 
 function Overview() {
-  const { viewer } = Route.useRouteContext();
   const userInfo = useUserInfoSafe();
   const donationOverviewQ = useDonationOverviewQ();
   const success = Route.useSearch({ select: (search) => search.success });
@@ -191,10 +178,7 @@ function Overview() {
 
   return (
     <section className="cosmic-panel flex h-full min-h-0 min-w-0 flex-col overflow-hidden" id="top">
-      <CosmicPageHeader
-        title={t("greeting", { name: viewer?.user.name ?? t("anonymous") })}
-        description={t("streamUpdate")}
-      />
+      <CosmicPageHeader title={t("overview")} />
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <div className="flex flex-col gap-4 p-4 sm:p-5">
           {success !== undefined && (

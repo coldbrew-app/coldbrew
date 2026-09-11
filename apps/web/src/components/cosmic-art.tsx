@@ -8,10 +8,13 @@ const orbitBodyClassName =
 
 type Props = {
   className?: string;
-  variant?: "portal" | "orbit" | "beans";
+  variant?: "portal" | "orbit" | "beans" | "signal";
 };
 
 export function CosmicArt({ className, variant = "portal" }: Props) {
+  if (variant === "signal") {
+    return <SignalArt className={className} />;
+  }
   if (variant === "orbit") {
     return <OrbitArt className={className} />;
   }
@@ -63,6 +66,37 @@ export function CosmicArt({ className, variant = "portal" }: Props) {
         </g>
       </svg>
     </div>
+  );
+}
+
+function SignalArt({ className }: Pick<Props, "className">) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={cn("pointer-events-none", className)}
+      fill="none"
+      viewBox="0 0 220 72"
+    >
+      <ellipse
+        cx="155"
+        cy="36"
+        rx="54"
+        ry="18"
+        stroke="currentColor"
+        strokeDasharray="4 7"
+        strokeLinecap="round"
+        transform="rotate(-8 155 36)"
+      />
+      <path
+        d="M101 45c25 14 73 14 105-4"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="2"
+      />
+      <circle cx="166" cy="25" r="9" fill="#7962CD" stroke="#251820" strokeWidth="2" />
+      <circle cx="119" cy="35" r="4.5" fill="#EDBF88" />
+      <path d="m92 26 2 5 5 2-5 2-2 5-2-5-5-2 5-2 2-5Z" fill="#FFF8ED" />
+    </svg>
   );
 }
 

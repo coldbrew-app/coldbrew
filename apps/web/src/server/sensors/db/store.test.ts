@@ -111,4 +111,26 @@ describe("Store.listDonationsPage", () => {
       expect(values).toContain("9007199254740993");
     }
   });
+
+  it("filters both the count and records by donation source", async () => {
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce([{ total: 0 }])
+      .mockResolvedValueOnce([]);
+    const store = new Store(query as never);
+
+    await store.listDonationsPage(UserIdSchema.parse(7), {
+      page: 1,
+      pageSize: 25,
+      query: "",
+      occurredAfter: null,
+      source: "streamlabs",
+    });
+
+    expect(query).toHaveBeenCalledTimes(2);
+    for (const [strings, ...values] of query.mock.calls) {
+      expect(strings.join("?")).toContain("source = ?::donation_source");
+      expect(values.filter((value) => value === "streamlabs")).toHaveLength(2);
+    }
+  });
 });
