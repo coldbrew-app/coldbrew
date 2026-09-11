@@ -107,6 +107,7 @@ Before editing TS and TSX files for a substantial task:
 - Use `tailwindcss` for styling.
 - Use `flex`, `gap` and `padding` instead of margins wherever possible.
 - Pass external positioning (`margin`, `width`, `grow` etc.) of the root element of components via `className` instead of hardcoding it inside the component. It is similar to modifiers in BEM methodology.
+- When setup instructions require visiting a third-party service, include an inline link to the exact external page at the point of instruction.
 
 ## Go
 

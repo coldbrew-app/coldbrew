@@ -5,6 +5,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/lebedev-nikita/coldbrew/internal/donatestream"
 	"github.com/lebedev-nikita/coldbrew/internal/donationalerts"
 )
 
@@ -112,6 +113,88 @@ func (store *Store) DisconnectIfVersion(ctx context.Context, userID, tokenVersio
 		DELETE FROM donationalerts_connection
 		WHERE user_id = $1 AND token_version = $2
 	`, userID, tokenVersion)
+	return command.RowsAffected() == 1, err
+}
+
+func (store *Store) DonateStreamConnections(ctx context.Context) ([]DonateStreamConnection, error) {
+	rows, err := store.pool.Query(ctx, `
+		SELECT user_id, widget_group_uid, widget_token
+		FROM donate_stream_connection
+		ORDER BY user_id
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	connections := make([]DonateStreamConnection, 0)
+	for rows.Next() {
+		var connection DonateStreamConnection
+		if err := rows.Scan(&connection.UserID, &connection.WidgetGroupUID, &connection.WidgetToken); err != nil {
+			return nil, err
+		}
+		connections = append(connections, connection)
+	}
+	return connections, rows.Err()
+}
+
+func (store *Store) SaveDonateStreamConnection(ctx context.Context, userID int, connection donatestream.Connection) error {
+	_, err := store.pool.Exec(ctx, `
+		INSERT INTO donate_stream_connection (user_id, widget_group_uid, widget_token)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (user_id) DO UPDATE
+		SET
+			widget_group_uid = EXCLUDED.widget_group_uid,
+			widget_token = EXCLUDED.widget_token,
+			updated_at = now()
+	`, userID, connection.WidgetGroupUID, connection.WidgetToken)
+	return err
+}
+
+func (store *Store) InsertDonateStreamDonations(ctx context.Context, userID int, donations []donatestream.Donation) error {
+	if len(donations) == 0 {
+		return nil
+	}
+	return pgx.BeginFunc(ctx, store.pool, func(tx pgx.Tx) error {
+		return insertDonateStreamDonations(ctx, tx, userID, donations)
+	})
+}
+
+func insertDonateStreamDonations(ctx context.Context, tx pgx.Tx, userID int, donations []donatestream.Donation) error {
+	for _, donation := range donations {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO donation (
+				source,
+				source_donation_id,
+				user_id,
+				author,
+				message,
+				amount,
+				currency,
+				source_created_at,
+				occurred_at
+			)
+			VALUES ('donate_stream', $1, $2, $3, $4, $5, $6, $7, $8)
+			ON CONFLICT (user_id, source, source_donation_id) DO NOTHING
+		`, donation.SourceDonationID, userID, donation.Author, donation.Message, donation.Amount, donation.Currency, donation.SourceCreatedAt, donation.OccurredAt); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (store *Store) DisconnectDonateStream(ctx context.Context, userID int) error {
+	_, err := store.pool.Exec(ctx, `
+		DELETE FROM donate_stream_connection
+		WHERE user_id = $1
+	`, userID)
+	return err
+}
+
+func (store *Store) DisconnectDonateStreamIfToken(ctx context.Context, userID int, widgetToken string) (bool, error) {
+	command, err := store.pool.Exec(ctx, `
+		DELETE FROM donate_stream_connection
+		WHERE user_id = $1 AND widget_token = $2
+	`, userID, widgetToken)
 	return command.RowsAffected() == 1, err
 }
 

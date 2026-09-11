@@ -1,4 +1,5 @@
 import { RequestError, requestJson } from "@coldbrew/packages/http.js";
+import type { DonationSource } from "@coldbrew/packages/schemas.js";
 import { rurl } from "@lebedevna/readonly-url";
 import { z } from "zod";
 
@@ -53,10 +54,26 @@ export const donationIntegration = {
   },
 
   connect(userId: number, authCode: string, redirectUri: string) {
-    return request("/internal/connect", ConnectResponseSchema, { authCode, redirectUri, userId });
+    return request("/internal/connect", ConnectResponseSchema, {
+      authCode,
+      redirectUri,
+      source: "donationalerts",
+      userId,
+      widgetUrl: "",
+    });
   },
 
-  disconnect(userId: number) {
-    return request("/internal/disconnect", z.null(), { userId });
+  connectDonateStream(userId: number, widgetUrl: string) {
+    return request("/internal/connect", ConnectResponseSchema, {
+      authCode: "",
+      redirectUri: "",
+      source: "donate_stream",
+      userId,
+      widgetUrl,
+    });
+  },
+
+  disconnect(userId: number, source: DonationSource) {
+    return request("/internal/disconnect", z.null(), { source, userId });
   },
 };

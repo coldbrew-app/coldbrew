@@ -44,7 +44,8 @@ CREATE DOMAIN public.currency_code AS character(3)
 CONSTRAINT currency_code_check CHECK ((value ~ '^[A-Z]{3}$'::text));
 
 CREATE TYPE public.donation_source AS ENUM (
-  'donationalerts'
+  'donationalerts',
+  'donate_stream'
 );
 
 CREATE DOMAIN public.js_date AS timestamp (3) with time zone;
@@ -318,6 +319,14 @@ CREATE TABLE public.chat_source (
   CONSTRAINT chat_source_provider_source_id_check CHECK (((char_length(provider_source_id) >= 1) AND (char_length(provider_source_id) <= 200)))
 );
 
+CREATE TABLE public.donate_stream_connection (
+  user_id          integer        NOT NULL,
+  widget_group_uid text           NOT NULL,
+  widget_token     text           NOT NULL,
+  connected_at     public.js_date DEFAULT now() NOT NULL,
+  updated_at       public.js_date DEFAULT now() NOT NULL
+);
+
 CREATE TABLE public.donation (
   donation_id        bigint                 NOT NULL,
   source             public.donation_source NOT NULL,
@@ -547,6 +556,12 @@ ADD CONSTRAINT chat_source_user_id_position_key UNIQUE (user_id, "position");
 ALTER TABLE ONLY public.chat_source
 ADD CONSTRAINT chat_source_user_id_provider_provider_source_id_key UNIQUE (user_id, provider, provider_source_id);
 
+ALTER TABLE ONLY public.donate_stream_connection
+ADD CONSTRAINT donate_stream_connection_pkey PRIMARY KEY (user_id);
+
+ALTER TABLE ONLY public.donate_stream_connection
+ADD CONSTRAINT donate_stream_connection_widget_group_uid_key UNIQUE (widget_group_uid);
+
 ALTER TABLE ONLY public.donation
 ADD CONSTRAINT donation_pkey PRIMARY KEY (donation_id);
 
@@ -678,6 +693,9 @@ ADD CONSTRAINT chat_source_chat_provider_connection_id_user_id_provider_fkey
 ALTER TABLE ONLY public.chat_source
 ADD CONSTRAINT chat_source_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
 
+ALTER TABLE ONLY public.donate_stream_connection
+ADD CONSTRAINT donate_stream_connection_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
+
 ALTER TABLE ONLY public.donation
 ADD CONSTRAINT donation_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
 
@@ -715,4 +733,5 @@ ADD CONSTRAINT video_video_queue_id_fkey FOREIGN KEY (video_queue_id) REFERENCES
 
 INSERT INTO public.schema_migrations (version) VALUES
 ('20260909000000'),
-('20260909195358');
+('20260909195358'),
+('20260910120000');
