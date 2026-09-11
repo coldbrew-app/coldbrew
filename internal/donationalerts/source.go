@@ -1,6 +1,7 @@
 package donationalerts
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -50,8 +51,8 @@ func (source *Source) Run(ctx context.Context, accessToken string, emit func(Don
 	for ctx.Err() == nil {
 		profile, err := source.client.SocketProfile(ctx, accessToken)
 		if err == nil {
-			emitted, sessionErr := source.runSession(ctx, accessToken, profile, emit)
-			if emitted {
+			result, sessionErr := source.runSession(ctx, accessToken, profile, emit)
+			if result.subscribed || result.emitted {
 				retryDelay = source.retryStart
 			}
 			err = sessionErr
@@ -73,63 +74,95 @@ func (source *Source) Run(ctx context.Context, accessToken string, emit func(Don
 	return nil
 }
 
-func (source *Source) runSession(ctx context.Context, accessToken string, profile SocketProfile, emit func(Donation) error) (bool, error) {
+type sessionResult struct {
+	subscribed bool
+	emitted    bool
+}
+
+func (source *Source) runSession(ctx context.Context, accessToken string, profile SocketProfile, emit func(Donation) error) (sessionResult, error) {
 	socket, err := source.dial(ctx, source.webSocketURL)
 	if err != nil {
-		return false, fmt.Errorf("open DonationAlerts websocket: %w", err)
+		return sessionResult{}, fmt.Errorf("open DonationAlerts websocket: %w", err)
 	}
 	defer socket.Close()
 	if err := writeJSON(ctx, socket, map[string]any{"params": map[string]string{"token": profile.SocketConnectionToken}, "id": 1}); err != nil {
-		return false, err
+		return sessionResult{}, err
 	}
 
 	channel := "$alerts:donation_" + profile.UserID
-	emitted := false
+	result := sessionResult{}
 	for ctx.Err() == nil {
 		body, err := socket.Read(ctx)
 		if err != nil {
-			return emitted, fmt.Errorf("read DonationAlerts websocket: %w", err)
+			return result, fmt.Errorf("read DonationAlerts websocket: %w", err)
 		}
-		event, decoderErr := decodeSocketEvent(body)
-		if decoderErr != nil {
-			return emitted, decoderErr
-		}
-		if event.kind == "ping" {
-			if err := writeJSON(ctx, socket, struct{}{}); err != nil {
-				return emitted, err
+		for _, message := range bytes.Split(body, []byte{'\n'}) {
+			message = bytes.TrimSpace(message)
+			if len(message) == 0 {
+				continue
 			}
-			continue
-		}
-		if event.kind == "step 1" {
-			token, err := source.client.ChannelToken(ctx, accessToken, channel, event.Result.Client)
-			if err != nil {
-				return emitted, err
+			event, decoderErr := decodeSocketEvent(message)
+			if decoderErr != nil {
+				return result, fmt.Errorf("%w; raw message: %s", decoderErr, message)
 			}
-			if err := writeJSON(ctx, socket, map[string]any{"id": 2, "method": 1, "params": map[string]string{"channel": channel, "token": token}}); err != nil {
-				return emitted, err
+			if event.kind == "unhandled" {
+				logUnhandledSocketMessage(ctx, event, message)
+				continue
 			}
-			continue
-		}
-		if event.kind == "step 2" || event.kind == "user client" {
-			continue
-		}
-		if event.kind == "donation" {
-			var raw rawDonation
-			if err := json.Unmarshal(event.Result.Data.Data, &raw); err != nil {
-				return emitted, fmt.Errorf("invalid DonationAlerts donation: %w", err)
+			if event.kind == "ping" {
+				if err := writeJSON(ctx, socket, struct{}{}); err != nil {
+					return result, err
+				}
+				continue
 			}
-			donation, err := raw.donation()
-			if err != nil {
-				return emitted, err
+			if event.kind == "step 1" {
+				token, err := source.client.ChannelToken(ctx, accessToken, channel, event.Result.Client)
+				if err != nil {
+					return result, fmt.Errorf("authorize DonationAlerts channel: %w; raw message: %s", err, message)
+				}
+				if err := writeJSON(ctx, socket, map[string]any{"id": 2, "method": 1, "params": map[string]string{"channel": channel, "token": token}}); err != nil {
+					return result, err
+				}
+				continue
 			}
-			if err := emit(donation); err != nil {
-				return emitted, err
+			if event.kind == "step 2" {
+				result.subscribed = true
+				continue
 			}
-			emitted = true
-			continue
+			if event.kind == "user client" {
+				continue
+			}
+			if event.kind == "donation" {
+				var raw rawDonation
+				if err := json.Unmarshal(event.Result.Data.Data, &raw); err != nil {
+					return result, fmt.Errorf("invalid DonationAlerts donation: %w; raw message: %s", err, message)
+				}
+				donation, err := raw.donation()
+				if err != nil {
+					return result, fmt.Errorf("%w; raw message: %s", err, message)
+				}
+				if err := emit(donation); err != nil {
+					return result, fmt.Errorf("emit DonationAlerts donation: %w; raw message: %s", err, message)
+				}
+				result.emitted = true
+			}
 		}
 	}
-	return emitted, nil
+	return result, nil
+}
+
+func logUnhandledSocketMessage(ctx context.Context, event socketEvent, body []byte) {
+	attributes := []any{"rawMessage", string(body)}
+	if event.ID != nil {
+		attributes = append(attributes, "id", *event.ID)
+	}
+	if event.Result.Type != nil {
+		attributes = append(attributes, "type", *event.Result.Type)
+	}
+	if event.Result.Channel != nil {
+		attributes = append(attributes, "channel", *event.Result.Channel)
+	}
+	slog.WarnContext(ctx, "DonationAlerts websocket message ignored", attributes...)
 }
 
 type socketEvent struct {
@@ -186,7 +219,7 @@ func decodeSocketEvent(body []byte) (socketEvent, error) {
 	case event.Result.Channel != nil && len(event.Result.Data.Data) != 0:
 		event.kind = "donation"
 	default:
-		return socketEvent{}, errors.New("invalid DonationAlerts websocket message")
+		event.kind = "unhandled"
 	}
 	return event, nil
 }
