@@ -14,8 +14,11 @@ import (
 const httpTestSecret = "12345678901234567890123456789012"
 
 type httpTestApplication struct {
-	connectedUser    int
-	disconnectedUser int
+	authorizedSource   Source
+	connectedSource    Source
+	connectedUser      int
+	disconnectedSource Source
+	disconnectedUser   int
 }
 
 type httpTestDonateStreamApplication struct {
@@ -36,15 +39,18 @@ func (application *httpTestDonateStreamApplication) Disconnect(_ context.Context
 	return nil
 }
 
-func (*httpTestApplication) AuthorizationURL(redirectURI string) string {
-	return "https://donationalerts.test/authorize?redirect_uri=" + redirectURI
+func (application *httpTestApplication) AuthorizationURL(source Source, redirectURI, state string) (string, error) {
+	application.authorizedSource = source
+	return "https://provider.test/authorize?redirect_uri=" + redirectURI + "&state=" + state, nil
 }
 
-func (application *httpTestApplication) Connect(_ context.Context, userID int, _, _ string) error {
+func (application *httpTestApplication) Connect(_ context.Context, source Source, userID int, _, _ string) error {
+	application.connectedSource = source
 	application.connectedUser = userID
 	return nil
 }
-func (application *httpTestApplication) Disconnect(_ context.Context, userID int) error {
+func (application *httpTestApplication) Disconnect(_ context.Context, source Source, userID int) error {
+	application.disconnectedSource = source
 	application.disconnectedUser = userID
 	return nil
 }
@@ -58,7 +64,7 @@ func authorizedRequest(path, body string) *http.Request {
 func TestHTTPHandlerRejectsInvalidSecret(t *testing.T) {
 	handler := newHTTPHandler(&httpTestApplication{}, &httpTestDonateStreamApplication{}, httpTestSecret)
 	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/internal/disconnect", strings.NewReader(`{"userId":42}`)))
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/internal/disconnect", strings.NewReader(`{"source":"streamlabs","userId":42}`)))
 	if response.Code != http.StatusUnauthorized {
 		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
 	}
@@ -73,18 +79,36 @@ func TestHTTPHandlerValidatesConnectInput(t *testing.T) {
 	}
 }
 
-func TestHTTPDisconnectUsesAuthenticatedOwnerOnly(t *testing.T) {
-	application := &httpTestApplication{}
-	donateStream := &httpTestDonateStreamApplication{}
-	handler := newHTTPHandler(application, donateStream, httpTestSecret)
+func TestHTTPAuthorizationURLRequiresStreamlabsState(t *testing.T) {
+	handler := newHTTPHandler(&httpTestApplication{}, &httpTestDonateStreamApplication{}, httpTestSecret)
 	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, authorizedRequest("/internal/disconnect", `{"userId":42,"source":"donationalerts"}`))
-	if response.Code != http.StatusOK || application.disconnectedUser != 42 {
-		t.Fatalf("status=%d disconnectedUser=%d", response.Code, application.disconnectedUser)
+	handler.ServeHTTP(response, authorizedRequest("/internal/authorization-url", `{"source":"streamlabs","redirectUri":"https://coldbrew.test/callback","state":"short"}`))
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
+	}
+}
+
+func TestHTTPAuthorizationURLRoutesProvider(t *testing.T) {
+	application := &httpTestApplication{}
+	handler := newHTTPHandler(application, &httpTestDonateStreamApplication{}, httpTestSecret)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, authorizedRequest("/internal/authorization-url", `{"source":"streamlabs","redirectUri":"https://coldbrew.test/callback","state":"12345678901234567890123456789012"}`))
+	if response.Code != http.StatusOK || application.authorizedSource != StreamlabsSource {
+		t.Fatalf("status=%d source=%q body=%s", response.Code, application.authorizedSource, response.Body.String())
+	}
+}
+
+func TestHTTPDisconnectUsesAuthenticatedOwnerAndSourceOnly(t *testing.T) {
+	application := &httpTestApplication{}
+	handler := newHTTPHandler(application, &httpTestDonateStreamApplication{}, httpTestSecret)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, authorizedRequest("/internal/disconnect", `{"source":"streamlabs","userId":42}`))
+	if response.Code != http.StatusOK || application.disconnectedUser != 42 || application.disconnectedSource != StreamlabsSource {
+		t.Fatalf("status=%d source=%q disconnectedUser=%d", response.Code, application.disconnectedSource, application.disconnectedUser)
 	}
 
 	response = httptest.NewRecorder()
-	handler.ServeHTTP(response, authorizedRequest("/internal/disconnect", `{"userId":42,"source":"donationalerts","ownerId":7}`))
+	handler.ServeHTTP(response, authorizedRequest("/internal/disconnect", `{"source":"streamlabs","userId":42,"ownerId":7}`))
 	if response.Code != http.StatusBadRequest || application.disconnectedUser != 42 {
 		t.Fatalf("status=%d disconnectedUser=%d", response.Code, application.disconnectedUser)
 	}

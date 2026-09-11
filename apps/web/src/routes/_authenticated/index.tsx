@@ -17,6 +17,11 @@ import { Icons } from "@web/components/icons";
 import { DashboardSkeleton } from "@web/components/loading-skeletons";
 import MockChart from "@web/components/mock-chart";
 import QueryErrorState from "@web/components/query-error-state";
+import {
+  StreamlabsConnectionStatus,
+  StreamlabsMark,
+  StreamlabsNameLink,
+} from "@web/components/streamlabs";
 import { buttonVariants } from "@web/components/ui/button";
 import { fmtRubles } from "@web/lib/fmt";
 import { createI18n, createTranslator, useI18n } from "@web/lib/i18n";
@@ -169,7 +174,9 @@ function Overview() {
   const success = Route.useSearch({ select: (search) => search.success });
   const donationAlertsConnected = userInfo !== null && userInfo.hasDonationAlertsConnection;
   const donateStreamConnected = userInfo !== null && userInfo.hasDonateStreamConnection;
-  const hasDonationConnection = donationAlertsConnected || donateStreamConnected;
+  const streamlabsConnected = userInfo !== null && userInfo.hasStreamlabsConnection;
+  const hasDonationConnection =
+    donationAlertsConnected || donateStreamConnected || streamlabsConnected;
   const { locale, t } = useI18n(i18n);
 
   const total = donationOverviewQ.data?.totalAmount ?? 0;
@@ -310,7 +317,7 @@ function Overview() {
                       {t("manage")} <Icons.chevronRight aria-hidden="true" size={16} />
                     </Link>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-2 sm:grid-cols-3">
                     <div className="flex min-w-0 items-center gap-2 rounded-xl bg-muted/55 p-2.5">
                       <DonationAlertsMark />
                       <span className="truncate text-xs font-semibold text-card-foreground">
@@ -324,6 +331,13 @@ function Overview() {
                         {DONATE_STREAM_NAME}
                       </span>
                       <DonateStreamConnectionStatus connected={donateStreamConnected} />
+                    </div>
+                    <div className="flex min-w-0 items-center gap-2 rounded-xl bg-muted/55 p-2.5">
+                      <StreamlabsMark />
+                      <span className="truncate text-xs font-semibold text-card-foreground">
+                        <StreamlabsNameLink />
+                      </span>
+                      <StreamlabsConnectionStatus connected={streamlabsConnected} />
                     </div>
                   </div>
                 </article>

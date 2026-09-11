@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strconv"
@@ -17,6 +18,7 @@ import (
 	"github.com/lebedev-nikita/coldbrew/internal/donationalerts"
 	"github.com/lebedev-nikita/coldbrew/internal/donations"
 	"github.com/lebedev-nikita/coldbrew/internal/observability"
+	"github.com/lebedev-nikita/coldbrew/internal/streamlabs"
 )
 
 func main() {
@@ -52,20 +54,34 @@ func run() error {
 	httpClient := &http.Client{Timeout: 30 * time.Second}
 	store := donations.NewStore(pool)
 	donationAlertsClient := donationalerts.NewClient(httpClient)
-	donationAlertsProvider := donations.NewDonationAlertsAdapter(donationAlertsClient, donationalerts.NewSource(donationAlertsClient))
-	donationAlertsApplication := donations.NewApplication(
+	donationAlertsProvider := donations.NewDonationAlertsAdapter(
+		donationAlertsClient,
+		donationalerts.NewSource(donationAlertsClient),
+		donationalerts.Config{ClientID: config.donationAlertsClientID, ClientSecret: config.donationAlertsClientSecret},
+	)
+	streamlabsClient := streamlabs.NewClient(httpClient)
+	streamlabsProvider := donations.NewStreamlabsAdapter(
+		streamlabsClient,
+		streamlabs.NewSource(streamlabsClient),
+		streamlabs.Config{
+			ClientID:     config.streamlabsClientID,
+			ClientSecret: config.streamlabsClientSecret,
+			RedirectURI:  config.streamlabsRedirectURI,
+		},
+	)
+	oauthApplication := donations.NewApplication(
 		store,
 		donationAlertsProvider,
-		donationalerts.Config{ClientID: config.clientID, ClientSecret: config.clientSecret},
+		streamlabsProvider,
 	)
 	donateStreamApplication := donations.NewDonateStreamApplication(store, donatestream.NewSource())
 	server := &http.Server{
 		Addr:              ":" + strconv.Itoa(config.port),
-		Handler:           donations.NewHTTPHandler(donationAlertsApplication, donateStreamApplication, config.serviceSecret),
+		Handler:           donations.NewHTTPHandler(oauthApplication, donateStreamApplication, config.serviceSecret),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	workerErrors := make(chan error, 2)
-	go func() { workerErrors <- donationAlertsApplication.Run(ctx) }()
+	go func() { workerErrors <- oauthApplication.Run(ctx) }()
 	go func() { workerErrors <- donateStreamApplication.Run(ctx) }()
 	serverErrors := make(chan error, 1)
 	go func() {
@@ -104,25 +120,35 @@ func run() error {
 }
 
 type serviceConfig struct {
-	databaseURL   string
-	clientID      string
-	clientSecret  string
-	serviceSecret string
-	port          int
+	databaseURL                string
+	donationAlertsClientID     string
+	donationAlertsClientSecret string
+	streamlabsClientID         string
+	streamlabsClientSecret     string
+	streamlabsRedirectURI      string
+	serviceSecret              string
+	port                       int
 }
 
 func loadConfig() (serviceConfig, error) {
+	streamlabsRedirectURI, err := streamlabsCallbackURL(os.Getenv("APP_DOMAIN"))
+	if err != nil {
+		return serviceConfig{}, err
+	}
 	config := serviceConfig{
-		databaseURL:   os.Getenv("DATABASE_URL"),
-		clientID:      os.Getenv("DONATION_ALERTS_CLIENT_ID"),
-		clientSecret:  os.Getenv("DONATION_ALERTS_CLIENT_SECRET"),
-		serviceSecret: os.Getenv("DONATIONS_SERVICE_SECRET"),
-		port:          3002,
+		databaseURL:                os.Getenv("DATABASE_URL"),
+		donationAlertsClientID:     os.Getenv("DONATION_ALERTS_CLIENT_ID"),
+		donationAlertsClientSecret: os.Getenv("DONATION_ALERTS_CLIENT_SECRET"),
+		streamlabsClientID:         os.Getenv("STREAMLABS_CLIENT_ID"),
+		streamlabsClientSecret:     os.Getenv("STREAMLABS_CLIENT_SECRET"),
+		streamlabsRedirectURI:      streamlabsRedirectURI,
+		serviceSecret:              os.Getenv("DONATIONS_SERVICE_SECRET"),
+		port:                       3002,
 	}
-	if config.databaseURL == "" || config.clientID == "" || config.clientSecret == "" {
-		return serviceConfig{}, errors.New("DATABASE_URL, DONATION_ALERTS_CLIENT_ID, and DONATION_ALERTS_CLIENT_SECRET are required")
+	if config.databaseURL == "" || config.donationAlertsClientID == "" || config.donationAlertsClientSecret == "" || config.streamlabsClientID == "" || config.streamlabsClientSecret == "" {
+		return serviceConfig{}, errors.New("DATABASE_URL and DonationAlerts and Streamlabs client credentials are required")
 	}
-	if _, err := strconv.ParseUint(config.clientID, 10, 64); err != nil {
+	if _, err := strconv.ParseUint(config.donationAlertsClientID, 10, 64); err != nil {
 		return serviceConfig{}, errors.New("DONATION_ALERTS_CLIENT_ID must be numeric")
 	}
 	if len(config.serviceSecret) < 32 {
@@ -136,4 +162,16 @@ func loadConfig() (serviceConfig, error) {
 		config.port = port
 	}
 	return config, nil
+}
+
+func streamlabsCallbackURL(appDomain string) (string, error) {
+	parsed, err := url.Parse(appDomain)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return "", errors.New("APP_DOMAIN must be an absolute HTTP(S) URL")
+	}
+	parsed.Path = "/api/integration/streamlabs/callback"
+	parsed.RawPath = ""
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+	return parsed.String(), nil
 }

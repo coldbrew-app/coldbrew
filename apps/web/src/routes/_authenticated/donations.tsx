@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { CosmicPageHeader } from "@web/components/cosmic-page-header";
 import { DonateStreamSourceBadge } from "@web/components/donate-stream";
-import { DonationAlertsSourceBadge } from "@web/components/donation-alerts";
+import { DonationSourceBadge } from "@web/components/donation-source";
 import { Icons } from "@web/components/icons";
 
 import { createI18n, createTranslator, useI18n } from "../../lib/i18n";
@@ -39,8 +39,9 @@ function DonationsLayout() {
         actions={
           <div className="flex items-center gap-2">
             <Icons.filter aria-hidden="true" size={15} />
-            <DonationAlertsSourceBadge />
+            <DonationSourceBadge source="donationalerts" />
             <DonateStreamSourceBadge />
+            <DonationSourceBadge source="streamlabs" />
           </div>
         }
       />

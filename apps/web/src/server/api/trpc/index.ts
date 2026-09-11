@@ -6,8 +6,9 @@ import {
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { donationAlertsAuthorizationURL } from "../../donationalerts.js";
+import { donationAlertsAuthorizationStartURL } from "../../donationalerts.js";
 import { store } from "../../sensors/db/index.js";
+import { streamlabsAuthorizationStartURL } from "../../streamlabs.js";
 import { authenticatedProcedure, procedure, router } from "./_config.js";
 import { chatRouter } from "./chat.js";
 import { integrationRouter } from "./integration.js";
@@ -26,9 +27,13 @@ export const appRouter = router({
     .output(
       z.object({
         donationAlerts: z.url(),
+        streamlabs: z.url(),
       }),
     )
-    .query(async () => ({ donationAlerts: await donationAlertsAuthorizationURL() })),
+    .query(() => ({
+      donationAlerts: donationAlertsAuthorizationStartURL,
+      streamlabs: streamlabsAuthorizationStartURL,
+    })),
 
   userInfo: procedure.query(async ({ ctx }) => {
     if (ctx.userId === null) {

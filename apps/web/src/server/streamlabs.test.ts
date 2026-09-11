@@ -14,30 +14,33 @@ vi.mock("./donation-integration/client.js", () => ({
   donationIntegration: { authorizationUrl, connect },
 }));
 
-import { authorizeDonationAlerts, donationAlertsAuthorizationURL } from "./donationalerts.js";
+import { authorizeStreamlabs, streamlabsAuthorizationURL } from "./streamlabs.js";
 
 afterEach(() => vi.clearAllMocks());
 
-describe("DonationAlerts OAuth", () => {
-  it("delegates authorization URL creation to the donation integration", async () => {
-    authorizationUrl.mockResolvedValue({ authorizationUrl: "https://donation.test/authorize" });
+describe("Streamlabs OAuth", () => {
+  it("passes the callback and state to the donation integration", async () => {
+    authorizationUrl.mockResolvedValue({ authorizationUrl: "https://streamlabs.test/authorize" });
 
-    await expect(donationAlertsAuthorizationURL()).resolves.toBe("https://donation.test/authorize");
+    await expect(streamlabsAuthorizationURL("oauth-state")).resolves.toBe(
+      "https://streamlabs.test/authorize",
+    );
     expect(authorizationUrl).toHaveBeenCalledWith(
-      "donationalerts",
-      "https://coldbrew.test/api/integration/donationalerts/callback",
+      "streamlabs",
+      "https://coldbrew.test/api/integration/streamlabs/callback",
+      "oauth-state",
     );
   });
 
   it("delegates the authenticated connection to the donation integration", async () => {
     connect.mockResolvedValue({ connected: true });
 
-    await expect(authorizeDonationAlerts(42, "auth-code")).resolves.toBeUndefined();
+    await expect(authorizeStreamlabs(42, "auth-code")).resolves.toBeUndefined();
     expect(connect).toHaveBeenCalledWith(
-      "donationalerts",
+      "streamlabs",
       42,
       "auth-code",
-      "https://coldbrew.test/api/integration/donationalerts/callback",
+      "https://coldbrew.test/api/integration/streamlabs/callback",
     );
   });
 });

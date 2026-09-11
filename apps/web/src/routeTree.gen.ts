@@ -33,7 +33,10 @@ import { Route as ApiTrpcSplatRouteImport } from './routes/api/trpc/$'
 import { Route as ChatOverlayTokenRouteImport } from './routes/chat.overlay.$token'
 import { Route as AuthenticatedAdminAdminIndexRouteImport } from './routes/_authenticated/_admin/admin/index'
 import { Route as AuthenticatedAdminAdminDlqRouteImport } from './routes/_authenticated/_admin/admin/dlq'
+import { Route as ApiIntegrationDonationalertsAuthorizeRouteImport } from './routes/api/integration/donationalerts/authorize'
 import { Route as ApiIntegrationDonationalertsCallbackRouteImport } from './routes/api/integration/donationalerts/callback'
+import { Route as ApiIntegrationStreamlabsAuthorizeRouteImport } from './routes/api/integration/streamlabs/authorize'
+import { Route as ApiIntegrationStreamlabsCallbackRouteImport } from './routes/api/integration/streamlabs/callback'
 
 const SplatRoute = SplatRouteImport.update({
   id: '/$',
@@ -157,10 +160,28 @@ const AuthenticatedAdminAdminDlqRoute =
     path: '/dlq',
     getParentRoute: () => AuthenticatedAdminAdminRoute,
   } as any)
+const ApiIntegrationDonationalertsAuthorizeRoute =
+  ApiIntegrationDonationalertsAuthorizeRouteImport.update({
+    id: '/api/integration/donationalerts/authorize',
+    path: '/api/integration/donationalerts/authorize',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiIntegrationDonationalertsCallbackRoute =
   ApiIntegrationDonationalertsCallbackRouteImport.update({
     id: '/api/integration/donationalerts/callback',
     path: '/api/integration/donationalerts/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiIntegrationStreamlabsAuthorizeRoute =
+  ApiIntegrationStreamlabsAuthorizeRouteImport.update({
+    id: '/api/integration/streamlabs/authorize',
+    path: '/api/integration/streamlabs/authorize',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiIntegrationStreamlabsCallbackRoute =
+  ApiIntegrationStreamlabsCallbackRouteImport.update({
+    id: '/api/integration/streamlabs/callback',
+    path: '/api/integration/streamlabs/callback',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -186,7 +207,10 @@ export interface FileRoutesByFullPath {
   '/chat/overlay/$token': typeof ChatOverlayTokenRoute
   '/donations/': typeof AuthenticatedDonationsIndexRoute
   '/admin/dlq': typeof AuthenticatedAdminAdminDlqRoute
+  '/api/integration/donationalerts/authorize': typeof ApiIntegrationDonationalertsAuthorizeRoute
   '/api/integration/donationalerts/callback': typeof ApiIntegrationDonationalertsCallbackRoute
+  '/api/integration/streamlabs/authorize': typeof ApiIntegrationStreamlabsAuthorizeRoute
+  '/api/integration/streamlabs/callback': typeof ApiIntegrationStreamlabsCallbackRoute
   '/admin/': typeof AuthenticatedAdminAdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -209,7 +233,10 @@ export interface FileRoutesByTo {
   '/chat/overlay/$token': typeof ChatOverlayTokenRoute
   '/donations': typeof AuthenticatedDonationsIndexRoute
   '/admin/dlq': typeof AuthenticatedAdminAdminDlqRoute
+  '/api/integration/donationalerts/authorize': typeof ApiIntegrationDonationalertsAuthorizeRoute
   '/api/integration/donationalerts/callback': typeof ApiIntegrationDonationalertsCallbackRoute
+  '/api/integration/streamlabs/authorize': typeof ApiIntegrationStreamlabsAuthorizeRoute
+  '/api/integration/streamlabs/callback': typeof ApiIntegrationStreamlabsCallbackRoute
   '/admin': typeof AuthenticatedAdminAdminIndexRoute
 }
 export interface FileRoutesById {
@@ -237,7 +264,10 @@ export interface FileRoutesById {
   '/chat/overlay/$token': typeof ChatOverlayTokenRoute
   '/_authenticated/donations/': typeof AuthenticatedDonationsIndexRoute
   '/_authenticated/_admin/admin/dlq': typeof AuthenticatedAdminAdminDlqRoute
+  '/api/integration/donationalerts/authorize': typeof ApiIntegrationDonationalertsAuthorizeRoute
   '/api/integration/donationalerts/callback': typeof ApiIntegrationDonationalertsCallbackRoute
+  '/api/integration/streamlabs/authorize': typeof ApiIntegrationStreamlabsAuthorizeRoute
+  '/api/integration/streamlabs/callback': typeof ApiIntegrationStreamlabsCallbackRoute
   '/_authenticated/_admin/admin/': typeof AuthenticatedAdminAdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -264,7 +294,10 @@ export interface FileRouteTypes {
     | '/chat/overlay/$token'
     | '/donations/'
     | '/admin/dlq'
+    | '/api/integration/donationalerts/authorize'
     | '/api/integration/donationalerts/callback'
+    | '/api/integration/streamlabs/authorize'
+    | '/api/integration/streamlabs/callback'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -287,7 +320,10 @@ export interface FileRouteTypes {
     | '/chat/overlay/$token'
     | '/donations'
     | '/admin/dlq'
+    | '/api/integration/donationalerts/authorize'
     | '/api/integration/donationalerts/callback'
+    | '/api/integration/streamlabs/authorize'
+    | '/api/integration/streamlabs/callback'
     | '/admin'
   id:
     | '__root__'
@@ -314,7 +350,10 @@ export interface FileRouteTypes {
     | '/chat/overlay/$token'
     | '/_authenticated/donations/'
     | '/_authenticated/_admin/admin/dlq'
+    | '/api/integration/donationalerts/authorize'
     | '/api/integration/donationalerts/callback'
+    | '/api/integration/streamlabs/authorize'
+    | '/api/integration/streamlabs/callback'
     | '/_authenticated/_admin/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -331,7 +370,10 @@ export interface RootRouteChildren {
   ApiChatSplatRoute: typeof ApiChatSplatRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
   ChatOverlayTokenRoute: typeof ChatOverlayTokenRoute
+  ApiIntegrationDonationalertsAuthorizeRoute: typeof ApiIntegrationDonationalertsAuthorizeRoute
   ApiIntegrationDonationalertsCallbackRoute: typeof ApiIntegrationDonationalertsCallbackRoute
+  ApiIntegrationStreamlabsAuthorizeRoute: typeof ApiIntegrationStreamlabsAuthorizeRoute
+  ApiIntegrationStreamlabsCallbackRoute: typeof ApiIntegrationStreamlabsCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -504,11 +546,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminAdminDlqRouteImport
       parentRoute: typeof AuthenticatedAdminAdminRoute
     }
+    '/api/integration/donationalerts/authorize': {
+      id: '/api/integration/donationalerts/authorize'
+      path: '/api/integration/donationalerts/authorize'
+      fullPath: '/api/integration/donationalerts/authorize'
+      preLoaderRoute: typeof ApiIntegrationDonationalertsAuthorizeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/integration/donationalerts/callback': {
       id: '/api/integration/donationalerts/callback'
       path: '/api/integration/donationalerts/callback'
       fullPath: '/api/integration/donationalerts/callback'
       preLoaderRoute: typeof ApiIntegrationDonationalertsCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/integration/streamlabs/authorize': {
+      id: '/api/integration/streamlabs/authorize'
+      path: '/api/integration/streamlabs/authorize'
+      fullPath: '/api/integration/streamlabs/authorize'
+      preLoaderRoute: typeof ApiIntegrationStreamlabsAuthorizeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/integration/streamlabs/callback': {
+      id: '/api/integration/streamlabs/callback'
+      path: '/api/integration/streamlabs/callback'
+      fullPath: '/api/integration/streamlabs/callback'
+      preLoaderRoute: typeof ApiIntegrationStreamlabsCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -594,8 +657,13 @@ const rootRouteChildren: RootRouteChildren = {
   ApiChatSplatRoute: ApiChatSplatRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,
   ChatOverlayTokenRoute: ChatOverlayTokenRoute,
+  ApiIntegrationDonationalertsAuthorizeRoute:
+    ApiIntegrationDonationalertsAuthorizeRoute,
   ApiIntegrationDonationalertsCallbackRoute:
     ApiIntegrationDonationalertsCallbackRoute,
+  ApiIntegrationStreamlabsAuthorizeRoute:
+    ApiIntegrationStreamlabsAuthorizeRoute,
+  ApiIntegrationStreamlabsCallbackRoute: ApiIntegrationStreamlabsCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

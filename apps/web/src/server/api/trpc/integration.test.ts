@@ -23,7 +23,7 @@ describe("integrationRouter", () => {
 
     await caller.disconnect({ source: "donationalerts" });
 
-    expect(disconnect).toHaveBeenCalledWith(42, "donationalerts");
+    expect(disconnect).toHaveBeenCalledWith("donationalerts", 42);
   });
 
   it("connects donate.stream only for the authenticated user", async () => {
@@ -37,5 +37,17 @@ describe("integrationRouter", () => {
     await caller.connectDonateStream({ widgetUrl });
 
     expect(connectDonateStream).toHaveBeenCalledWith(42, widgetUrl);
+  });
+
+  it("routes Streamlabs disconnects to the authenticated user's connection", async () => {
+    disconnect.mockResolvedValue(null);
+    const caller = integrationRouter.createCaller({
+      request: new Request("http://localhost/trpc"),
+      userId: UserIdSchema.parse(42),
+    });
+
+    await caller.disconnect({ source: "streamlabs" });
+
+    expect(disconnect).toHaveBeenCalledWith("streamlabs", 42);
   });
 });

@@ -45,7 +45,8 @@ CONSTRAINT currency_code_check CHECK ((value ~ '^[A-Z]{3}$'::text));
 
 CREATE TYPE public.donation_source AS ENUM (
   'donationalerts',
-  'donate_stream'
+  'donate_stream',
+  'streamlabs'
 );
 
 CREATE DOMAIN public.js_date AS timestamp (3) with time zone;
@@ -379,6 +380,18 @@ CREATE TABLE public.schema_migrations (
   version character varying NOT NULL
 );
 
+CREATE TABLE public.streamlabs_connection (
+  user_id            integer        NOT NULL,
+  source_user_id     text           NOT NULL,
+  access_token       text           NOT NULL,
+  refresh_token      text           NOT NULL,
+  token_version      integer        DEFAULT 1 NOT NULL,
+  history_checkpoint text,
+  connected_at       public.js_date DEFAULT now() NOT NULL,
+  updated_at         public.js_date DEFAULT now() NOT NULL,
+  CONSTRAINT streamlabs_connection_token_version_check CHECK ((token_version > 0))
+);
+
 CREATE TABLE public."user" (
   user_id                   integer               NOT NULL,
   auth_user_id              text                  NOT NULL,
@@ -580,6 +593,12 @@ ADD CONSTRAINT donationalerts_connection_source_user_id_key UNIQUE (source_user_
 ALTER TABLE ONLY public.schema_migrations
 ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
 
+ALTER TABLE ONLY public.streamlabs_connection
+ADD CONSTRAINT streamlabs_connection_pkey PRIMARY KEY (user_id);
+
+ALTER TABLE ONLY public.streamlabs_connection
+ADD CONSTRAINT streamlabs_connection_source_user_id_key UNIQUE (source_user_id);
+
 ALTER TABLE ONLY public."user"
 ADD CONSTRAINT user_auth_user_id_key UNIQUE (auth_user_id);
 
@@ -705,6 +724,9 @@ ADD CONSTRAINT donation_video_scan_donation_id_fkey FOREIGN KEY (donation_id) RE
 ALTER TABLE ONLY public.donationalerts_connection
 ADD CONSTRAINT donationalerts_connection_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
 
+ALTER TABLE ONLY public.streamlabs_connection
+ADD CONSTRAINT streamlabs_connection_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
+
 ALTER TABLE ONLY public."user"
 ADD CONSTRAINT user_auth_user_id_fkey FOREIGN KEY (auth_user_id) REFERENCES public.auth_user (id);
 
@@ -734,4 +756,5 @@ ADD CONSTRAINT video_video_queue_id_fkey FOREIGN KEY (video_queue_id) REFERENCES
 INSERT INTO public.schema_migrations (version) VALUES
 ('20260909000000'),
 ('20260909195358'),
-('20260910120000');
+('20260910120000'),
+('20260910180000');

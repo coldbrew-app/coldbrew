@@ -240,6 +240,7 @@ export class Store {
         "user".queue_currency,
         donationalerts_connection.user_id IS NOT NULL AS has_donation_alerts_connection,
         donate_stream_connection.user_id IS NOT NULL AS has_donate_stream_connection,
+        streamlabs_connection.user_id IS NOT NULL AS has_streamlabs_connection,
         jsonb_build_object(
           'enabled',           "user".public_queue_enabled,
           'showAmounts',       "user".public_queue_show_amounts,
@@ -248,6 +249,7 @@ export class Store {
       FROM "user"
       LEFT JOIN donationalerts_connection USING (user_id)
       LEFT JOIN donate_stream_connection USING (user_id)
+      LEFT JOIN streamlabs_connection USING (user_id)
       WHERE "user".user_id = ${userId}
     `;
     return UserInfoSchema.optional().parse(rows[0]) ?? null;
