@@ -16,13 +16,9 @@ type HourMinuteParts = {
 };
 
 const i18n = createI18n({
-  video: {
-    en: "Video",
-    ru: "Видео",
-  },
-  youtubeVideo: {
-    en: "YouTube video",
-    ru: "Видео YouTube",
+  openYoutubeVideo: {
+    en: "Open YouTube video in a new tab",
+    ru: "Открыть видео YouTube в новой вкладке",
   },
   videoDurationPending: {
     en: "Fetching duration",
@@ -67,28 +63,22 @@ type Props = {
   video: SharedVideo;
 };
 
-const getYoutubeEmbedUrl = (url: string, startSeconds: number, endSeconds: number | null) => {
+const getYoutubeVideoId = (url: string) => {
   const parsedUrl = rurl(url);
   const host = parsedUrl.hostname.replace(/^www\./, "").toLowerCase();
-  const videoId =
-    host === "youtu.be"
-      ? parsedUrl.pathname.split("/")[1]
-      : (parsedUrl.searchParams.get("v") ??
-        parsedUrl.pathname.match(/^\/(?:embed|shorts)\/([^/]+)/)?.[1]);
-
-  if (!videoId) {
-    return null;
-  }
-
-  return rurl(`https://www.youtube-nocookie.com/embed/${videoId}`).withSearchParams({
-    start: startSeconds,
-    ...(endSeconds === null ? {} : { end: endSeconds }),
-  }).href;
+  return host === "youtu.be"
+    ? parsedUrl.pathname.split("/")[1]
+    : (parsedUrl.searchParams.get("v") ??
+        parsedUrl.pathname.match(/^\/(?:embed|shorts)\/([^/]+)/)?.[1] ??
+        null);
 };
+
+const getYoutubeThumbnailUrl = (videoId: string) =>
+  `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`;
 
 export function SharedVideoCard({ showPriorityLabel = true, video }: Props) {
   const { locale, t } = useI18n(i18n);
-  const embedUrl = getYoutubeEmbedUrl(video.url, video.startSeconds, video.endSeconds);
+  const youtubeVideoId = getYoutubeVideoId(video.url);
   const { startTime, endTime } = getSharedVideoTimingParts(video);
   const timingLabel =
     startTime !== null
@@ -106,20 +96,29 @@ export function SharedVideoCard({ showPriorityLabel = true, video }: Props) {
   return (
     <article className="relative flex min-w-0 flex-col gap-4 px-4 py-5 sm:px-5">
       <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-start">
-        {embedUrl !== null && (
+        {youtubeVideoId !== null && (
           <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-muted sm:w-60 sm:shrink-0">
-            <iframe
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              className="size-full"
-              loading="lazy"
-              referrerPolicy="strict-origin-when-cross-origin"
-              sandbox="allow-presentation allow-same-origin allow-scripts"
-              src={embedUrl}
-              title={t("youtubeVideo")}
-            />
+            <a
+              aria-label={t("openYoutubeVideo")}
+              className="group absolute inset-0 outline-none focus-visible:ring-3 focus-visible:ring-ring/70 focus-visible:ring-inset"
+              href={video.url}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <img
+                alt=""
+                className="size-full object-cover"
+                draggable={false}
+                loading="lazy"
+                src={getYoutubeThumbnailUrl(youtubeVideoId)}
+              />
+              <span
+                aria-hidden="true"
+                className="absolute inset-0 bg-black/10 transition-colors group-hover:bg-black/20"
+              />
+            </a>
             {timingLabel !== null && (
-              <span className="absolute right-2 bottom-2 rounded bg-black/75 px-1.5 py-0.5 text-[11px] font-medium text-white">
+              <span className="pointer-events-none absolute right-2 bottom-2 rounded bg-black/75 px-1.5 py-0.5 text-[11px] font-medium text-white">
                 {timingLabel}
               </span>
             )}
@@ -129,7 +128,11 @@ export function SharedVideoCard({ showPriorityLabel = true, video }: Props) {
         <div className="flex min-w-0 grow flex-col gap-3">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="flex min-w-0 grow flex-wrap items-center gap-x-2 gap-y-1">
-              <strong className="text-sm text-card-foreground">{t("video")}</strong>
+              {video.title !== null && (
+                <h3 className="min-w-0 text-sm font-semibold wrap-anywhere text-card-foreground">
+                  {video.title}
+                </h3>
+              )}
               {showPriorityLabel && video.priorityLabel !== null && (
                 <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-secondary-foreground">
                   {video.priorityLabel}

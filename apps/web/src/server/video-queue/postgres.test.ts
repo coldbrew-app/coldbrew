@@ -32,6 +32,7 @@ const amount = MoneyAmountSchema.parse("120");
 
 function manualVideoRow() {
   return {
+    title: "A video title",
     videoId: "41",
     videoQueueId: 1,
     videoPriorityId: 3,
@@ -302,6 +303,7 @@ describe("PostgresVideoQueue", () => {
       if (query.text.includes("video.duration_seconds")) {
         return [
           {
+            title: "A video title",
             videoId: "41",
             videoPriorityId: 3,
             provider: "youtube",

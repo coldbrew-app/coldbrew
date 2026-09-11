@@ -64,7 +64,6 @@ export const Icons = {
   unban: icons.UserRoundCheck,
   sun: icons.Sun,
   video: icons.Video,
-  videoFromDonation: icons.Sparkles,
   wallet: icons.Wallet,
   warn: icons.TriangleAlert,
   watched: icons.CheckCircle2,

@@ -32,8 +32,8 @@ const i18n = createI18n({
     ru: "не рассчитана",
   },
   goToDonation: {
-    en: "Go to original donation",
-    ru: "Перейти к исходному донату",
+    en: "Open original donation",
+    ru: "Открыть исходный донат",
   },
   watched: {
     en: "Watched",
@@ -63,13 +63,13 @@ const i18n = createI18n({
     en: "Video",
     ru: "Видео",
   },
-  youtubeVideoFrom: {
-    en: ({ author }: { author: string }) => `YouTube video from ${author}`,
-    ru: ({ author }: { author: string }) => `Видео YouTube от ${author}`,
+  openYoutubeVideoFrom: {
+    en: ({ author }: { author: string }) => `Open YouTube video from ${author} in a new tab`,
+    ru: ({ author }: { author: string }) => `Открыть видео YouTube от ${author} в новой вкладке`,
   },
-  youtubeVideo: {
-    en: "YouTube video",
-    ru: "Видео YouTube",
+  openYoutubeVideo: {
+    en: "Open YouTube video in a new tab",
+    ru: "Открыть видео YouTube в новой вкладке",
   },
   videoDurationPending: {
     en: "Fetching duration",
@@ -95,10 +95,6 @@ const i18n = createI18n({
     en: ({ date }: { date: string }) => `Next attempt: ${date}`,
     ru: ({ date }: { date: string }) => `Следующая попытка: ${date}`,
   },
-  fromDonation: {
-    en: "From donation",
-    ru: "Из доната",
-  },
   addedManually: {
     en: "Added manually",
     ru: "Добавлено вручную",
@@ -113,7 +109,7 @@ const i18n = createI18n({
   },
   amount: {
     en: "Amount",
-    ru: "Сумма для очереди",
+    ru: "Сумма",
   },
   videoFromTime: {
     en: ({ startTime }: { startTime: string }) => `From ${startTime}`,
@@ -149,10 +145,6 @@ const i18n = createI18n({
     en: ({ date }: { date: string }) => `Watched ${date}`,
     ru: ({ date }: { date: string }) => `Просмотрено: ${date}`,
   },
-  bookmarkedOn: {
-    en: ({ date }: { date: string }) => `Bookmarked ${date}`,
-    ru: ({ date }: { date: string }) => `В закладках: ${date}`,
-  },
 });
 
 type Props = {
@@ -174,24 +166,8 @@ type VideoFormValues = VideoTimingValues & {
   amount: string;
 };
 
-const getYoutubeEmbedUrl = (url: string, startSeconds: number, endSeconds: number | null) => {
-  const parsedUrl = rurl(url);
-  const host = parsedUrl.hostname.replace(/^www\./, "").toLowerCase();
-  const videoId =
-    host === "youtu.be"
-      ? parsedUrl.pathname.split("/")[1]
-      : (parsedUrl.searchParams.get("v") ??
-        parsedUrl.pathname.match(/^\/(?:embed|shorts)\/([^/]+)/)?.[1]);
-
-  if (!videoId) {
-    return null;
-  }
-
-  return rurl(`https://www.youtube-nocookie.com/embed/${videoId}`).withSearchParams({
-    start: startSeconds,
-    ...(endSeconds === null ? {} : { end: endSeconds }),
-  }).href;
-};
+const getYoutubeThumbnailUrl = (videoId: string) =>
+  `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`;
 
 const normalizeUrl = (url: string) => {
   const parsedUrl = rurl(url.startsWith("www.") ? `https://${url}` : url);
@@ -216,7 +192,6 @@ export default function VideoCard({
   const messageChunks = useTextWithLinks(
     video.source === "donation" ? (video.donation.message ?? "") : "",
   );
-  const embedUrl = getYoutubeEmbedUrl(video.url, video.startSeconds, video.endSeconds);
   const timingLabel =
     video.endSeconds === null
       ? t("videoFromTime", { startTime: formatVideoTime(video.startSeconds) })
@@ -227,7 +202,6 @@ export default function VideoCard({
       : getRoundedWatchDurationParts(getWatchDurationSeconds(video.startSeconds, video.endSeconds));
   const isWatched = video.watchedAt !== null;
   const isBookmarked = video.bookmarkedAt !== null;
-  const SourceIcon = video.source === "donation" ? Icons.videoFromDonation : Icons.manualVideo;
   const amountErrorId = `video-amount-error-${video.videoId}`;
   const [isEditing, setIsEditing] = useState(false);
   const form = useForm<VideoFormValues>({
@@ -279,108 +253,138 @@ export default function VideoCard({
   };
 
   return (
-    <article className="relative flex min-w-0 flex-col gap-4 px-4 py-5 sm:px-5">
-      <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-start">
-        <div className="flex flex-col gap-3 sm:shrink-0">
-          {embedUrl !== null && (
-            <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-muted sm:w-60">
-              <iframe
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="size-full"
+    <article className="@container relative min-w-0 px-4 py-4 sm:px-5">
+      <div className="grid min-w-0 items-start gap-5 @3xl:grid-cols-[clamp(19rem,33%,25rem)_minmax(0,1fr)]">
+        <div className="flex min-w-0 flex-col gap-3">
+          <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-muted">
+            <a
+              aria-label={
+                video.source === "donation"
+                  ? t("openYoutubeVideoFrom", { author })
+                  : t("openYoutubeVideo")
+              }
+              className="group absolute inset-0 outline-none focus-visible:ring-3 focus-visible:ring-ring/70 focus-visible:ring-inset"
+              href={video.url}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <img
+                alt=""
+                className="size-full object-cover"
+                draggable={false}
                 loading="lazy"
-                referrerPolicy="strict-origin-when-cross-origin"
-                sandbox="allow-presentation allow-same-origin allow-scripts"
-                src={embedUrl}
-                title={
-                  video.source === "donation"
-                    ? t("youtubeVideoFrom", { author })
-                    : t("youtubeVideo")
-                }
+                src={getYoutubeThumbnailUrl(video.providerVideoId)}
               />
-              <span className="absolute right-2 bottom-2 rounded bg-black/75 px-1.5 py-0.5 text-[11px] font-medium text-white">
-                {timingLabel}
-              </span>
+              <span
+                aria-hidden="true"
+                className="absolute inset-0 bg-black/10 transition-colors group-hover:bg-black/20"
+              />
+            </a>
+            <span className="pointer-events-none absolute right-2 bottom-2 rounded bg-black/75 px-1.5 py-0.5 text-[11px] font-medium text-white tabular-nums">
+              {timingLabel}
+            </span>
+          </div>
+
+          {(onStatusChange || queueControl) && (
+            <div className="flex flex-col items-stretch gap-2">
+              {onStatusChange && (
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    aria-label={t(isWatched ? "markVideoNotWatched" : "markVideoWatched")}
+                    aria-pressed={isWatched}
+                    className={clsx(
+                      isWatched &&
+                        "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-950 dark:text-green-300 dark:hover:bg-green-900",
+                    )}
+                    disabled={isUpdating}
+                    onClick={() => onStatusChange({ watchedAt: isWatched ? null : new Date() })}
+                    size="sm"
+                    variant={isWatched ? "secondary" : "ghost"}
+                  >
+                    {isWatched ? (
+                      <Icons.watched aria-hidden="true" />
+                    ) : (
+                      <Icons.notWatched aria-hidden="true" />
+                    )}
+                    {t("watched")}
+                  </Button>
+                  <Button
+                    aria-label={t(isBookmarked ? "removeVideoBookmark" : "bookmarkVideo")}
+                    aria-pressed={isBookmarked}
+                    disabled={isUpdating}
+                    onClick={() =>
+                      onStatusChange({
+                        bookmarkedAt: isBookmarked ? null : new Date(),
+                      })
+                    }
+                    size="sm"
+                    variant={isBookmarked ? "secondary" : "ghost"}
+                  >
+                    <Icons.bookmark
+                      aria-hidden="true"
+                      fill={isBookmarked ? "currentColor" : "none"}
+                    />
+                    {t("bookmarked")}
+                  </Button>
+                </div>
+              )}
+              {queueControl}
+            </div>
+          )}
+
+          {video.watchedAt && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <time
+                dateTime={video.watchedAt.toISOString()}
+                title={fmtDate(video.watchedAt, locale)}
+              >
+                {t("watchedOn", { date: fmtListDate(video.watchedAt, locale) })}
+              </time>
             </div>
           )}
         </div>
 
-        <div className="flex min-w-0 grow flex-col gap-3">
-          {queueControl}
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="flex min-w-0 grow items-center gap-3">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <strong className="text-sm text-card-foreground">{author}</strong>
-                {showSource && (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background/70 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                    <SourceIcon aria-hidden="true" size={12} />
-                    {t(video.source === "donation" ? "fromDonation" : "addedManually")}
+        <div className="flex min-w-0 flex-col gap-3 @3xl:min-h-full @3xl:border-l @3xl:border-border/60 @3xl:pl-5">
+          <div className="flex min-w-0 flex-wrap items-start justify-between gap-x-4 gap-y-2">
+            <div className="flex min-w-0 grow flex-wrap items-center gap-x-1.5 gap-y-1">
+              <span className="text-sm font-medium wrap-anywhere text-card-foreground">
+                {author}
+              </span>
+              {showSource && video.source === "manual" && (
+                <>
+                  <span aria-hidden="true" className="text-xs text-muted-foreground/60">
+                    ·
                   </span>
-                )}
-                {showPriorityLabel && (
-                  <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-secondary-foreground">
-                    {video.priorityLabel ?? t("videoUnassigned")}
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    <Icons.manualVideo aria-hidden="true" size={12} />
+                    {t("addedManually")}
                   </span>
-                )}
-              </div>
+                </>
+              )}
+              <span aria-hidden="true" className="text-xs text-muted-foreground/60">
+                ·
+              </span>
               <time
-                className="block text-xs text-muted-foreground"
+                className="text-xs whitespace-nowrap text-muted-foreground tabular-nums"
                 dateTime={video.createdAt.toISOString()}
                 title={fmtDate(video.createdAt, locale)}
               >
                 {fmtListDate(video.createdAt, locale)}
               </time>
             </div>
-
-            <div className="grid shrink-0 grid-cols-[auto_auto] items-center justify-items-end gap-x-2 gap-y-0.5">
-              <div className="contents">
-                <strong className="col-start-1 row-start-1 block text-sm text-card-foreground">
-                  {video.queueAmount === null
-                    ? t("queueAmountUnavailable")
-                    : fmtAmount(
-                        video.queueAmount,
-                        CurrencyCodeSchema.parse(video.queueCurrency),
-                        locale,
-                      )}
-                </strong>
-                {!isEditing && (
-                  <div className="contents text-xs text-muted-foreground">
-                    <span className="col-start-1 row-start-2">
-                      {watchDuration === null
-                        ? t(
-                            video.metadataUnavailable
-                              ? "videoDurationUnavailable"
-                              : "videoDurationPending",
-                          )
-                        : t("watchDuration", watchDuration)}
-                    </span>
-                    {video.durationSeconds === null && onRetryMetadata && (
-                      <Tooltip>
-                        <TooltipTrigger
-                          render={
-                            <Button
-                              aria-label={t("videoRetryMetadata")}
-                              className="col-start-2 row-start-2"
-                              disabled={isUpdating}
-                              onClick={onRetryMetadata}
-                              size="icon-xs"
-                              type="button"
-                              variant="ghost"
-                            >
-                              <Icons.retry aria-hidden="true" />
-                            </Button>
-                          }
-                        />
-                        <TooltipContent>{t("videoRetryMetadata")}</TooltipContent>
-                      </Tooltip>
+            <div className="flex shrink-0 items-center gap-1">
+              <strong className="text-base font-semibold text-card-foreground tabular-nums">
+                {video.queueAmount === null
+                  ? t("queueAmountUnavailable")
+                  : fmtAmount(
+                      video.queueAmount,
+                      CurrencyCodeSchema.parse(video.queueCurrency),
+                      locale,
                     )}
-                  </div>
-                )}
-              </div>
+              </strong>
               {onUpdate && !isEditing && (
                 <Button
                   aria-label={t("editVideoDetails")}
-                  className="col-start-2 row-start-1"
                   disabled={isUpdating}
                   onClick={startEditing}
                   size="icon-xs"
@@ -392,13 +396,59 @@ export default function VideoCard({
               )}
             </div>
           </div>
+
+          <div className="flex min-w-0 flex-col gap-2">
+            {video.title !== null && (
+              <h3 className="font-heading text-lg leading-snug font-semibold wrap-anywhere text-card-foreground">
+                {video.title}
+              </h3>
+            )}
+            <div className="flex min-w-0 flex-nowrap items-center gap-1.5">
+              {showPriorityLabel && (
+                <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap text-secondary-foreground">
+                  {video.priorityLabel ?? t("videoUnassigned")}
+                </span>
+              )}
+              {!isEditing && (
+                <span className="text-xs whitespace-nowrap text-muted-foreground">
+                  {watchDuration === null
+                    ? t(
+                        video.metadataUnavailable
+                          ? "videoDurationUnavailable"
+                          : "videoDurationPending",
+                      )
+                    : t("watchDuration", watchDuration)}
+                </span>
+              )}
+              {video.durationSeconds === null && onRetryMetadata && !isEditing && (
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        aria-label={t("videoRetryMetadata")}
+                        disabled={isUpdating}
+                        onClick={onRetryMetadata}
+                        size="icon-xs"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Icons.retry aria-hidden="true" />
+                      </Button>
+                    }
+                  />
+                  <TooltipContent>{t("videoRetryMetadata")}</TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          </div>
+
           {isEditing && (
             <FormProvider {...form}>
               <form
                 className="flex flex-col gap-3 rounded-lg border border-border bg-muted/60 p-3"
                 onSubmit={(event) => void handleSubmit(save)(event)}
               >
-                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+                <div className="grid gap-3 @4xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
                   <Field data-invalid={Boolean(formState.errors.amount)}>
                     <FieldLabel htmlFor={`video-amount-${video.videoId}`}>{t("amount")}</FieldLabel>
                     <Input
@@ -445,59 +495,7 @@ export default function VideoCard({
               </form>
             </FormProvider>
           )}
-          {video.source === "donation" ? (
-            <p className="min-w-0 grow text-xs leading-relaxed text-muted-foreground sm:py-1">
-              {messageChunks.map((chunk, index) => {
-                if (chunk.type === "string") {
-                  return <span key={index}>{chunk.value}</span>;
-                }
 
-                const isVideoLink = normalizeUrl(chunk.href) === normalizeUrl(video.url);
-
-                return (
-                  <a
-                    className={
-                      isVideoLink
-                        ? "rounded bg-secondary px-1 py-0.5 font-semibold text-secondary-foreground hover:bg-accent"
-                        : "font-semibold text-primary hover:underline"
-                    }
-                    href={chunk.href}
-                    key={index}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    {chunk.text}
-                  </a>
-                );
-              })}
-            </p>
-          ) : (
-            <a
-              className="inline-flex w-fit items-center gap-1 text-xs font-semibold text-primary hover:underline"
-              href={video.url}
-              rel="noreferrer"
-              target="_blank"
-            >
-              <Icons.externalLink aria-hidden="true" size={13} />
-              {t("openOnYoutube")}
-            </a>
-          )}
-          {video.source === "donation" && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-              <Link
-                className="rounded font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
-                to="/donations"
-                search={{
-                  donationId: video.donation.donationId.toString(),
-                  page: 1,
-                  period: "all",
-                  query: "",
-                }}
-              >
-                {t("goToDonation")}
-              </Link>
-            </div>
-          )}
           {video.durationSeconds !== null && video.startSeconds >= video.durationSeconds && (
             <p className="text-xs text-destructive">{t("videoInvalidRange")}</p>
           )}
@@ -508,67 +506,58 @@ export default function VideoCard({
               })}
             </span>
           )}
-          <div className="flex flex-wrap items-center gap-2">
-            {onStatusChange && (
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  aria-label={t(isWatched ? "markVideoNotWatched" : "markVideoWatched")}
-                  className={clsx(isWatched && "bg-green-100 text-green-700 hover:bg-green-200")}
-                  disabled={isUpdating}
-                  onClick={() => onStatusChange({ watchedAt: isWatched ? null : new Date() })}
-                  size="sm"
-                  variant={isWatched ? "secondary" : "outline"}
-                >
-                  {isWatched ? (
-                    <Icons.watched aria-hidden="true" />
-                  ) : (
-                    <Icons.notWatched aria-hidden="true" />
-                  )}
-                  {t("watched")}
-                </Button>
-                <Button
-                  aria-label={t(isBookmarked ? "removeVideoBookmark" : "bookmarkVideo")}
-                  disabled={isUpdating}
-                  onClick={() =>
-                    onStatusChange({
-                      bookmarkedAt: isBookmarked ? null : new Date(),
-                    })
-                  }
-                  size="sm"
-                  variant={isBookmarked ? "secondary" : "outline"}
-                >
-                  <Icons.bookmark
-                    aria-hidden="true"
-                    fill={isBookmarked ? "currentColor" : "none"}
-                  />
-                  {t("bookmarked")}
-                </Button>
-              </div>
-            )}
 
-            {(video.watchedAt || video.bookmarkedAt) && (
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                {video.watchedAt && (
-                  <time
-                    dateTime={video.watchedAt.toISOString()}
-                    title={fmtDate(video.watchedAt, locale)}
-                  >
-                    {t("watchedOn", { date: fmtListDate(video.watchedAt, locale) })}
-                  </time>
-                )}
-                {video.bookmarkedAt && (
-                  <time
-                    dateTime={video.bookmarkedAt.toISOString()}
-                    title={fmtDate(video.bookmarkedAt, locale)}
-                  >
-                    {t("bookmarkedOn", {
-                      date: fmtListDate(video.bookmarkedAt, locale),
-                    })}
-                  </time>
-                )}
-              </div>
-            )}
-          </div>
+          {video.source === "donation" ? (
+            <>
+              <p className="min-w-0 text-sm leading-relaxed wrap-anywhere text-card-foreground">
+                {messageChunks.map((chunk, index) => {
+                  if (chunk.type === "string") {
+                    return <span key={index}>{chunk.value}</span>;
+                  }
+
+                  const isVideoLink = normalizeUrl(chunk.href) === normalizeUrl(video.url);
+
+                  return (
+                    <a
+                      className={
+                        isVideoLink
+                          ? "rounded-sm font-medium text-primary underline decoration-primary/30 underline-offset-4 hover:decoration-primary focus-visible:outline-2 focus-visible:outline-ring"
+                          : "rounded-sm text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                      }
+                      href={chunk.href}
+                      key={index}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      {chunk.text}
+                    </a>
+                  );
+                })}
+              </p>
+              <Link
+                className="inline-flex w-fit items-center gap-1 rounded text-xs text-muted-foreground underline-offset-4 hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                to="/donations"
+                search={{
+                  donationId: video.donation.donationId.toString(),
+                  page: 1,
+                  period: "all",
+                  query: "",
+                }}
+              >
+                {t("goToDonation")}
+              </Link>
+            </>
+          ) : (
+            <a
+              className="inline-flex w-fit items-center gap-1 rounded-sm text-xs text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+              href={video.url}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <Icons.externalLink aria-hidden="true" size={13} />
+              {t("openOnYoutube")}
+            </a>
+          )}
         </div>
       </div>
     </article>
