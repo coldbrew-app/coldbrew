@@ -1,6 +1,5 @@
 import {
   donationSourceDetails,
-  DonationSourceBadge,
   DonationSourceConnectionStatus,
   DonationSourceMark,
   DonationSourceNameLink,
@@ -23,8 +22,4 @@ export function DonateStreamNameLink({ className }: { className?: string }) {
 
 export function DonateStreamConnectionStatus({ connected }: { connected: boolean }) {
   return <DonationSourceConnectionStatus connected={connected} />;
-}
-
-export function DonateStreamSourceBadge({ className }: { className?: string }) {
-  return <DonationSourceBadge className={className} source="donate_stream" />;
 }

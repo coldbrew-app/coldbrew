@@ -18,6 +18,9 @@ colors:
   sidebar: "#251c20"
   sidebar-primary: "#edbf88"
   milky-paper: "#fff8ed"
+  page-header-left: "#4b3742"
+  page-header-right: "#483139"
+  page-header-glow: "#78608e"
   cosmic-blue: "#4056e8"
   comet-coral: "#ff647c"
   solar-mango: "#ffbd3e"
@@ -214,10 +217,13 @@ geometric stars connect artwork across surfaces.
   ghost button with `aria-expanded` and `aria-controls`. Keep frequent status
   filters outside the collapsed region.
 - **Panel headers:** `CosmicPageHeader` is the compact, non-shrinking header inside
-  a full-height working panel. It places a 20 px cream Bitter title and a 12 px warm
-  description on `cosmic-page-scene`, with restrained orbit or bean art and optional
-  actions. Use 12–16 px vertical padding, without a minimum banner height. The outer
-  panel owns rounded corners and clips its internal scrollbar.
+  a full-height working panel. It places only a 20 px cream Bitter title on the
+  shared lighter-plum `cosmic-page-scene`, with restrained orbit or bean art and
+  optional actions. Do not add decorative eyebrows or descriptions beneath page
+  titles. Use 10 px vertical padding, without a minimum banner height. The outer
+  panel owns rounded corners and clips its internal scrollbar. Multi-panel tools,
+  such as Multichat, reuse the same component with level-two headings for each
+  independently named panel.
 - **Landing artwork:** `CosmicArt` combines the existing `cosmic-cup.png` and
   `cosmic-cup@2x.png` rasters with geometric SVG orbits. Reuse this composition;
   it is distinct from the product mark in `assets/logo.png`.

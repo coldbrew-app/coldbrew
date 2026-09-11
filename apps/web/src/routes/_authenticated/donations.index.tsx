@@ -1,5 +1,8 @@
+import { DonationSourceSchema } from "@coldbrew/packages/schemas.js";
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { CosmicPageHeader } from "@web/components/cosmic-page-header";
 import DonationCard from "@web/components/donation-card";
+import { donationSourceDetails } from "@web/components/donation-source";
 import { EmptyState } from "@web/components/empty-state";
 import { Icons } from "@web/components/icons";
 import { DonationListSkeleton } from "@web/components/loading-skeletons";
@@ -15,6 +18,10 @@ import { useDonationPageQ } from "../../hooks/api";
 import { createI18n, useI18n } from "../../lib/i18n";
 
 const i18n = createI18n({
+  donations: {
+    en: "Donations",
+    ru: "Донаты",
+  },
   selectedDonation: {
     en: "Selected donation",
     ru: "Выбранный донат",
@@ -38,6 +45,14 @@ const i18n = createI18n({
   dateRange: {
     en: "Date range",
     ru: "Период",
+  },
+  donationSource: {
+    en: "Donation source",
+    ru: "Источник доната",
+  },
+  allSources: {
+    en: "All sources",
+    ru: "Все источники",
   },
   allTime: {
     en: "All time",
@@ -74,6 +89,7 @@ const i18n = createI18n({
 });
 
 const DonationPeriodSchema = z.enum(["all", "week", "month"]);
+const DonationSourceFilterSchema = DonationSourceSchema.optional().catch(undefined);
 
 export const Route = createFileRoute("/_authenticated/donations/")({
   component: DonationsIndex,
@@ -86,6 +102,7 @@ export const Route = createFileRoute("/_authenticated/donations/")({
     page: z.coerce.number().int().positive().catch(1).default(1),
     period: DonationPeriodSchema.catch("all").default("all"),
     query: z.string().max(200).catch("").default(""),
+    source: DonationSourceFilterSchema,
   }),
   loaderDeps: ({ search }) => search,
   loader: async ({ context, deps }) => {
@@ -134,19 +151,8 @@ function DonationsIndex() {
 
   return (
     <>
-      {search.donationId && (
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-secondary/40 px-4 py-2">
-          <p className="text-sm">{t("selectedDonation")}</p>
-          <Link
-            className={buttonVariants({ variant: "default", size: "default" })}
-            to="/donations"
-            search={{ page: 1, period: "all", query: "" }}
-          >
-            {t("showAllDonations")}
-          </Link>
-        </div>
-      )}
-      <div className="flex shrink-0 flex-col gap-2 border-b border-border p-4 sm:flex-row sm:p-5">
+      <CosmicPageHeader title={t("donations")} variant="signal" />
+      <div className="flex shrink-0 flex-col gap-2 border-b border-border bg-card px-4 py-3 sm:flex-row sm:px-5">
         <label className="relative min-w-0 grow">
           <Icons.search
             aria-hidden="true"
@@ -155,16 +161,45 @@ function DonationsIndex() {
           />
           <span className="sr-only">{t("searchDonations")}</span>
           <Input
-            className="h-9 bg-background/60 pr-3 pl-9 text-xs md:text-xs"
+            className="h-9 bg-background/70 pr-3 pl-9 text-xs md:text-xs"
             onChange={(event) => setQuery(event.target.value)}
             placeholder={t("searchBySupporter")}
             value={query}
           />
         </label>
         <label className="relative w-full sm:w-auto">
+          <span className="sr-only">{t("donationSource")}</span>
+          <select
+            className="h-9 w-full appearance-none rounded-lg border border-input bg-background/70 py-0 pr-8 pl-3 text-xs font-semibold text-foreground outline-none focus:border-ring sm:w-40"
+            onChange={(event) =>
+              void navigate({
+                search: (previous) => ({
+                  ...previous,
+                  donationId: undefined,
+                  page: 1,
+                  source: DonationSourceFilterSchema.parse(event.target.value || undefined),
+                }),
+              })
+            }
+            value={search.source ?? ""}
+          >
+            <option value="">{t("allSources")}</option>
+            {DonationSourceSchema.options.map((source) => (
+              <option key={source} value={source}>
+                {donationSourceDetails(source).name}
+              </option>
+            ))}
+          </select>
+          <Icons.chevronDown
+            aria-hidden="true"
+            size={15}
+            className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-muted-foreground"
+          />
+        </label>
+        <label className="relative w-full sm:w-auto">
           <span className="sr-only">{t("dateRange")}</span>
           <select
-            className="h-9 w-full appearance-none rounded-lg border border-input bg-background/60 py-0 pr-8 pl-3 text-xs font-semibold text-foreground outline-none focus:border-ring sm:w-36"
+            className="h-9 w-full appearance-none rounded-lg border border-input bg-background/70 py-0 pr-8 pl-3 text-xs font-semibold text-foreground outline-none focus:border-ring sm:w-36"
             onChange={(event) =>
               void navigate({
                 search: (previous) => ({
@@ -188,6 +223,18 @@ function DonationsIndex() {
           />
         </label>
       </div>
+      {search.donationId && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-secondary/40 px-4 py-2">
+          <p className="text-sm">{t("selectedDonation")}</p>
+          <Link
+            className={buttonVariants({ variant: "default", size: "default" })}
+            to="/donations"
+            search={{ page: 1, period: "all", query: "", source: undefined }}
+          >
+            {t("showAllDonations")}
+          </Link>
+        </div>
+      )}
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {donationsQ.isLoading ? (
@@ -215,7 +262,11 @@ function DonationsIndex() {
             icon={Icons.wallet}
           />
         ) : (
-          <EmptyDonations query={search.query} />
+          <EmptyDonations
+            hasFilters={
+              search.query !== "" || search.period !== "all" || search.source !== undefined
+            }
+          />
         )}
       </div>
       {donationsQ.data && !donationsQ.isError && donationsQ.data.items.length > 0 && (
@@ -233,14 +284,14 @@ function DonationsIndex() {
   );
 }
 
-function EmptyDonations({ query }: { query: string }) {
+function EmptyDonations({ hasFilters }: { hasFilters: boolean }) {
   const { t } = useI18n(i18n);
   return (
     <EmptyState
-      description={query ? t("tryAnotherSearch") : t("donationsWillAppear")}
+      description={hasFilters ? t("tryAnotherSearch") : t("donationsWillAppear")}
       headingLevel={3}
       icon={Icons.wallet}
-      title={t(query ? "noMatchingDonations" : "noDonationsYet")}
+      title={t(hasFilters ? "noMatchingDonations" : "noDonationsYet")}
     />
   );
 }

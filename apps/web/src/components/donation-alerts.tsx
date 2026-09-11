@@ -1,6 +1,5 @@
 import {
   donationSourceDetails,
-  DonationSourceBadge,
   DonationSourceConnectionStatus,
   DonationSourceMark,
   DonationSourceNameLink,
@@ -23,8 +22,4 @@ export function DonationAlertsNameLink({ className }: { className?: string }) {
 
 export function DonationAlertsConnectionStatus({ connected }: { connected: boolean }) {
   return <DonationSourceConnectionStatus connected={connected} />;
-}
-
-export function DonationAlertsSourceBadge({ className }: { className?: string }) {
-  return <DonationSourceBadge className={className} source="donationalerts" />;
 }

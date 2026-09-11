@@ -10,14 +10,6 @@ const i18n = createI18n({
     en: "Settings",
     ru: "Настройки",
   },
-  queueOrbit: {
-    en: "The Milky Way queue",
-    ru: "Управление очередью",
-  },
-  settingsDescription: {
-    en: "Tune the rules that keep your stream queue moving.",
-    ru: "Настройте публичный доступ и валюту очереди.",
-  },
 });
 
 export const Route = createFileRoute("/_authenticated/settings")({
@@ -32,12 +24,7 @@ function Settings() {
 
   return (
     <section className="cosmic-panel flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
-      <CosmicPageHeader
-        description={t("settingsDescription")}
-        eyebrow={t("queueOrbit")}
-        title={t("settings")}
-        variant="beans"
-      />
+      <CosmicPageHeader title={t("settings")} variant="beans" />
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-4 sm:p-5">
         <PublicQueueSettingsEditor />
         <QueueCurrencyEditor />

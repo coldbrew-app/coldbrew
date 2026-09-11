@@ -51,10 +51,6 @@ const i18n = createI18n({
     en: "Couldn't move the video. Please try again.",
     ru: "Не удалось перенести видео. Попробуйте ещё раз.",
   },
-  videosForStream: {
-    en: "Videos ready to play on stream.",
-    ru: "Видео, которые можно показать на стриме.",
-  },
   all: {
     en: "All",
     ru: "Все",
@@ -234,7 +230,6 @@ function VideoQueue() {
   return (
     <section className="cosmic-panel flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
       <CosmicPageHeader
-        description={t("videosForStream")}
         title={t("videoQueue")}
         actions={
           <Button

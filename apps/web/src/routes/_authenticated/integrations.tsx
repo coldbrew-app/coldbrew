@@ -20,11 +20,6 @@ import { createI18n, createTranslator, useI18n } from "../../lib/i18n";
 
 const i18n = createI18n({
   integrations: { en: "Integrations", ru: "Интеграции" },
-  integrationsEyebrow: { en: "Donation sources", ru: "Источники донатов" },
-  integrationsDescription: {
-    en: "Connect services to keep all your donations in one place.",
-    ru: "Подключите сервисы, чтобы собирать все донаты в одном месте.",
-  },
   disconnecting: { en: "Disconnecting…", ru: "Отключаем…" },
   disconnect: { en: "Disconnect", ru: "Отключить" },
   connect: { en: "Connect", ru: "Подключить" },
@@ -85,12 +80,7 @@ function RouteComponent() {
 
   return (
     <section className="cosmic-panel flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
-      <CosmicPageHeader
-        description={t("integrationsDescription")}
-        eyebrow={t("integrationsEyebrow")}
-        title={t("integrations")}
-        variant="beans"
-      />
+      <CosmicPageHeader title={t("integrations")} variant="beans" />
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-3 sm:p-4">
         {search.success !== undefined && search.source !== undefined && (
           <div
