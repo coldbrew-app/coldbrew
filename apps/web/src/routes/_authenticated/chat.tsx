@@ -160,10 +160,6 @@ const copy = createI18n({
     en: "Disable source",
     ru: "Выключить источник",
   },
-  connect: {
-    en: "Connect",
-    ru: "Подключить",
-  },
   unavailable: {
     en: "Unavailable",
     ru: "Недоступно",
@@ -659,13 +655,13 @@ function ChatPage() {
                     <ProviderMark provider={provider.provider} />
                     <span className="flex min-w-0 grow flex-col items-start">
                       <span>{meta.label}</span>
-                      <span className="max-w-full truncate text-[10px] font-normal text-muted-foreground">
-                        {provider.access === "read_only"
-                          ? copyT("readOnly")
-                          : connectable
-                            ? copyT("connect")
+                      {provider.access !== "full" && (
+                        <span className="max-w-full truncate text-[10px] font-normal text-muted-foreground">
+                          {provider.access === "read_only"
+                            ? copyT("readOnly")
                             : copyT("unavailable")}
-                      </span>
+                        </span>
+                      )}
                     </span>
                     <Icons.addSource aria-hidden="true" />
                   </Button>
