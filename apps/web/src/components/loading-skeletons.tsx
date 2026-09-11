@@ -39,14 +39,14 @@ export function VideoListSkeleton({
         <article className="@container px-4 py-4 sm:px-5" key={index}>
           {withActions ? (
             <div className="grid min-w-0 items-start gap-5 @3xl:grid-cols-[clamp(19rem,33%,25rem)_minmax(0,1fr)]">
-              <div className="flex min-w-0 flex-col gap-3">
+              <div className="flex min-w-0 flex-col gap-2">
                 <Skeleton className="aspect-video w-full rounded-lg" />
                 <div className="flex gap-2">
-                  <Skeleton className="h-7 w-24 rounded-md" />
-                  <Skeleton className="h-7 w-24 rounded-md" />
+                  <Skeleton className="h-8 w-24 rounded-md" />
+                  <Skeleton className="h-8 w-24 rounded-md" />
                 </div>
               </div>
-              <div className="flex min-w-0 flex-col gap-3 @3xl:min-h-full @3xl:border-l @3xl:border-border/60 @3xl:pl-5">
+              <div className="flex min-w-0 flex-col gap-3 @3xl:min-h-full">
                 <div className="flex min-w-0 items-start justify-between gap-4">
                   <div className="flex min-w-0 items-center gap-2">
                     <Skeleton className="h-3 w-24" />

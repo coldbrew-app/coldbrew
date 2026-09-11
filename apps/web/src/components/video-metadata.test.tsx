@@ -43,20 +43,43 @@ describe("videos awaiting metadata", () => {
       bookmarkedAt: null,
       queueAmount: "10.00",
       queueCurrency: "RUB",
-      metadataRetryAt: null,
+      metadataRetryAt: "2026-09-08T09:02:00Z",
     });
     const html = renderToStaticMarkup(<VideoCard video={video} onRetryMetadata={() => {}} />);
     expect(html).toContain("Длительность уточняется");
     expect(html).toContain("Без приоритета");
     expect(html).toContain("Повторить получение данных");
     expect(html).toContain('aria-label="Повторить получение данных"');
+    expect(html).toContain("Следующая попытка:");
     expect(html).toContain('aria-label="Открыть видео YouTube в новой вкладке"');
     expect(html).toContain('target="_blank"');
     expect(html).toContain("i.ytimg.com/vi/_JXL6Fn99l8/hqdefault.jpg");
     expect(html).toContain("Кто останется нужным в мире ИИ?");
+    expect(html).not.toContain("Открыть на YouTube");
     expect(html).not.toContain("youtube-nocookie.com/embed");
     expect(html).not.toContain("end=null");
     expect(html).not.toContain("NaN");
+  });
+
+  it("renders a manual source as text without a leading icon", () => {
+    const video = VideoSchema.parse({
+      ...base,
+      providerVideoId: "_JXL6Fn99l8",
+      source: "manual",
+      donation: null,
+      bookmarkedAt: null,
+      queueAmount: "10.00",
+      queueCurrency: "RUB",
+      metadataRetryAt: null,
+    });
+
+    const html = renderToStaticMarkup(<VideoCard showSource video={video} />);
+
+    expect(html).toContain("Добавлено вручную");
+    expect(html).not.toContain("lucide-user-round-plus");
+    expect(html.indexOf("2026-09-08T09:00:00.000Z")).toBeLessThan(
+      html.indexOf("Добавлено вручную"),
+    );
   });
 
   it("renders unavailable public videos without retry controls", () => {
@@ -70,8 +93,51 @@ describe("videos awaiting metadata", () => {
     expect(html).toContain("Не удалось получить длительность");
     expect(html).toContain('aria-label="Открыть видео YouTube в новой вкладке"');
     expect(html).toContain("i.ytimg.com/vi/_JXL6Fn99l8/hqdefault.jpg");
+    expect(html).not.toContain("Открыть на YouTube");
     expect(html).not.toContain("youtube-nocookie.com/embed");
     expect(html).not.toContain("Повторить получение данных");
     expect(html).not.toContain("end=null");
+  });
+});
+
+describe("video card actions", () => {
+  it("labels the requested video segment as ordered", () => {
+    const video = VideoSchema.parse({
+      ...base,
+      providerVideoId: "_JXL6Fn99l8",
+      source: "manual",
+      donation: null,
+      bookmarkedAt: null,
+      endSeconds: 120,
+      durationSeconds: 300,
+      queueAmount: "10.00",
+      queueCurrency: "RUB",
+      metadataRetryAt: null,
+    });
+
+    const html = renderToStaticMarkup(<VideoCard video={video} />);
+
+    expect(html).toContain("Заказано: 2 мин");
+    expect(html).not.toContain("Время просмотра");
+  });
+
+  it.each([
+    { bookmarkedAt: null, label: "В закладки" },
+    { bookmarkedAt: "2026-09-09T09:00:00Z", label: "В закладках" },
+  ])("shows '$label' for the bookmark state", ({ bookmarkedAt, label }) => {
+    const video = VideoSchema.parse({
+      ...base,
+      providerVideoId: "_JXL6Fn99l8",
+      source: "manual",
+      donation: null,
+      bookmarkedAt,
+      queueAmount: "10.00",
+      queueCurrency: "RUB",
+      metadataRetryAt: null,
+    });
+
+    const html = renderToStaticMarkup(<VideoCard video={video} onStatusChange={() => {}} />);
+
+    expect(html).toContain(`>${label}</button>`);
   });
 });

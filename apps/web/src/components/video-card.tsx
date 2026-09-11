@@ -43,6 +43,10 @@ const i18n = createI18n({
     en: "Bookmarked",
     ru: "В закладках",
   },
+  bookmark: {
+    en: "Bookmark",
+    ru: "В закладки",
+  },
   cancelEditing: {
     en: "Cancel editing",
     ru: "Отменить",
@@ -99,10 +103,6 @@ const i18n = createI18n({
     en: "Added manually",
     ru: "Добавлено вручную",
   },
-  openOnYoutube: {
-    en: "Open on YouTube",
-    ru: "Открыть на YouTube",
-  },
   editVideoDetails: {
     en: "Edit video details",
     ru: "Изменить видео",
@@ -117,9 +117,9 @@ const i18n = createI18n({
   },
   watchDuration: {
     en: ({ hours, minutes }: HourMinuteParts) =>
-      `Watch time: ${hours > 0 ? `${hours} hr ` : ""}${minutes} min`,
+      `Ordered: ${hours > 0 ? `${hours} hr ` : ""}${minutes} min`,
     ru: ({ hours, minutes }: HourMinuteParts) =>
-      `Время просмотра: ${hours > 0 ? `${hours} ч ` : ""}${minutes} мин`,
+      `Заказано: ${hours > 0 ? `${hours} ч ` : ""}${minutes} мин`,
   },
   enterPriorityAmount: {
     en: "Enter a priority amount.",
@@ -255,7 +255,7 @@ export default function VideoCard({
   return (
     <article className="@container relative min-w-0 px-4 py-4 sm:px-5">
       <div className="grid min-w-0 items-start gap-5 @3xl:grid-cols-[clamp(19rem,33%,25rem)_minmax(0,1fr)]">
-        <div className="flex min-w-0 flex-col gap-3">
+        <div className="flex min-w-0 flex-col gap-2">
           <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-muted">
             <a
               aria-label={
@@ -285,50 +285,44 @@ export default function VideoCard({
             </span>
           </div>
 
-          {(onStatusChange || queueControl) && (
-            <div className="flex flex-col items-stretch gap-2">
-              {onStatusChange && (
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    aria-label={t(isWatched ? "markVideoNotWatched" : "markVideoWatched")}
-                    aria-pressed={isWatched}
-                    className={clsx(
-                      isWatched &&
-                        "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-950 dark:text-green-300 dark:hover:bg-green-900",
-                    )}
-                    disabled={isUpdating}
-                    onClick={() => onStatusChange({ watchedAt: isWatched ? null : new Date() })}
-                    size="sm"
-                    variant={isWatched ? "secondary" : "ghost"}
-                  >
-                    {isWatched ? (
-                      <Icons.watched aria-hidden="true" />
-                    ) : (
-                      <Icons.notWatched aria-hidden="true" />
-                    )}
-                    {t("watched")}
-                  </Button>
-                  <Button
-                    aria-label={t(isBookmarked ? "removeVideoBookmark" : "bookmarkVideo")}
-                    aria-pressed={isBookmarked}
-                    disabled={isUpdating}
-                    onClick={() =>
-                      onStatusChange({
-                        bookmarkedAt: isBookmarked ? null : new Date(),
-                      })
-                    }
-                    size="sm"
-                    variant={isBookmarked ? "secondary" : "ghost"}
-                  >
-                    <Icons.bookmark
-                      aria-hidden="true"
-                      fill={isBookmarked ? "currentColor" : "none"}
-                    />
-                    {t("bookmarked")}
-                  </Button>
-                </div>
-              )}
-              {queueControl}
+          {onStatusChange && (
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                aria-label={t(isWatched ? "markVideoNotWatched" : "markVideoWatched")}
+                aria-pressed={isWatched}
+                className={clsx(
+                  "h-8",
+                  isWatched &&
+                    "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-950 dark:text-green-300 dark:hover:bg-green-900",
+                )}
+                disabled={isUpdating}
+                onClick={() => onStatusChange({ watchedAt: isWatched ? null : new Date() })}
+                size="sm"
+                variant={isWatched ? "secondary" : "ghost"}
+              >
+                {isWatched ? (
+                  <Icons.watched aria-hidden="true" />
+                ) : (
+                  <Icons.notWatched aria-hidden="true" />
+                )}
+                {t("watched")}
+              </Button>
+              <Button
+                aria-label={t(isBookmarked ? "removeVideoBookmark" : "bookmarkVideo")}
+                aria-pressed={isBookmarked}
+                className="h-8"
+                disabled={isUpdating}
+                onClick={() =>
+                  onStatusChange({
+                    bookmarkedAt: isBookmarked ? null : new Date(),
+                  })
+                }
+                size="sm"
+                variant={isBookmarked ? "secondary" : "ghost"}
+              >
+                <Icons.bookmark aria-hidden="true" fill={isBookmarked ? "currentColor" : "none"} />
+                {t(isBookmarked ? "bookmarked" : "bookmark")}
+              </Button>
             </div>
           )}
 
@@ -344,23 +338,12 @@ export default function VideoCard({
           )}
         </div>
 
-        <div className="flex min-w-0 flex-col gap-3 @3xl:min-h-full @3xl:border-l @3xl:border-border/60 @3xl:pl-5">
+        <div className="flex min-w-0 flex-col gap-3 @3xl:min-h-full">
           <div className="flex min-w-0 flex-wrap items-start justify-between gap-x-4 gap-y-2">
             <div className="flex min-w-0 grow flex-wrap items-center gap-x-1.5 gap-y-1">
               <span className="text-sm font-medium wrap-anywhere text-card-foreground">
                 {author}
               </span>
-              {showSource && video.source === "manual" && (
-                <>
-                  <span aria-hidden="true" className="text-xs text-muted-foreground/60">
-                    ·
-                  </span>
-                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                    <Icons.manualVideo aria-hidden="true" size={12} />
-                    {t("addedManually")}
-                  </span>
-                </>
-              )}
               <span aria-hidden="true" className="text-xs text-muted-foreground/60">
                 ·
               </span>
@@ -371,6 +354,14 @@ export default function VideoCard({
               >
                 {fmtListDate(video.createdAt, locale)}
               </time>
+              {showSource && video.source === "manual" && (
+                <>
+                  <span aria-hidden="true" className="text-xs text-muted-foreground/60">
+                    ·
+                  </span>
+                  <span className="text-xs text-muted-foreground">{t("addedManually")}</span>
+                </>
+              )}
             </div>
             <div className="flex shrink-0 items-center gap-1">
               <strong className="text-base font-semibold text-card-foreground tabular-nums">
@@ -420,25 +411,7 @@ export default function VideoCard({
                     : t("watchDuration", watchDuration)}
                 </span>
               )}
-              {video.durationSeconds === null && onRetryMetadata && !isEditing && (
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Button
-                        aria-label={t("videoRetryMetadata")}
-                        disabled={isUpdating}
-                        onClick={onRetryMetadata}
-                        size="icon-xs"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <Icons.retry aria-hidden="true" />
-                      </Button>
-                    }
-                  />
-                  <TooltipContent>{t("videoRetryMetadata")}</TooltipContent>
-                </Tooltip>
-              )}
+              {queueControl}
             </div>
           </div>
 
@@ -500,14 +473,35 @@ export default function VideoCard({
             <p className="text-xs text-destructive">{t("videoInvalidRange")}</p>
           )}
           {video.durationSeconds === null && onRetryMetadata && video.metadataRetryAt !== null && (
-            <span className="text-xs text-muted-foreground">
-              {t("videoNextRetry", {
-                date: fmtListDate(video.metadataRetryAt, locale),
-              })}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground">
+                {t("videoNextRetry", {
+                  date: fmtListDate(video.metadataRetryAt, locale),
+                })}
+              </span>
+              {!isEditing && (
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        aria-label={t("videoRetryMetadata")}
+                        disabled={isUpdating}
+                        onClick={onRetryMetadata}
+                        size="icon-xs"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Icons.retry aria-hidden="true" />
+                      </Button>
+                    }
+                  />
+                  <TooltipContent>{t("videoRetryMetadata")}</TooltipContent>
+                </Tooltip>
+              )}
+            </div>
           )}
 
-          {video.source === "donation" ? (
+          {video.source === "donation" && (
             <>
               <p className="min-w-0 text-sm leading-relaxed wrap-anywhere text-card-foreground">
                 {messageChunks.map((chunk, index) => {
@@ -547,16 +541,6 @@ export default function VideoCard({
                 {t("goToDonation")}
               </Link>
             </>
-          ) : (
-            <a
-              className="inline-flex w-fit items-center gap-1 rounded-sm text-xs text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
-              href={video.url}
-              rel="noreferrer"
-              target="_blank"
-            >
-              <Icons.externalLink aria-hidden="true" size={13} />
-              {t("openOnYoutube")}
-            </a>
           )}
         </div>
       </div>
