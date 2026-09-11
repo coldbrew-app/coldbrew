@@ -44,8 +44,8 @@ const i18n = createI18n({
     ru: "Очередь видео",
   },
   moveToQueue: {
-    en: "Move to queue",
-    ru: "Перенести в очередь",
+    en: "Move to another queue",
+    ru: "Перенести в другую очередь",
   },
   videoMoveFailed: {
     en: "Couldn't move the video. Please try again.",
@@ -316,6 +316,7 @@ function VideoQueue() {
                           queues={queuesQ.data}
                           value={video.videoQueueId}
                           label={t("moveToQueue")}
+                          variant="action"
                           disabled={move.isPending || updateVideoM.isPending}
                           onChange={(videoQueueId) =>
                             move.mutate({ videoId: video.videoId, videoQueueId })

@@ -47,7 +47,7 @@ export const Icons = {
   loader: icons.LoaderCircle,
   logout: icons.LogOut,
   moon: icons.Moon,
-  manualVideo: icons.UserRoundPlus,
+  moveToQueue: icons.ArrowRightLeft,
   notWatched: icons.Circle,
   platform: icons.Share2,
   retry: icons.RotateCcw,

@@ -8,7 +8,6 @@ import { getSharedVideoTimingParts } from "@web/lib/shared-video-timing";
 import type { SharedVideo } from "@web/server/exports";
 
 import { createI18n, useI18n } from "../lib/i18n";
-import { Icons } from "./icons";
 
 type HourMinuteParts = {
   hours: number;
@@ -27,10 +26,6 @@ const i18n = createI18n({
   videoDurationUnavailable: {
     en: "Duration unavailable",
     ru: "Не удалось получить длительность",
-  },
-  openOnYoutube: {
-    en: "Open on YouTube",
-    ru: "Открыть на YouTube",
   },
   videoFromTime: {
     en: ({ startTime }: { startTime: string }) => `From ${startTime}`,
@@ -163,16 +158,6 @@ export function SharedVideoCard({ showPriorityLabel = true, video }: Props) {
               </span>
             </div>
           </div>
-
-          <a
-            className="inline-flex w-fit items-center gap-1 text-xs font-semibold text-primary hover:underline"
-            href={video.url}
-            rel="noreferrer"
-            target="_blank"
-          >
-            <Icons.externalLink aria-hidden="true" size={13} />
-            {t("openOnYoutube")}
-          </a>
 
           {video.watchedAt && (
             <time

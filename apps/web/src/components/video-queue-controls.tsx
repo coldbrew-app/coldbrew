@@ -10,6 +10,7 @@ import { Button, buttonVariants } from "./ui/button";
 import { Field, FieldError, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
 import { Switch } from "./ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 const i18n = createI18n({
   videoQueues: {
@@ -231,13 +232,44 @@ export function VideoQueueSelect({
   onChange,
   disabled,
   label,
+  variant = "field",
 }: {
   queues: VideoQueue[];
   value: number;
   onChange: (videoQueueId: number) => void;
   disabled?: boolean;
   label: string;
+  variant?: "field" | "action";
 }) {
+  if (variant === "action") {
+    return (
+      <Tooltip>
+        <label className="relative inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-[min(var(--radius-md),12px)] border border-transparent text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 has-[select:disabled]:pointer-events-none has-[select:disabled]:cursor-default has-[select:disabled]:opacity-50">
+          <span className="sr-only">{label}</span>
+          <Icons.moveToQueue aria-hidden="true" className="size-3.5" />
+          <TooltipTrigger
+            render={
+              <select
+                aria-label={label}
+                className="absolute inset-0 size-full cursor-pointer opacity-0 outline-none disabled:cursor-default"
+                disabled={disabled}
+                value={value}
+                onChange={(event) => onChange(Number(event.target.value))}
+              >
+                {queues.map((queue) => (
+                  <option key={queue.videoQueueId} value={queue.videoQueueId}>
+                    {queue.label}
+                  </option>
+                ))}
+              </select>
+            }
+          />
+        </label>
+        <TooltipContent>{label}</TooltipContent>
+      </Tooltip>
+    );
+  }
+
   return (
     <label className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
       <span>{label}</span>
