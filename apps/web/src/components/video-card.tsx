@@ -184,47 +184,134 @@ const normalizeUrl = (url: string) => {
   return `${parsedUrl.hostname.toLowerCase()}${pathname}${parsedUrl.search}`;
 };
 
-export default function VideoCard({
-  queueControl,
-  video,
-  showPriorityLabel = true,
-  showSource = false,
-  onStatusChange,
-  onUpdate,
-  isUpdating = false,
-  onRetryMetadata,
-}: Props) {
-  const { locale, t } = useI18n(i18n);
-  const author =
-    video.source === "donation" ? (video.donation.author ?? t("anonymous")) : t("video");
-  const messageChunks = useTextWithLinks(
-    video.source === "donation" ? (video.donation.message ?? "") : "",
-  );
+function VideoThumbnail({ author, video }: { author: string; video: Video }) {
+  const { t } = useI18n(i18n);
   const timingLabel =
     video.endSeconds === null
       ? t("videoFromTime", { startTime: formatVideoTime(video.startSeconds) })
       : `${formatVideoTime(video.startSeconds)}–${formatVideoTime(video.endSeconds)}`;
-  const watchDuration =
-    video.endSeconds === null
-      ? null
-      : getRoundedWatchDurationParts(getWatchDurationSeconds(video.startSeconds, video.endSeconds));
+
+  return (
+    <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-muted">
+      <a
+        aria-label={
+          video.source === "donation"
+            ? t("openYoutubeVideoFrom", { author })
+            : t("openYoutubeVideo")
+        }
+        className="group absolute inset-0 outline-none focus-visible:ring-3 focus-visible:ring-ring/70 focus-visible:ring-inset"
+        href={video.url}
+        rel="noreferrer"
+        target="_blank"
+      >
+        <img
+          alt=""
+          className="size-full object-cover"
+          draggable={false}
+          loading="lazy"
+          src={getYoutubeThumbnailUrl(video.providerVideoId)}
+        />
+        <span
+          aria-hidden="true"
+          className="absolute inset-0 bg-black/10 transition-colors group-hover:bg-black/20"
+        />
+      </a>
+      <span className="pointer-events-none absolute right-2 bottom-2 rounded bg-black/75 px-1.5 py-0.5 text-[11px] font-medium text-white tabular-nums">
+        {timingLabel}
+      </span>
+    </div>
+  );
+}
+
+function VideoStatusControls({
+  isUpdating,
+  onStatusChange,
+  video,
+}: {
+  isUpdating: boolean;
+  onStatusChange: NonNullable<Props["onStatusChange"]>;
+  video: Video;
+}) {
+  const { t } = useI18n(i18n);
   const isWatched = video.watchedAt !== null;
   const isBookmarked = video.bookmarkedAt !== null;
-  const amountErrorId = `video-amount-error-${video.videoId}`;
+
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <Button
+        aria-label={t(isWatched ? "markVideoNotWatched" : "markVideoWatched")}
+        aria-pressed={isWatched}
+        className={clsx(
+          "h-8",
+          isWatched &&
+            "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-950 dark:text-green-300 dark:hover:bg-green-900",
+        )}
+        disabled={isUpdating}
+        onClick={() => onStatusChange({ watchedAt: isWatched ? null : new Date() })}
+        size="sm"
+        variant={isWatched ? "secondary" : "ghost"}
+      >
+        {isWatched ? <Icons.watched aria-hidden="true" /> : <Icons.notWatched aria-hidden="true" />}
+        {t("watched")}
+      </Button>
+      <Button
+        aria-label={t(isBookmarked ? "removeVideoBookmark" : "bookmarkVideo")}
+        aria-pressed={isBookmarked}
+        className="h-8"
+        disabled={isUpdating}
+        onClick={() => onStatusChange({ bookmarkedAt: isBookmarked ? null : new Date() })}
+        size="sm"
+        variant={isBookmarked ? "secondary" : "ghost"}
+      >
+        <Icons.bookmark aria-hidden="true" fill={isBookmarked ? "currentColor" : "none"} />
+        {t(isBookmarked ? "bookmarked" : "bookmark")}
+      </Button>
+    </div>
+  );
+}
+
+function VideoPreview({
+  author,
+  isUpdating,
+  onStatusChange,
+  video,
+}: Pick<Props, "isUpdating" | "onStatusChange" | "video"> & { author: string }) {
+  const { locale, t } = useI18n(i18n);
+  return (
+    <div className="flex min-w-0 flex-col gap-2">
+      <VideoThumbnail author={author} video={video} />
+      {onStatusChange && (
+        <VideoStatusControls
+          isUpdating={isUpdating ?? false}
+          onStatusChange={onStatusChange}
+          video={video}
+        />
+      )}
+      {video.watchedAt && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <time dateTime={video.watchedAt.toISOString()} title={fmtDate(video.watchedAt, locale)}>
+            {t("watchedOn", { date: fmtListDate(video.watchedAt, locale) })}
+          </time>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function useVideoEditor(video: Video, onUpdate: Props["onUpdate"]) {
   const [isEditing, setIsEditing] = useState(false);
   const form = useForm<VideoFormValues>({
     defaultValues: videoFormValues(video),
     mode: "onChange",
   });
-  const { formState, handleSubmit, register, reset } = form;
 
   const startEditing = () => {
-    reset(videoFormValues(video));
+    form.reset(videoFormValues(video));
     setIsEditing(true);
   };
 
   const cancelEditing = () => {
-    reset(videoFormValues(video));
+    form.reset(videoFormValues(video));
     setIsEditing(false);
   };
 
@@ -248,297 +335,343 @@ export default function VideoCard({
     setIsEditing(false);
   };
 
+  return { cancelEditing, form, isEditing, save, startEditing };
+}
+
+type VideoEditor = ReturnType<typeof useVideoEditor>;
+
+function VideoHeading({
+  author,
+  canEdit,
+  editor,
+  isUpdating,
+  showSource,
+  video,
+}: {
+  author: string;
+  canEdit: boolean;
+  editor: VideoEditor;
+  isUpdating: boolean;
+  showSource: boolean;
+  video: Video;
+}) {
+  const { locale, t } = useI18n(i18n);
   return (
-    <article className="@container relative min-w-0 px-4 py-4 sm:px-5">
-      <div className="grid min-w-0 items-start gap-5 @3xl:grid-cols-[clamp(19rem,33%,25rem)_minmax(0,1fr)]">
-        <div className="flex min-w-0 flex-col gap-2">
-          <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-muted">
+    <div className="flex min-w-0 flex-wrap items-start justify-between gap-x-4 gap-y-2">
+      <div className="flex min-w-0 grow flex-wrap items-center gap-x-1.5 gap-y-1">
+        <span className="text-sm font-medium wrap-anywhere text-card-foreground">{author}</span>
+        <span aria-hidden="true" className="text-xs text-muted-foreground/60">
+          ·
+        </span>
+        <time
+          className="text-xs whitespace-nowrap text-muted-foreground tabular-nums"
+          dateTime={video.createdAt.toISOString()}
+          title={fmtDate(video.createdAt, locale)}
+        >
+          {fmtListDate(video.createdAt, locale)}
+        </time>
+        {showSource && video.source === "manual" && (
+          <>
+            <span aria-hidden="true" className="text-xs text-muted-foreground/60">
+              ·
+            </span>
+            <span className="text-xs text-muted-foreground">{t("addedManually")}</span>
+          </>
+        )}
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        <strong className="text-base font-semibold text-card-foreground tabular-nums">
+          {video.queueAmount === null
+            ? t("queueAmountUnavailable")
+            : fmtAmount(video.queueAmount, CurrencyCodeSchema.parse(video.queueCurrency), locale)}
+        </strong>
+        {canEdit && !editor.isEditing && (
+          <Button
+            aria-label={t("editVideoDetails")}
+            disabled={isUpdating}
+            onClick={editor.startEditing}
+            size="icon-xs"
+            type="button"
+            variant="ghost"
+          >
+            <Icons.edit aria-hidden="true" />
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function VideoSummary({
+  isEditing,
+  queueControl,
+  showPriorityLabel,
+  video,
+}: {
+  isEditing: boolean;
+  queueControl: ReactNode;
+  showPriorityLabel: boolean;
+  video: Video;
+}) {
+  const { t } = useI18n(i18n);
+  const watchDuration =
+    video.endSeconds === null
+      ? null
+      : getRoundedWatchDurationParts(getWatchDurationSeconds(video.startSeconds, video.endSeconds));
+
+  return (
+    <div className="flex min-w-0 flex-col gap-2">
+      {video.title !== null && (
+        <h3 className="font-heading text-lg leading-snug font-semibold wrap-anywhere text-card-foreground">
+          {video.title}
+        </h3>
+      )}
+      <div className="flex min-w-0 flex-nowrap items-center gap-1.5">
+        {showPriorityLabel && (
+          <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap text-secondary-foreground">
+            {video.priorityLabel ?? t("videoUnassigned")}
+          </span>
+        )}
+        {!isEditing && (
+          <span className="text-xs whitespace-nowrap text-muted-foreground">
+            {watchDuration === null
+              ? t(video.metadataUnavailable ? "videoDurationUnavailable" : "videoDurationPending")
+              : t("watchDuration", watchDuration)}
+          </span>
+        )}
+        {queueControl}
+      </div>
+    </div>
+  );
+}
+
+function VideoEditForm({
+  editor,
+  isUpdating,
+  video,
+}: {
+  editor: VideoEditor;
+  isUpdating: boolean;
+  video: Video;
+}) {
+  const { t } = useI18n(i18n);
+  const { formState, handleSubmit, register } = editor.form;
+  const amountErrorId = `video-amount-error-${video.videoId}`;
+
+  return (
+    <FormProvider {...editor.form}>
+      <form
+        className="flex flex-col gap-3 rounded-lg border border-border bg-muted/60 p-3"
+        onSubmit={(event) => void handleSubmit(editor.save)(event)}
+      >
+        <div className="grid gap-3 @4xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+          <Field data-invalid={Boolean(formState.errors.amount)}>
+            <FieldLabel htmlFor={`video-amount-${video.videoId}`}>{t("amount")}</FieldLabel>
+            <Input
+              aria-describedby={formState.errors.amount ? amountErrorId : undefined}
+              aria-invalid={Boolean(formState.errors.amount)}
+              autoComplete="off"
+              className="bg-card dark:bg-card"
+              disabled={isUpdating}
+              id={`video-amount-${video.videoId}`}
+              min="0"
+              step="any"
+              type="number"
+              {...register("amount", {
+                required: t("enterPriorityAmount"),
+                validate: (value) =>
+                  MoneyAmountSchema.safeParse(value).success || t("enterAmountZeroOrMore"),
+              })}
+            />
+            <FieldError errors={[formState.errors.amount]} id={amountErrorId} />
+          </Field>
+          <VideoTimingFields
+            allowOpenEnd
+            disabled={isUpdating}
+            maximumEndSeconds={video.durationSeconds}
+            showOpenEndHelp={false}
+          />
+        </div>
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            disabled={isUpdating}
+            onClick={editor.cancelEditing}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <Icons.cancel aria-hidden="true" />
+            {t("cancelEditing")}
+          </Button>
+          <Button disabled={!formState.isValid || isUpdating} size="sm" type="submit">
+            <Icons.submit aria-hidden="true" />
+            {t("save")}
+          </Button>
+        </div>
+      </form>
+    </FormProvider>
+  );
+}
+
+function VideoMetadataStatus({
+  isEditing,
+  isUpdating,
+  onRetryMetadata,
+  video,
+}: Pick<Props, "onRetryMetadata" | "video"> & { isEditing: boolean; isUpdating: boolean }) {
+  const { locale, t } = useI18n(i18n);
+  if (video.durationSeconds !== null && video.startSeconds >= video.durationSeconds) {
+    return <p className="text-xs text-destructive">{t("videoInvalidRange")}</p>;
+  }
+  if (video.durationSeconds !== null || !onRetryMetadata || video.metadataRetryAt === null) {
+    return null;
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-xs text-muted-foreground">
+        {t("videoNextRetry", { date: fmtListDate(video.metadataRetryAt, locale) })}
+      </span>
+      {!isEditing && (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                aria-label={t("videoRetryMetadata")}
+                disabled={isUpdating}
+                onClick={onRetryMetadata}
+                size="icon-xs"
+                type="button"
+                variant="ghost"
+              >
+                <Icons.retry aria-hidden="true" />
+              </Button>
+            }
+          />
+          <TooltipContent>{t("videoRetryMetadata")}</TooltipContent>
+        </Tooltip>
+      )}
+    </div>
+  );
+}
+
+function DonationDetails({ video }: { video: Extract<Video, { source: "donation" }> }) {
+  const { t } = useI18n(i18n);
+  const messageChunks = useTextWithLinks(video.donation.message ?? "");
+
+  return (
+    <>
+      <p className="min-w-0 text-sm leading-relaxed wrap-anywhere text-card-foreground">
+        {messageChunks.map((chunk, index) => {
+          if (chunk.type === "string") return <span key={index}>{chunk.value}</span>;
+          const isVideoLink = normalizeUrl(chunk.href) === normalizeUrl(video.url);
+          return (
             <a
-              aria-label={
-                video.source === "donation"
-                  ? t("openYoutubeVideoFrom", { author })
-                  : t("openYoutubeVideo")
+              className={
+                isVideoLink
+                  ? "rounded-sm font-medium text-primary underline decoration-primary/30 underline-offset-4 hover:decoration-primary focus-visible:outline-2 focus-visible:outline-ring"
+                  : "rounded-sm text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
               }
-              className="group absolute inset-0 outline-none focus-visible:ring-3 focus-visible:ring-ring/70 focus-visible:ring-inset"
-              href={video.url}
+              href={chunk.href}
+              key={index}
               rel="noreferrer"
               target="_blank"
             >
-              <img
-                alt=""
-                className="size-full object-cover"
-                draggable={false}
-                loading="lazy"
-                src={getYoutubeThumbnailUrl(video.providerVideoId)}
-              />
-              <span
-                aria-hidden="true"
-                className="absolute inset-0 bg-black/10 transition-colors group-hover:bg-black/20"
-              />
+              {chunk.text}
             </a>
-            <span className="pointer-events-none absolute right-2 bottom-2 rounded bg-black/75 px-1.5 py-0.5 text-[11px] font-medium text-white tabular-nums">
-              {timingLabel}
-            </span>
-          </div>
+          );
+        })}
+      </p>
+      <Link
+        className="inline-flex w-fit items-center gap-1 rounded text-xs text-muted-foreground underline-offset-4 hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+        to="/donations"
+        search={{
+          donationId: video.donation.donationId.toString(),
+          page: 1,
+          period: "all",
+          query: "",
+        }}
+      >
+        {t("goToDonation")}
+      </Link>
+    </>
+  );
+}
 
-          {onStatusChange && (
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                aria-label={t(isWatched ? "markVideoNotWatched" : "markVideoWatched")}
-                aria-pressed={isWatched}
-                className={clsx(
-                  "h-8",
-                  isWatched &&
-                    "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-950 dark:text-green-300 dark:hover:bg-green-900",
-                )}
-                disabled={isUpdating}
-                onClick={() => onStatusChange({ watchedAt: isWatched ? null : new Date() })}
-                size="sm"
-                variant={isWatched ? "secondary" : "ghost"}
-              >
-                {isWatched ? (
-                  <Icons.watched aria-hidden="true" />
-                ) : (
-                  <Icons.notWatched aria-hidden="true" />
-                )}
-                {t("watched")}
-              </Button>
-              <Button
-                aria-label={t(isBookmarked ? "removeVideoBookmark" : "bookmarkVideo")}
-                aria-pressed={isBookmarked}
-                className="h-8"
-                disabled={isUpdating}
-                onClick={() =>
-                  onStatusChange({
-                    bookmarkedAt: isBookmarked ? null : new Date(),
-                  })
-                }
-                size="sm"
-                variant={isBookmarked ? "secondary" : "ghost"}
-              >
-                <Icons.bookmark aria-hidden="true" fill={isBookmarked ? "currentColor" : "none"} />
-                {t(isBookmarked ? "bookmarked" : "bookmark")}
-              </Button>
-            </div>
-          )}
+function VideoDetails({
+  author,
+  isUpdating,
+  onRetryMetadata,
+  onUpdate,
+  queueControl,
+  showPriorityLabel,
+  showSource,
+  video,
+}: Required<Pick<Props, "isUpdating" | "showPriorityLabel" | "showSource">> &
+  Pick<Props, "onRetryMetadata" | "onUpdate" | "queueControl" | "video"> & { author: string }) {
+  const editor = useVideoEditor(video, onUpdate);
 
-          {video.watchedAt && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-              <time
-                dateTime={video.watchedAt.toISOString()}
-                title={fmtDate(video.watchedAt, locale)}
-              >
-                {t("watchedOn", { date: fmtListDate(video.watchedAt, locale) })}
-              </time>
-            </div>
-          )}
-        </div>
+  return (
+    <div className="flex min-w-0 flex-col gap-3 @3xl:min-h-full">
+      <VideoHeading
+        author={author}
+        canEdit={Boolean(onUpdate)}
+        editor={editor}
+        isUpdating={isUpdating}
+        showSource={showSource}
+        video={video}
+      />
+      <VideoSummary
+        isEditing={editor.isEditing}
+        queueControl={queueControl}
+        showPriorityLabel={showPriorityLabel}
+        video={video}
+      />
+      {editor.isEditing && <VideoEditForm editor={editor} isUpdating={isUpdating} video={video} />}
+      <VideoMetadataStatus
+        isEditing={editor.isEditing}
+        isUpdating={isUpdating}
+        onRetryMetadata={onRetryMetadata}
+        video={video}
+      />
+      {video.source === "donation" && <DonationDetails video={video} />}
+    </div>
+  );
+}
 
-        <div className="flex min-w-0 flex-col gap-3 @3xl:min-h-full">
-          <div className="flex min-w-0 flex-wrap items-start justify-between gap-x-4 gap-y-2">
-            <div className="flex min-w-0 grow flex-wrap items-center gap-x-1.5 gap-y-1">
-              <span className="text-sm font-medium wrap-anywhere text-card-foreground">
-                {author}
-              </span>
-              <span aria-hidden="true" className="text-xs text-muted-foreground/60">
-                ·
-              </span>
-              <time
-                className="text-xs whitespace-nowrap text-muted-foreground tabular-nums"
-                dateTime={video.createdAt.toISOString()}
-                title={fmtDate(video.createdAt, locale)}
-              >
-                {fmtListDate(video.createdAt, locale)}
-              </time>
-              {showSource && video.source === "manual" && (
-                <>
-                  <span aria-hidden="true" className="text-xs text-muted-foreground/60">
-                    ·
-                  </span>
-                  <span className="text-xs text-muted-foreground">{t("addedManually")}</span>
-                </>
-              )}
-            </div>
-            <div className="flex shrink-0 items-center gap-1">
-              <strong className="text-base font-semibold text-card-foreground tabular-nums">
-                {video.queueAmount === null
-                  ? t("queueAmountUnavailable")
-                  : fmtAmount(
-                      video.queueAmount,
-                      CurrencyCodeSchema.parse(video.queueCurrency),
-                      locale,
-                    )}
-              </strong>
-              {onUpdate && !isEditing && (
-                <Button
-                  aria-label={t("editVideoDetails")}
-                  disabled={isUpdating}
-                  onClick={startEditing}
-                  size="icon-xs"
-                  type="button"
-                  variant="ghost"
-                >
-                  <Icons.edit aria-hidden="true" />
-                </Button>
-              )}
-            </div>
-          </div>
+export default function VideoCard({
+  queueControl,
+  video,
+  showPriorityLabel = true,
+  showSource = false,
+  onStatusChange,
+  onUpdate,
+  isUpdating = false,
+  onRetryMetadata,
+}: Props) {
+  const { t } = useI18n(i18n);
+  const author =
+    video.source === "donation" ? (video.donation.author ?? t("anonymous")) : t("video");
 
-          <div className="flex min-w-0 flex-col gap-2">
-            {video.title !== null && (
-              <h3 className="font-heading text-lg leading-snug font-semibold wrap-anywhere text-card-foreground">
-                {video.title}
-              </h3>
-            )}
-            <div className="flex min-w-0 flex-nowrap items-center gap-1.5">
-              {showPriorityLabel && (
-                <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap text-secondary-foreground">
-                  {video.priorityLabel ?? t("videoUnassigned")}
-                </span>
-              )}
-              {!isEditing && (
-                <span className="text-xs whitespace-nowrap text-muted-foreground">
-                  {watchDuration === null
-                    ? t(
-                        video.metadataUnavailable
-                          ? "videoDurationUnavailable"
-                          : "videoDurationPending",
-                      )
-                    : t("watchDuration", watchDuration)}
-                </span>
-              )}
-              {queueControl}
-            </div>
-          </div>
-
-          {isEditing && (
-            <FormProvider {...form}>
-              <form
-                className="flex flex-col gap-3 rounded-lg border border-border bg-muted/60 p-3"
-                onSubmit={(event) => void handleSubmit(save)(event)}
-              >
-                <div className="grid gap-3 @4xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-                  <Field data-invalid={Boolean(formState.errors.amount)}>
-                    <FieldLabel htmlFor={`video-amount-${video.videoId}`}>{t("amount")}</FieldLabel>
-                    <Input
-                      aria-describedby={formState.errors.amount ? amountErrorId : undefined}
-                      aria-invalid={Boolean(formState.errors.amount)}
-                      autoComplete="off"
-                      className="bg-card dark:bg-card"
-                      disabled={isUpdating}
-                      id={`video-amount-${video.videoId}`}
-                      min="0"
-                      step="any"
-                      type="number"
-                      {...register("amount", {
-                        required: t("enterPriorityAmount"),
-                        validate: (value) =>
-                          MoneyAmountSchema.safeParse(value).success || t("enterAmountZeroOrMore"),
-                      })}
-                    />
-                    <FieldError errors={[formState.errors.amount]} id={amountErrorId} />
-                  </Field>
-                  <VideoTimingFields
-                    allowOpenEnd
-                    disabled={isUpdating}
-                    maximumEndSeconds={video.durationSeconds}
-                    showOpenEndHelp={false}
-                  />
-                </div>
-                <div className="flex items-center justify-end gap-2">
-                  <Button
-                    disabled={isUpdating}
-                    onClick={cancelEditing}
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  >
-                    <Icons.cancel aria-hidden="true" />
-                    {t("cancelEditing")}
-                  </Button>
-                  <Button disabled={!formState.isValid || isUpdating} size="sm" type="submit">
-                    <Icons.submit aria-hidden="true" />
-                    {t("save")}
-                  </Button>
-                </div>
-              </form>
-            </FormProvider>
-          )}
-
-          {video.durationSeconds !== null && video.startSeconds >= video.durationSeconds && (
-            <p className="text-xs text-destructive">{t("videoInvalidRange")}</p>
-          )}
-          {video.durationSeconds === null && onRetryMetadata && video.metadataRetryAt !== null && (
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-muted-foreground">
-                {t("videoNextRetry", {
-                  date: fmtListDate(video.metadataRetryAt, locale),
-                })}
-              </span>
-              {!isEditing && (
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Button
-                        aria-label={t("videoRetryMetadata")}
-                        disabled={isUpdating}
-                        onClick={onRetryMetadata}
-                        size="icon-xs"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <Icons.retry aria-hidden="true" />
-                      </Button>
-                    }
-                  />
-                  <TooltipContent>{t("videoRetryMetadata")}</TooltipContent>
-                </Tooltip>
-              )}
-            </div>
-          )}
-
-          {video.source === "donation" && (
-            <>
-              <p className="min-w-0 text-sm leading-relaxed wrap-anywhere text-card-foreground">
-                {messageChunks.map((chunk, index) => {
-                  if (chunk.type === "string") {
-                    return <span key={index}>{chunk.value}</span>;
-                  }
-
-                  const isVideoLink = normalizeUrl(chunk.href) === normalizeUrl(video.url);
-
-                  return (
-                    <a
-                      className={
-                        isVideoLink
-                          ? "rounded-sm font-medium text-primary underline decoration-primary/30 underline-offset-4 hover:decoration-primary focus-visible:outline-2 focus-visible:outline-ring"
-                          : "rounded-sm text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
-                      }
-                      href={chunk.href}
-                      key={index}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      {chunk.text}
-                    </a>
-                  );
-                })}
-              </p>
-              <Link
-                className="inline-flex w-fit items-center gap-1 rounded text-xs text-muted-foreground underline-offset-4 hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring"
-                to="/donations"
-                search={{
-                  donationId: video.donation.donationId.toString(),
-                  page: 1,
-                  period: "all",
-                  query: "",
-                }}
-              >
-                {t("goToDonation")}
-              </Link>
-            </>
-          )}
-        </div>
+  return (
+    <article className="@container relative min-w-0 px-4 py-4 sm:px-5">
+      <div className="grid min-w-0 items-start gap-5 @3xl:grid-cols-[clamp(19rem,33%,25rem)_minmax(0,1fr)]">
+        <VideoPreview
+          author={author}
+          isUpdating={isUpdating}
+          onStatusChange={onStatusChange}
+          video={video}
+        />
+        <VideoDetails
+          author={author}
+          isUpdating={isUpdating}
+          onRetryMetadata={onRetryMetadata}
+          onUpdate={onUpdate}
+          queueControl={queueControl}
+          showPriorityLabel={showPriorityLabel}
+          showSource={showSource}
+          video={video}
+        />
       </div>
     </article>
   );

@@ -1,5 +1,6 @@
 import type {
   ChatBroadcastResult,
+  ChatConfig,
   ChatProvider,
   ChatProviderAvailability,
   ChatProviderConnection,
@@ -282,13 +283,7 @@ function SourceState({
   );
 }
 
-function ChatPage() {
-  const { locale, t } = useI18n(i18n);
-  const { chat_oauth: chatOauth, chat_oauth_error: chatOauthError } = Route.useSearch();
-  const navigate = Route.useNavigate();
-  const copyT = createTranslator(locale, copy);
-  const { availabilityQuery, configQuery } = useChatServiceQueries();
-  const stream = useChatServiceStream();
+function useChatPageState() {
   const [boostyFormOpen, setBoostyFormOpen] = useState(false);
   const [connectionToDisconnect, setConnectionToDisconnect] =
     useState<ChatProviderConnection | null>(null);
@@ -298,44 +293,64 @@ function ChatPage() {
   const [overlayBackground, setOverlayBackground] = useState<ChatOverlayBackground>("transparent");
   const [overlayCopied, setOverlayCopied] = useState(false);
 
-  const {
-    broadcast,
-    disconnect,
-    moderate,
-    refreshSource,
-    rotateOverlay,
-    setSourceEnabled,
-    startOauth,
-  } = useChatServiceMutations({
+  return {
+    boostyFormOpen,
+    broadcastResult,
+    connectionToDisconnect,
+    message,
+    overlayBackground,
+    overlayCopied,
+    overlayUrl,
+    setBoostyFormOpen,
+    setBroadcastResult,
+    setConnectionToDisconnect,
+    setMessage,
+    setOverlayBackground,
+    setOverlayCopied,
+    setOverlayUrl,
+  };
+}
+
+function chatConfigIndexes(config: ChatConfig | undefined) {
+  return {
+    connectionsById: new Map(
+      config?.connections.map((connection) => [connection.connectionId, connection]),
+    ),
+    sourceByConnection: new Map(config?.sources.map((source) => [source.connectionId, source])),
+    sourceById: new Map(config?.sources.map((source) => [source.sourceId, source])),
+  };
+}
+
+function useChatPageModel() {
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const { availabilityQuery, configQuery } = useChatServiceQueries();
+  const stream = useChatServiceStream();
+  const state = useChatPageState();
+  const mutations = useChatServiceMutations({
     onBroadcastSuccess: (result) => {
-      setBroadcastResult(result);
+      state.setBroadcastResult(result);
       if (result.results.some(({ status }) => status === "succeeded")) {
-        setMessage("");
+        state.setMessage("");
       }
     },
     onMessageDeleted: (sourceId, messageId) => stream.removeMessage(sourceId, messageId),
     onOverlayUrlChanged: (nextOverlayUrl) => {
-      setOverlayUrl(nextOverlayUrl);
-      setOverlayCopied(false);
+      state.setOverlayUrl(nextOverlayUrl);
+      state.setOverlayCopied(false);
     },
   });
-
   const config = configQuery.data;
-  const connectionsById = new Map(
-    config?.connections.map((connection) => [connection.connectionId, connection]),
-  );
-  const sourceByConnection = new Map(
-    config?.sources.map((source) => [source.connectionId, source]),
-  );
-  const sourceById = new Map(config?.sources.map((source) => [source.sourceId, source]));
+  const indexes = chatConfigIndexes(config);
   const capabilitiesForSource = (sourceId: ChatSourceId) => {
-    const source = sourceById.get(sourceId);
-    return source?.enabled ? (connectionsById.get(source.connectionId)?.capabilities ?? []) : [];
+    const source = indexes.sourceById.get(sourceId);
+    return source?.enabled
+      ? (indexes.connectionsById.get(source.connectionId)?.capabilities ?? [])
+      : [];
   };
-  const availability: ChatProviderAvailability[] = availabilityQuery.data ?? [];
   const writableConnectionCount =
     config?.sources.filter((source) => {
-      const connection = connectionsById.get(source.connectionId);
+      const connection = indexes.connectionsById.get(source.connectionId);
       return (
         source.enabled &&
         connection?.status === "connected" &&
@@ -343,457 +358,593 @@ function ChatPage() {
       );
     }).length ?? 0;
   const configuredOverlayUrl =
-    overlayUrl === null ? null : withChatOverlayBackground(overlayUrl, overlayBackground);
+    state.overlayUrl === null
+      ? null
+      : withChatOverlayBackground(state.overlayUrl, state.overlayBackground);
 
+  return {
+    availability: (availabilityQuery.data ?? []) as ChatProviderAvailability[],
+    capabilitiesForSource,
+    config,
+    configQuery,
+    configuredOverlayUrl,
+    indexes,
+    mutations,
+    navigate,
+    search,
+    state,
+    stream,
+    writableConnectionCount,
+  };
+}
+
+type ChatPageModel = ReturnType<typeof useChatPageModel>;
+type ChatSource = ChatConfig["sources"][number];
+
+function ChatLoadingState({ page }: { page: ChatPageModel }) {
+  const { t } = useI18n(copy);
+  return (
+    <section className="cosmic-panel grid h-full min-h-0 place-items-center overflow-hidden p-6 text-center">
+      {page.configQuery.isError ? (
+        <div className="flex flex-col items-center gap-3">
+          <p className="text-sm text-destructive">{page.configQuery.error?.message}</p>
+          <Button onClick={() => void page.configQuery.refetch()} variant="outline">
+            <Icons.retry aria-hidden="true" />
+            Retry
+          </Button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Icons.loader className="animate-spin text-primary" />
+          {t("loading")}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ChatOauthNotice({ page }: { page: ChatPageModel }) {
+  const { t } = useI18n(i18n);
+  const { chat_oauth: chatOauth, chat_oauth_error: chatOauthError } = page.search;
+  if (!chatOauth) return null;
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-2 rounded-xl border px-3.5 py-2 text-[13px]",
+        chatOauth === "success"
+          ? "border-emerald-300/50 bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"
+          : "border-red-300/50 bg-red-50 text-red-700 dark:bg-red-400/10 dark:text-red-300",
+      )}
+      role={chatOauth === "error" ? "alert" : "status"}
+    >
+      <p className="min-w-0 grow">
+        {chatOauth === "success"
+          ? t("chatOauthSuccess")
+          : t(chatOauthErrorMessages[chatOauthError ?? "unknown"])}
+      </p>
+      <Button
+        aria-label={t("dismissChatOauthNotification")}
+        className="text-current hover:bg-black/5 hover:text-current dark:hover:bg-white/10"
+        onClick={() =>
+          void page.navigate({
+            replace: true,
+            search: (previous) => ({
+              ...previous,
+              chat_oauth: undefined,
+              chat_oauth_error: undefined,
+            }),
+          })
+        }
+        size="icon-sm"
+        type="button"
+        variant="ghost"
+      >
+        <Icons.cancel aria-hidden="true" />
+      </Button>
+    </div>
+  );
+}
+
+function BroadcastResults({ page }: { page: ChatPageModel }) {
+  const result = page.state.broadcastResult;
+  if (!result) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {result.results.map((item) => {
+        const source = page.indexes.sourceById.get(item.sourceId);
+        return (
+          <span
+            className={cn(
+              "rounded-full px-2 py-0.5 text-[10px]",
+              item.status === "succeeded"
+                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                : item.status === "unsupported"
+                  ? "bg-muted text-muted-foreground"
+                  : "bg-destructive/10 text-destructive",
+            )}
+            key={item.sourceId}
+            title={item.detail}
+          >
+            {source?.displayName ?? item.sourceId}: {item.status}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function ChatComposer({ page }: { page: ChatPageModel }) {
+  const { t } = useI18n(copy);
+  const { broadcast, moderate, startOauth } = page.mutations;
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (!message.trim() || broadcast.isPending) {
-      return;
-    }
-    setBroadcastResult(null);
-    broadcast.mutate({ text: message });
+    if (!page.state.message.trim() || broadcast.isPending) return;
+    page.state.setBroadcastResult(null);
+    broadcast.mutate({ text: page.state.message });
   };
+  const error = broadcast.error ?? moderate.error ?? startOauth.error;
+  return (
+    <form
+      className="flex shrink-0 flex-col gap-2 border-t border-border bg-card p-3"
+      onSubmit={submit}
+    >
+      <div className="flex gap-2">
+        <Input
+          maxLength={MAX_CHAT_MESSAGE_LENGTH}
+          onChange={(event) => page.state.setMessage(event.target.value)}
+          placeholder={t("placeholder")}
+          value={page.state.message}
+        />
+        <Button
+          aria-label={t("send")}
+          disabled={
+            !page.state.message.trim() || broadcast.isPending || page.writableConnectionCount === 0
+          }
+          type="submit"
+        >
+          {broadcast.isPending ? (
+            <Icons.loader aria-hidden="true" className="animate-spin" />
+          ) : (
+            <Icons.send aria-hidden="true" />
+          )}
+          <span className="hidden sm:inline">{t("send")}</span>
+        </Button>
+      </div>
+      <BroadcastResults page={page} />
+      {error && <p className="text-xs text-destructive">{error.message}</p>}
+    </form>
+  );
+}
 
-  if (!config) {
-    return (
-      <section className="cosmic-panel grid h-full min-h-0 place-items-center overflow-hidden p-6 text-center">
-        {configQuery.isError ? (
-          <div className="flex flex-col items-center gap-3">
-            <p className="text-sm text-destructive">{configQuery.error?.message}</p>
-            <Button onClick={() => void configQuery.refetch()} variant="outline">
-              <Icons.retry aria-hidden="true" />
-              Retry
-            </Button>
-          </div>
+function ChatFeedPanel({ page }: { page: ChatPageModel }) {
+  const { t } = useI18n(copy);
+  return (
+    <article className="cosmic-panel isolate flex h-[max(24rem,55dvh)] min-h-0 min-w-0 shrink-0 flex-col overflow-hidden xl:h-auto">
+      <CosmicPageHeader
+        actions={
+          <a
+            className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-semibold text-[#fff8ed] transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#fff8ed] xl:hidden"
+            href="#chat-connections"
+          >
+            {t("connections")}
+          </a>
+        }
+        headingLevel={2}
+        title={t("feed")}
+        variant="signal"
+      />
+      <ChatFeed
+        capabilitiesForSource={page.capabilitiesForSource}
+        emptyLabel={page.stream.connectionError?.detail ?? t("empty")}
+        messages={page.stream.messages}
+        onModerate={(command) => page.mutations.moderate.mutate(command)}
+      />
+      <ChatComposer page={page} />
+    </article>
+  );
+}
+
+function ConnectionIdentity({
+  connection,
+  locale,
+  source,
+  sourceState,
+}: {
+  connection: ChatProviderConnection;
+  locale: "ru" | "en";
+  source?: ChatSource;
+  sourceState?: "connecting" | "error" | "live" | "offline";
+}) {
+  const provider = providerMeta[connection.provider];
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-2">
+      <Tooltip>
+        <TooltipTrigger
+          aria-label={provider.label}
+          className="shrink-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          <ProviderMark provider={connection.provider} />
+        </TooltipTrigger>
+        <TooltipContent>{provider.label}</TooltipContent>
+      </Tooltip>
+      <div className="flex min-w-0 items-center">
+        {source ? (
+          <a
+            className="min-w-0 rounded-sm break-words text-sm font-semibold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            href={source.sourceUrl}
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            {connection.displayName}
+          </a>
         ) : (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Icons.loader className="animate-spin text-primary" />
-            {copyT("loading")}
+          <p className="min-w-0 break-words text-sm font-semibold">{connection.displayName}</p>
+        )}
+        {source?.enabled !== false && (
+          <SourceState
+            {...(source ? (sourceState ? { state: sourceState } : {}) : { state: "error" })}
+            locale={locale}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ConnectionActions({
+  connection,
+  page,
+  source,
+  sourceState,
+}: {
+  connection: ChatProviderConnection;
+  page: ChatPageModel;
+  source?: ChatSource;
+  sourceState?: "connecting" | "error" | "live" | "offline";
+}) {
+  const { t } = useI18n(copy);
+  const { disconnect, refreshSource, setSourceEnabled } = page.mutations;
+  const refreshable = connection.provider === "youtube" || connection.provider === "vk_video";
+  const isRefreshing =
+    source !== undefined &&
+    refreshSource.isPending &&
+    refreshSource.variables?.sourceId === source.sourceId;
+  return (
+    <div className="flex shrink-0 flex-col items-end gap-1">
+      <div className="flex items-center gap-1">
+        {refreshable && source?.enabled && (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  aria-label={isRefreshing ? t("checkingStream") : t("checkStream")}
+                  disabled={
+                    refreshSource.isPending ||
+                    sourceState === "live" ||
+                    sourceState === "connecting"
+                  }
+                  onClick={() => refreshSource.mutate({ sourceId: source.sourceId })}
+                  size="icon-xs"
+                  variant="ghost"
+                />
+              }
+            >
+              {isRefreshing ? (
+                <Icons.loader aria-hidden="true" className="animate-spin" />
+              ) : (
+                <Icons.retry aria-hidden="true" />
+              )}
+            </TooltipTrigger>
+            <TooltipContent>{isRefreshing ? t("checkingStream") : t("checkStream")}</TooltipContent>
+          </Tooltip>
+        )}
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                aria-label={t("disconnectAccount")}
+                disabled={disconnect.isPending}
+                onClick={() => {
+                  disconnect.reset();
+                  page.state.setConnectionToDisconnect(connection);
+                }}
+                size="icon-xs"
+                variant="ghost"
+              />
+            }
+          >
+            <Icons.removeSource aria-hidden="true" />
+          </TooltipTrigger>
+          <TooltipContent>{t("disconnectAccount")}</TooltipContent>
+        </Tooltip>
+      </div>
+      {source && (
+        <Switch
+          aria-label={`${source.enabled ? t("disableSource") : t("enableSource")}: ${connection.displayName}`}
+          checked={source.enabled}
+          className="data-checked:bg-emerald-500 dark:data-checked:bg-emerald-500"
+          disabled={setSourceEnabled.isPending}
+          onCheckedChange={(enabled) =>
+            setSourceEnabled.mutate({ enabled, sourceId: source.sourceId })
+          }
+          size="sm"
+        />
+      )}
+    </div>
+  );
+}
+
+function ConnectionErrors({ page, source }: { page: ChatPageModel; source?: ChatSource }) {
+  if (!source) return null;
+  const { refreshSource, setSourceEnabled } = page.mutations;
+  return (
+    <>
+      {refreshSource.isError && refreshSource.variables?.sourceId === source.sourceId && (
+        <p className="text-[11px] text-destructive">{refreshSource.error.message}</p>
+      )}
+      {setSourceEnabled.isError && setSourceEnabled.variables?.sourceId === source.sourceId && (
+        <p role="alert" className="text-[11px] text-destructive">
+          {setSourceEnabled.error.message}
+        </p>
+      )}
+    </>
+  );
+}
+
+function ConnectionCard({
+  connection,
+  page,
+}: {
+  connection: ChatProviderConnection;
+  page: ChatPageModel;
+}) {
+  const { locale } = useI18n(i18n);
+  const source = page.indexes.sourceByConnection.get(connection.connectionId);
+  const sourceState = source ? page.stream.statuses[source.sourceId] : undefined;
+  return (
+    <article
+      className={cn(
+        "relative flex shrink-0 flex-col gap-2 overflow-hidden rounded-xl border border-border p-3 transition-colors",
+        source?.enabled === false ? "bg-muted/55" : "bg-muted/30",
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <ConnectionIdentity
+          connection={connection}
+          locale={locale}
+          source={source}
+          sourceState={sourceState}
+        />
+        <ConnectionActions
+          connection={connection}
+          page={page}
+          source={source}
+          sourceState={sourceState}
+        />
+      </div>
+      <ConnectionErrors page={page} source={source} />
+    </article>
+  );
+}
+
+function AvailableProviderButton({
+  page,
+  provider,
+}: {
+  page: ChatPageModel;
+  provider: ChatProviderAvailability;
+}) {
+  const { t } = useI18n(copy);
+  const meta = providerMeta[provider.provider];
+  const oauthProvider =
+    provider.provider === "youtube" ||
+    provider.provider === "twitch" ||
+    provider.provider === "kick" ||
+    provider.provider === "vk_video";
+  const connectable =
+    provider.access !== "unavailable" && (oauthProvider || provider.provider === "boosty");
+  const connect = () => {
+    if (provider.provider === "boosty") {
+      page.state.setBoostyFormOpen(true);
+    } else if (oauthProvider) {
+      page.mutations.startOauth.mutate({ provider: provider.provider });
+    }
+  };
+  return (
+    <Button
+      className="h-auto justify-start gap-2 p-2.5"
+      disabled={!connectable || page.mutations.startOauth.isPending}
+      onClick={connect}
+      title={provider.detail}
+      variant="outline"
+    >
+      <ProviderMark provider={provider.provider} />
+      <span className="flex min-w-0 grow flex-col items-start">
+        <span>{meta.label}</span>
+        {provider.access !== "full" && (
+          <span className="max-w-full truncate text-[10px] font-normal text-muted-foreground">
+            {t(provider.access === "read_only" ? "readOnly" : "unavailable")}
+          </span>
+        )}
+      </span>
+      <Icons.addSource aria-hidden="true" />
+    </Button>
+  );
+}
+
+function AvailableProviders({ page }: { page: ChatPageModel }) {
+  return (
+    <div className="flex flex-col gap-2 pt-1">
+      {page.state.boostyFormOpen && (
+        <BoostyConnectionForm onClose={() => page.state.setBoostyFormOpen(false)} />
+      )}
+      {page.availability.map((provider) => (
+        <AvailableProviderButton key={provider.provider} page={page} provider={provider} />
+      ))}
+    </div>
+  );
+}
+
+function OverlayBackgroundPicker({ page }: { page: ChatPageModel }) {
+  const { t } = useI18n(copy);
+  const options = [
+    ["transparent", t("overlayBackgroundTransparent")],
+    ["black", t("overlayBackgroundBlack")],
+    ["white", t("overlayBackgroundWhite")],
+  ] as const;
+  return (
+    <fieldset className="flex flex-col gap-1.5">
+      <legend className="text-xs text-muted-foreground">{t("overlayBackground")}</legend>
+      <div className="grid grid-cols-3 gap-1 rounded-lg border border-border bg-muted/40 p-1">
+        {options.map(([value, label]) => (
+          <Button
+            aria-pressed={page.state.overlayBackground === value}
+            className="min-w-0 px-1.5"
+            key={value}
+            onClick={() => {
+              page.state.setOverlayBackground(value);
+              page.state.setOverlayCopied(false);
+            }}
+            size="xs"
+            type="button"
+            variant={page.state.overlayBackground === value ? "secondary" : "ghost"}
+          >
+            {label}
+          </Button>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+function OverlayFooter({ page }: { page: ChatPageModel }) {
+  const { t } = useI18n(copy);
+  if (!page.config) return null;
+  return (
+    <footer className="flex flex-col gap-2 border-t border-border p-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs text-muted-foreground">{t("overlay")}</span>
+        <Button
+          disabled={page.mutations.rotateOverlay.isPending}
+          onClick={() => page.mutations.rotateOverlay.mutate()}
+          size="xs"
+          variant="ghost"
+        >
+          <Icons.rotateToken aria-hidden="true" />
+          {page.config.hasOverlayToken ? t("rotateOverlay") : t("createOverlay")}
+        </Button>
+      </div>
+      <OverlayBackgroundPicker page={page} />
+      {page.configuredOverlayUrl !== null && (
+        <Button
+          onClick={() => {
+            void navigator.clipboard.writeText(page.configuredOverlayUrl ?? "");
+            page.state.setOverlayCopied(true);
+          }}
+          size="xs"
+          variant="outline"
+        >
+          <Icons.copy aria-hidden="true" />
+          {page.state.overlayCopied ? t("copied") : t("copy")}
+        </Button>
+      )}
+    </footer>
+  );
+}
+
+function ConnectionsPanel({ page }: { page: ChatPageModel }) {
+  const { t } = useI18n(copy);
+  if (!page.config) return null;
+  return (
+    <aside
+      className="cosmic-panel flex min-h-0 shrink-0 scroll-mt-4 flex-col overflow-hidden xl:order-first"
+      id="chat-connections"
+    >
+      <CosmicPageHeader headingLevel={2} title={t("connections")} variant="beans" />
+      <div className="flex min-h-0 grow flex-col gap-2 overflow-y-auto p-3">
+        {page.config.connections.length === 0 && (
+          <div className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+            {t("noConnections")}
           </div>
         )}
-      </section>
-    );
-  }
+        {page.config.connections.map((connection) => (
+          <ConnectionCard connection={connection} key={connection.connectionId} page={page} />
+        ))}
+        <AvailableProviders page={page} />
+      </div>
+      <OverlayFooter page={page} />
+    </aside>
+  );
+}
+
+function DisconnectDialog({ page }: { page: ChatPageModel }) {
+  const { t } = useI18n(i18n);
+  const { t: copyT } = useI18n(copy);
+  const connection = page.state.connectionToDisconnect;
+  const disconnect = page.mutations.disconnect;
+  return (
+    <Dialog
+      open={connection !== null}
+      onOpenChange={(open) => {
+        if (!open && !disconnect.isPending) page.state.setConnectionToDisconnect(null);
+      }}
+    >
+      <DialogContent>
+        <DialogTitle>{t("chatDisconnectTitle")}</DialogTitle>
+        {connection && (
+          <DialogDescription>
+            {t("chatDisconnectDescription", {
+              name: connection.displayName,
+              provider: providerMeta[connection.provider].label,
+            })}
+          </DialogDescription>
+        )}
+        {disconnect.error && (
+          <p role="alert" className="text-sm text-destructive">
+            {disconnect.error.message}
+          </p>
+        )}
+        <div className="flex justify-end gap-2">
+          <Button
+            disabled={disconnect.isPending}
+            onClick={() => page.state.setConnectionToDisconnect(null)}
+            variant="outline"
+          >
+            {t("cancel")}
+          </Button>
+          <Button
+            disabled={disconnect.isPending}
+            onClick={() => {
+              if (!connection || disconnect.isPending) return;
+              disconnect.mutate(
+                { connectionId: connection.connectionId },
+                { onSuccess: () => page.state.setConnectionToDisconnect(null) },
+              );
+            }}
+            variant="destructive"
+          >
+            {disconnect.isPending && <Icons.loader aria-hidden="true" className="animate-spin" />}
+            {copyT("disconnect")}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ChatPage() {
+  const page = useChatPageModel();
+
+  if (!page.config) return <ChatLoadingState page={page} />;
 
   return (
     <section className="flex h-full min-h-0 min-w-0 flex-col gap-3">
-      {chatOauth && (
-        <div
-          className={cn(
-            "flex items-center gap-2 rounded-xl border px-3.5 py-2 text-[13px]",
-            chatOauth === "success"
-              ? "border-emerald-300/50 bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"
-              : "border-red-300/50 bg-red-50 text-red-700 dark:bg-red-400/10 dark:text-red-300",
-          )}
-          role={chatOauth === "error" ? "alert" : "status"}
-        >
-          <p className="min-w-0 grow">
-            {chatOauth === "success"
-              ? t("chatOauthSuccess")
-              : t(chatOauthErrorMessages[chatOauthError ?? "unknown"])}
-          </p>
-          <Button
-            aria-label={t("dismissChatOauthNotification")}
-            className="text-current hover:bg-black/5 hover:text-current dark:hover:bg-white/10"
-            onClick={() =>
-              void navigate({
-                replace: true,
-                search: (previous) => ({
-                  ...previous,
-                  chat_oauth: undefined,
-                  chat_oauth_error: undefined,
-                }),
-              })
-            }
-            size="icon-sm"
-            type="button"
-            variant="ghost"
-          >
-            <Icons.cancel aria-hidden="true" />
-          </Button>
-        </div>
-      )}
+      <ChatOauthNotice page={page} />
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain xl:grid xl:grid-cols-[330px_minmax(0,1fr)] xl:grid-rows-[minmax(0,1fr)] xl:overflow-hidden">
-        <article className="cosmic-panel isolate flex h-[max(24rem,55dvh)] min-h-0 min-w-0 shrink-0 flex-col overflow-hidden xl:h-auto">
-          <CosmicPageHeader
-            actions={
-              <a
-                href="#chat-connections"
-                className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-semibold text-[#fff8ed] transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#fff8ed] xl:hidden"
-              >
-                {copyT("connections")}
-              </a>
-            }
-            headingLevel={2}
-            title={copyT("feed")}
-            variant="signal"
-          />
-          <ChatFeed
-            capabilitiesForSource={capabilitiesForSource}
-            emptyLabel={stream.connectionError?.detail ?? copyT("empty")}
-            messages={stream.messages}
-            onModerate={(command) => moderate.mutate(command)}
-          />
-          <form
-            className="flex shrink-0 flex-col gap-2 border-t border-border bg-card p-3"
-            onSubmit={submit}
-          >
-            <div className="flex gap-2">
-              <Input
-                maxLength={MAX_CHAT_MESSAGE_LENGTH}
-                onChange={(event) => setMessage(event.target.value)}
-                placeholder={copyT("placeholder")}
-                value={message}
-              />
-              <Button
-                aria-label={copyT("send")}
-                disabled={!message.trim() || broadcast.isPending || writableConnectionCount === 0}
-                type="submit"
-              >
-                {broadcast.isPending ? (
-                  <Icons.loader aria-hidden="true" className="animate-spin" />
-                ) : (
-                  <Icons.send aria-hidden="true" />
-                )}
-                <span className="hidden sm:inline">{copyT("send")}</span>
-              </Button>
-            </div>
-            {broadcastResult && (
-              <div className="flex flex-wrap gap-1.5">
-                {broadcastResult.results.map((result) => {
-                  const source = sourceById.get(result.sourceId);
-                  return (
-                    <span
-                      className={cn(
-                        "rounded-full px-2 py-0.5 text-[10px]",
-                        result.status === "succeeded"
-                          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                          : result.status === "unsupported"
-                            ? "bg-muted text-muted-foreground"
-                            : "bg-destructive/10 text-destructive",
-                      )}
-                      key={result.sourceId}
-                      title={result.detail}
-                    >
-                      {source?.displayName ?? result.sourceId}: {result.status}
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-            {(broadcast.error || moderate.error || startOauth.error) && (
-              <p className="text-xs text-destructive">
-                {broadcast.error?.message ?? moderate.error?.message ?? startOauth.error?.message}
-              </p>
-            )}
-          </form>
-        </article>
-        <aside
-          id="chat-connections"
-          className="cosmic-panel flex min-h-0 shrink-0 scroll-mt-4 flex-col overflow-hidden xl:order-first"
-        >
-          <CosmicPageHeader headingLevel={2} title={copyT("connections")} variant="beans" />
-
-          <div className="flex min-h-0 grow flex-col gap-2 overflow-y-auto p-3">
-            {config.connections.length === 0 && (
-              <div className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
-                {copyT("noConnections")}
-              </div>
-            )}
-            {config.connections.map((connection) => {
-              const source = sourceByConnection.get(connection.connectionId);
-              const sourceState = source ? stream.statuses[source.sourceId] : undefined;
-              const isRefreshing =
-                source !== undefined &&
-                refreshSource.isPending &&
-                refreshSource.variables?.sourceId === source.sourceId;
-              return (
-                <article
-                  className={cn(
-                    "relative flex shrink-0 flex-col gap-2 overflow-hidden rounded-xl border border-border p-3 transition-colors",
-                    source?.enabled === false ? "bg-muted/55" : "bg-muted/30",
-                  )}
-                  key={connection.connectionId}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex min-w-0 flex-1 items-center gap-2">
-                      <Tooltip>
-                        <TooltipTrigger
-                          aria-label={providerMeta[connection.provider].label}
-                          className="shrink-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                        >
-                          <ProviderMark provider={connection.provider} />
-                        </TooltipTrigger>
-                        <TooltipContent>{providerMeta[connection.provider].label}</TooltipContent>
-                      </Tooltip>
-                      <div className="flex min-w-0 items-center">
-                        {source ? (
-                          <a
-                            className="min-w-0 rounded-sm break-words text-sm font-semibold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                            href={source.sourceUrl}
-                            rel="noopener noreferrer"
-                            target="_blank"
-                          >
-                            {connection.displayName}
-                          </a>
-                        ) : (
-                          <p className="min-w-0 break-words text-sm font-semibold">
-                            {connection.displayName}
-                          </p>
-                        )}
-                        {source?.enabled !== false && (
-                          <SourceState
-                            {...(source
-                              ? sourceState
-                                ? { state: sourceState }
-                                : {}
-                              : { state: "error" })}
-                            locale={locale}
-                          />
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                      <div className="flex items-center gap-1">
-                        {(connection.provider === "youtube" ||
-                          connection.provider === "vk_video") &&
-                          source?.enabled && (
-                            <Tooltip>
-                              <TooltipTrigger
-                                render={
-                                  <Button
-                                    aria-label={
-                                      isRefreshing ? copyT("checkingStream") : copyT("checkStream")
-                                    }
-                                    disabled={
-                                      refreshSource.isPending ||
-                                      sourceState === "live" ||
-                                      sourceState === "connecting"
-                                    }
-                                    onClick={() =>
-                                      refreshSource.mutate({ sourceId: source.sourceId })
-                                    }
-                                    size="icon-xs"
-                                    variant="ghost"
-                                  />
-                                }
-                              >
-                                {isRefreshing ? (
-                                  <Icons.loader aria-hidden="true" className="animate-spin" />
-                                ) : (
-                                  <Icons.retry aria-hidden="true" />
-                                )}
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                {isRefreshing ? copyT("checkingStream") : copyT("checkStream")}
-                              </TooltipContent>
-                            </Tooltip>
-                          )}
-                        <Tooltip>
-                          <TooltipTrigger
-                            render={
-                              <Button
-                                aria-label={copyT("disconnectAccount")}
-                                disabled={disconnect.isPending}
-                                onClick={() => {
-                                  disconnect.reset();
-                                  setConnectionToDisconnect(connection);
-                                }}
-                                size="icon-xs"
-                                variant="ghost"
-                              />
-                            }
-                          >
-                            <Icons.removeSource aria-hidden="true" />
-                          </TooltipTrigger>
-                          <TooltipContent>{copyT("disconnectAccount")}</TooltipContent>
-                        </Tooltip>
-                      </div>
-                      {source && (
-                        <Switch
-                          aria-label={`${source.enabled ? copyT("disableSource") : copyT("enableSource")}: ${connection.displayName}`}
-                          checked={source.enabled}
-                          className="data-checked:bg-emerald-500 dark:data-checked:bg-emerald-500"
-                          disabled={setSourceEnabled.isPending}
-                          onCheckedChange={(enabled) =>
-                            setSourceEnabled.mutate({ enabled, sourceId: source.sourceId })
-                          }
-                          size="sm"
-                        />
-                      )}
-                    </div>
-                  </div>
-                  {source &&
-                    refreshSource.isError &&
-                    refreshSource.variables?.sourceId === source.sourceId && (
-                      <p className="text-[11px] text-destructive">{refreshSource.error.message}</p>
-                    )}
-                  {source &&
-                    setSourceEnabled.isError &&
-                    setSourceEnabled.variables?.sourceId === source.sourceId && (
-                      <p role="alert" className="text-[11px] text-destructive">
-                        {setSourceEnabled.error.message}
-                      </p>
-                    )}
-                </article>
-              );
-            })}
-
-            <div className="flex flex-col gap-2 pt-1">
-              {boostyFormOpen && <BoostyConnectionForm onClose={() => setBoostyFormOpen(false)} />}
-              {availability.map((provider) => {
-                const meta = providerMeta[provider.provider];
-                const connectable =
-                  provider.access !== "unavailable" &&
-                  (provider.provider === "youtube" ||
-                    provider.provider === "twitch" ||
-                    provider.provider === "kick" ||
-                    provider.provider === "vk_video" ||
-                    provider.provider === "boosty");
-                return (
-                  <Button
-                    className="h-auto   justify-start gap-2 p-2.5"
-                    disabled={!connectable || startOauth.isPending}
-                    key={provider.provider}
-                    onClick={() => {
-                      if (provider.provider === "boosty") {
-                        setBoostyFormOpen(true);
-                        return;
-                      }
-                      if (
-                        provider.provider === "youtube" ||
-                        provider.provider === "twitch" ||
-                        provider.provider === "kick" ||
-                        provider.provider === "vk_video"
-                      ) {
-                        startOauth.mutate({ provider: provider.provider });
-                      }
-                    }}
-                    title={provider.detail}
-                    variant="outline"
-                  >
-                    <ProviderMark provider={provider.provider} />
-                    <span className="flex min-w-0 grow flex-col items-start">
-                      <span>{meta.label}</span>
-                      {provider.access !== "full" && (
-                        <span className="max-w-full truncate text-[10px] font-normal text-muted-foreground">
-                          {provider.access === "read_only"
-                            ? copyT("readOnly")
-                            : copyT("unavailable")}
-                        </span>
-                      )}
-                    </span>
-                    <Icons.addSource aria-hidden="true" />
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
-
-          <footer className="flex flex-col gap-2 border-t border-border p-3">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-muted-foreground">{copyT("overlay")}</span>
-              <Button
-                disabled={rotateOverlay.isPending}
-                onClick={() => rotateOverlay.mutate()}
-                size="xs"
-                variant="ghost"
-              >
-                <Icons.rotateToken aria-hidden="true" />
-                {config.hasOverlayToken ? copyT("rotateOverlay") : copyT("createOverlay")}
-              </Button>
-            </div>
-            <fieldset className="flex flex-col gap-1.5">
-              <legend className="text-xs text-muted-foreground">
-                {copyT("overlayBackground")}
-              </legend>
-              <div className="grid grid-cols-3 gap-1 rounded-lg border border-border bg-muted/40 p-1">
-                {(
-                  [
-                    ["transparent", copyT("overlayBackgroundTransparent")],
-                    ["black", copyT("overlayBackgroundBlack")],
-                    ["white", copyT("overlayBackgroundWhite")],
-                  ] as const
-                ).map(([value, label]) => (
-                  <Button
-                    aria-pressed={overlayBackground === value}
-                    className="min-w-0 px-1.5"
-                    key={value}
-                    onClick={() => {
-                      setOverlayBackground(value);
-                      setOverlayCopied(false);
-                    }}
-                    size="xs"
-                    type="button"
-                    variant={overlayBackground === value ? "secondary" : "ghost"}
-                  >
-                    {label}
-                  </Button>
-                ))}
-              </div>
-            </fieldset>
-            {configuredOverlayUrl !== null && (
-              <Button
-                onClick={() => {
-                  void navigator.clipboard.writeText(configuredOverlayUrl);
-                  setOverlayCopied(true);
-                }}
-                size="xs"
-                variant="outline"
-              >
-                <Icons.copy aria-hidden="true" />
-                {overlayCopied ? copyT("copied") : copyT("copy")}
-              </Button>
-            )}
-          </footer>
-        </aside>
+        <ChatFeedPanel page={page} />
+        <ConnectionsPanel page={page} />
       </div>
-      <Dialog
-        open={connectionToDisconnect !== null}
-        onOpenChange={(open) => {
-          if (!open && !disconnect.isPending) setConnectionToDisconnect(null);
-        }}
-      >
-        <DialogContent>
-          <DialogTitle>{t("chatDisconnectTitle")}</DialogTitle>
-          {connectionToDisconnect && (
-            <DialogDescription>
-              {t("chatDisconnectDescription", {
-                name: connectionToDisconnect.displayName,
-                provider: providerMeta[connectionToDisconnect.provider].label,
-              })}
-            </DialogDescription>
-          )}
-          {disconnect.error && (
-            <p role="alert" className="text-sm text-destructive">
-              {disconnect.error.message}
-            </p>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button
-              disabled={disconnect.isPending}
-              onClick={() => setConnectionToDisconnect(null)}
-              variant="outline"
-            >
-              {t("cancel")}
-            </Button>
-            <Button
-              disabled={disconnect.isPending}
-              onClick={() => {
-                if (!connectionToDisconnect || disconnect.isPending) return;
-                disconnect.mutate(
-                  { connectionId: connectionToDisconnect.connectionId },
-                  { onSuccess: () => setConnectionToDisconnect(null) },
-                );
-              }}
-              variant="destructive"
-            >
-              {disconnect.isPending && <Icons.loader aria-hidden="true" className="animate-spin" />}
-              {copyT("disconnect")}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <DisconnectDialog page={page} />
     </section>
   );
 }

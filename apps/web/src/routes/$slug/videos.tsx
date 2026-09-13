@@ -197,12 +197,11 @@ export const Route = createFileRoute("/$slug/videos")({
     ),
 });
 
-function SharedVideoQueue() {
+function useSharedVideoQueuePage() {
   const { slug } = Route.useParams();
   const { page, status, videoQueueId } = Route.useSearch();
   const navigate = Route.useNavigate();
   const videosQ = useSharedVideoPageQ(slug, page, status, videoQueueId);
-  const { t } = useI18n(i18n);
 
   useEffect(() => {
     const data = videosQ.data;
@@ -214,133 +213,196 @@ function SharedVideoQueue() {
     }
   }, [navigate, page, status, videosQ.data, videosQ.isPlaceholderData]);
 
-  const displayedStatus = videosQ.data?.status ?? status;
-  const selectedQueueId = videosQ.data?.videoQueueId;
+  return {
+    displayedStatus: videosQ.data?.status ?? status,
+    navigate,
+    selectedQueueId: videosQ.data?.videoQueueId,
+    slug,
+    videoQueueId,
+    videosQ,
+  };
+}
+
+type SharedVideoQueuePage = ReturnType<typeof useSharedVideoQueuePage>;
+
+function SharedQueueNavigation({ page }: { page: SharedVideoQueuePage }) {
+  const { t } = useI18n(i18n);
+  if (!page.videosQ.data) return null;
+  return (
+    <nav
+      aria-label={t("videoQueues")}
+      className="flex shrink-0 flex-wrap gap-1 border-b border-border p-2"
+    >
+      {page.videosQ.data.queues.map((queue) => (
+        <Link
+          aria-current={page.selectedQueueId === queue.videoQueueId ? "page" : undefined}
+          className={buttonVariants({
+            className: "max-w-full",
+            size: "sm",
+            variant: page.selectedQueueId === queue.videoQueueId ? "secondary" : "ghost",
+          })}
+          key={queue.videoQueueId}
+          params={{ slug: page.slug }}
+          search={(previous) => ({ ...previous, videoQueueId: queue.videoQueueId, page: 1 })}
+          to="/$slug/videos"
+        >
+          <span className="truncate">{queue.label}</span>
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+function SharedQueueStatusNavigation({ page }: { page: SharedVideoQueuePage }) {
+  const { t } = useI18n(i18n);
+  const data = page.videosQ.data;
+  if (!data) return null;
+  const statusLink = (status: "queue" | "watched") => ({
+    page: 1,
+    status,
+    videoQueueId: page.videoQueueId,
+  });
+  return (
+    <nav
+      aria-label={t("publicQueueTabs")}
+      className="flex shrink-0 gap-1 border-b border-border bg-secondary/35 p-2"
+    >
+      <Link
+        aria-current={data.status === "queue" ? "page" : undefined}
+        className={buttonVariants({
+          className: "grow sm:grow-0",
+          size: "sm",
+          variant: data.status === "queue" ? "secondary" : "ghost",
+        })}
+        params={{ slug: page.slug }}
+        search={statusLink("queue")}
+        to="/$slug/videos"
+      >
+        <Icons.list aria-hidden="true" size={15} />
+        {t("currentQueue")}
+      </Link>
+      {data.showWatchedVideos && (
+        <Link
+          aria-current={data.status === "watched" ? "page" : undefined}
+          className={buttonVariants({
+            className: "grow sm:grow-0",
+            size: "sm",
+            variant: data.status === "watched" ? "secondary" : "ghost",
+          })}
+          params={{ slug: page.slug }}
+          search={statusLink("watched")}
+          to="/$slug/videos"
+        >
+          <Icons.watched aria-hidden="true" size={15} />
+          {t("watched")}
+        </Link>
+      )}
+    </nav>
+  );
+}
+
+function SharedQueueVideos({ page }: { page: SharedVideoQueuePage }) {
+  const { t } = useI18n(i18n);
+  const data = page.videosQ.data;
+  if (!data) return null;
+  const isQueue = data.status === "queue";
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      {isQueue ? (
+        <SharedVideoGroups
+          isLastPage={data.totalPages === 0 || data.page === data.totalPages}
+          items={data.items}
+          priorities={data.priorities}
+        />
+      ) : (
+        <div className="divide-y divide-border">
+          {data.items.map((video) => (
+            <SharedVideoCard key={video.videoId} video={video} />
+          ))}
+        </div>
+      )}
+      {data.items.length === 0 && (
+        <EmptyState
+          description={t(isQueue ? "videoLinksWillAppear" : "watchedVideosWillAppear")}
+          headingLevel={2}
+          icon={isQueue ? Icons.wallet : Icons.watched}
+          title={t(isQueue ? "noVideosInQueue" : "noWatchedVideos")}
+        />
+      )}
+    </div>
+  );
+}
+
+function SharedQueuePagination({ page }: { page: SharedVideoQueuePage }) {
+  const { t } = useI18n(i18n);
+  const data = page.videosQ.data;
+  if (!data || data.items.length === 0) return null;
+  return (
+    <PagePagination
+      isLoading={page.videosQ.isFetching}
+      loadingLabel={t("loadingVideoQueue")}
+      onPageChange={(nextPage) =>
+        void page.navigate({
+          search: {
+            page: nextPage,
+            status: page.displayedStatus,
+            videoQueueId: page.videoQueueId,
+          },
+        })
+      }
+      page={data.page}
+      pageSize={data.pageSize}
+      total={data.total}
+      totalPages={data.totalPages}
+    />
+  );
+}
+
+function SharedQueueData({ page }: { page: SharedVideoQueuePage }) {
+  return (
+    <>
+      <SharedQueueNavigation page={page} />
+      <SharedQueueStatusNavigation page={page} />
+      <SharedQueueVideos page={page} />
+      <SharedQueuePagination page={page} />
+    </>
+  );
+}
+
+function SharedQueueState({ page }: { page: SharedVideoQueuePage }) {
+  const { t } = useI18n(i18n);
+  if (page.videosQ.isLoading) {
+    return <VideoListSkeleton aria-busy="true" aria-label={t("loadingVideoQueue")} />;
+  }
+  if (page.videosQ.isError) {
+    return (
+      <QueryErrorState
+        isRetrying={page.videosQ.isFetching}
+        onRetry={() => void page.videosQ.refetch()}
+      />
+    );
+  }
+  if (page.videosQ.data) return <SharedQueueData page={page} />;
+  return (
+    <EmptyState
+      description={t("sharedQueueUnavailable")}
+      headingLevel={2}
+      icon={Icons.wallet}
+      title={t("queueNotFound")}
+    />
+  );
+}
+
+function SharedVideoQueue() {
+  const page = useSharedVideoQueuePage();
+  const { t } = useI18n(i18n);
 
   return (
     <main className="relative h-dvh overflow-hidden bg-background p-0 text-foreground sm:p-3">
       <div className="cosmic-starlight pointer-events-none absolute inset-0" />
       <section className="cosmic-panel relative mx-auto flex h-full min-h-0 w-full max-w-4xl flex-col overflow-hidden">
-        <CosmicPageHeader title={t("videoQueueBy", { slug: `@${slug}` })} />
-        {videosQ.isLoading ? (
-          <VideoListSkeleton aria-busy="true" aria-label={t("loadingVideoQueue")} />
-        ) : videosQ.isError ? (
-          <QueryErrorState isRetrying={videosQ.isFetching} onRetry={() => void videosQ.refetch()} />
-        ) : videosQ.data ? (
-          <>
-            <nav
-              aria-label={t("videoQueues")}
-              className="flex shrink-0 flex-wrap gap-1 border-b border-border p-2"
-            >
-              {videosQ.data.queues.map((queue) => (
-                <Link
-                  key={queue.videoQueueId}
-                  to="/$slug/videos"
-                  params={{ slug }}
-                  search={(previous) => ({
-                    ...previous,
-                    videoQueueId: queue.videoQueueId,
-                    page: 1,
-                  })}
-                  aria-current={selectedQueueId === queue.videoQueueId ? "page" : undefined}
-                  className={buttonVariants({
-                    variant: selectedQueueId === queue.videoQueueId ? "secondary" : "ghost",
-                    size: "sm",
-                    className: "max-w-full",
-                  })}
-                >
-                  <span className="truncate">{queue.label}</span>
-                </Link>
-              ))}
-            </nav>
-            <nav
-              aria-label={t("publicQueueTabs")}
-              className="flex shrink-0 gap-1 border-b border-border bg-secondary/35 p-2"
-            >
-              <Link
-                aria-current={videosQ.data.status === "queue" ? "page" : undefined}
-                className={buttonVariants({
-                  className: "grow sm:grow-0",
-                  size: "sm",
-                  variant: videosQ.data.status === "queue" ? "secondary" : "ghost",
-                })}
-                params={{ slug }}
-                search={{ page: 1, status: "queue", videoQueueId }}
-                to="/$slug/videos"
-              >
-                <Icons.list aria-hidden="true" size={15} />
-                {t("currentQueue")}
-              </Link>
-              {videosQ.data.showWatchedVideos && (
-                <Link
-                  aria-current={videosQ.data.status === "watched" ? "page" : undefined}
-                  className={buttonVariants({
-                    className: "grow sm:grow-0",
-                    size: "sm",
-                    variant: videosQ.data.status === "watched" ? "secondary" : "ghost",
-                  })}
-                  params={{ slug }}
-                  search={{ page: 1, status: "watched", videoQueueId }}
-                  to="/$slug/videos"
-                >
-                  <Icons.watched aria-hidden="true" size={15} />
-                  {t("watched")}
-                </Link>
-              )}
-            </nav>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-              {videosQ.data.status === "queue" ? (
-                <SharedVideoGroups
-                  isLastPage={
-                    videosQ.data.totalPages === 0 || videosQ.data.page === videosQ.data.totalPages
-                  }
-                  items={videosQ.data.items}
-                  priorities={videosQ.data.priorities}
-                />
-              ) : (
-                <div className="divide-y divide-border">
-                  {videosQ.data.items.map((video) => (
-                    <SharedVideoCard key={video.videoId} video={video} />
-                  ))}
-                </div>
-              )}
-              {videosQ.data.items.length === 0 && (
-                <EmptyState
-                  description={t(
-                    videosQ.data.status === "queue"
-                      ? "videoLinksWillAppear"
-                      : "watchedVideosWillAppear",
-                  )}
-                  headingLevel={2}
-                  icon={videosQ.data.status === "queue" ? Icons.wallet : Icons.watched}
-                  title={t(videosQ.data.status === "queue" ? "noVideosInQueue" : "noWatchedVideos")}
-                />
-              )}
-            </div>
-            {videosQ.data.items.length > 0 && (
-              <PagePagination
-                isLoading={videosQ.isFetching}
-                loadingLabel={t("loadingVideoQueue")}
-                onPageChange={(nextPage) =>
-                  void navigate({
-                    search: { page: nextPage, status: displayedStatus, videoQueueId },
-                  })
-                }
-                page={videosQ.data.page}
-                pageSize={videosQ.data.pageSize}
-                total={videosQ.data.total}
-                totalPages={videosQ.data.totalPages}
-              />
-            )}
-          </>
-        ) : (
-          <EmptyState
-            description={t("sharedQueueUnavailable")}
-            headingLevel={2}
-            icon={Icons.wallet}
-            title={t("queueNotFound")}
-          />
-        )}
+        <CosmicPageHeader title={t("videoQueueBy", { slug: `@${page.slug}` })} />
+        <SharedQueueState page={page} />
       </section>
     </main>
   );

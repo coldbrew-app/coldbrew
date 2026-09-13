@@ -18,6 +18,14 @@
     }
   },
   "rules": {
+    "eslint-js/padding-line-between-statements": [
+      "error",
+      {
+        "blankLine": "always",
+        "prev": "function",
+        "next": "function"
+      }
+    ],
     "eslint-js/no-restricted-syntax": [
       "error",
       {
@@ -42,6 +50,13 @@
   "overrides": [
     {
       "files": ["**/*.ts"],
+      "rules": {
+        "no-use-before-define": "error"
+      }
+    },
+    {
+      "files": ["**/*.tsx"],
+      "excludeFiles": ["apps/web/src/routes/**"],
       "rules": {
         "no-use-before-define": "error"
       }

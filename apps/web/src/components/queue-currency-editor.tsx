@@ -67,6 +67,28 @@ function largerCurrency(left: QueueCurrency, right: QueueCurrency) {
   return order[left] > order[right] ? left : right;
 }
 
+function QueueCurrencyHeading() {
+  const { t } = useI18n(i18n);
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <h2 className="font-heading text-lg font-semibold text-card-foreground">
+        {t("queueCurrency")}
+      </h2>
+      <Tooltip>
+        <TooltipTrigger
+          aria-label={t("queueCurrencyDescription")}
+          className="grid size-5 cursor-pointer place-items-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          type="button"
+        >
+          <Icons.help aria-hidden="true" size={14} />
+        </TooltipTrigger>
+        <TooltipContent>{t("queueCurrencyDescription")}</TooltipContent>
+      </Tooltip>
+    </div>
+  );
+}
+
 export function QueueCurrencyEditor() {
   const { t } = useI18n(i18n);
   const userInfo = useUserInfo();
@@ -201,27 +223,5 @@ export function QueueCurrencyEditor() {
         </form>
       )}
     </section>
-  );
-}
-
-function QueueCurrencyHeading() {
-  const { t } = useI18n(i18n);
-
-  return (
-    <div className="flex items-center gap-1.5">
-      <h2 className="font-heading text-lg font-semibold text-card-foreground">
-        {t("queueCurrency")}
-      </h2>
-      <Tooltip>
-        <TooltipTrigger
-          aria-label={t("queueCurrencyDescription")}
-          className="grid size-5 cursor-pointer place-items-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          type="button"
-        >
-          <Icons.help aria-hidden="true" size={14} />
-        </TooltipTrigger>
-        <TooltipContent>{t("queueCurrencyDescription")}</TooltipContent>
-      </Tooltip>
-    </div>
   );
 }

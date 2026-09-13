@@ -2,6 +2,9 @@
 default:
   @just --list
 
+# Keep Fallow output focused on findings rather than follow-up command suggestions.
+export FALLOW_SUGGESTIONS := "off"
+
 install:
   bun install
 
@@ -102,6 +105,7 @@ lint-go:
 
 lint-fallow:
   bunx fallow --only dead-code --only dupes --fail-on-issues
+  bunx fallow audit --base origin/master --gate new-only --production-health --max-crap 0
 
 lint: fmt-check lint-ts lint-go lint-fallow
 

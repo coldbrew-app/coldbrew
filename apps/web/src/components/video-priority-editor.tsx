@@ -82,22 +82,20 @@ type Props = {
   videoCount: number;
 };
 
-export default function VideoPriorityEditor({
-  videoQueueId,
-  priority,
-  isSelected,
-  remainingSeconds,
-  videoCount,
-}: Props) {
+function priorityFormValues(priority: VideoPriority): VideoPriorityFormValues {
+  return {
+    label: priority.label,
+    minPricePerMinute: formatMoneyInputValue(priority.minPricePerMinute),
+  };
+}
+
+function useVideoPriorityEditor(priority: VideoPriority) {
   const { t } = useI18n(i18n);
   const userInfo = useUserInfo();
   const [isEditing, setIsEditing] = useState(false);
   const updateVideoPriorityM = useUpdateVideoPriorityM();
   const { formState, handleSubmit, register, reset } = useForm<VideoPriorityFormValues>({
-    defaultValues: {
-      label: priority.label,
-      minPricePerMinute: formatMoneyInputValue(priority.minPricePerMinute),
-    },
+    defaultValues: priorityFormValues(priority),
     mode: "onChange",
   });
 
@@ -106,78 +104,149 @@ export default function VideoPriorityEditor({
       videoPriorityId: priority.videoPriorityId,
       ...values,
     });
-    reset({
-      label: updatedPriority.label,
-      minPricePerMinute: formatMoneyInputValue(updatedPriority.minPricePerMinute),
-    });
+    reset(priorityFormValues(updatedPriority));
     setIsEditing(false);
   };
 
   const startEditing = () => {
-    reset({
-      label: priority.label,
-      minPricePerMinute: formatMoneyInputValue(priority.minPricePerMinute),
-    });
+    reset(priorityFormValues(priority));
     setIsEditing(true);
   };
 
   const cancelEditing = () => {
-    reset({
-      label: priority.label,
-      minPricePerMinute: formatMoneyInputValue(priority.minPricePerMinute),
-    });
+    reset(priorityFormValues(priority));
     setIsEditing(false);
   };
 
-  if (!isEditing) {
-    return (
-      <div
-        className={cn(
-          "relative flex items-center gap-2 rounded-lg border px-2 py-1.5",
-          isSelected
-            ? "border-ring/35 bg-secondary hover:bg-accent"
-            : "border-border bg-card hover:bg-muted",
-        )}
+  return {
+    cancelEditing,
+    formState,
+    handleSubmit,
+    isEditing,
+    queueCurrency: userInfo.queueCurrency,
+    register,
+    savePriority,
+    startEditing,
+    t,
+    updateVideoPriorityM,
+  };
+}
+
+type VideoPriorityEditorModel = ReturnType<typeof useVideoPriorityEditor>;
+
+function PrioritySummary({ editor, props }: { editor: VideoPriorityEditorModel; props: Props }) {
+  const { isSelected, priority, remainingSeconds, videoCount, videoQueueId } = props;
+  const { queueCurrency, startEditing, t } = editor;
+
+  return (
+    <div
+      className={cn(
+        "relative flex items-center gap-2 rounded-lg border px-2 py-1.5",
+        isSelected
+          ? "border-ring/35 bg-secondary hover:bg-accent"
+          : "border-border bg-card hover:bg-muted",
+      )}
+    >
+      <Link
+        aria-label={t("selectQueueFilter", { label: priority.label })}
+        className="absolute inset-0 rounded-lg"
+        search={(previous) => ({
+          videoQueueId,
+          page: 1,
+          videoPriorityId: priority.videoPriorityId,
+          videoStatus: previous.videoStatus ?? "all",
+        })}
+        to="/videos"
+      />
+      <Button
+        aria-label={t("editQueue")}
+        className="pointer-events-auto relative"
+        onClick={startEditing}
+        size="icon-xs"
+        type="button"
+        variant="outline"
       >
-        <Link
-          aria-label={t("selectQueueFilter", { label: priority.label })}
-          className="absolute inset-0 rounded-lg"
-          search={(previous) => ({
-            videoQueueId,
-            page: 1,
-            videoPriorityId: priority.videoPriorityId,
-            videoStatus: previous.videoStatus ?? "all",
-          })}
-          to="/videos"
-        />
-        <Button
-          aria-label={t("editQueue")}
-          className="pointer-events-auto relative"
-          onClick={startEditing}
-          size="icon-xs"
-          type="button"
-          variant="outline"
-        >
-          <Icons.edit aria-hidden="true" />
-        </Button>
-        <div className="pointer-events-none flex min-w-0 grow flex-col gap-0.5 px-1.5 py-1 text-left">
-          <div className="flex min-w-0 items-center gap-2 text-xs">
-            <span className="min-w-0 grow truncate">{priority.label}</span>
-            <span className="shrink-0 text-[10px] font-bold">{videoCount}</span>
-          </div>
-          <div className="flex min-w-0 items-center justify-between gap-2 text-[10px] text-muted-foreground">
-            <span className="truncate">
-              {priority.minPricePerMinute} {userInfo.queueCurrency}/{t("perMinute")}
-            </span>
-            <span className="shrink-0 font-semibold text-primary">
-              {t("durationRemaining", getRoundedWatchDurationParts(remainingSeconds))}
-            </span>
-          </div>
+        <Icons.edit aria-hidden="true" />
+      </Button>
+      <div className="pointer-events-none flex min-w-0 grow flex-col gap-0.5 px-1.5 py-1 text-left">
+        <div className="flex min-w-0 items-center gap-2 text-xs">
+          <span className="min-w-0 grow truncate">{priority.label}</span>
+          <span className="shrink-0 text-[10px] font-bold">{videoCount}</span>
+        </div>
+        <div className="flex min-w-0 items-center justify-between gap-2 text-[10px] text-muted-foreground">
+          <span className="truncate">
+            {priority.minPricePerMinute} {queueCurrency}/{t("perMinute")}
+          </span>
+          <span className="shrink-0 font-semibold text-primary">
+            {t("durationRemaining", getRoundedWatchDurationParts(remainingSeconds))}
+          </span>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
+function PriorityFields({
+  editor,
+  priority,
+}: {
+  editor: VideoPriorityEditorModel;
+  priority: VideoPriority;
+}) {
+  const { formState, register, t } = editor;
+  const errorId = `video-priority-error-${priority.videoPriorityId}`;
+
+  return (
+    <>
+      <Field className="min-w-0 grow gap-0" data-invalid={Boolean(formState.errors.label)}>
+        <FieldLabel className="sr-only" htmlFor={`priority-label-${priority.videoPriorityId}`}>
+          {t("name")}
+        </FieldLabel>
+        <Input
+          autoComplete="off"
+          aria-describedby={formState.errors.label ? errorId : undefined}
+          aria-invalid={Boolean(formState.errors.label)}
+          className="h-6 rounded-md px-2 text-xs md:text-xs"
+          id={`priority-label-${priority.videoPriorityId}`}
+          maxLength={64}
+          {...register("label", { required: t("enterQueueName") })}
+        />
+      </Field>
+      <Field
+        className="w-20 shrink-0 gap-0"
+        data-invalid={Boolean(formState.errors.minPricePerMinute)}
+      >
+        <FieldLabel className="sr-only" htmlFor={`priority-amount-${priority.videoPriorityId}`}>
+          {t("minimumAmountPerMinute")}
+        </FieldLabel>
+        <Input
+          autoComplete="off"
+          aria-describedby={formState.errors.minPricePerMinute ? errorId : undefined}
+          aria-invalid={Boolean(formState.errors.minPricePerMinute)}
+          className="h-6 rounded-md px-2 text-xs md:text-xs"
+          id={`priority-amount-${priority.videoPriorityId}`}
+          min="0"
+          step="any"
+          type="number"
+          {...register("minPricePerMinute", {
+            required: t("enterMinimumAmount"),
+            validate: (value) =>
+              MoneyAmountSchema.safeParse(value).success || t("enterAmountZeroOrMore"),
+          })}
+        />
+      </Field>
+    </>
+  );
+}
+
+function PriorityForm({
+  editor,
+  priority,
+}: {
+  editor: VideoPriorityEditorModel;
+  priority: VideoPriority;
+}) {
+  const { cancelEditing, formState, handleSubmit, savePriority, t, updateVideoPriorityM } = editor;
   const errorId = `video-priority-error-${priority.videoPriorityId}`;
 
   return (
@@ -196,43 +265,7 @@ export default function VideoPriorityEditor({
         >
           <Icons.cancel aria-hidden="true" />
         </Button>
-        <Field className="min-w-0 grow gap-0" data-invalid={Boolean(formState.errors.label)}>
-          <FieldLabel className="sr-only" htmlFor={`priority-label-${priority.videoPriorityId}`}>
-            {t("name")}
-          </FieldLabel>
-          <Input
-            autoComplete="off"
-            aria-describedby={formState.errors.label ? errorId : undefined}
-            aria-invalid={Boolean(formState.errors.label)}
-            className="h-6 rounded-md px-2 text-xs md:text-xs"
-            id={`priority-label-${priority.videoPriorityId}`}
-            maxLength={64}
-            {...register("label", { required: t("enterQueueName") })}
-          />
-        </Field>
-        <Field
-          className="w-20 shrink-0 gap-0"
-          data-invalid={Boolean(formState.errors.minPricePerMinute)}
-        >
-          <FieldLabel className="sr-only" htmlFor={`priority-amount-${priority.videoPriorityId}`}>
-            {t("minimumAmountPerMinute")}
-          </FieldLabel>
-          <Input
-            autoComplete="off"
-            aria-describedby={formState.errors.minPricePerMinute ? errorId : undefined}
-            aria-invalid={Boolean(formState.errors.minPricePerMinute)}
-            className="h-6 rounded-md px-2 text-xs md:text-xs"
-            id={`priority-amount-${priority.videoPriorityId}`}
-            min="0"
-            step="any"
-            type="number"
-            {...register("minPricePerMinute", {
-              required: t("enterMinimumAmount"),
-              validate: (value) =>
-                MoneyAmountSchema.safeParse(value).success || t("enterAmountZeroOrMore"),
-            })}
-          />
-        </Field>
+        <PriorityFields editor={editor} priority={priority} />
         <Button
           aria-label={t(updateVideoPriorityM.isPending ? "savingQueue" : "saveQueue")}
           disabled={!formState.isValid || !formState.isDirty || updateVideoPriorityM.isPending}
@@ -253,5 +286,15 @@ export default function VideoPriorityEditor({
         <FieldError className="text-[10px]">{updateVideoPriorityM.error.message}</FieldError>
       )}
     </form>
+  );
+}
+
+export default function VideoPriorityEditor(props: Props) {
+  const editor = useVideoPriorityEditor(props.priority);
+
+  return editor.isEditing ? (
+    <PriorityForm editor={editor} priority={props.priority} />
+  ) : (
+    <PrioritySummary editor={editor} props={props} />
   );
 }
