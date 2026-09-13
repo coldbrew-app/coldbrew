@@ -1,7 +1,24 @@
 # Multichat
 
-`apps/chat` owns chat aggregation. `apps/web` owns the public chat tRPC interface, authenticates
-the Coldbrew user, validates chat inputs and outputs with Zod, and relays commands and live events.
+## Domain language
+
+- A **chat provider connection** is one authorization from a Coldbrew user to one provider account.
+  Providers use OAuth except where this guide explicitly documents another authorization method. A
+  user may have multiple connections for the same provider. Credentials stay inside the chat
+  aggregation module.
+- A **chat source** is one provider-owned channel whose messages are included in a user's multichat.
+  Every source belongs to exactly one chat provider connection; arbitrary public sources are not
+  supported.
+- A **chat capability** is an operation a connection can perform: read, send, delete, timeout, ban,
+  or unban. Product behavior is derived from capabilities instead of provider names.
+- A **broadcast message** is one user command that independently sends the same text to every
+  enabled source with the `send_message` capability. Its result contains one outcome per source;
+  the operation is not transactional across providers.
+- The **chat aggregation module** is the separately deployed `apps/chat` service. It owns provider
+  connections, collectors, provider webhooks, normalized events, moderation commands, broadcast
+  messages, and the moderation audit. `apps/web` owns the public tRPC interface, Coldbrew
+  authentication, and validation at the module's external seam.
+
 The browser uses the same `/api/trpc` client as the rest of the application and never connects to
 `apps/chat` directly.
 
@@ -30,10 +47,8 @@ browser ── session ──► apps/web tRPC ── authenticated JSON/NDJSON 
 ```
 
 The Go provider adapters expose one normalized stream of `StreamEvent` values and provider errors,
-plus send and moderation commands. The application layer is provider-agnostic and uses declared
-capabilities instead of provider conditionals. A broadcast starts all supported sends
-concurrently, returns one result per source, and never rolls back successful sends when another
-provider fails.
+plus send and moderation commands. The application layer is provider-agnostic and invokes the
+capabilities declared by each connection.
 
 Every pull collector owns a NATS KV lease keyed by `chat_source_id`. The lease has a 30-second TTL
 and a 10-second heartbeat. This permits multiple `apps/chat` replicas while keeping exactly one

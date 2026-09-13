@@ -119,6 +119,7 @@ Before editing TS and TSX files for a substantial task:
 - Documentation files referenced by this guide may and should be edited whenever needed, and kept up to date with the codebase and project conventions.
 - Follow the [Git workflow](docs/git.md) when the user asks to merge changes into `master`.
 - Read [the multichat architecture](docs/multichat.md) before changing chat providers, collectors, streams, overlays, or related external-service integrations.
+- Follow [donation alert terminology and behavior](docs/donation-alerts.md) when changing alert ingestion, playback, widgets, media, or settings.
 - In TypeScript, follow the [error-handling guide](docs/errors.md) when working with HTTP requests, subscriptions, streams, workers, or other external failures.
 - Follow the [React guide](docs/react.md) when creating or changing React hooks or their consumers in `apps/web`.
 - Follow the [SQL guide](docs/sql.md) when editing PostgreSQL schemas or SQL embedded in Go or TypeScript.
@@ -130,6 +131,8 @@ Before editing TS and TSX files for a substantial task:
 ## Scripts
 
 Add helper scripts to `justfile`, not `package.json`
+
+Create or edit files in `scripts/` only when the developer explicitly requests a `scripts/` change.
 
 ## Environment variables
 
