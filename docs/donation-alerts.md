@@ -4,6 +4,30 @@ Coldbrew can turn newly accepted donations into visual and audio alerts in an
 OBS Browser Source. The widget is an ordinary HTTPS page; it does not require
 an OBS plugin or a companion desktop application.
 
+## Domain language
+
+- A **donation alert** is a visual and audio presentation of a donation for its streamer. One
+  donation can have an incoming alert and later replays, while a test alert has no donation. Use
+  donation alert rather than notification, queue item, or donation when referring to the
+  presentation.
+- An **alert playback** is one attempt to present a donation alert in the alert widget. Its kind is
+  incoming, replay, or test, and its presentation is fixed while it is queued or playing. Recent
+  terminal history may release media references during retention cleanup. Use alert playback
+  rather than donation or event for the attempt.
+- An **incoming alert** is the single automatic alert playback created for a newly accepted eligible
+  donation. Initial donation history never creates incoming alerts; do not call those historical or
+  imported alerts.
+- An **alert replay** is a new alert playback for a donation that already has an incoming or replay
+  playback. It never creates or changes a donation, so it is neither a retried nor a duplicate
+  donation.
+- The **alert widget** is the playback-only browser page that a streamer adds to OBS using a secret
+  link. It is neither an OBS plugin nor an alert dashboard.
+- The **active alert player** is the one alert widget instance currently allowed to consume a
+  streamer's alert playbacks. Other instances are standby players until the active player leaves;
+  the active player is not a primary OBS instance or an owner.
+- An **interrupted playback** started but has no provable completion. It requires an explicit replay
+  and never returns to the automatic queue; it is neither a failed donation nor a pending alert.
+
 ## System boundaries
 
 The donations service owns donation alert configuration, ingestion, media,

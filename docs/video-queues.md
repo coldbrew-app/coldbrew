@@ -1,8 +1,10 @@
 # Video queues
 
-A streamer has one or more named video queues and one shared set of priority thresholds, including
-one zero-threshold default priority. Creating a queue does not create priorities; editing a
-priority affects every queue. Labels are trimmed at the tRPC seam and unique per user.
+A streamer has one or more named video queues; a video queue is neither a tag nor a streaming
+platform. The streamer also has one shared set of video priority thresholds, including one
+zero-threshold default priority. Use video priority, not queue, for a threshold level. Creating a
+queue does not create priorities; editing a priority affects every queue. Labels are trimmed at the
+tRPC seam and unique per user.
 
 Each video belongs to exactly one queue. Unknown duration or amount leaves its priority NULL,
 not its queue. Both donation scanning and manual additions choose the user's default queue when
