@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { parseJsonb } from "./pg.js";
+import { createSql, parseJsonb } from "./pg.js";
 import { MoneyAmountSchema } from "./schemas.js";
 
 describe("parseJsonb", () => {
@@ -12,5 +12,15 @@ describe("parseJsonb", () => {
 
     expect(value.amount).toBe("999999999999999999.99");
     expect(MoneyAmountSchema.parse(value.amount)).toBe("999999999999999999.99");
+  });
+});
+
+describe("createSql", () => {
+  it("sets a dedicated PostgreSQL search path when requested", async () => {
+    const sql = createSql("postgresql://localhost/coldbrew", { searchPath: "auth" });
+
+    expect(sql.options.connection["search_path"]).toBe("auth");
+
+    await sql.end();
   });
 });

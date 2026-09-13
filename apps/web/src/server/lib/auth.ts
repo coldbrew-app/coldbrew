@@ -1,14 +1,16 @@
+import { createSql } from "@coldbrew/packages/pg.js";
 import { betterAuth } from "better-auth";
 import { PostgresJSDialect } from "kysely-postgres-js";
 
 import { env } from "../env.js";
-import { sql } from "../sensors/db/index.js";
+
+const authSql = createSql(env.DATABASE_URL, { searchPath: "auth" });
 
 export const auth = betterAuth({
   baseURL: env.APP_DOMAIN,
   database: {
     type: "postgres",
-    dialect: new PostgresJSDialect({ postgres: sql }),
+    dialect: new PostgresJSDialect({ postgres: authSql }),
   },
   socialProviders: {
     google: {
