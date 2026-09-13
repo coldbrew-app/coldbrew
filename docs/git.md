@@ -11,7 +11,14 @@ this workflow in order:
 3. Combine all commits belonging to the task into one coherent commit.
 4. Run `just check` and ensure it passes.
 5. Push the task branch to `origin`.
-6. Create a pull request targeting `master` and return its URL to the user.
+6. Create a pull request targeting `master` and open it.
+7. Approve the pull request for merging into `master` through the merge queue.
+8. Monitor the pull request once per minute until it is merged. If a check,
+   conflict, merge-queue requirement, or other problem blocks the merge, fix
+   the problem, run `just check`, push the fix, and return the pull request to
+   the merge queue when needed. Repeat this cycle until the pull request is
+   merged.
+9. Return the pull request URL and report that it was merged.
 
-Merging the pull request is a separate operation and requires an explicit user
-request.
+The workflow is complete only when the pull request has been merged into
+`master`.
