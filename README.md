@@ -11,6 +11,7 @@ list them.
 Related documentation:
 
 - [currency and video-queue rules](docs/currencies.md);
+- [donation alerts and OBS widget behavior](docs/donation-alerts.md);
 - [multichat architecture and provider setup](docs/multichat.md);
 - [production deployment, configuration, and backups](docs/deployment.md).
 

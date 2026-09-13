@@ -22,17 +22,21 @@ import { Route as AuthenticatedDonationsRouteImport } from './routes/_authentica
 import { Route as AuthenticatedIntegrationsRouteImport } from './routes/_authenticated/integrations'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedVideosRouteImport } from './routes/_authenticated/videos'
+import { Route as AlertsOverlayRouteImport } from './routes/alerts.overlay'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as DocsPrivacyRouteImport } from './routes/docs/privacy'
 import { Route as DocsTosRouteImport } from './routes/docs/tos'
 import { Route as AuthenticatedAdminAdminRouteImport } from './routes/_authenticated/_admin/admin'
 import { Route as AuthenticatedDonationsIndexRouteImport } from './routes/_authenticated/donations.index'
+import { Route as ApiAlertsStreamRouteImport } from './routes/api/alerts/stream'
+import { Route as ApiAlertsUploadRouteImport } from './routes/api/alerts/upload'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiChatSplatRouteImport } from './routes/api/chat/$'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api/trpc/$'
 import { Route as ChatOverlayTokenRouteImport } from './routes/chat.overlay.$token'
 import { Route as AuthenticatedAdminAdminIndexRouteImport } from './routes/_authenticated/_admin/admin/index'
 import { Route as AuthenticatedAdminAdminDlqRouteImport } from './routes/_authenticated/_admin/admin/dlq'
+import { Route as ApiAlertsMediaAssetIdRouteImport } from './routes/api/alerts/media.$assetId'
 import { Route as ApiIntegrationDonationalertsAuthorizeRouteImport } from './routes/api/integration/donationalerts/authorize'
 import { Route as ApiIntegrationDonationalertsCallbackRouteImport } from './routes/api/integration/donationalerts/callback'
 import { Route as ApiIntegrationStreamlabsAuthorizeRouteImport } from './routes/api/integration/streamlabs/authorize'
@@ -102,6 +106,11 @@ const AuthenticatedVideosRoute = AuthenticatedVideosRouteImport.update({
   path: '/videos',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AlertsOverlayRoute = AlertsOverlayRouteImport.update({
+  id: '/alerts/overlay',
+  path: '/alerts/overlay',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiHealthRoute = ApiHealthRouteImport.update({
   id: '/api/health',
   path: '/api/health',
@@ -128,6 +137,16 @@ const AuthenticatedDonationsIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedDonationsRoute,
   } as any)
+const ApiAlertsStreamRoute = ApiAlertsStreamRouteImport.update({
+  id: '/api/alerts/stream',
+  path: '/api/alerts/stream',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAlertsUploadRoute = ApiAlertsUploadRouteImport.update({
+  id: '/api/alerts/upload',
+  path: '/api/alerts/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -160,6 +179,11 @@ const AuthenticatedAdminAdminDlqRoute =
     path: '/dlq',
     getParentRoute: () => AuthenticatedAdminAdminRoute,
   } as any)
+const ApiAlertsMediaAssetIdRoute = ApiAlertsMediaAssetIdRouteImport.update({
+  id: '/api/alerts/media/$assetId',
+  path: '/api/alerts/media/$assetId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiIntegrationDonationalertsAuthorizeRoute =
   ApiIntegrationDonationalertsAuthorizeRouteImport.update({
     id: '/api/integration/donationalerts/authorize',
@@ -197,16 +221,20 @@ export interface FileRoutesByFullPath {
   '/integrations': typeof AuthenticatedIntegrationsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/videos': typeof AuthenticatedVideosRoute
+  '/alerts/overlay': typeof AlertsOverlayRoute
   '/api/health': typeof ApiHealthRoute
   '/docs/privacy': typeof DocsPrivacyRoute
   '/docs/tos': typeof DocsTosRoute
   '/admin': typeof AuthenticatedAdminAdminRouteWithChildren
+  '/api/alerts/stream': typeof ApiAlertsStreamRoute
+  '/api/alerts/upload': typeof ApiAlertsUploadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/$': typeof ApiChatSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/chat/overlay/$token': typeof ChatOverlayTokenRoute
   '/donations/': typeof AuthenticatedDonationsIndexRoute
   '/admin/dlq': typeof AuthenticatedAdminAdminDlqRoute
+  '/api/alerts/media/$assetId': typeof ApiAlertsMediaAssetIdRoute
   '/api/integration/donationalerts/authorize': typeof ApiIntegrationDonationalertsAuthorizeRoute
   '/api/integration/donationalerts/callback': typeof ApiIntegrationDonationalertsCallbackRoute
   '/api/integration/streamlabs/authorize': typeof ApiIntegrationStreamlabsAuthorizeRoute
@@ -224,15 +252,19 @@ export interface FileRoutesByTo {
   '/integrations': typeof AuthenticatedIntegrationsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/videos': typeof AuthenticatedVideosRoute
+  '/alerts/overlay': typeof AlertsOverlayRoute
   '/api/health': typeof ApiHealthRoute
   '/docs/privacy': typeof DocsPrivacyRoute
   '/docs/tos': typeof DocsTosRoute
+  '/api/alerts/stream': typeof ApiAlertsStreamRoute
+  '/api/alerts/upload': typeof ApiAlertsUploadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/$': typeof ApiChatSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/chat/overlay/$token': typeof ChatOverlayTokenRoute
   '/donations': typeof AuthenticatedDonationsIndexRoute
   '/admin/dlq': typeof AuthenticatedAdminAdminDlqRoute
+  '/api/alerts/media/$assetId': typeof ApiAlertsMediaAssetIdRoute
   '/api/integration/donationalerts/authorize': typeof ApiIntegrationDonationalertsAuthorizeRoute
   '/api/integration/donationalerts/callback': typeof ApiIntegrationDonationalertsCallbackRoute
   '/api/integration/streamlabs/authorize': typeof ApiIntegrationStreamlabsAuthorizeRoute
@@ -253,17 +285,21 @@ export interface FileRoutesById {
   '/_authenticated/integrations': typeof AuthenticatedIntegrationsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/videos': typeof AuthenticatedVideosRoute
+  '/alerts/overlay': typeof AlertsOverlayRoute
   '/api/health': typeof ApiHealthRoute
   '/docs/privacy': typeof DocsPrivacyRoute
   '/docs/tos': typeof DocsTosRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/_admin/admin': typeof AuthenticatedAdminAdminRouteWithChildren
+  '/api/alerts/stream': typeof ApiAlertsStreamRoute
+  '/api/alerts/upload': typeof ApiAlertsUploadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/$': typeof ApiChatSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/chat/overlay/$token': typeof ChatOverlayTokenRoute
   '/_authenticated/donations/': typeof AuthenticatedDonationsIndexRoute
   '/_authenticated/_admin/admin/dlq': typeof AuthenticatedAdminAdminDlqRoute
+  '/api/alerts/media/$assetId': typeof ApiAlertsMediaAssetIdRoute
   '/api/integration/donationalerts/authorize': typeof ApiIntegrationDonationalertsAuthorizeRoute
   '/api/integration/donationalerts/callback': typeof ApiIntegrationDonationalertsCallbackRoute
   '/api/integration/streamlabs/authorize': typeof ApiIntegrationStreamlabsAuthorizeRoute
@@ -284,16 +320,20 @@ export interface FileRouteTypes {
     | '/integrations'
     | '/settings'
     | '/videos'
+    | '/alerts/overlay'
     | '/api/health'
     | '/docs/privacy'
     | '/docs/tos'
     | '/admin'
+    | '/api/alerts/stream'
+    | '/api/alerts/upload'
     | '/api/auth/$'
     | '/api/chat/$'
     | '/api/trpc/$'
     | '/chat/overlay/$token'
     | '/donations/'
     | '/admin/dlq'
+    | '/api/alerts/media/$assetId'
     | '/api/integration/donationalerts/authorize'
     | '/api/integration/donationalerts/callback'
     | '/api/integration/streamlabs/authorize'
@@ -311,15 +351,19 @@ export interface FileRouteTypes {
     | '/integrations'
     | '/settings'
     | '/videos'
+    | '/alerts/overlay'
     | '/api/health'
     | '/docs/privacy'
     | '/docs/tos'
+    | '/api/alerts/stream'
+    | '/api/alerts/upload'
     | '/api/auth/$'
     | '/api/chat/$'
     | '/api/trpc/$'
     | '/chat/overlay/$token'
     | '/donations'
     | '/admin/dlq'
+    | '/api/alerts/media/$assetId'
     | '/api/integration/donationalerts/authorize'
     | '/api/integration/donationalerts/callback'
     | '/api/integration/streamlabs/authorize'
@@ -339,17 +383,21 @@ export interface FileRouteTypes {
     | '/_authenticated/integrations'
     | '/_authenticated/settings'
     | '/_authenticated/videos'
+    | '/alerts/overlay'
     | '/api/health'
     | '/docs/privacy'
     | '/docs/tos'
     | '/_authenticated/'
     | '/_authenticated/_admin/admin'
+    | '/api/alerts/stream'
+    | '/api/alerts/upload'
     | '/api/auth/$'
     | '/api/chat/$'
     | '/api/trpc/$'
     | '/chat/overlay/$token'
     | '/_authenticated/donations/'
     | '/_authenticated/_admin/admin/dlq'
+    | '/api/alerts/media/$assetId'
     | '/api/integration/donationalerts/authorize'
     | '/api/integration/donationalerts/callback'
     | '/api/integration/streamlabs/authorize'
@@ -363,13 +411,17 @@ export interface RootRouteChildren {
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   SlugVideosRoute: typeof SlugVideosRoute
+  AlertsOverlayRoute: typeof AlertsOverlayRoute
   ApiHealthRoute: typeof ApiHealthRoute
   DocsPrivacyRoute: typeof DocsPrivacyRoute
   DocsTosRoute: typeof DocsTosRoute
+  ApiAlertsStreamRoute: typeof ApiAlertsStreamRoute
+  ApiAlertsUploadRoute: typeof ApiAlertsUploadRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiChatSplatRoute: typeof ApiChatSplatRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
   ChatOverlayTokenRoute: typeof ChatOverlayTokenRoute
+  ApiAlertsMediaAssetIdRoute: typeof ApiAlertsMediaAssetIdRoute
   ApiIntegrationDonationalertsAuthorizeRoute: typeof ApiIntegrationDonationalertsAuthorizeRoute
   ApiIntegrationDonationalertsCallbackRoute: typeof ApiIntegrationDonationalertsCallbackRoute
   ApiIntegrationStreamlabsAuthorizeRoute: typeof ApiIntegrationStreamlabsAuthorizeRoute
@@ -469,6 +521,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedVideosRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/alerts/overlay': {
+      id: '/alerts/overlay'
+      path: '/alerts/overlay'
+      fullPath: '/alerts/overlay'
+      preLoaderRoute: typeof AlertsOverlayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/health': {
       id: '/api/health'
       path: '/api/health'
@@ -503,6 +562,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/donations/'
       preLoaderRoute: typeof AuthenticatedDonationsIndexRouteImport
       parentRoute: typeof AuthenticatedDonationsRoute
+    }
+    '/api/alerts/stream': {
+      id: '/api/alerts/stream'
+      path: '/api/alerts/stream'
+      fullPath: '/api/alerts/stream'
+      preLoaderRoute: typeof ApiAlertsStreamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/alerts/upload': {
+      id: '/api/alerts/upload'
+      path: '/api/alerts/upload'
+      fullPath: '/api/alerts/upload'
+      preLoaderRoute: typeof ApiAlertsUploadRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
       id: '/api/auth/$'
@@ -545,6 +618,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/dlq'
       preLoaderRoute: typeof AuthenticatedAdminAdminDlqRouteImport
       parentRoute: typeof AuthenticatedAdminAdminRoute
+    }
+    '/api/alerts/media/$assetId': {
+      id: '/api/alerts/media/$assetId'
+      path: '/api/alerts/media/$assetId'
+      fullPath: '/api/alerts/media/$assetId'
+      preLoaderRoute: typeof ApiAlertsMediaAssetIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/integration/donationalerts/authorize': {
       id: '/api/integration/donationalerts/authorize'
@@ -650,13 +730,17 @@ const rootRouteChildren: RootRouteChildren = {
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   SlugVideosRoute: SlugVideosRoute,
+  AlertsOverlayRoute: AlertsOverlayRoute,
   ApiHealthRoute: ApiHealthRoute,
   DocsPrivacyRoute: DocsPrivacyRoute,
   DocsTosRoute: DocsTosRoute,
+  ApiAlertsStreamRoute: ApiAlertsStreamRoute,
+  ApiAlertsUploadRoute: ApiAlertsUploadRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiChatSplatRoute: ApiChatSplatRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,
   ChatOverlayTokenRoute: ChatOverlayTokenRoute,
+  ApiAlertsMediaAssetIdRoute: ApiAlertsMediaAssetIdRoute,
   ApiIntegrationDonationalertsAuthorizeRoute:
     ApiIntegrationDonationalertsAuthorizeRoute,
   ApiIntegrationDonationalertsCallbackRoute:

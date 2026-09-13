@@ -7,12 +7,14 @@ import (
 	"log/slog"
 	"sync"
 	"time"
+
+	"github.com/lebedev-nikita/coldbrew/internal/donationalert"
 )
 
 type persistence interface {
 	Connections(context.Context) ([]Connection, error)
 	SaveConnectionWithDonations(context.Context, int, ProviderConnection, DonationBatch) error
-	SaveDonations(context.Context, int, int, DonationBatch) error
+	SaveDonations(context.Context, int, int, DonationBatch, IngestionOrigin, time.Time) error
 	SetTokensIfVersion(context.Context, int, int, Tokens) (bool, error)
 	Disconnect(context.Context, int) error
 	DisconnectIfVersion(context.Context, int, int) (bool, error)
@@ -27,18 +29,31 @@ type Connection struct {
 	HistoryCheckpoint *string
 }
 
+const (
+	recentRecoveryConcurrency = 4
+	recentRecoveryTimeout     = 45 * time.Second
+)
+
 type integration struct {
-	store        persistence
-	provider     provider
-	refreshEvery time.Duration
-	historyEvery time.Duration
+	store           persistence
+	provider        provider
+	refreshEvery    time.Duration
+	recoveryEvery   time.Duration
+	recoveryLimit   int
+	recoveryTimeout time.Duration
+	historyEvery    time.Duration
+	now             func() time.Time
 }
 
 func newIntegration(store persistence, provider provider) *integration {
 	return &integration{
 		store: store, provider: provider,
-		refreshEvery: 10 * time.Second,
-		historyEvery: time.Hour,
+		refreshEvery:    10 * time.Second,
+		recoveryEvery:   donationalert.MaxAlertAge / 2,
+		recoveryLimit:   recentRecoveryConcurrency,
+		recoveryTimeout: recentRecoveryTimeout,
+		historyEvery:    time.Hour,
+		now:             time.Now,
 	}
 }
 
@@ -128,7 +143,7 @@ func (integration *integration) connect(ctx context.Context, userID int, authCod
 	if err != nil {
 		return fmt.Errorf("issue %s connection: %w", name, err)
 	}
-	batch, err := integration.provider.GetDonations(ctx, connection.AccessToken, nil)
+	batch, err := integration.provider.GetDonations(ctx, connection.AccessToken, nil, nil)
 	if err != nil {
 		return fmt.Errorf("import initial %s history: %w", name, err)
 	}
@@ -165,8 +180,39 @@ func (integration *integration) run(ctx context.Context) error {
 	}
 	refreshTicker := time.NewTicker(integration.refreshEvery)
 	defer refreshTicker.Stop()
-	historyTicker := time.NewTicker(integration.historyEvery)
-	defer historyTicker.Stop()
+	var historyWorkers sync.WaitGroup
+	historyWorkers.Add(2)
+	go func() {
+		defer historyWorkers.Done()
+		// Start with the bounded freshness window. A full account history can be
+		// arbitrarily large and must not delay listener lifecycle management.
+		integration.syncRecentHistory(ctx)
+		ticker := time.NewTicker(integration.recoveryEvery)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				integration.syncRecentHistory(ctx)
+			}
+		}
+	}()
+	go func() {
+		defer historyWorkers.Done()
+		timer := time.NewTimer(integration.historyEvery)
+		defer timer.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-timer.C:
+				integration.syncHistory(ctx, false)
+				timer.Reset(integration.historyEvery)
+			}
+		}
+	}()
+	defer historyWorkers.Wait()
 
 	for {
 		select {
@@ -184,8 +230,6 @@ func (integration *integration) run(ctx context.Context) error {
 			if err := integration.refreshListeners(ctx, running, completed, &listeners); err != nil {
 				slog.Error("refresh "+integration.provider.Source().displayName()+" listeners", "error", err)
 			}
-		case <-historyTicker.C:
-			integration.syncHistory(ctx)
 		}
 	}
 }
@@ -234,7 +278,7 @@ func (integration *integration) listen(ctx context.Context, connection Connectio
 	checkpoint := connection.HistoryCheckpoint
 	for ctx.Err() == nil {
 		err := integration.provider.Run(ctx, accessToken, checkpoint, func(batch DonationBatch) error {
-			if err := integration.store.SaveDonations(ctx, connection.UserID, tokenVersion, batch); err != nil {
+			if err := integration.store.SaveDonations(ctx, connection.UserID, tokenVersion, batch, LiveOrigin, integration.now()); err != nil {
 				return err
 			}
 			checkpoint = batch.Checkpoint
@@ -269,21 +313,69 @@ func (integration *integration) listen(ctx context.Context, connection Connectio
 	return nil
 }
 
-func (integration *integration) syncHistory(ctx context.Context) {
+func (integration *integration) syncRecentHistory(ctx context.Context) {
+	integration.syncHistory(ctx, true)
+}
+
+func (integration *integration) syncHistory(ctx context.Context, recent bool) {
 	name := integration.provider.Source().displayName()
 	connections, err := integration.store.Connections(ctx)
 	if err != nil {
-		slog.Error("get connections for "+name+" history", "error", err)
+		if ctx.Err() == nil {
+			slog.Error("get connections for "+name+" history", "error", err)
+		}
 		return
 	}
+	workerLimit := 1
+	accountTimeout := time.Duration(0)
+	if recent {
+		workerLimit = integration.recoveryLimit
+		accountTimeout = integration.recoveryTimeout
+	}
+	if workerLimit > len(connections) {
+		workerLimit = len(connections)
+	}
+	if workerLimit == 0 {
+		return
+	}
+	jobs := make(chan Connection, len(connections))
 	for _, connection := range connections {
-		batch, err := integration.provider.GetDonations(ctx, connection.AccessToken, connection.HistoryCheckpoint)
-		if err != nil {
+		jobs <- connection
+	}
+	close(jobs)
+	var workers sync.WaitGroup
+	workers.Add(workerLimit)
+	for range workerLimit {
+		go func() {
+			defer workers.Done()
+			for connection := range jobs {
+				integration.syncConnectionHistory(ctx, name, connection, recent, accountTimeout)
+			}
+		}()
+	}
+	workers.Wait()
+}
+
+func (integration *integration) syncConnectionHistory(ctx context.Context, name string, connection Connection, recent bool, timeout time.Duration) {
+	accountCtx := ctx
+	cancel := func() {}
+	if timeout > 0 {
+		accountCtx, cancel = context.WithTimeout(ctx, timeout)
+	}
+	defer cancel()
+	var occurredAfter *time.Time
+	if recent {
+		cutoff := integration.now().Add(-donationalert.MaxAlertAge)
+		occurredAfter = &cutoff
+	}
+	batch, err := integration.provider.GetDonations(accountCtx, connection.AccessToken, connection.HistoryCheckpoint, occurredAfter)
+	if err != nil {
+		if ctx.Err() == nil {
 			slog.Error("fetch "+name+" history", "userId", connection.UserID, "error", err)
-			continue
 		}
-		if err := integration.store.SaveDonations(ctx, connection.UserID, connection.TokenVersion, batch); err != nil {
-			slog.Error("insert "+name+" history", "userId", connection.UserID, "error", err)
-		}
+		return
+	}
+	if err := integration.store.SaveDonations(accountCtx, connection.UserID, connection.TokenVersion, batch, RecoveryOrigin, integration.now()); err != nil && ctx.Err() == nil {
+		slog.Error("insert "+name+" history", "userId", connection.UserID, "error", err)
 	}
 }

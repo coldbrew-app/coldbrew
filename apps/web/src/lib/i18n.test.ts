@@ -85,6 +85,12 @@ describe("localized formatters", () => {
     expect(fmtAmount(MoneyAmountSchema.parse("1.00"), usd, "en")).toBe("$1");
     expect(fmtAmount(MoneyAmountSchema.parse("9.50"), usd, "en")).toBe("$9.50");
     expect(fmtAmount(MoneyAmountSchema.parse("10.60"), usd, "en")).toBe("$10.60");
+    expect(fmtAmount(MoneyAmountSchema.parse("9007199254740993.00"), usd, "en")).toBe(
+      "$9,007,199,254,740,993",
+    );
+    expect(fmtAmount(MoneyAmountSchema.parse("9007199254740993.42"), usd, "en")).toBe(
+      "$9,007,199,254,740,993.42",
+    );
   });
 
   it.each([

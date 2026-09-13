@@ -15,6 +15,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/lebedev-nikita/coldbrew/internal/donatestream"
+	"github.com/lebedev-nikita/coldbrew/internal/donationalert"
 	"github.com/lebedev-nikita/coldbrew/internal/donationalerts"
 	"github.com/lebedev-nikita/coldbrew/internal/donations"
 	"github.com/lebedev-nikita/coldbrew/internal/observability"
@@ -75,14 +76,21 @@ func run() error {
 		streamlabsProvider,
 	)
 	donateStreamApplication := donations.NewDonateStreamApplication(store, donatestream.NewSource())
+	alertStore := donationalert.NewStore(pool)
+	alertApplication := donationalert.NewApplication(alertStore, donationalert.NewFFmpegMediaProcessor())
+	alertWorker := donationalert.NewWorker(alertStore, donationalert.NewESpeakSynthesizer())
+	alertRetentionWorker := donationalert.NewRetentionWorker(alertStore)
 	server := &http.Server{
 		Addr:              ":" + strconv.Itoa(config.port),
-		Handler:           donations.NewHTTPHandler(oauthApplication, donateStreamApplication, config.serviceSecret),
+		Handler:           donations.NewHTTPHandler(oauthApplication, donateStreamApplication, config.serviceSecret, donationalert.NewHTTPHandler(alertApplication)),
+		ReadTimeout:       30 * time.Second,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
-	workerErrors := make(chan error, 2)
+	workerErrors := make(chan error, 4)
 	go func() { workerErrors <- oauthApplication.Run(ctx) }()
 	go func() { workerErrors <- donateStreamApplication.Run(ctx) }()
+	go func() { workerErrors <- alertWorker.Run(ctx) }()
+	go func() { workerErrors <- alertRetentionWorker.Run(ctx) }()
 	serverErrors := make(chan error, 1)
 	go func() {
 		slog.Info("Donations service listening", "address", server.Addr)
@@ -110,7 +118,7 @@ func run() error {
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		shutdownErr = fmt.Errorf("shutdown donations HTTP: %w", err)
 	}
-	for workersFinished < 2 {
+	for workersFinished < 4 {
 		if err := <-workerErrors; err != nil {
 			runErr = errors.Join(runErr, fmt.Errorf("stop donation integration worker: %w", err))
 		}

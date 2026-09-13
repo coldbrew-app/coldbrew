@@ -259,7 +259,7 @@ test-web: install
   bunx dotenvx run -f .env --overload -- bunx vitest --run apps/web
 
 test-donations: install
-  go test ./apps/donations ./internal/donations ./internal/donationalerts ./internal/donatestream ./internal/streamlabs
+  go test ./apps/donations ./internal/donationalert ./internal/donations ./internal/donationalerts ./internal/donatestream ./internal/streamlabs
 
 test-video: install
   go test ./apps/video ./internal/videoingest ./internal/money ./internal/youtube

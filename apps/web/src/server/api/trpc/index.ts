@@ -11,6 +11,7 @@ import { donationAlertsAuthorizationStartURL } from "../../donationalerts.js";
 import { store } from "../../sensors/db/index.js";
 import { streamlabsAuthorizationStartURL } from "../../streamlabs.js";
 import { authenticatedProcedure, procedure, router } from "./_config.js";
+import { alertsRouter } from "./alerts.js";
 import { chatRouter } from "./chat.js";
 import { integrationRouter } from "./integration.js";
 import { videoProcedures } from "./video.js";
@@ -20,6 +21,7 @@ const PageSchema = z.int().positive();
 const DonationPeriodSchema = z.enum(["all", "week", "month"]);
 
 export const appRouter = router({
+  alerts: alertsRouter,
   chat: chatRouter,
   integration: integrationRouter,
   ...videoProcedures,

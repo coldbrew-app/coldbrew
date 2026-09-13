@@ -5,12 +5,15 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"time"
 )
 
 type applicationTestStore struct {
 	connections         []Connection
 	savedConnection     *ProviderConnection
 	savedBatch          DonationBatch
+	savedOrigin         IngestionOrigin
+	savedAcceptedAt     time.Time
 	disconnectedUser    int
 	disconnectedVersion int
 	setTokensUpdated    bool
@@ -24,8 +27,10 @@ func (store *applicationTestStore) SaveConnectionWithDonations(_ context.Context
 	store.savedBatch = batch
 	return nil
 }
-func (store *applicationTestStore) SaveDonations(_ context.Context, _ int, _ int, batch DonationBatch) error {
+func (store *applicationTestStore) SaveDonations(_ context.Context, _ int, _ int, batch DonationBatch, origin IngestionOrigin, acceptedAt time.Time) error {
 	store.savedBatch = batch
+	store.savedOrigin = origin
+	store.savedAcceptedAt = acceptedAt
 	return nil
 }
 func (store *applicationTestStore) SetTokensIfVersion(context.Context, int, int, Tokens) (bool, error) {
@@ -46,12 +51,14 @@ type unauthorizedTestError struct{}
 func (*unauthorizedTestError) Error() string { return "unauthorized" }
 
 type applicationTestProvider struct {
-	source     Source
-	connection ProviderConnection
-	batch      DonationBatch
-	historyErr error
-	run        func(context.Context, string, *string, func(DonationBatch) error) error
-	refresh    func(context.Context, string) (Tokens, error)
+	source       Source
+	connection   ProviderConnection
+	batch        DonationBatch
+	historyErr   error
+	historyAfter *time.Time
+	getDonations func(context.Context, string, *string, *time.Time) (DonationBatch, error)
+	run          func(context.Context, string, *string, func(DonationBatch) error) error
+	refresh      func(context.Context, string) (Tokens, error)
 }
 
 func (provider *applicationTestProvider) Source() Source { return provider.source }
@@ -61,7 +68,16 @@ func (*applicationTestProvider) AuthorizationURL(redirectURI, state string) stri
 func (provider *applicationTestProvider) IssueConnection(context.Context, string, string) (ProviderConnection, error) {
 	return provider.connection, nil
 }
-func (provider *applicationTestProvider) GetDonations(context.Context, string, *string) (DonationBatch, error) {
+func (provider *applicationTestProvider) GetDonations(ctx context.Context, accessToken string, checkpoint *string, occurredAfter *time.Time) (DonationBatch, error) {
+	if provider.getDonations != nil {
+		return provider.getDonations(ctx, accessToken, checkpoint, occurredAfter)
+	}
+	if occurredAfter == nil {
+		provider.historyAfter = nil
+	} else {
+		copied := *occurredAfter
+		provider.historyAfter = &copied
+	}
 	return provider.batch, provider.historyErr
 }
 func (provider *applicationTestProvider) Run(ctx context.Context, accessToken string, checkpoint *string, emit func(DonationBatch) error) error {
@@ -195,10 +211,90 @@ func TestListenerAdvancesHistoryCheckpointAfterPersist(t *testing.T) {
 	}
 	provider.refresh = func(context.Context, string) (Tokens, error) { return Tokens{}, nil }
 	integration := newIntegration(store, provider)
+	acceptedAt := time.Date(2026, 9, 13, 12, 0, 0, 0, time.UTC)
+	integration.now = func() time.Time { return acceptedAt }
 	if err := integration.listen(context.Background(), Connection{UserID: 42, AccessToken: "access", TokenVersion: 1, HistoryCheckpoint: &checkpoint}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("error = %v", err)
 	}
 	if store.savedBatch.Checkpoint == nil || *store.savedBatch.Checkpoint != next {
 		t.Fatalf("saved checkpoint = %v", store.savedBatch.Checkpoint)
+	}
+	if store.savedOrigin != LiveOrigin || !store.savedAcceptedAt.Equal(acceptedAt) {
+		t.Fatalf("origin=%q acceptedAt=%v", store.savedOrigin, store.savedAcceptedAt)
+	}
+}
+
+func TestHistorySyncUsesRecoveryOrigin(t *testing.T) {
+	checkpoint := "checkpoint"
+	store := &applicationTestStore{connections: []Connection{{UserID: 42, AccessToken: "access", TokenVersion: 3, HistoryCheckpoint: &checkpoint}}}
+	provider := testProvider()
+	provider.batch = DonationBatch{Donations: []Donation{{SourceDonationID: "recovered"}}}
+	integration := newIntegration(store, provider)
+	acceptedAt := time.Date(2026, 9, 13, 12, 0, 0, 0, time.UTC)
+	integration.now = func() time.Time { return acceptedAt }
+	integration.syncHistory(context.Background(), false)
+	if store.savedOrigin != RecoveryOrigin || !store.savedAcceptedAt.Equal(acceptedAt) {
+		t.Fatalf("origin=%q acceptedAt=%v", store.savedOrigin, store.savedAcceptedAt)
+	}
+}
+
+type recoveryIsolationStore struct {
+	applicationTestStore
+	saved chan<- int
+}
+
+func (store *recoveryIsolationStore) SaveDonations(_ context.Context, userID, _ int, _ DonationBatch, _ IngestionOrigin, _ time.Time) error {
+	store.saved <- userID
+	return nil
+}
+
+func TestRecentHistorySyncDoesNotLetBlockedAccountDelayHealthyAccount(t *testing.T) {
+	saved := make(chan int, 2)
+	store := &recoveryIsolationStore{
+		applicationTestStore: applicationTestStore{connections: []Connection{
+			{UserID: 1, AccessToken: "blocked", TokenVersion: 1},
+			{UserID: 2, AccessToken: "healthy", TokenVersion: 1},
+		}},
+		saved: saved,
+	}
+	blockedStarted := make(chan struct{})
+	provider := testProvider()
+	provider.getDonations = func(ctx context.Context, accessToken string, _ *string, occurredAfter *time.Time) (DonationBatch, error) {
+		if occurredAfter == nil {
+			return DonationBatch{}, errors.New("missing recovery cutoff")
+		}
+		if accessToken == "blocked" {
+			close(blockedStarted)
+			<-ctx.Done()
+			return DonationBatch{}, ctx.Err()
+		}
+		return DonationBatch{Donations: []Donation{{SourceDonationID: "fresh"}}}, nil
+	}
+	integration := newIntegration(store, provider)
+	integration.recoveryLimit = 2
+	integration.recoveryTimeout = 50 * time.Millisecond
+	done := make(chan struct{})
+	go func() {
+		integration.syncRecentHistory(context.Background())
+		close(done)
+	}()
+
+	select {
+	case <-blockedStarted:
+	case <-time.After(time.Second):
+		t.Fatal("blocked account did not start")
+	}
+	select {
+	case userID := <-saved:
+		if userID != 2 {
+			t.Fatalf("first recovered user = %d, want 2", userID)
+		}
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("healthy account was delayed by blocked account")
+	}
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("bounded recovery did not stop blocked account")
 	}
 }

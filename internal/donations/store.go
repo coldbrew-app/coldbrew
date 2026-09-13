@@ -1,12 +1,17 @@
 package donations
 
 import (
+	"cmp"
 	"context"
+	"errors"
 	"fmt"
+	"slices"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/lebedev-nikita/coldbrew/internal/donatestream"
+	"github.com/lebedev-nikita/coldbrew/internal/donationalert"
 )
 
 type Store struct{ pool *pgxpool.Pool }
@@ -75,11 +80,11 @@ func (store *providerStore) SaveConnectionWithDonations(ctx context.Context, use
 		`, store.connectionTable, store.connectionTable), userID, connection.SourceUserID, connection.AccessToken, connection.RefreshToken, batch.Checkpoint); err != nil {
 			return err
 		}
-		return insertDonations(ctx, tx, store.source, userID, batch.Donations)
+		return insertDonations(ctx, tx, store.source, userID, batch.Donations, InitialHistoryOrigin, time.Time{})
 	})
 }
 
-func (store *providerStore) SaveDonations(ctx context.Context, userID, tokenVersion int, batch DonationBatch) error {
+func (store *providerStore) SaveDonations(ctx context.Context, userID, tokenVersion int, batch DonationBatch, origin IngestionOrigin, acceptedAt time.Time) error {
 	return pgx.BeginFunc(ctx, store.pool, func(tx pgx.Tx) error {
 		command, err := tx.Exec(ctx, fmt.Sprintf(`
 			UPDATE %s
@@ -94,13 +99,17 @@ func (store *providerStore) SaveDonations(ctx context.Context, userID, tokenVers
 		if command.RowsAffected() != 1 {
 			return ErrStaleCredentials
 		}
-		return insertDonations(ctx, tx, store.source, userID, batch.Donations)
+		return insertDonations(ctx, tx, store.source, userID, batch.Donations, origin, acceptedAt)
 	})
 }
 
-func insertDonations(ctx context.Context, tx pgx.Tx, source Source, userID int, donations []Donation) error {
-	for _, donation := range donations {
-		if _, err := tx.Exec(ctx, `
+func insertDonations(ctx context.Context, tx pgx.Tx, source Source, userID int, donations []Donation, origin IngestionOrigin, acceptedAt time.Time) error {
+	if !validIngestionOrigin(origin) {
+		return fmt.Errorf("invalid donation ingestion origin %q", origin)
+	}
+	for _, donation := range orderedDonations(donations) {
+		var donationID int64
+		err := tx.QueryRow(ctx, `
 			INSERT INTO donation (
 				source,
 				source_donation_id,
@@ -114,11 +123,32 @@ func insertDonations(ctx context.Context, tx pgx.Tx, source Source, userID int, 
 			)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 			ON CONFLICT (user_id, source, source_donation_id) DO NOTHING
-		`, source, donation.SourceDonationID, userID, donation.Author, donation.Message, donation.Amount, donation.Currency, donation.SourceCreatedAt, donation.OccurredAt); err != nil {
+			RETURNING donation_id
+		`, source, donation.SourceDonationID, userID, donation.Author, donation.Message, donation.Amount, donation.Currency, donation.SourceCreatedAt, donation.OccurredAt).Scan(&donationID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			continue
+		}
+		if err != nil {
 			return err
+		}
+		if origin != InitialHistoryOrigin {
+			if err := donationalert.EnqueueIncoming(ctx, tx, userID, donationID, donationalert.Source(source), acceptedAt); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
+}
+
+func orderedDonations(donations []Donation) []Donation {
+	ordered := slices.Clone(donations)
+	slices.SortStableFunc(ordered, func(left, right Donation) int {
+		if order := left.OccurredAt.Compare(right.OccurredAt); order != 0 {
+			return order
+		}
+		return cmp.Compare(left.SourceDonationID, right.SourceDonationID)
+	})
+	return ordered
 }
 
 func (store *providerStore) SetTokensIfVersion(ctx context.Context, userID, tokenVersion int, tokens Tokens) (bool, error) {
@@ -190,18 +220,35 @@ func (store *Store) SaveDonateStreamConnection(ctx context.Context, userID int, 
 	return err
 }
 
-func (store *Store) InsertDonateStreamDonations(ctx context.Context, userID int, donations []donatestream.Donation) error {
+func (store *Store) InsertDonateStreamDonations(ctx context.Context, userID int, widgetToken string, donations []donatestream.Donation, origin IngestionOrigin, acceptedAt time.Time) error {
 	if len(donations) == 0 {
 		return nil
 	}
 	return pgx.BeginFunc(ctx, store.pool, func(tx pgx.Tx) error {
-		return insertDonateStreamDonations(ctx, tx, userID, donations)
+		var connectionUserID int
+		err := tx.QueryRow(ctx, `
+			SELECT user_id
+			FROM donate_stream_connection
+			WHERE user_id = $1 AND widget_token = $2
+			FOR UPDATE
+		`, userID, widgetToken).Scan(&connectionUserID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrStaleCredentials
+		}
+		if err != nil {
+			return err
+		}
+		return insertDonateStreamDonations(ctx, tx, userID, donations, origin, acceptedAt)
 	})
 }
 
-func insertDonateStreamDonations(ctx context.Context, tx pgx.Tx, userID int, donations []donatestream.Donation) error {
-	for _, donation := range donations {
-		if _, err := tx.Exec(ctx, `
+func insertDonateStreamDonations(ctx context.Context, tx pgx.Tx, userID int, donations []donatestream.Donation, origin IngestionOrigin, acceptedAt time.Time) error {
+	if !validIngestionOrigin(origin) {
+		return fmt.Errorf("invalid donation ingestion origin %q", origin)
+	}
+	for _, donation := range orderedDonateStreamDonations(donations) {
+		var donationID int64
+		err := tx.QueryRow(ctx, `
 			INSERT INTO donation (
 				source,
 				source_donation_id,
@@ -215,11 +262,32 @@ func insertDonateStreamDonations(ctx context.Context, tx pgx.Tx, userID int, don
 			)
 			VALUES ('donate_stream', $1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT (user_id, source, source_donation_id) DO NOTHING
-		`, donation.SourceDonationID, userID, donation.Author, donation.Message, donation.Amount, donation.Currency, donation.SourceCreatedAt, donation.OccurredAt); err != nil {
+			RETURNING donation_id
+		`, donation.SourceDonationID, userID, donation.Author, donation.Message, donation.Amount, donation.Currency, donation.SourceCreatedAt, donation.OccurredAt).Scan(&donationID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			continue
+		}
+		if err != nil {
 			return err
+		}
+		if origin != InitialHistoryOrigin {
+			if err := donationalert.EnqueueIncoming(ctx, tx, userID, donationID, donationalert.DonateStreamSource, acceptedAt); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
+}
+
+func orderedDonateStreamDonations(donations []donatestream.Donation) []donatestream.Donation {
+	ordered := slices.Clone(donations)
+	slices.SortStableFunc(ordered, func(left, right donatestream.Donation) int {
+		if order := left.OccurredAt.Compare(right.OccurredAt); order != 0 {
+			return order
+		}
+		return cmp.Compare(left.SourceDonationID, right.SourceDonationID)
+	})
+	return ordered
 }
 
 func (store *Store) DisconnectDonateStream(ctx context.Context, userID int) error {

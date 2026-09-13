@@ -39,15 +39,19 @@ export function fmtListDate(date: Date, locale: Locale, now = new Date()) {
 }
 
 export function fmtAmount(amount: MoneyAmount, currency: CurrencyCode, locale: Locale) {
-  const numericAmount = Number(amount);
+  const [integer, fraction = "00"] = amount.split(".");
   const fractionDigits = amount.endsWith(".00") ? 0 : 2;
-
-  return new Intl.NumberFormat(localeTag[locale], {
+  const formatter = new Intl.NumberFormat(localeTag[locale], {
     currency,
     maximumFractionDigits: fractionDigits,
     minimumFractionDigits: fractionDigits,
     style: "currency",
-  }).format(numericAmount);
+  });
+
+  return formatter
+    .formatToParts(BigInt(integer))
+    .map((part) => (part.type === "fraction" ? fraction : part.value))
+    .join("");
 }
 
 export function fmtRubles(amount: number, locale: Locale) {

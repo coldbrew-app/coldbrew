@@ -1,7 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
   "minimumVersion": "3.24.0",
-  "entry": ["scripts/**/*.ts", "apps/web/src/**/*.stories.tsx"],
+  // TanStack Start loads src/start.ts by convention instead of an import edge.
+  "entry": ["apps/web/src/start.ts", "scripts/**/*.ts", "apps/web/src/**/*.stories.tsx"],
   "ignorePatterns": [
     "apps/alerts/**",
     "apps/chat/**",

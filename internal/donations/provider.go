@@ -17,6 +17,21 @@ const (
 	StreamlabsSource     Source = "streamlabs"
 )
 
+func validIngestionOrigin(origin IngestionOrigin) bool {
+	return origin == InitialHistoryOrigin || origin == LiveOrigin || origin == RecoveryOrigin
+}
+
+// IngestionOrigin distinguishes an account's initial import from donations
+// accepted while its connection is already active. Recovery imports can create
+// alerts when the donation is still fresh; initial history never does.
+type IngestionOrigin string
+
+const (
+	InitialHistoryOrigin IngestionOrigin = "initial_history"
+	LiveOrigin           IngestionOrigin = "live"
+	RecoveryOrigin       IngestionOrigin = "recovery"
+)
+
 func (source Source) displayName() string {
 	switch source {
 	case DonationAlertsSource:
@@ -70,7 +85,7 @@ type provider interface {
 	AuthorizationURL(redirectURI, state string) string
 	IssueConnection(context.Context, string, string) (ProviderConnection, error)
 	RefreshTokens(context.Context, string) (Tokens, error)
-	GetDonations(context.Context, string, *string) (DonationBatch, error)
+	GetDonations(context.Context, string, *string, *time.Time) (DonationBatch, error)
 	Run(context.Context, string, *string, func(DonationBatch) error) error
 	Unauthorized(error) bool
 }
@@ -113,8 +128,14 @@ func (adapter *DonationAlertsAdapter) RefreshTokens(ctx context.Context, refresh
 	return Tokens{AccessToken: tokens.AccessToken, RefreshToken: tokens.RefreshToken}, nil
 }
 
-func (adapter *DonationAlertsAdapter) GetDonations(ctx context.Context, accessToken string, _ *string) (DonationBatch, error) {
-	donations, err := adapter.client.GetDonations(ctx, accessToken)
+func (adapter *DonationAlertsAdapter) GetDonations(ctx context.Context, accessToken string, _ *string, occurredAfter *time.Time) (DonationBatch, error) {
+	var donations []donationalerts.Donation
+	var err error
+	if occurredAfter == nil {
+		donations, err = adapter.client.GetDonations(ctx, accessToken)
+	} else {
+		donations, err = adapter.client.GetDonationsAfter(ctx, accessToken, *occurredAfter)
+	}
 	if err != nil {
 		return DonationBatch{}, err
 	}
@@ -186,7 +207,7 @@ func (adapter *StreamlabsAdapter) RefreshTokens(ctx context.Context, refreshToke
 	return Tokens{AccessToken: tokens.AccessToken, RefreshToken: tokens.RefreshToken}, nil
 }
 
-func (adapter *StreamlabsAdapter) GetDonations(ctx context.Context, accessToken string, checkpoint *string) (DonationBatch, error) {
+func (adapter *StreamlabsAdapter) GetDonations(ctx context.Context, accessToken string, checkpoint *string, _ *time.Time) (DonationBatch, error) {
 	history, err := adapter.client.GetDonations(ctx, accessToken, checkpoint)
 	if err != nil {
 		return DonationBatch{}, err

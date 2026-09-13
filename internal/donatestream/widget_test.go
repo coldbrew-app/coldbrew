@@ -1,6 +1,9 @@
 package donatestream
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestParseWidgetURLReadsCanonicalCredentials(t *testing.T) {
 	connection, err := ParseWidgetURL("  https://donate.stream/widget-alert?uid=group-42&token=1234567890abcdef  ")
@@ -22,5 +25,16 @@ func TestParseWidgetURLRejectsLookalikeAndIncompleteURLs(t *testing.T) {
 		if _, err := ParseWidgetURL(rawURL); err == nil {
 			t.Fatalf("expected %q to fail", rawURL)
 		}
+	}
+}
+
+func TestParseWidgetURLDoesNotIncludeTokenInParseError(t *testing.T) {
+	const token = "private-widget-token-123456"
+	_, err := ParseWidgetURL("https://donate.stream/widget-alert?uid=group-42&token=" + token + "%ZZ")
+	if err == nil {
+		t.Fatal("expected malformed widget URL to be rejected")
+	}
+	if strings.Contains(err.Error(), token) {
+		t.Fatalf("parse error leaked widget token: %v", err)
 	}
 }
