@@ -432,7 +432,10 @@ func TestSourceReportsUnknownAndInvalidBatchedPushesAndKeepsListening(t *testing
 				writeSocketReply(t, ctx, connection, command.ID, map[string]any{"client": testSocketClientID, "version": "2.2.1"})
 			case methodSubscribe:
 				writeSocketReply(t, ctx, connection, command.ID, map[string]any{"recoverable": true, "epoch": "epoch", "seq": 0, "gen": 0})
-				invalidDonation := donationValue(t, 1).(map[string]any)
+				invalidDonation, ok := donationValue(t, 1).(map[string]any)
+				if !ok {
+					t.Fatal("donation fixture is not an object")
+				}
 				invalidDonation["id"] = "not-a-number"
 				writeSocketBatch(t, ctx, connection,
 					map[string]any{"result": map[string]any{"type": 99, "channel": testChannel, "data": map[string]any{"future": true}}},
@@ -866,8 +869,8 @@ func newDonationAlertsServer(t *testing.T, apiHandler http.HandlerFunc, socketHa
 			t.Errorf("upgrade websocket: %v", err)
 			return
 		}
-		defer connection.CloseNow()
-		socketHandler(context.Background(), connection, connectionNumber.Add(1))
+		defer func() { _ = connection.CloseNow() }()
+		socketHandler(request.Context(), connection, connectionNumber.Add(1))
 	}))
 	return server
 }

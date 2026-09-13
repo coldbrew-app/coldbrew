@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -174,7 +175,7 @@ func (application *Application) Moderate(ctx context.Context, userID int, comman
 		return CommandResult{}, err
 	}
 	if providerErr != nil {
-		return result, nil
+		return result, nil //nolint:nilerr // Provider rejection is represented in CommandResult and persisted in the audit log.
 	}
 	if success.ProviderBanID != "" && command.Type != "delete_message" {
 		if err := application.repository.SaveProviderBanID(ctx, command.SourceID, command.ProviderUserID, success.ProviderBanID); err != nil {
@@ -196,7 +197,8 @@ func (application *Application) Moderate(ctx context.Context, userID int, comman
 }
 
 func providerErrorDetail(err error) string {
-	if providerError, ok := err.(*ProviderError); ok {
+	var providerError *ProviderError
+	if errors.As(err, &providerError) {
 		return providerError.Detail
 	}
 	return err.Error()

@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -56,7 +57,7 @@ func TestTokenRefresherRotatesCredentialsWithCompareAndSwap(t *testing.T) {
 		}
 		return youtubeResponse(http.StatusOK, `{"access_token":"next-access","expires_in":3600}`), nil
 	})}
-	refresher := NewTokenRefresher(store, []RefreshConfig{{Provider: "youtube", ClientID: "client", ClientSecret: "secret", TokenURL: "https://oauth.example/token"}}, client)
+	refresher := NewTokenRefresher(store, []RefreshConfig{{Provider: "youtube", ClientID: "client", ClientSecret: "secret", TokenURL: "https://oauth.example/token"}}, client) //nolint:gosec // These are inert test-only credentials for a fake transport.
 	refresher.now = func() time.Time { return now }
 	source := youtubeTestSource()
 	expired := now.Add(-time.Second)
@@ -78,14 +79,14 @@ func TestTokenRefresherRejectsConcurrentRotation(t *testing.T) {
 	client := &http.Client{Transport: oauthRoundTripFunc(func(*http.Request) (*http.Response, error) {
 		return youtubeResponse(http.StatusOK, `{"access_token":"next-access"}`), nil
 	})}
-	refresher := NewTokenRefresher(store, []RefreshConfig{{Provider: "youtube", ClientID: "client", ClientSecret: "secret", TokenURL: "https://oauth.example/token"}}, client)
+	refresher := NewTokenRefresher(store, []RefreshConfig{{Provider: "youtube", ClientID: "client", ClientSecret: "secret", TokenURL: "https://oauth.example/token"}}, client) //nolint:gosec // These are inert test-only credentials for a fake transport.
 	now := time.Now()
 	refresher.now = func() time.Time { return now }
 	source := youtubeTestSource()
 	source.Credentials.ExpiresAt = &now
 	_, err := refresher.Refresh(context.Background(), source)
-	providerError, ok := err.(*ProviderError)
-	if !ok || providerError.Type != "provider unavailable" {
+	var providerError *ProviderError
+	if !errors.As(err, &providerError) || providerError.Type != "provider unavailable" {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -102,7 +103,7 @@ func TestTokenRefresherUsesVKIDDeviceAndState(t *testing.T) {
 		}
 		return youtubeResponse(http.StatusOK, `{"access_token":"next-access","refresh_token":"next-refresh","expires_in":3600,"state":"`+query.Get("state")+`"}`), nil
 	})}
-	refresher := NewTokenRefresher(store, []RefreshConfig{{Provider: "vk_video", ClientID: "client", TokenURL: "https://id.vk.ru/oauth2/auth", RedirectURL: "https://chat.example/oauth/vk_video/callback", UsesVKID: true}}, client)
+	refresher := NewTokenRefresher(store, []RefreshConfig{{Provider: "vk_video", ClientID: "client", TokenURL: "https://id.vk.ru/oauth2/auth", RedirectURL: "https://chat.example/oauth/vk_video/callback", UsesVKID: true}}, client) //nolint:gosec // These are inert test-only credentials for a fake transport.
 	now := time.Date(2026, 9, 6, 10, 0, 0, 0, time.UTC)
 	refresher.now = func() time.Time { return now }
 	source := youtubeTestSource()
@@ -130,14 +131,14 @@ func TestTokenRefresherRejectsExplicitInvalidOptionalFields(t *testing.T) {
 		client := &http.Client{Transport: oauthRoundTripFunc(func(*http.Request) (*http.Response, error) {
 			return youtubeResponse(http.StatusOK, body), nil
 		})}
-		refresher := NewTokenRefresher(store, []RefreshConfig{{Provider: "youtube", ClientID: "client", ClientSecret: "secret", TokenURL: "https://oauth.example/token"}}, client)
+		refresher := NewTokenRefresher(store, []RefreshConfig{{Provider: "youtube", ClientID: "client", ClientSecret: "secret", TokenURL: "https://oauth.example/token"}}, client) //nolint:gosec // These are inert test-only credentials for a fake transport.
 		now := time.Now()
 		refresher.now = func() time.Time { return now }
 		source := youtubeTestSource()
 		source.Credentials.ExpiresAt = &now
 		_, err := refresher.Refresh(context.Background(), source)
-		providerError, ok := err.(*ProviderError)
-		if !ok || providerError.Type != "provider unauthorized" || store.input.connectionID != "" {
+		var providerError *ProviderError
+		if !errors.As(err, &providerError) || providerError.Type != "provider unauthorized" || store.input.connectionID != "" {
 			t.Fatalf("body=%s error=%v store=%#v", body, err, store)
 		}
 	}
@@ -297,7 +298,10 @@ func TestBoostyRefreshingProviderUsesRenewedCredentials(t *testing.T) {
 }
 
 func TestBoostyRefreshAllowsExistingAccessOnlyConnection(t *testing.T) {
-	client := &http.Client{Transport: oauthRoundTripFunc(func(*http.Request) (*http.Response, error) { t.Fatal("unexpected refresh request"); return nil, nil })}
+	client := &http.Client{Transport: oauthRoundTripFunc(func(*http.Request) (*http.Response, error) {
+		t.Fatal("unexpected refresh request")
+		return nil, errors.New("unexpected request")
+	})}
 	refresher := NewTokenRefresher(&refreshStore{}, TokenRefreshConfigs(nil, nil, nil, nil, ""), client)
 	source := youtubeTestSource()
 	source.Source.Provider = "boosty"

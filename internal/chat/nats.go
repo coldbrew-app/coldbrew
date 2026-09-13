@@ -108,25 +108,25 @@ func ConnectNats(servers, namespace string) (*NatsConnection, error) {
 		connection.Close()
 		return nil, err
 	}
-	if _, err := jetstream.StreamInfo(resources.stream); errors.Is(err, nats.ErrStreamNotFound) {
-		_, err = jetstream.AddStream(&nats.StreamConfig{Name: resources.stream, Subjects: []string{resources.subjectPrefix + ".*"}, Storage: nats.MemoryStorage, Retention: nats.LimitsPolicy, Discard: nats.DiscardOld, MaxAge: chatEventMaxAge, MaxMsgsPerSubject: chatEventMaxPerUser, Duplicates: chatDuplicateWindow})
-		if err != nil {
+	if _, streamInfoErr := jetstream.StreamInfo(resources.stream); errors.Is(streamInfoErr, nats.ErrStreamNotFound) {
+		_, addStreamErr := jetstream.AddStream(&nats.StreamConfig{Name: resources.stream, Subjects: []string{resources.subjectPrefix + ".*"}, Storage: nats.MemoryStorage, Retention: nats.LimitsPolicy, Discard: nats.DiscardOld, MaxAge: chatEventMaxAge, MaxMsgsPerSubject: chatEventMaxPerUser, Duplicates: chatDuplicateWindow})
+		if addStreamErr != nil {
 			connection.Close()
-			return nil, err
+			return nil, addStreamErr
 		}
-	} else if err != nil {
+	} else if streamInfoErr != nil {
 		connection.Close()
-		return nil, err
+		return nil, streamInfoErr
 	}
-	if _, err := jetstream.StreamInfo(resources.deadLetterStream); errors.Is(err, nats.ErrStreamNotFound) {
-		_, err = jetstream.AddStream(&nats.StreamConfig{Name: resources.deadLetterStream, Subjects: []string{resources.deadLetterSubject}, Storage: nats.FileStorage, Retention: nats.LimitsPolicy, Discard: nats.DiscardOld, MaxAge: chatDeadLetterMaxAge, MaxMsgs: chatDeadLetterMaxMessages, MaxBytes: chatDeadLetterMaxBytes, Duplicates: chatDuplicateWindow})
-		if err != nil {
+	if _, streamInfoErr := jetstream.StreamInfo(resources.deadLetterStream); errors.Is(streamInfoErr, nats.ErrStreamNotFound) {
+		_, addStreamErr := jetstream.AddStream(&nats.StreamConfig{Name: resources.deadLetterStream, Subjects: []string{resources.deadLetterSubject}, Storage: nats.FileStorage, Retention: nats.LimitsPolicy, Discard: nats.DiscardOld, MaxAge: chatDeadLetterMaxAge, MaxMsgs: chatDeadLetterMaxMessages, MaxBytes: chatDeadLetterMaxBytes, Duplicates: chatDuplicateWindow})
+		if addStreamErr != nil {
 			connection.Close()
-			return nil, err
+			return nil, addStreamErr
 		}
-	} else if err != nil {
+	} else if streamInfoErr != nil {
 		connection.Close()
-		return nil, err
+		return nil, streamInfoErr
 	}
 	leases, err := ensureKeyValue(jetstream, nats.KeyValueConfig{Bucket: resources.collectorLeaseBucket, TTL: collectorLeaseTTL, History: 1, Storage: nats.MemoryStorage})
 	if err != nil {
@@ -300,7 +300,7 @@ func (broker *NatsEventBroker) Stream(ctx context.Context, userID int) <-chan St
 	}
 	go func() {
 		defer close(output)
-		defer subscription.Unsubscribe()
+		defer func() { _ = subscription.Unsubscribe() }()
 		keys, err := broker.states.Keys()
 		if err != nil && !errors.Is(err, nats.ErrNoKeysFound) {
 			return
@@ -515,7 +515,7 @@ func (leases *NatsCollectorLeases) Acquire(_ context.Context, key, owner string)
 	revision, err := leases.bucket.Create(key, []byte(owner))
 	if err != nil {
 		if errors.Is(err, nats.ErrKeyExists) {
-			return nil, nil
+			return nil, nil //nolint:nilnil // A nil lease explicitly means another collector owns the key.
 		}
 		return nil, err
 	}
@@ -565,7 +565,7 @@ func (control *NatsCollectorControl) Refreshes(ctx context.Context) (<-chan stri
 	output := make(chan string)
 	go func() {
 		defer close(output)
-		defer watcher.Stop()
+		defer func() { _ = watcher.Stop() }()
 		for {
 			select {
 			case <-ctx.Done():

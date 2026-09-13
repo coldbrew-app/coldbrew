@@ -20,24 +20,25 @@ type claimedTestPlayback struct {
 
 func setupClaimedTestPlayback(
 	t *testing.T,
+	ctx context.Context,
 	store *Store,
 	pool *pgxpool.Pool,
 	userID int,
 	now time.Time,
 ) claimedTestPlayback {
 	t.Helper()
-	seedAlertUser(t, pool, userID)
+	seedAlertUserContext(t, ctx, pool, userID)
 	settings := DefaultSettings()
 	settings.Enabled = true
-	if _, err := store.UpdateSettings(context.Background(), userID, settings); err != nil {
+	if _, err := store.UpdateSettings(ctx, userID, settings); err != nil {
 		t.Fatal(err)
 	}
 	token := fmt.Sprintf("%032d", userID)
 	tokenHash := hashToken(token)
-	if err := store.SetOverlayTokenHash(context.Background(), userID, tokenHash, now); err != nil {
+	if err := store.SetOverlayTokenHash(ctx, userID, tokenHash, now); err != nil {
 		t.Fatal(err)
 	}
-	queued, err := store.CreateTest(context.Background(), userID, now)
+	queued, err := store.CreateTest(ctx, userID, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,17 +46,17 @@ func setupClaimedTestPlayback(
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, player, err := store.OpenPlayer(context.Background(), tokenHash, playerID, now)
+	_, player, err := store.OpenPlayer(ctx, tokenHash, playerID, now)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if player.Active || player.Visible {
 		t.Fatalf("new player was ready before its first heartbeat: %#v", player)
 	}
-	if err := store.Heartbeat(context.Background(), tokenHash, playerID, player.Generation, true, true, now); err != nil {
-		t.Fatal(err)
+	if heartbeatErr := store.Heartbeat(ctx, tokenHash, playerID, player.Generation, true, true, now); heartbeatErr != nil {
+		t.Fatal(heartbeatErr)
 	}
-	claimed, err := store.ClaimPlayback(context.Background(), tokenHash, playerID, player.Generation, now)
+	claimed, err := store.ClaimPlayback(ctx, tokenHash, playerID, player.Generation, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,10 +77,10 @@ type storedPlaybackLifecycle struct {
 	detail           *string
 }
 
-func readPlaybackLifecycle(t *testing.T, pool *pgxpool.Pool, playbackID string) storedPlaybackLifecycle {
+func readPlaybackLifecycle(t *testing.T, ctx context.Context, pool *pgxpool.Pool, playbackID string) storedPlaybackLifecycle {
 	t.Helper()
 	var result storedPlaybackLifecycle
-	if err := pool.QueryRow(context.Background(), `
+	if err := pool.QueryRow(ctx, `
 		SELECT status::text, started_at, finished_at, player_id::text, player_generation, last_error
 		FROM donation_alert_playback
 		WHERE donation_alert_playback_id = $1
@@ -141,12 +142,12 @@ func TestUnstartedPlaybackRecoversAcrossPlayerLifecycle(t *testing.T) {
 	for index, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			userID := 100 + index
-			claimed := setupClaimedTestPlayback(t, store, pool, userID, base)
+			claimed := setupClaimedTestPlayback(t, ctx, store, pool, userID, base)
 			err := test.action(userID, claimed, base.Add(test.actionAt))
 			if !errors.Is(err, test.wantError) {
 				t.Fatalf("action error = %v, want %v", err, test.wantError)
 			}
-			stored := readPlaybackLifecycle(t, pool, claimed.playback.PlaybackID)
+			stored := readPlaybackLifecycle(t, ctx, pool, claimed.playback.PlaybackID)
 			if stored.status != test.wantStatus || stored.startedAt != nil {
 				t.Fatalf("lifecycle = %#v, want status %q with no start", stored, test.wantStatus)
 			}
@@ -202,7 +203,7 @@ func TestAcknowledgedPlaybackIsInterruptedAcrossPlayerLifecycle(t *testing.T) {
 	for index, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			userID := 200 + index
-			claimed := setupClaimedTestPlayback(t, store, pool, userID, base)
+			claimed := setupClaimedTestPlayback(t, ctx, store, pool, userID, base)
 			if err := store.StartPlayback(ctx, claimed.tokenHash, claimed.playerID, claimed.generation, claimed.playback.PlaybackID, base.Add(time.Second)); err != nil {
 				t.Fatal(err)
 			}
@@ -210,7 +211,7 @@ func TestAcknowledgedPlaybackIsInterruptedAcrossPlayerLifecycle(t *testing.T) {
 			if !errors.Is(err, test.wantErr) {
 				t.Fatalf("action error = %v, want %v", err, test.wantErr)
 			}
-			stored := readPlaybackLifecycle(t, pool, claimed.playback.PlaybackID)
+			stored := readPlaybackLifecycle(t, ctx, pool, claimed.playback.PlaybackID)
 			if stored.status != InterruptedStatus || stored.startedAt == nil || stored.finishedAt == nil {
 				t.Fatalf("acknowledged playback lifecycle = %#v", stored)
 			}
@@ -232,44 +233,44 @@ func TestClaimPreservesSequenceBehindEarlierPreparation(t *testing.T) {
 	if _, err := store.UpdateSettings(ctx, 300, settings); err != nil {
 		t.Fatal(err)
 	}
-	first, err := store.CreateTest(ctx, 300, base)
-	if err != nil {
-		t.Fatal(err)
+	first, firstErr := store.CreateTest(ctx, 300, base)
+	if firstErr != nil {
+		t.Fatal(firstErr)
 	}
 	settings.TTSEnabled = false
 	if _, err := store.UpdateSettings(ctx, 300, settings); err != nil {
 		t.Fatal(err)
 	}
-	second, err := store.CreateTest(ctx, 300, base.Add(time.Millisecond))
-	if err != nil {
-		t.Fatal(err)
+	second, secondErr := store.CreateTest(ctx, 300, base.Add(time.Millisecond))
+	if secondErr != nil {
+		t.Fatal(secondErr)
 	}
 	tokenHash := hashToken(fmt.Sprintf("%032d", 300))
 	if err := store.SetOverlayTokenHash(ctx, 300, tokenHash, base); err != nil {
 		t.Fatal(err)
 	}
 	playerID, _ := randomUUID()
-	_, player, err := store.OpenPlayer(ctx, tokenHash, playerID, base)
-	if err != nil {
-		t.Fatal(err)
+	_, player, openErr := store.OpenPlayer(ctx, tokenHash, playerID, base)
+	if openErr != nil {
+		t.Fatal(openErr)
 	}
 	if err := store.Heartbeat(ctx, tokenHash, playerID, player.Generation, true, true, base); err != nil {
 		t.Fatal(err)
 	}
-	claimed, err := store.ClaimPlayback(ctx, tokenHash, playerID, player.Generation, base.Add(time.Second))
-	if err != nil || claimed != nil {
-		t.Fatalf("later pending playback bypassed preparation: playback=%#v error=%v", claimed, err)
+	claimed, claimErr := store.ClaimPlayback(ctx, tokenHash, playerID, player.Generation, base.Add(time.Second))
+	if claimErr != nil || claimed != nil {
+		t.Fatalf("later pending playback bypassed preparation: playback=%#v error=%v", claimed, claimErr)
 	}
-	preparation, err := store.ClaimPreparation(ctx, base.Add(time.Second))
-	if err != nil || preparation == nil || preparation.PlaybackID != first.PlaybackID {
-		t.Fatalf("preparation=%#v error=%v", preparation, err)
+	preparation, preparationErr := store.ClaimPreparation(ctx, base.Add(time.Second))
+	if preparationErr != nil || preparation == nil || preparation.PlaybackID != first.PlaybackID {
+		t.Fatalf("preparation=%#v error=%v", preparation, preparationErr)
 	}
 	if err := store.CompletePreparation(ctx, *preparation, Media{MIMEType: "audio/ogg", Content: []byte("tts")}, base.Add(2*time.Second)); err != nil {
 		t.Fatal(err)
 	}
-	claimed, err = store.ClaimPlayback(ctx, tokenHash, playerID, player.Generation, base.Add(2*time.Second))
-	if err != nil || claimed == nil || claimed.PlaybackID != first.PlaybackID {
-		t.Fatalf("claim=%#v error=%v, want first=%s before second=%s", claimed, err, first.PlaybackID, second.PlaybackID)
+	claimed, claimErr = store.ClaimPlayback(ctx, tokenHash, playerID, player.Generation, base.Add(2*time.Second))
+	if claimErr != nil || claimed == nil || claimed.PlaybackID != first.PlaybackID {
+		t.Fatalf("claim=%#v error=%v, want first=%s before second=%s", claimed, claimErr, first.PlaybackID, second.PlaybackID)
 	}
 }
 
@@ -283,13 +284,13 @@ func TestClaimPreservesSequenceBehindEarlierUnavailablePending(t *testing.T) {
 	if _, err := store.UpdateSettings(ctx, 301, settings); err != nil {
 		t.Fatal(err)
 	}
-	first, err := store.CreateTest(ctx, 301, base)
-	if err != nil {
-		t.Fatal(err)
+	first, firstErr := store.CreateTest(ctx, 301, base)
+	if firstErr != nil {
+		t.Fatal(firstErr)
 	}
-	second, err := store.CreateTest(ctx, 301, base.Add(time.Millisecond))
-	if err != nil {
-		t.Fatal(err)
+	second, secondErr := store.CreateTest(ctx, 301, base.Add(time.Millisecond))
+	if secondErr != nil {
+		t.Fatal(secondErr)
 	}
 	if _, err := pool.Exec(ctx, `
 		UPDATE donation_alert_playback SET available_at = $2
@@ -302,20 +303,20 @@ func TestClaimPreservesSequenceBehindEarlierUnavailablePending(t *testing.T) {
 		t.Fatal(err)
 	}
 	playerID, _ := randomUUID()
-	_, player, err := store.OpenPlayer(ctx, tokenHash, playerID, base)
-	if err != nil {
-		t.Fatal(err)
+	_, player, openErr := store.OpenPlayer(ctx, tokenHash, playerID, base)
+	if openErr != nil {
+		t.Fatal(openErr)
 	}
 	if err := store.Heartbeat(ctx, tokenHash, playerID, player.Generation, true, true, base); err != nil {
 		t.Fatal(err)
 	}
-	claimed, err := store.ClaimPlayback(ctx, tokenHash, playerID, player.Generation, base.Add(time.Second))
-	if err != nil || claimed != nil {
-		t.Fatalf("later pending playback bypassed unavailable head: playback=%#v error=%v", claimed, err)
+	claimed, claimErr := store.ClaimPlayback(ctx, tokenHash, playerID, player.Generation, base.Add(time.Second))
+	if claimErr != nil || claimed != nil {
+		t.Fatalf("later pending playback bypassed unavailable head: playback=%#v error=%v", claimed, claimErr)
 	}
-	claimed, err = store.ClaimPlayback(ctx, tokenHash, playerID, player.Generation, base.Add(10*time.Second))
-	if err != nil || claimed == nil || claimed.PlaybackID != first.PlaybackID {
-		t.Fatalf("claim=%#v error=%v, want first=%s before second=%s", claimed, err, first.PlaybackID, second.PlaybackID)
+	claimed, claimErr = store.ClaimPlayback(ctx, tokenHash, playerID, player.Generation, base.Add(10*time.Second))
+	if claimErr != nil || claimed == nil || claimed.PlaybackID != first.PlaybackID {
+		t.Fatalf("claim=%#v error=%v, want first=%s before second=%s", claimed, claimErr, first.PlaybackID, second.PlaybackID)
 	}
 }
 
@@ -335,18 +336,18 @@ func TestQueueLockHidesUncommittedHeadFromClaim(t *testing.T) {
 		t.Fatal(err)
 	}
 	playerID, _ := randomUUID()
-	_, player, err := store.OpenPlayer(ctx, tokenHash, playerID, base)
-	if err != nil {
-		t.Fatal(err)
+	_, player, openErr := store.OpenPlayer(ctx, tokenHash, playerID, base)
+	if openErr != nil {
+		t.Fatal(openErr)
 	}
 	if err := store.Heartbeat(ctx, tokenHash, playerID, player.Generation, true, true, base); err != nil {
 		t.Fatal(err)
 	}
-	tx, err := pool.Begin(ctx)
-	if err != nil {
-		t.Fatal(err)
+	tx, beginErr := pool.Begin(ctx)
+	if beginErr != nil {
+		t.Fatal(beginErr)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	if err := EnqueueIncoming(ctx, tx, 302, donationID, DonationAlertsSource, base); err != nil {
 		t.Fatal(err)
 	}
@@ -358,9 +359,9 @@ func TestQueueLockHidesUncommittedHeadFromClaim(t *testing.T) {
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
-	claimed, err := store.ClaimPlayback(ctx, tokenHash, playerID, player.Generation, base)
-	if err != nil || claimed == nil || claimed.DonationID == nil || *claimed.DonationID != donationID {
-		t.Fatalf("claim after commit=%#v error=%v", claimed, err)
+	claimed, claimErr := store.ClaimPlayback(ctx, tokenHash, playerID, player.Generation, base)
+	if claimErr != nil || claimed == nil || claimed.DonationID == nil || *claimed.DonationID != donationID {
+		t.Fatalf("claim after commit=%#v error=%v", claimed, claimErr)
 	}
 }
 
@@ -381,19 +382,19 @@ func TestConcurrentEnqueueKeepsBacklogBound(t *testing.T) {
 	}
 	firstDonationID := insertAlertDonation(t, pool, 303, "concurrent-one", base)
 	secondDonationID := insertAlertDonation(t, pool, 303, "concurrent-two", base)
-	firstTx, err := pool.Begin(ctx)
-	if err != nil {
-		t.Fatal(err)
+	firstTx, firstTxErr := pool.Begin(ctx)
+	if firstTxErr != nil {
+		t.Fatal(firstTxErr)
 	}
-	defer firstTx.Rollback(ctx)
+	defer func() { _ = firstTx.Rollback(ctx) }()
 	if err := EnqueueIncoming(ctx, firstTx, 303, firstDonationID, DonationAlertsSource, base); err != nil {
 		t.Fatal(err)
 	}
-	secondTx, err := pool.Begin(ctx)
-	if err != nil {
-		t.Fatal(err)
+	secondTx, secondTxErr := pool.Begin(ctx)
+	if secondTxErr != nil {
+		t.Fatal(secondTxErr)
 	}
-	defer secondTx.Rollback(ctx)
+	defer func() { _ = secondTx.Rollback(ctx) }()
 	result := make(chan error, 1)
 	go func() {
 		result <- EnqueueIncoming(ctx, secondTx, 303, secondDonationID, DonationAlertsSource, base)
@@ -429,19 +430,19 @@ func TestSkipWaitsForLockedHeadInsteadOfSkippingLaterPlayback(t *testing.T) {
 	seedAlertUser(t, pool, 304)
 	ctx := context.Background()
 	base := time.Date(2026, 9, 13, 12, 0, 0, 0, time.UTC)
-	first, err := store.CreateTest(ctx, 304, base)
-	if err != nil {
-		t.Fatal(err)
+	first, firstErr := store.CreateTest(ctx, 304, base)
+	if firstErr != nil {
+		t.Fatal(firstErr)
 	}
-	second, err := store.CreateTest(ctx, 304, base.Add(time.Millisecond))
-	if err != nil {
-		t.Fatal(err)
+	second, secondErr := store.CreateTest(ctx, 304, base.Add(time.Millisecond))
+	if secondErr != nil {
+		t.Fatal(secondErr)
 	}
-	locker, err := pool.Begin(ctx)
-	if err != nil {
-		t.Fatal(err)
+	locker, lockerErr := pool.Begin(ctx)
+	if lockerErr != nil {
+		t.Fatal(lockerErr)
 	}
-	defer locker.Rollback(ctx)
+	defer func() { _ = locker.Rollback(ctx) }()
 	if _, err := locker.Exec(ctx, `
 		SELECT 1 FROM donation_alert_playback
 		WHERE donation_alert_playback_id = $1
@@ -457,9 +458,9 @@ func TestSkipWaitsForLockedHeadInsteadOfSkippingLaterPlayback(t *testing.T) {
 	if err := locker.Rollback(ctx); err != nil {
 		t.Fatal(err)
 	}
-	skipped, err := store.Skip(ctx, 304, base.Add(time.Second))
-	if err != nil || skipped == nil || *skipped != first.PlaybackID {
-		t.Fatalf("skipped=%v error=%v, want first=%s", skipped, err, first.PlaybackID)
+	skipped, skipErr := store.Skip(ctx, 304, base.Add(time.Second))
+	if skipErr != nil || skipped == nil || *skipped != first.PlaybackID {
+		t.Fatalf("skipped=%v error=%v, want first=%s", skipped, skipErr, first.PlaybackID)
 	}
 	if status, err := store.PlaybackStatus(ctx, second.PlaybackID); err != nil || status != PendingStatus {
 		t.Fatalf("second status=%q error=%v", status, err)
@@ -472,24 +473,24 @@ func TestPollingAndClaimRecoverMissingFinishAcknowledgement(t *testing.T) {
 	base := time.Date(2026, 9, 13, 12, 0, 0, 0, time.UTC)
 
 	t.Run("stream polling", func(t *testing.T) {
-		claimed := setupClaimedTestPlayback(t, store, pool, 400, base)
+		claimed := setupClaimedTestPlayback(t, ctx, store, pool, 400, base)
 		startedAt := base.Add(time.Second)
 		if err := store.StartPlayback(ctx, claimed.tokenHash, claimed.playerID, claimed.generation, claimed.playback.PlaybackID, startedAt); err != nil {
 			t.Fatal(err)
 		}
-		keepPlayerAlive(t, store, claimed, base, startedAt.Add(PlaybackAcknowledgementTimeout-time.Second))
+		keepPlayerAlive(t, ctx, store, claimed, base, startedAt.Add(PlaybackAcknowledgementTimeout-time.Second))
 		paused, current, err := store.StreamState(ctx, claimed.tokenHash, claimed.playerID, claimed.generation, startedAt.Add(PlaybackAcknowledgementTimeout))
 		if err != nil || paused || current != nil {
 			t.Fatalf("stream state paused=%v current=%#v error=%v", paused, current, err)
 		}
-		stored := readPlaybackLifecycle(t, pool, claimed.playback.PlaybackID)
+		stored := readPlaybackLifecycle(t, ctx, pool, claimed.playback.PlaybackID)
 		if stored.status != InterruptedStatus || stored.detail == nil || *stored.detail != string(PlaybackTimeoutDiagnostic) {
 			t.Fatalf("timed-out playback = %#v", stored)
 		}
 	})
 
 	t.Run("claim next", func(t *testing.T) {
-		claimed := setupClaimedTestPlayback(t, store, pool, 401, base)
+		claimed := setupClaimedTestPlayback(t, ctx, store, pool, 401, base)
 		startedAt := base.Add(time.Second)
 		if err := store.StartPlayback(ctx, claimed.tokenHash, claimed.playerID, claimed.generation, claimed.playback.PlaybackID, startedAt); err != nil {
 			t.Fatal(err)
@@ -498,22 +499,22 @@ func TestPollingAndClaimRecoverMissingFinishAcknowledgement(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		keepPlayerAlive(t, store, claimed, base, startedAt.Add(PlaybackAcknowledgementTimeout-time.Second))
+		keepPlayerAlive(t, ctx, store, claimed, base, startedAt.Add(PlaybackAcknowledgementTimeout-time.Second))
 		got, err := store.ClaimPlayback(ctx, claimed.tokenHash, claimed.playerID, claimed.generation, startedAt.Add(PlaybackAcknowledgementTimeout))
 		if err != nil || got == nil || got.PlaybackID != next.PlaybackID {
 			t.Fatalf("recovery claim=%#v error=%v, want %s", got, err, next.PlaybackID)
 		}
-		stored := readPlaybackLifecycle(t, pool, claimed.playback.PlaybackID)
+		stored := readPlaybackLifecycle(t, ctx, pool, claimed.playback.PlaybackID)
 		if stored.status != InterruptedStatus || stored.detail == nil || *stored.detail != string(PlaybackTimeoutDiagnostic) {
 			t.Fatalf("timed-out playback = %#v", stored)
 		}
 	})
 }
 
-func keepPlayerAlive(t *testing.T, store *Store, claimed claimedTestPlayback, from, until time.Time) {
+func keepPlayerAlive(t *testing.T, ctx context.Context, store *Store, claimed claimedTestPlayback, from, until time.Time) {
 	t.Helper()
 	for heartbeatAt := from.Add(10 * time.Second); !heartbeatAt.After(until); heartbeatAt = heartbeatAt.Add(10 * time.Second) {
-		if err := store.Heartbeat(context.Background(), claimed.tokenHash, claimed.playerID, claimed.generation, true, true, heartbeatAt); err != nil {
+		if err := store.Heartbeat(ctx, claimed.tokenHash, claimed.playerID, claimed.generation, true, true, heartbeatAt); err != nil {
 			t.Fatalf("heartbeat at %v: %v", heartbeatAt, err)
 		}
 	}
@@ -523,7 +524,7 @@ func TestFinishPlaybackIsConcurrentAndIdempotent(t *testing.T) {
 	store, pool := newAlertIntegrationStore(t)
 	ctx := context.Background()
 	base := time.Date(2026, 9, 13, 12, 0, 0, 0, time.UTC)
-	claimed := setupClaimedTestPlayback(t, store, pool, 500, base)
+	claimed := setupClaimedTestPlayback(t, ctx, store, pool, 500, base)
 	if err := store.StartPlayback(ctx, claimed.tokenHash, claimed.playerID, claimed.generation, claimed.playback.PlaybackID, base.Add(time.Second)); err != nil {
 		t.Fatal(err)
 	}
@@ -550,7 +551,7 @@ func TestFinishPlaybackIsConcurrentAndIdempotent(t *testing.T) {
 	if err := store.FinishPlayback(ctx, claimed.tokenHash, claimed.playerID, claimed.generation, claimed.playback.PlaybackID, FinishCompleted, finishedAt.Add(time.Second)); err != nil {
 		t.Fatalf("repeated completion: %v", err)
 	}
-	stored := readPlaybackLifecycle(t, pool, claimed.playback.PlaybackID)
+	stored := readPlaybackLifecycle(t, ctx, pool, claimed.playback.PlaybackID)
 	if stored.status != CompletedStatus || stored.finishedAt == nil || !stored.finishedAt.Equal(finishedAt) {
 		t.Fatalf("completed playback = %#v", stored)
 	}
@@ -563,14 +564,14 @@ func TestFinishCannotMakeUnacknowledgedPlaybackTerminal(t *testing.T) {
 	store, pool := newAlertIntegrationStore(t)
 	ctx := context.Background()
 	base := time.Date(2026, 9, 13, 12, 0, 0, 0, time.UTC)
-	claimed := setupClaimedTestPlayback(t, store, pool, 501, base)
+	claimed := setupClaimedTestPlayback(t, ctx, store, pool, 501, base)
 	if err := store.FinishPlayback(ctx, claimed.tokenHash, claimed.playerID, claimed.generation, claimed.playback.PlaybackID, FinishCompleted, base.Add(time.Second)); !errors.Is(err, ErrLeaseLost) {
 		t.Fatalf("unacknowledged completion = %v", err)
 	}
 	if err := store.FinishPlayback(ctx, claimed.tokenHash, claimed.playerID, claimed.generation, claimed.playback.PlaybackID, FinishInterrupted, base.Add(time.Second)); err != nil {
 		t.Fatal(err)
 	}
-	stored := readPlaybackLifecycle(t, pool, claimed.playback.PlaybackID)
+	stored := readPlaybackLifecycle(t, ctx, pool, claimed.playback.PlaybackID)
 	if stored.status != PendingStatus || stored.startedAt != nil || stored.finishedAt != nil || stored.playerID != nil || stored.playerGeneration != nil {
 		t.Fatalf("unacknowledged interruption became terminal: %#v", stored)
 	}
@@ -586,9 +587,9 @@ func TestReplayRequiresDonationBackedTerminalPlayback(t *testing.T) {
 	if _, err := store.UpdateSettings(ctx, 600, settings); err != nil {
 		t.Fatal(err)
 	}
-	testPlayback, err := store.CreateTest(ctx, 600, base)
-	if err != nil {
-		t.Fatal(err)
+	testPlayback, createErr := store.CreateTest(ctx, 600, base)
+	if createErr != nil {
+		t.Fatal(createErr)
 	}
 	if _, err := pool.Exec(ctx, `
 		UPDATE donation_alert_playback SET status = 'completed', finished_at = $2
@@ -601,9 +602,9 @@ func TestReplayRequiresDonationBackedTerminalPlayback(t *testing.T) {
 	}
 
 	donationID := insertAlertDonation(t, pool, 600, "replay-source", base)
-	tx, err := pool.Begin(ctx)
-	if err != nil {
-		t.Fatal(err)
+	tx, beginErr := pool.Begin(ctx)
+	if beginErr != nil {
+		t.Fatal(beginErr)
 	}
 	if err := EnqueueIncoming(ctx, tx, 600, donationID, DonationAlertsSource, base); err != nil {
 		t.Fatal(err)
@@ -627,9 +628,9 @@ func TestReplayRequiresDonationBackedTerminalPlayback(t *testing.T) {
 	`, sourcePlaybackID, base.Add(3*time.Second)); err != nil {
 		t.Fatal(err)
 	}
-	replay, err := store.Replay(ctx, 600, sourcePlaybackID, base.Add(4*time.Second))
-	if err != nil || replay == nil || replay.Kind != ReplayPlayback || replay.DonationID == nil || *replay.DonationID != donationID {
-		t.Fatalf("terminal replay=%#v error=%v", replay, err)
+	replay, replayErr := store.Replay(ctx, 600, sourcePlaybackID, base.Add(4*time.Second))
+	if replayErr != nil || replay == nil || replay.Kind != ReplayPlayback || replay.DonationID == nil || *replay.DonationID != donationID {
+		t.Fatalf("terminal replay=%#v error=%v", replay, replayErr)
 	}
 }
 
@@ -637,7 +638,7 @@ func TestRendererDiagnosticIsGuardedAndStable(t *testing.T) {
 	store, pool := newAlertIntegrationStore(t)
 	ctx := context.Background()
 	base := time.Date(2026, 9, 13, 12, 0, 0, 0, time.UTC)
-	claimed := setupClaimedTestPlayback(t, store, pool, 700, base)
+	claimed := setupClaimedTestPlayback(t, ctx, store, pool, 700, base)
 	if err := store.StartPlayback(ctx, claimed.tokenHash, claimed.playerID, claimed.generation, claimed.playback.PlaybackID, base.Add(time.Second)); err != nil {
 		t.Fatal(err)
 	}
@@ -697,13 +698,14 @@ func TestRendererDiagnosticIsGuardedAndStable(t *testing.T) {
 func TestTokenRotationAndHeartbeatUseConsistentLockOrder(t *testing.T) {
 	store, pool := newAlertIntegrationStore(t)
 	base := time.Date(2026, 9, 13, 12, 0, 0, 0, time.UTC)
-	claimed := setupClaimedTestPlayback(t, store, pool, 800, base)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	claimed := setupClaimedTestPlayback(t, ctx, store, pool, 800, base)
 	if err := store.StartPlayback(ctx, claimed.tokenHash, claimed.playerID, claimed.generation, claimed.playback.PlaybackID, base.Add(time.Second)); err != nil {
 		t.Fatal(err)
 	}
 
+	//nolint:gosec // The test-local schema sequence cannot approach the int64 limit.
 	advisoryKey := int64(90_000_000 + alertTestSchemaSequence.Load())
 	if _, err := pool.Exec(ctx, fmt.Sprintf(`
 		CREATE FUNCTION alert_rotation_barrier() RETURNS trigger
@@ -773,11 +775,12 @@ func TestAssetMutationsLockConfigurationBeforeAsset(t *testing.T) {
 	defer cancel()
 	seedAlertUser(t, pool, 801)
 	media := Media{MIMEType: "image/png", Content: []byte("same-validated-image")}
-	asset, err := store.SaveAsset(ctx, 801, ImageAsset, media, time.Date(2026, 9, 13, 12, 0, 0, 0, time.UTC))
-	if err != nil {
-		t.Fatal(err)
+	asset, assetErr := store.SaveAsset(ctx, 801, ImageAsset, media, time.Date(2026, 9, 13, 12, 0, 0, 0, time.UTC))
+	if assetErr != nil {
+		t.Fatal(assetErr)
 	}
 
+	//nolint:gosec // The test-local schema sequence cannot approach the int64 limit.
 	advisoryKey := int64(91_000_000 + alertTestSchemaSequence.Load())
 	if _, err := pool.Exec(ctx, fmt.Sprintf(`
 		CREATE FUNCTION alert_asset_barrier() RETURNS trigger

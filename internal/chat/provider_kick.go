@@ -98,7 +98,7 @@ func (provider *KickProvider) request(ctx context.Context, source ConnectedSourc
 	if err != nil {
 		return operationError(detail, err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	_, _ = io.Copy(io.Discard, response.Body)
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return operationError(detail, &ProviderHTTPError{Status: response.StatusCode})

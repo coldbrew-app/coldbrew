@@ -83,7 +83,7 @@ func (store *Store) Claim(ctx context.Context, now time.Time, leaseDuration time
 	var job Job
 	if err := row.Scan(&job.DonationID, &job.Generation, &job.Attempts, &job.Message, &job.Amount, &job.Currency, &job.QueueCurrency); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
+			return nil, nil //nolint:nilnil // A nil job is the established signal that the queue is empty.
 		}
 		return nil, err
 	}

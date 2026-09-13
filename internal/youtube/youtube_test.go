@@ -189,7 +189,10 @@ func TestDataAPIErrors(t *testing.T) {
 }
 
 func TestInvalidInputDoesNotFetch(t *testing.T) {
-	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) { t.Fatal("unexpected request"); return nil, nil })}
+	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		t.Fatal("unexpected request")
+		return nil, errors.New("unexpected request")
+	})}
 	for _, input := range []struct{ key, url string }{{"key", "https://example.com/watch?v=id"}, {"key", "https://youtube.com/"}, {"", "https://youtu.be/id"}} {
 		if _, err := GetTiming(context.Background(), client, input.key, input.url, nil); err == nil {
 			t.Fatal("accepted invalid input")

@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"testing"
@@ -38,8 +39,8 @@ func TestKickProviderClassifiesUnauthorized(t *testing.T) {
 	source.Source.ProviderSourceID = "42"
 	source.Credentials.AccessToken = "access-token"
 	err := provider.SendMessage(context.Background(), source, "hello")
-	providerError, ok := err.(*ProviderError)
-	if !ok || providerError.Type != "provider unauthorized" {
+	var providerError *ProviderError
+	if !errors.As(err, &providerError) || providerError.Type != "provider unauthorized" {
 		t.Fatalf("expected unauthorized provider error, got %v", err)
 	}
 }

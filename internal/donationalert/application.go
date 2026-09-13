@@ -87,6 +87,8 @@ func (application *Application) UploadAsset(ctx context.Context, userID int, kin
 			return Asset{}, &MediaError{Code: MediaUnsupported}
 		}
 		media, err = application.processor.PrepareSound(ctx, content)
+	case TTSAsset:
+		return Asset{}, validationError("invalid asset kind")
 	default:
 		return Asset{}, validationError("invalid asset kind")
 	}
@@ -216,8 +218,8 @@ func (application *Application) Stream(ctx context.Context, token, playerID stri
 			if nextPaused {
 				action = "pause"
 			}
-			if err := emit(StreamEvent{Type: "control", Action: action}); err != nil {
-				return err
+			if emitErr := emit(StreamEvent{Type: "control", Action: action}); emitErr != nil {
+				return emitErr
 			}
 			paused = nextPaused
 		}
@@ -227,8 +229,8 @@ func (application *Application) Stream(ctx context.Context, token, playerID stri
 				return statusErr
 			}
 			if status == SkippedStatus || status == InterruptedStatus || status == ExpiredStatus {
-				if err := emit(StreamEvent{Type: "control", Action: "skip"}); err != nil {
-					return err
+				if emitErr := emit(StreamEvent{Type: "control", Action: "skip"}); emitErr != nil {
+					return emitErr
 				}
 			}
 			current = nil

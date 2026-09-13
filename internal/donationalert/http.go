@@ -419,13 +419,13 @@ func (handler *HTTPHandler) stream(response http.ResponseWriter, request *http.R
 	if !decodeJSON(response, request, maxJSONRequest, &input) || !validPlayer(response, input.Token, input.PlayerID, input.Generation) {
 		return
 	}
-	defer func() {
-		closeContext, cancel := context.WithTimeout(context.WithoutCancel(request.Context()), 2*time.Second)
+	defer func(requestContext context.Context) {
+		closeContext, cancel := context.WithTimeout(context.WithoutCancel(requestContext), 2*time.Second)
 		defer cancel()
 		if err := handler.application.ClosePlayer(closeContext, input.Token, input.PlayerID, input.Generation); err != nil {
 			slog.Error("Close donation alert player", "playerId", input.PlayerID, "error", err)
 		}
-	}()
+	}(request.Context())
 	flusher, ok := response.(http.Flusher)
 	if !ok {
 		writeError(response, http.StatusInternalServerError, "streaming unavailable")
@@ -528,6 +528,8 @@ func handleError(response http.ResponseWriter, operation string, err error) {
 				status, message = http.StatusUnsupportedMediaType, "unsupported media"
 			case MediaInvalid, MediaDimensions, MediaDuration, MediaContainsVideo:
 				status, message = http.StatusUnprocessableEntity, "invalid media"
+			case MediaToolUnavailable, MediaProcessingFailed, MediaProcessingTimedOut:
+				status, message = http.StatusServiceUnavailable, "media processing unavailable"
 			default:
 				status, message = http.StatusServiceUnavailable, "media processing unavailable"
 			}

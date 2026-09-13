@@ -155,7 +155,7 @@ func (provider *VKVideoProvider) poll(ctx context.Context, longPollURL *url.URL)
 	if err != nil {
 		return vkLongPollResponse{}, operationError("VK Video chat connection failed", err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		_, _ = io.Copy(io.Discard, response.Body)
 		return vkLongPollResponse{}, operationError("VK Video chat connection failed", &ProviderHTTPError{Status: response.StatusCode})
@@ -245,7 +245,7 @@ func (provider *VKVideoProvider) requestAPI(ctx context.Context, source Connecte
 	if err != nil {
 		return operationError(detail, err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		_, _ = io.Copy(io.Discard, response.Body)
 		return operationError(detail, &ProviderHTTPError{Status: response.StatusCode})
@@ -263,9 +263,10 @@ func (provider *VKVideoProvider) requestAPI(ctx context.Context, source Connecte
 	if envelope.Error != nil {
 		cause := fmt.Errorf("VK API %d: %s", envelope.Error.Code, envelope.Error.Message)
 		typeName := "provider unavailable"
-		if envelope.Error.Code == 5 || envelope.Error.Code == 7 || envelope.Error.Code == 15 || envelope.Error.Code == 204 {
+		switch envelope.Error.Code {
+		case 5, 7, 15, 204:
 			typeName = "provider unauthorized"
-		} else if envelope.Error.Code == 6 || envelope.Error.Code == 29 {
+		case 6, 29:
 			typeName = "provider rate limited"
 		}
 		return &ProviderError{Type: typeName, Detail: detail, Cause: cause}

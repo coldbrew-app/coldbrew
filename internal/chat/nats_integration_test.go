@@ -16,27 +16,27 @@ func TestNatsBrokerAndLeasesIntegration(t *testing.T) {
 	if server == "" {
 		t.Skip("NATS_TEST_URL is not set")
 	}
-	namespaceID := uint32(time.Now().UnixNano())
+	namespaceID := uint32(time.Now().UnixNano() & 0xffff_ffff)
 	namespace := fmt.Sprintf("wt_%08x", namespaceID)
-	connection, err := ConnectNats(server, namespace)
-	if err != nil {
-		t.Fatal(err)
+	connection, connectErr := ConnectNats(server, namespace)
+	if connectErr != nil {
+		t.Fatal(connectErr)
 	}
-	defer connection.Close()
+	defer func() { _ = connection.Close() }()
 	defer func() {
-		if err := DeleteNatsNamespace(server, namespace); err != nil {
-			t.Error(err)
+		if deleteErr := DeleteNatsNamespace(server, namespace); deleteErr != nil {
+			t.Error(deleteErr)
 		}
 	}()
 	otherNamespace := fmt.Sprintf("wt_%08x", namespaceID+1)
-	otherConnection, err := ConnectNats(server, otherNamespace)
-	if err != nil {
-		t.Fatal(err)
+	otherConnection, otherConnectErr := ConnectNats(server, otherNamespace)
+	if otherConnectErr != nil {
+		t.Fatal(otherConnectErr)
 	}
-	defer otherConnection.Close()
+	defer func() { _ = otherConnection.Close() }()
 	defer func() {
-		if err := DeleteNatsNamespace(server, otherNamespace); err != nil {
-			t.Error(err)
+		if deleteErr := DeleteNatsNamespace(server, otherNamespace); deleteErr != nil {
+			t.Error(deleteErr)
 		}
 	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -46,8 +46,8 @@ func TestNatsBrokerAndLeasesIntegration(t *testing.T) {
 	events := connection.Broker.Stream(ctx, userID)
 	otherEvents := otherConnection.Broker.Stream(ctx, userID)
 	message := Message{ID: "message-1", SourceID: sourceID, ConnectionID: "00000000-0000-4000-8000-000000000001", Provider: "youtube", Author: Author{ID: "viewer-1", DisplayName: "Viewer"}, Text: "hello", OccurredAt: time.Now().UTC()}
-	if err := connection.Broker.Publish(ctx, userID, StreamEvent{Type: "message", Message: &message}, "integration:"+sourceID); err != nil {
-		t.Fatal(err)
+	if publishErr := connection.Broker.Publish(ctx, userID, StreamEvent{Type: "message", Message: &message}, "integration:"+sourceID); publishErr != nil {
+		t.Fatal(publishErr)
 	}
 	select {
 	case event := <-events:
@@ -74,14 +74,15 @@ func TestNatsBrokerAndLeasesIntegration(t *testing.T) {
 	}
 
 	invalidPayload := []byte(`{"type":`)
-	if _, err := connection.Broker.jetstream.Publish(connection.Broker.userSubject(userID), invalidPayload); err != nil {
-		t.Fatal(err)
+	if _, publishErr := connection.Broker.jetstream.Publish(connection.Broker.userSubject(userID), invalidPayload); publishErr != nil {
+		t.Fatal(publishErr)
 	}
 	var deadLetters DeadLetterPage
 	for deadLetters.Total == 0 {
-		deadLetters, err = connection.DeadLetters.List(ctx, 25, 0)
-		if err != nil {
-			t.Fatal(err)
+		var listErr error
+		deadLetters, listErr = connection.DeadLetters.List(ctx, 25, 0)
+		if listErr != nil {
+			t.Fatal(listErr)
 		}
 		if deadLetters.Total == 0 {
 			select {
@@ -95,40 +96,40 @@ func TestNatsBrokerAndLeasesIntegration(t *testing.T) {
 		t.Fatalf("unexpected dead letters: %#v", deadLetters)
 	}
 
-	lease, err := connection.Leases.Acquire(ctx, sourceID, "owner-1")
-	if err != nil || lease == nil {
-		t.Fatalf("first lease = %v, %v", lease, err)
+	lease, acquireErr := connection.Leases.Acquire(ctx, sourceID, "owner-1")
+	if acquireErr != nil || lease == nil {
+		t.Fatalf("first lease = %v, %v", lease, acquireErr)
 	}
-	contended, err := connection.Leases.Acquire(ctx, sourceID, "owner-2")
-	if err != nil || contended != nil {
-		t.Fatalf("contended lease = %v, %v", contended, err)
+	contended, contendErr := connection.Leases.Acquire(ctx, sourceID, "owner-2")
+	if contendErr != nil || contended != nil {
+		t.Fatalf("contended lease = %v, %v", contended, contendErr)
 	}
-	if err := lease.Release(); err != nil {
-		t.Fatal(err)
+	if releaseErr := lease.Release(); releaseErr != nil {
+		t.Fatal(releaseErr)
 	}
-	reacquired, err := connection.Leases.Acquire(ctx, sourceID, "owner-2")
-	if err != nil || reacquired == nil {
-		t.Fatalf("reacquired lease = %v, %v", reacquired, err)
+	reacquired, reacquireErr := connection.Leases.Acquire(ctx, sourceID, "owner-2")
+	if reacquireErr != nil || reacquired == nil {
+		t.Fatalf("reacquired lease = %v, %v", reacquired, reacquireErr)
 	}
-	if err := reacquired.Release(); err != nil {
-		t.Fatal(err)
+	if releaseErr := reacquired.Release(); releaseErr != nil {
+		t.Fatal(releaseErr)
 	}
 
-	if err := DeleteOtherWorktreeNatsNamespaces(server, namespace); err != nil {
-		t.Fatal(err)
+	if deleteErr := DeleteOtherWorktreeNatsNamespaces(server, namespace); deleteErr != nil {
+		t.Fatal(deleteErr)
 	}
-	resources, err := resourcesForNamespace(namespace)
-	if err != nil {
-		t.Fatal(err)
+	resources, resourcesErr := resourcesForNamespace(namespace)
+	if resourcesErr != nil {
+		t.Fatal(resourcesErr)
 	}
-	if _, err := connection.Broker.jetstream.StreamInfo(resources.stream); err != nil {
-		t.Fatalf("primary test namespace was deleted: %v", err)
+	if _, streamInfoErr := connection.Broker.jetstream.StreamInfo(resources.stream); streamInfoErr != nil {
+		t.Fatalf("primary test namespace was deleted: %v", streamInfoErr)
 	}
-	otherResources, err := resourcesForNamespace(otherNamespace)
-	if err != nil {
-		t.Fatal(err)
+	otherResources, otherResourcesErr := resourcesForNamespace(otherNamespace)
+	if otherResourcesErr != nil {
+		t.Fatal(otherResourcesErr)
 	}
-	if _, err := connection.Broker.jetstream.StreamInfo(otherResources.stream); !errors.Is(err, nats.ErrStreamNotFound) {
-		t.Fatalf("secondary test namespace still exists: %v", err)
+	if _, streamInfoErr := connection.Broker.jetstream.StreamInfo(otherResources.stream); !errors.Is(streamInfoErr, nats.ErrStreamNotFound) {
+		t.Fatalf("secondary test namespace still exists: %v", streamInfoErr)
 	}
 }

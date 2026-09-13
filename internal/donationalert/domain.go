@@ -203,6 +203,9 @@ func validRendererDiagnostic(code DiagnosticCode) bool {
 	switch code {
 	case ImageUnavailableDiagnostic, SoundUnavailableDiagnostic, TTSUnavailableDiagnostic, AudioBlockedDiagnostic:
 		return true
+	case AlertExpiredDiagnostic, BacklogLimitDiagnostic, PlaybackTimeoutDiagnostic, PlayerDisconnectedDiagnostic,
+		OverlayRotatedDiagnostic, PlaybackIssueDiagnostic:
+		return false
 	default:
 		return false
 	}

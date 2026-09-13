@@ -46,14 +46,18 @@ func run() error {
 		return fmt.Errorf("connect PostgreSQL: %w", err)
 	}
 	defer pool.Close()
-	if err := pool.Ping(ctx); err != nil {
-		return fmt.Errorf("ping PostgreSQL: %w", err)
+	if pingErr := pool.Ping(ctx); pingErr != nil {
+		return fmt.Errorf("ping PostgreSQL: %w", pingErr)
 	}
 	natsConnection, err := chat.ConnectNats(config.natsServers, config.natsNamespace)
 	if err != nil {
 		return fmt.Errorf("connect NATS: %w", err)
 	}
-	defer natsConnection.Close()
+	defer func() {
+		if closeErr := natsConnection.Close(); closeErr != nil {
+			slog.Warn("Drain NATS connection", "error", closeErr)
+		}
+	}()
 
 	tokenCipher, err := chat.NewTokenCipher(config.tokenEncryptionSecret)
 	if err != nil {
@@ -159,11 +163,11 @@ func loadConfig() (serviceConfig, error) {
 	if webURL == "" {
 		webURL = appDomain
 	}
-	if err := requireHTTPURL(publicURL, "CHAT_PUBLIC_URL or APP_DOMAIN"); err != nil {
-		return serviceConfig{}, err
+	if publicURLErr := requireHTTPURL(publicURL, "CHAT_PUBLIC_URL or APP_DOMAIN"); publicURLErr != nil {
+		return serviceConfig{}, publicURLErr
 	}
-	if err := requireHTTPURL(webURL, "CHAT_WEB_URL or APP_DOMAIN"); err != nil {
-		return serviceConfig{}, err
+	if webURLErr := requireHTTPURL(webURL, "CHAT_WEB_URL or APP_DOMAIN"); webURLErr != nil {
+		return serviceConfig{}, webURLErr
 	}
 	serviceSecret := os.Getenv("CHAT_SERVICE_SECRET")
 	if len(serviceSecret) < 32 {
@@ -213,6 +217,8 @@ func requiredEnvironment(name string) (string, error) {
 func configuredPair(clientIDName, clientSecretName string) (*[2]string, error) {
 	clientID, clientSecret := os.Getenv(clientIDName), os.Getenv(clientSecretName)
 	if clientID == "" && clientSecret == "" {
+		// A nil pair represents an optional provider that is not configured.
+		//nolint:nilnil
 		return nil, nil
 	}
 	if clientID == "" || clientSecret == "" {

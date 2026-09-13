@@ -20,7 +20,7 @@ type fakeStore struct {
 func (store *fakeStore) Backfill(context.Context) error { return nil }
 func (store *fakeStore) Claim(context.Context, time.Time, time.Duration) (*Job, error) {
 	if len(store.jobs) == 0 {
-		return nil, nil
+		return nil, nil //nolint:nilnil // The fake mirrors the store's empty-queue result.
 	}
 	job := store.jobs[0]
 	store.jobs = store.jobs[1:]

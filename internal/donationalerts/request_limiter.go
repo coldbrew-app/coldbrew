@@ -6,7 +6,7 @@ import (
 )
 
 type requestPermit struct {
-	ctx     context.Context
+	ctx     context.Context //nolint:containedctx // A queued permit must retain its caller cancellation signal.
 	granted chan struct{}
 }
 
@@ -47,6 +47,7 @@ func (limiter *requestLimiter) wait(ctx context.Context, priority requestPriorit
 	permit := requestPermit{ctx: ctx, granted: make(chan struct{}, 1)}
 	queue := limiter.regular
 	switch priority {
+	case regularRequest:
 	case recoveryRequest:
 		queue = limiter.recovery
 	case criticalRequest:
@@ -70,18 +71,20 @@ func (limiter *requestLimiter) run() {
 	recoveryBurst := 0
 	for {
 		permit, priority := limiter.next(criticalBurst, recoveryBurst)
-		if permit.ctx.Err() != nil {
+		select {
+		case <-permit.ctx.Done():
 			continue
+		default:
 		}
 		permit.granted <- struct{}{}
-		if priority == criticalRequest {
+		switch priority {
+		case criticalRequest:
 			criticalBurst++
-		} else {
+		case recoveryRequest:
 			criticalBurst = 0
-		}
-		if priority == recoveryRequest {
 			recoveryBurst++
-		} else if priority == regularRequest {
+		case regularRequest:
+			criticalBurst = 0
 			recoveryBurst = 0
 		}
 		if limiter.interval > 0 {

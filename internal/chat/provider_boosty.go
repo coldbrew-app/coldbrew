@@ -34,17 +34,21 @@ type boostyUser struct {
 }
 
 func (provider *BoostyProvider) request(ctx context.Context, token, path string, target any) error {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, provider.apiURL+path, nil)
+	endpoint, err := boostyEndpoint(provider.apiURL, path)
+	if err != nil {
+		return operationError("Could not read Boosty chat", err)
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil) //nolint:gosec // boostyEndpoint restricts the URL to the configured HTTP(S) origin.
 	if err != nil {
 		return operationError("Could not read Boosty chat", err)
 	}
 	request.Header.Set("Authorization", "Bearer "+token)
 	request.Header.Set("Accept", "application/json")
-	response, err := provider.client.Do(request)
+	response, err := provider.client.Do(request) //nolint:gosec // The request URL passed the same-origin validation in boostyEndpoint.
 	if err != nil {
 		return operationError("Could not read Boosty chat", err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode == http.StatusNoContent {
 		return nil
 	}
@@ -58,6 +62,22 @@ func (provider *BoostyProvider) request(ctx context.Context, token, path string,
 		return operationError("Boosty returned an invalid response", err)
 	}
 	return nil
+}
+
+func boostyEndpoint(base, path string) (string, error) {
+	baseURL, err := url.Parse(base)
+	if err != nil || (baseURL.Scheme != "https" && baseURL.Scheme != "http") || baseURL.Host == "" || baseURL.User != nil {
+		return "", errors.New("invalid Boosty API URL")
+	}
+	reference, err := url.Parse(path)
+	if err != nil || reference.IsAbs() || reference.Host != "" || reference.User != nil || !strings.HasPrefix(reference.Path, "/") {
+		return "", errors.New("invalid Boosty API path")
+	}
+	endpoint := baseURL.ResolveReference(reference)
+	if endpoint.Scheme != baseURL.Scheme || endpoint.Host != baseURL.Host {
+		return "", errors.New("invalid Boosty API endpoint")
+	}
+	return endpoint.String(), nil
 }
 
 type BoostyConnectionStore interface {

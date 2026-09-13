@@ -48,7 +48,7 @@ func getMetadata(ctx context.Context, client *http.Client, apiKey, rawURL string
 	if err != nil {
 		return videoMetadata{}, &TransportError{Err: err}
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	const maxBody = 1 << 20
 	body, err := io.ReadAll(io.LimitReader(response.Body, maxBody+1))
 	if err != nil {

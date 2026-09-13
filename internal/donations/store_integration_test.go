@@ -309,9 +309,9 @@ func newDonationIntegrationStore(t *testing.T) (*Store, *pgxpool.Pool) {
 		t.Skip("DONATION_ALERT_TEST_DATABASE_URL is not set")
 	}
 	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, databaseURL)
-	if err != nil {
-		t.Fatal(err)
+	admin, adminErr := pgxpool.New(ctx, databaseURL)
+	if adminErr != nil {
+		t.Fatal(adminErr)
 	}
 	schema := fmt.Sprintf("donation_ingestion_test_%d_%d", os.Getpid(), donationTestSchemaSequence.Add(1))
 	if _, err := admin.Exec(ctx, "CREATE SCHEMA "+schema); err != nil {
@@ -322,26 +322,27 @@ func newDonationIntegrationStore(t *testing.T) (*Store, *pgxpool.Pool) {
 		_, _ = admin.Exec(context.Background(), "DROP SCHEMA "+schema+" CASCADE")
 		admin.Close()
 	})
-	database, err := url.Parse(databaseURL)
-	if err != nil {
-		t.Fatal(err)
+	database, parseErr := url.Parse(databaseURL)
+	if parseErr != nil {
+		t.Fatal(parseErr)
 	}
 	query := database.Query()
 	query.Set("search_path", schema)
 	database.RawQuery = query.Encode()
-	repositoryRoot, err := filepath.Abs("../..")
-	if err != nil {
-		t.Fatal(err)
+	repositoryRoot, rootErr := filepath.Abs("../..")
+	if rootErr != nil {
+		t.Fatal(rootErr)
 	}
+	//nolint:gosec // The executable path is anchored to this repository's dependency directory.
 	command := exec.Command(filepath.Join(repositoryRoot, "node_modules", ".bin", "dbmate"), "--no-dump-schema", "up")
 	command.Dir = repositoryRoot
 	command.Env = append(os.Environ(), "DATABASE_URL="+database.String())
-	if output, err := command.CombinedOutput(); err != nil {
-		t.Fatalf("apply test migrations: %v\n%s", err, output)
+	if output, migrationErr := command.CombinedOutput(); migrationErr != nil {
+		t.Fatalf("apply test migrations: %v\n%s", migrationErr, output)
 	}
-	pool, err := pgxpool.New(ctx, database.String())
-	if err != nil {
-		t.Fatal(err)
+	pool, poolErr := pgxpool.New(ctx, database.String())
+	if poolErr != nil {
+		t.Fatal(poolErr)
 	}
 	t.Cleanup(pool.Close)
 	return NewStore(pool), pool

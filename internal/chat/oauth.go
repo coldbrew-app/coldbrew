@@ -80,8 +80,8 @@ func (oauth *Oauth) Start(ctx context.Context, userID int, provider, returnURL s
 	if err != nil {
 		return "", err
 	}
-	if err := oauth.store.CreateOauthAttempt(ctx, sha256Hex(state), userID, provider, verifier, returnURL, oauth.now().Add(oauthAttemptLifetime)); err != nil {
-		return "", err
+	if storeErr := oauth.store.CreateOauthAttempt(ctx, sha256Hex(state), userID, provider, verifier, returnURL, oauth.now().Add(oauthAttemptLifetime)); storeErr != nil {
+		return "", storeErr
 	}
 	authorizationURL, err := url.Parse(config.AuthorizationURL)
 	if err != nil {
@@ -149,13 +149,13 @@ func (oauth *Oauth) Finish(ctx context.Context, provider, requestURL string) (st
 		return "", &OauthError{Type: "chat source limit reached", Detail: "Достигнут лимит подключённых чат-каналов", ReturnURL: attempt.ReturnURL}
 	}
 	if provider == "kick" {
-		broadcasterID, err := strconv.ParseInt(identity.ProviderUserID, 10, 64)
-		if err != nil || broadcasterID <= 0 || broadcasterID > maxSafeInteger {
+		broadcasterID, parseErr := strconv.ParseInt(identity.ProviderUserID, 10, 64)
+		if parseErr != nil || broadcasterID <= 0 || broadcasterID > maxSafeInteger {
 			return "", &OauthError{Type: "oauth profile failed", Detail: "Kick вернул некорректный идентификатор канала", ReturnURL: attempt.ReturnURL}
 		}
 		body, _ := json.Marshal(map[string]any{"broadcaster_user_id": broadcasterID, "method": "webhook", "events": []map[string]any{{"name": "chat.message.sent", "version": 1}}})
-		if err := oauth.requestJSON(ctx, http.MethodPost, "https://api.kick.com/public/v1/events/subscriptions", strings.NewReader(string(body)), token.AccessToken, "application/json", nil); err != nil {
-			return "", &OauthError{Type: "oauth profile failed", Detail: "Не удалось подписаться на события чата Kick", ReturnURL: attempt.ReturnURL, Cause: err}
+		if subscriptionErr := oauth.requestJSON(ctx, http.MethodPost, "https://api.kick.com/public/v1/events/subscriptions", strings.NewReader(string(body)), token.AccessToken, "application/json", nil); subscriptionErr != nil {
+			return "", &OauthError{Type: "oauth profile failed", Detail: "Не удалось подписаться на события чата Kick", ReturnURL: attempt.ReturnURL, Cause: subscriptionErr}
 		}
 	}
 	var expiresAt *time.Time
@@ -387,7 +387,7 @@ func (oauth *Oauth) requestJSON(ctx context.Context, method, rawURL string, body
 	if err != nil {
 		return err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return fmt.Errorf("HTTP %d", response.StatusCode)
 	}
@@ -426,18 +426,22 @@ func normalizedScopes(value any, fallback []string) []string {
 func OauthConfigs(youtube, twitch, kick, vkVideo *[2]string) []ProviderConfig {
 	configs := make([]ProviderConfig, 0, 4)
 	if youtube != nil {
-		configs = append(configs, ProviderConfig{Provider: "youtube", ClientID: youtube[0], ClientSecret: youtube[1], AuthorizationURL: "https://accounts.google.com/o/oauth2/v2/auth", TokenURL: "https://oauth2.googleapis.com/token", Scopes: []string{"https://www.googleapis.com/auth/youtube.force-ssl"}})
+		configs = append(configs, oauthProviderConfig(youtube, "youtube", "https://accounts.google.com/o/oauth2/v2/auth", "https://oauth2.googleapis.com/token", []string{"https://www.googleapis.com/auth/youtube.force-ssl"}, false))
 	}
 	if twitch != nil {
-		configs = append(configs, ProviderConfig{Provider: "twitch", ClientID: twitch[0], ClientSecret: twitch[1], AuthorizationURL: "https://id.twitch.tv/oauth2/authorize", TokenURL: "https://id.twitch.tv/oauth2/token", Scopes: []string{"user:read:chat", "user:write:chat", "moderator:manage:chat_messages", "moderator:manage:banned_users"}})
+		configs = append(configs, oauthProviderConfig(twitch, "twitch", "https://id.twitch.tv/oauth2/authorize", "https://id.twitch.tv/oauth2/token", []string{"user:read:chat", "user:write:chat", "moderator:manage:chat_messages", "moderator:manage:banned_users"}, false))
 	}
 	if kick != nil {
-		configs = append(configs, ProviderConfig{Provider: "kick", ClientID: kick[0], ClientSecret: kick[1], AuthorizationURL: "https://id.kick.com/oauth/authorize", TokenURL: "https://id.kick.com/oauth/token", Scopes: []string{"user:read", "channel:read", "events:subscribe", "chat:write", "moderation:chat_message:manage", "moderation:ban"}})
+		configs = append(configs, oauthProviderConfig(kick, "kick", "https://id.kick.com/oauth/authorize", "https://id.kick.com/oauth/token", []string{"user:read", "channel:read", "events:subscribe", "chat:write", "moderation:chat_message:manage", "moderation:ban"}, false))
 	}
 	if vkVideo != nil {
-		configs = append(configs, ProviderConfig{Provider: "vk_video", ClientID: vkVideo[0], ClientSecret: vkVideo[1], AuthorizationURL: "https://id.vk.ru/authorize", TokenURL: "https://id.vk.ru/oauth2/auth", Scopes: []string{"video"}, UsesVKID: true})
+		configs = append(configs, oauthProviderConfig(vkVideo, "vk_video", "https://id.vk.ru/authorize", "https://id.vk.ru/oauth2/auth", []string{"video"}, true))
 	}
 	return configs
+}
+
+func oauthProviderConfig(credentials *[2]string, provider, authorizationURL, tokenURL string, scopes []string, usesVKID bool) ProviderConfig {
+	return ProviderConfig{Provider: provider, ClientID: credentials[0], ClientSecret: credentials[1], AuthorizationURL: authorizationURL, TokenURL: tokenURL, Scopes: scopes, UsesVKID: usesVKID}
 }
 
 func randomBase64URL(size int) (string, error) {

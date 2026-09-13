@@ -58,7 +58,7 @@ func (source *Source) Run(ctx context.Context, accessToken string, notify func()
 			}
 			err = sessionErr
 		}
-		if ctx.Err() != nil {
+		if contextDone(ctx) {
 			return nil
 		}
 		if isUnauthorized(err) {
@@ -67,16 +67,23 @@ func (source *Source) Run(ctx context.Context, accessToken string, notify func()
 		if err != nil {
 			slog.Warn("Streamlabs listener will reconnect", "error", err, "retry", retryDelay)
 		}
-		if err := source.wait(ctx, source.jitter(retryDelay)); err != nil {
+		waitErr := source.wait(ctx, source.jitter(retryDelay))
+		if contextDone(ctx) {
 			return nil
+		}
+		if waitErr != nil {
+			return fmt.Errorf("wait before reconnecting Streamlabs listener: %w", waitErr)
 		}
 		retryDelay = min(retryDelay*2, source.retryMax)
 	}
 	return nil
 }
 
+func contextDone(ctx context.Context) bool { return ctx.Err() != nil }
+
 func jitterDelay(delay time.Duration) time.Duration {
-	percent := 80 + rand.IntN(41)
+	// Backoff jitter is not used for authentication or any other security decision.
+	percent := 80 + rand.IntN(41) //nolint:gosec
 	return delay * time.Duration(percent) / 100
 }
 
@@ -89,7 +96,7 @@ func (source *Source) runSession(ctx context.Context, socketToken string, notify
 	if err != nil {
 		return false, fmt.Errorf("open Streamlabs Socket.IO websocket: %w", err)
 	}
-	defer socket.Close()
+	defer func() { _ = socket.Close() }()
 
 	connected := false
 	for ctx.Err() == nil {
@@ -118,14 +125,14 @@ func (source *Source) runSession(ctx context.Context, socketToken string, notify
 					return connected, err
 				}
 			case strings.HasPrefix(packet, "44"):
-				return connected, errors.New("Streamlabs Socket.IO authentication failed")
+				return connected, errors.New("authentication with Streamlabs Socket.IO failed")
 			case strings.HasPrefix(packet, "2"):
 				if err := socket.Write(ctx, []byte("3"+packet[1:])); err != nil {
 					return connected, fmt.Errorf("answer Streamlabs Socket.IO heartbeat: %w", err)
 				}
 			case strings.HasPrefix(packet, "42"):
 				if !connected {
-					return false, errors.New("Streamlabs Socket.IO event arrived before connection")
+					return false, errors.New("event from Streamlabs Socket.IO arrived before connection")
 				}
 				donationEvent, err := decodeEventPacket(packet[2:])
 				if err != nil {
@@ -210,7 +217,8 @@ func isUnauthorized(err error) bool {
 type websocketAdapter struct{ connection *websocket.Conn }
 
 func dialSocket(ctx context.Context, rawURL string) (Socket, error) {
-	connection, _, err := websocket.Dial(ctx, rawURL, nil)
+	// websocket.Dial owns and closes the handshake response body.
+	connection, _, err := websocket.Dial(ctx, rawURL, nil) //nolint:bodyclose
 	if err != nil {
 		return nil, err
 	}

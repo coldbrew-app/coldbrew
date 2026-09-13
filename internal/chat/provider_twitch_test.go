@@ -26,8 +26,8 @@ func TestTwitchSendMessageRejectsDropReason(t *testing.T) {
 		return twitchResponse(`{"data":[{"message_id":"message-1","is_sent":false,"drop_reason":{"code":"automod_held","message":"Message held by AutoMod"}}]}`), nil
 	})}
 	err := NewTwitchProvider("client", "secret", client).SendMessage(context.Background(), twitchTestSource(), "hello")
-	providerError, ok := err.(*ProviderError)
-	if !ok || providerError.Type != "provider rejected command" || providerError.Detail != "Message held by AutoMod" {
+	var providerError *ProviderError
+	if !errors.As(err, &providerError) || providerError.Type != "provider rejected command" || providerError.Detail != "Message held by AutoMod" {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

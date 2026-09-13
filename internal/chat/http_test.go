@@ -10,6 +10,18 @@ import (
 	"time"
 )
 
+func TestSameOriginRedirectRejectsOtherOrigins(t *testing.T) {
+	for _, candidate := range []string{"https://evil.example/chat", "https://coldbrew.example.evil.test/chat", "//coldbrew.example/chat", "/chat"} {
+		if redirect, err := sameOriginRedirect("https://coldbrew.example/api/chat", candidate); err == nil {
+			t.Fatalf("accepted %q as %q", candidate, redirect)
+		}
+	}
+	redirect, err := sameOriginRedirect("https://coldbrew.example/api/chat", "https://coldbrew.example/chat?connected=1")
+	if err != nil || redirect.String() != "https://coldbrew.example/chat?connected=1" {
+		t.Fatalf("redirect=%v err=%v", redirect, err)
+	}
+}
+
 const httpTestSecret = "12345678901234567890123456789012"
 
 type httpTestApplication struct {

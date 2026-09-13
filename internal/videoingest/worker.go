@@ -50,7 +50,7 @@ func newWorker(store jobStore, workerClock clock, config Config) *Worker {
 func (worker *Worker) Run(ctx context.Context) error {
 	if err := worker.store.Backfill(ctx); err != nil {
 		if ctx.Err() != nil {
-			return nil
+			return nil //nolint:nilerr // Context cancellation is a graceful worker shutdown.
 		}
 		return fmt.Errorf("backfill donation video scans: %w", err)
 	}
@@ -58,7 +58,7 @@ func (worker *Worker) Run(ctx context.Context) error {
 		worked, err := worker.ProcessNext(ctx)
 		if err != nil {
 			if ctx.Err() != nil {
-				return nil
+				return nil //nolint:nilerr // Context cancellation is a graceful worker shutdown.
 			}
 			return err
 		}
@@ -90,7 +90,7 @@ func (worker *Worker) ProcessNext(ctx context.Context) (bool, error) {
 	videos, err := worker.scan(ctx, *job)
 	if err != nil {
 		if (errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)) && ctx.Err() != nil {
-			return true, nil
+			return true, nil //nolint:nilerr // Cancellation finishes the claimed attempt without failing the worker.
 		}
 		return true, fmt.Errorf("scan donation %d: %w", job.DonationID, err)
 	}

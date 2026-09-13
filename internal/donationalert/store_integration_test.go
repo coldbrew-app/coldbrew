@@ -84,18 +84,17 @@ func TestPlayerLeaseClaimAndTokenRotation(t *testing.T) {
 	if err := store.SetOverlayTokenHash(ctx, 1, tokenHash, now); err != nil {
 		t.Fatal(err)
 	}
-	_, err := store.CreateTest(ctx, 1, now)
-	if err != nil {
-		t.Fatal(err)
+	if _, createErr := store.CreateTest(ctx, 1, now); createErr != nil {
+		t.Fatal(createErr)
 	}
-	queuedPlayback, err := store.CreateTest(ctx, 1, now.Add(time.Millisecond))
-	if err != nil || queuedPlayback.Kind != TestPlayback || queuedPlayback.DonationID != nil {
-		t.Fatalf("queued playback=%#v error=%v", queuedPlayback, err)
+	queuedPlayback, queueErr := store.CreateTest(ctx, 1, now.Add(time.Millisecond))
+	if queueErr != nil || queuedPlayback.Kind != TestPlayback || queuedPlayback.DonationID != nil {
+		t.Fatalf("queued playback=%#v error=%v", queuedPlayback, queueErr)
 	}
 	playerID := "c2723d6f-6d80-4abd-8456-b66bfc593a12"
-	_, player, err := store.OpenPlayer(ctx, tokenHash, playerID, now)
-	if err != nil || player.State != "active" || player.Generation <= 0 || player.Active || player.Visible {
-		t.Fatalf("player=%#v error=%v", player, err)
+	_, player, openErr := store.OpenPlayer(ctx, tokenHash, playerID, now)
+	if openErr != nil || player.State != "active" || player.Generation <= 0 || player.Active || player.Visible {
+		t.Fatalf("player=%#v error=%v", player, openErr)
 	}
 	if err := store.Heartbeat(ctx, tokenHash, playerID, player.Generation, true, true, now); err != nil {
 		t.Fatal(err)
@@ -136,20 +135,20 @@ func TestPlayerLeaseClaimAndTokenRotation(t *testing.T) {
 	if err := store.StartPlayback(ctx, tokenHash, playerID, player.Generation, playback.PlaybackID, now.Add(time.Second)); err != nil {
 		t.Fatal(err)
 	}
-	_, standby, err := store.OpenPlayer(ctx, tokenHash, "f263a56a-1b02-48b5-982a-08a4e84f9887", now.Add(time.Second))
-	if err != nil || standby.State != "standby" || standby.Generation <= 0 {
-		t.Fatalf("standby=%#v error=%v", standby, err)
+	_, standby, standbyErr := store.OpenPlayer(ctx, tokenHash, "f263a56a-1b02-48b5-982a-08a4e84f9887", now.Add(time.Second))
+	if standbyErr != nil || standby.State != "standby" || standby.Generation <= 0 {
+		t.Fatalf("standby=%#v error=%v", standby, standbyErr)
 	}
 	if err := store.SetOverlayTokenHash(ctx, 1, hashToken("abcdefghijklmnopqrstuvwxyz123456"), now.Add(2*time.Second)); err != nil {
 		t.Fatal(err)
 	}
-	_, _, err = store.StreamState(ctx, tokenHash, playerID, player.Generation, now.Add(2*time.Second))
-	if !errors.Is(err, ErrLeaseLost) {
-		t.Fatalf("old player error=%v", err)
+	_, _, streamErr := store.StreamState(ctx, tokenHash, playerID, player.Generation, now.Add(2*time.Second))
+	if !errors.Is(streamErr, ErrLeaseLost) {
+		t.Fatalf("old player error=%v", streamErr)
 	}
-	status, err := store.PlaybackStatus(ctx, playback.PlaybackID)
-	if err != nil || status != InterruptedStatus {
-		t.Fatalf("status=%q error=%v", status, err)
+	status, statusErr := store.PlaybackStatus(ctx, playback.PlaybackID)
+	if statusErr != nil || status != InterruptedStatus {
+		t.Fatalf("status=%q error=%v", status, statusErr)
 	}
 }
 
@@ -219,9 +218,9 @@ func TestRetentionPrunesHistoryAndRetiredMedia(t *testing.T) {
 
 	seedAlertUser(t, pool, 901)
 	oldAt := base.Add(-TerminalPlaybackRetention - time.Second)
-	oldPlayback, err := store.CreateTest(ctx, 901, oldAt)
-	if err != nil {
-		t.Fatal(err)
+	oldPlayback, oldPlaybackErr := store.CreateTest(ctx, 901, oldAt)
+	if oldPlaybackErr != nil {
+		t.Fatal(oldPlaybackErr)
 	}
 	if _, err := pool.Exec(ctx, `
 		UPDATE donation_alert_playback
@@ -238,13 +237,13 @@ func TestRetentionPrunesHistoryAndRetiredMedia(t *testing.T) {
 	}
 
 	seedAlertUser(t, pool, 902)
-	retiredAsset, err := store.SaveAsset(ctx, 902, ImageAsset, Media{MIMEType: "image/png", Content: []byte("retired")}, base)
-	if err != nil {
-		t.Fatal(err)
+	retiredAsset, retiredAssetErr := store.SaveAsset(ctx, 902, ImageAsset, Media{MIMEType: "image/png", Content: []byte("retired")}, base)
+	if retiredAssetErr != nil {
+		t.Fatal(retiredAssetErr)
 	}
-	terminalPlayback, err := store.CreateTest(ctx, 902, base)
-	if err != nil {
-		t.Fatal(err)
+	terminalPlayback, terminalPlaybackErr := store.CreateTest(ctx, 902, base)
+	if terminalPlaybackErr != nil {
+		t.Fatal(terminalPlaybackErr)
 	}
 	if _, err := pool.Exec(ctx, `
 		UPDATE donation_alert_playback
@@ -263,13 +262,13 @@ func TestRetentionPrunesHistoryAndRetiredMedia(t *testing.T) {
 		t.Fatalf("retired terminal asset error = %v", err)
 	}
 
-	queuedAsset, err := store.SaveAsset(ctx, 902, ImageAsset, Media{MIMEType: "image/png", Content: []byte("queued")}, base.Add(3*time.Second))
-	if err != nil {
-		t.Fatal(err)
+	queuedAsset, queuedAssetErr := store.SaveAsset(ctx, 902, ImageAsset, Media{MIMEType: "image/png", Content: []byte("queued")}, base.Add(3*time.Second))
+	if queuedAssetErr != nil {
+		t.Fatal(queuedAssetErr)
 	}
-	queuedPlayback, err := store.CreateTest(ctx, 902, base.Add(3*time.Second))
-	if err != nil {
-		t.Fatal(err)
+	queuedPlayback, queuedPlaybackErr := store.CreateTest(ctx, 902, base.Add(3*time.Second))
+	if queuedPlaybackErr != nil {
+		t.Fatal(queuedPlaybackErr)
 	}
 	if _, err := store.SaveAsset(ctx, 902, ImageAsset, Media{MIMEType: "image/png", Content: []byte("replacement")}, base.Add(4*time.Second)); err != nil {
 		t.Fatal(err)
@@ -330,35 +329,35 @@ func TestPreparationCrashAfterLastAttemptFallsBackToPending(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Date(2026, 9, 13, 12, 0, 0, 0, time.UTC)
-	playback, err := store.CreateTest(ctx, 1, now)
-	if err != nil {
-		t.Fatal(err)
+	playback, playbackErr := store.CreateTest(ctx, 1, now)
+	if playbackErr != nil {
+		t.Fatal(playbackErr)
 	}
-	first, err := store.ClaimPreparation(ctx, now)
-	if err != nil || first == nil {
-		t.Fatalf("first preparation=%#v error=%v", first, err)
+	first, firstErr := store.ClaimPreparation(ctx, now)
+	if firstErr != nil || first == nil {
+		t.Fatalf("first preparation=%#v error=%v", first, firstErr)
 	}
 	if err := store.FailPreparation(ctx, *first, "retry one", now); err != nil {
 		t.Fatal(err)
 	}
-	second, err := store.ClaimPreparation(ctx, now.Add(time.Second))
-	if err != nil || second == nil {
-		t.Fatalf("second preparation=%#v error=%v", second, err)
+	second, secondErr := store.ClaimPreparation(ctx, now.Add(time.Second))
+	if secondErr != nil || second == nil {
+		t.Fatalf("second preparation=%#v error=%v", second, secondErr)
 	}
 	if err := store.FailPreparation(ctx, *second, "retry two", now.Add(time.Second)); err != nil {
 		t.Fatal(err)
 	}
-	third, err := store.ClaimPreparation(ctx, now.Add(3*time.Second))
-	if err != nil || third == nil || third.Attempts != PreparationTries {
-		t.Fatalf("third preparation=%#v error=%v", third, err)
+	third, thirdErr := store.ClaimPreparation(ctx, now.Add(3*time.Second))
+	if thirdErr != nil || third == nil || third.Attempts != PreparationTries {
+		t.Fatalf("third preparation=%#v error=%v", third, thirdErr)
 	}
-	claimed, err := store.ClaimPreparation(ctx, now.Add(3*time.Second+PreparationLease))
-	if err != nil || claimed != nil {
-		t.Fatalf("post-crash claim=%#v error=%v", claimed, err)
+	claimed, claimErr := store.ClaimPreparation(ctx, now.Add(3*time.Second+PreparationLease))
+	if claimErr != nil || claimed != nil {
+		t.Fatalf("post-crash claim=%#v error=%v", claimed, claimErr)
 	}
-	playback, err = store.Playback(ctx, playback.PlaybackID)
-	if err != nil || playback.State != PendingStatus || playback.Detail == nil {
-		t.Fatalf("fallback playback=%#v error=%v", playback, err)
+	playback, playbackErr = store.Playback(ctx, playback.PlaybackID)
+	if playbackErr != nil || playback.State != PendingStatus || playback.Detail == nil {
+		t.Fatalf("fallback playback=%#v error=%v", playback, playbackErr)
 	}
 }
 
@@ -369,9 +368,9 @@ func newAlertIntegrationStore(t *testing.T) (*Store, *pgxpool.Pool) {
 		t.Skip("DONATION_ALERT_TEST_DATABASE_URL is not set")
 	}
 	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, databaseURL)
-	if err != nil {
-		t.Fatal(err)
+	admin, adminErr := pgxpool.New(ctx, databaseURL)
+	if adminErr != nil {
+		t.Fatal(adminErr)
 	}
 	schema := fmt.Sprintf("donation_alert_test_%d_%d", os.Getpid(), alertTestSchemaSequence.Add(1))
 	if _, err := admin.Exec(ctx, "CREATE SCHEMA "+schema); err != nil {
@@ -383,36 +382,40 @@ func newAlertIntegrationStore(t *testing.T) (*Store, *pgxpool.Pool) {
 		admin.Close()
 	})
 
-	database, err := url.Parse(databaseURL)
-	if err != nil {
-		t.Fatal(err)
+	database, parseErr := url.Parse(databaseURL)
+	if parseErr != nil {
+		t.Fatal(parseErr)
 	}
 	query := database.Query()
 	query.Set("search_path", schema)
 	database.RawQuery = query.Encode()
-	repositoryRoot, err := filepath.Abs("../..")
-	if err != nil {
-		t.Fatal(err)
+	repositoryRoot, rootErr := filepath.Abs("../..")
+	if rootErr != nil {
+		t.Fatal(rootErr)
 	}
+	//nolint:gosec // The executable path is anchored to this repository's dependency directory.
 	command := exec.Command(filepath.Join(repositoryRoot, "node_modules", ".bin", "dbmate"), "--no-dump-schema", "up")
 	command.Dir = repositoryRoot
 	command.Env = append(os.Environ(), "DATABASE_URL="+database.String())
-	if output, err := command.CombinedOutput(); err != nil {
-		t.Fatalf("apply test migrations: %v\n%s", err, output)
+	if output, migrationErr := command.CombinedOutput(); migrationErr != nil {
+		t.Fatalf("apply test migrations: %v\n%s", migrationErr, output)
 	}
-	pool, err := pgxpool.New(ctx, database.String())
-	if err != nil {
-		t.Fatal(err)
+	pool, poolErr := pgxpool.New(ctx, database.String())
+	if poolErr != nil {
+		t.Fatal(poolErr)
 	}
 	t.Cleanup(pool.Close)
 	return NewStore(pool), pool
 }
 
 func seedAlertUser(t *testing.T, pool *pgxpool.Pool, userID int) {
+	seedAlertUserContext(t, context.Background(), pool, userID)
+}
+
+func seedAlertUserContext(t *testing.T, ctx context.Context, pool *pgxpool.Pool, userID int) {
 	t.Helper()
 	authID := fmt.Sprintf("alert-user-%d", userID)
 	email := fmt.Sprintf("alert-user-%d@example.com", userID)
-	ctx := context.Background()
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO auth_user (id, name, email, "emailVerified")
 		VALUES ($1, 'Alert Test', $2, true)

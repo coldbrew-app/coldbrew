@@ -53,8 +53,8 @@ func runNotifications(ctx context.Context, config config, telegram *alerts.Teleg
 	if err != nil {
 		return fmt.Errorf("open JetStream: %w", err)
 	}
-	if err := observability.EnsureStream(jetstream, config.natsNamespace); err != nil {
-		return err
+	if ensureStreamErr := observability.EnsureStream(jetstream, config.natsNamespace); ensureStreamErr != nil {
+		return ensureStreamErr
 	}
 	messages := make(chan *nats.Msg, 64)
 	subscription, err := jetstream.ChanSubscribe(
@@ -65,7 +65,11 @@ func runNotifications(ctx context.Context, config config, telegram *alerts.Teleg
 	if err != nil {
 		return fmt.Errorf("subscribe to operational logs: %w", err)
 	}
-	defer subscription.Unsubscribe()
+	defer func() {
+		if err := subscription.Unsubscribe(); err != nil {
+			slog.Warn("Unsubscribe from operational logs", "error", err)
+		}
+	}()
 	slog.Info("Alerts service started")
 	for {
 		select {

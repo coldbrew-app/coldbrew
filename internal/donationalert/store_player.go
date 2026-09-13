@@ -46,8 +46,8 @@ func (store *Store) OpenPlayer(ctx context.Context, tokenHash, candidateID strin
 			return nil
 		}
 		if err == nil {
-			if err := recoverAssignedPlayback(ctx, tx, userID, currentID, currentGeneration, now, PlayerDisconnectedDiagnostic); err != nil {
-				return err
+			if recoverErr := recoverAssignedPlayback(ctx, tx, userID, currentID, currentGeneration, now, PlayerDisconnectedDiagnostic); recoverErr != nil {
+				return recoverErr
 			}
 		}
 		var generation int64
@@ -240,8 +240,8 @@ func (store *Store) ReleasePlayer(ctx context.Context, tokenHash, playerID strin
 		if err != nil {
 			return err
 		}
-		if err := recoverAssignedPlayback(ctx, tx, userID, playerID, generation, now, PlayerDisconnectedDiagnostic); err != nil {
-			return err
+		if recoverErr := recoverAssignedPlayback(ctx, tx, userID, playerID, generation, now, PlayerDisconnectedDiagnostic); recoverErr != nil {
+			return recoverErr
 		}
 		_, err = tx.Exec(ctx, `
 			DELETE FROM donation_alert_player
@@ -297,16 +297,16 @@ func (store *Store) ClaimPlayback(ctx context.Context, tokenHash, playerID strin
 			return err
 		}
 		if !leaseExpires.After(now) {
-			if err := recoverAssignedPlayback(ctx, tx, userID, playerID, generation, now, PlayerDisconnectedDiagnostic); err != nil {
-				return err
+			if recoverErr := recoverAssignedPlayback(ctx, tx, userID, playerID, generation, now, PlayerDisconnectedDiagnostic); recoverErr != nil {
+				return recoverErr
 			}
 			leaseLost = true
 			return nil
 		}
-		if err := recoverTimedOutPlayback(ctx, tx, userID, now); err != nil {
-			return err
+		if recoverErr := recoverTimedOutPlayback(ctx, tx, userID, now); recoverErr != nil {
+			return recoverErr
 		}
-		if _, err := tx.Exec(ctx, `
+		if _, execErr := tx.Exec(ctx, `
 			UPDATE donation_alert_playback
 			SET status = 'expired',
 				finished_at = $2,
@@ -315,8 +315,8 @@ func (store *Store) ClaimPlayback(ctx context.Context, tokenHash, playerID strin
 			WHERE user_id = $1
 				AND status IN ('preparing', 'pending')
 				AND expires_at <= $2
-		`, userID, now, AlertExpiredDiagnostic); err != nil {
-			return err
+		`, userID, now, AlertExpiredDiagnostic); execErr != nil {
+			return execErr
 		}
 		if !active || !visible || paused {
 			return nil
@@ -366,7 +366,7 @@ func (store *Store) ClaimPlayback(ctx context.Context, tokenHash, playerID strin
 		return nil, ErrLeaseLost
 	}
 	if playbackID == "" {
-		return nil, nil
+		return nil, nil //nolint:nilnil // An empty eligible queue is a successful claim with no playback.
 	}
 	return store.Playback(ctx, playbackID)
 }

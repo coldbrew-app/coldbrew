@@ -147,7 +147,10 @@ func (application *DonateStreamApplication) listen(ctx context.Context, connecti
 	err := application.provider.Run(ctx, connection.WidgetToken, func(donation donatestream.Donation) error {
 		return application.store.InsertDonateStreamDonations(ctx, connection.UserID, connection.WidgetToken, []donatestream.Donation{donation}, LiveOrigin, application.now())
 	})
-	if err == nil || ctx.Err() != nil {
+	if contextDone(ctx) {
+		return nil
+	}
+	if err == nil {
 		return nil
 	}
 	if !donateStreamUnauthorized(err) {

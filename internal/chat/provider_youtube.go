@@ -109,7 +109,7 @@ func (provider *YoutubeProvider) streamLiveChat(ctx context.Context, source Conn
 			if ctx.Err() != nil {
 				return
 			}
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				err = nil
 			}
 			if err == nil {
@@ -237,7 +237,7 @@ func (provider *YoutubeProvider) request(ctx context.Context, source ConnectedSo
 	if err != nil {
 		return operationError(detail, err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		_, _ = io.Copy(io.Discard, response.Body)
 		return operationError(detail, &ProviderHTTPError{Status: response.StatusCode})

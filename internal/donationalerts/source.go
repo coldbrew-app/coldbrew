@@ -47,7 +47,7 @@ func (source *Source) Run(ctx context.Context, accessToken string, emit func(Don
 				retryDelay = source.retryStart
 			}
 		}
-		if ctx.Err() != nil {
+		if contextDone(ctx) {
 			return nil
 		}
 		if isUnauthorized(err) {
@@ -60,13 +60,19 @@ func (source *Source) Run(ctx context.Context, accessToken string, emit func(Don
 				slog.WarnContext(ctx, "DonationAlerts listener will reconnect", "error", err, "retry", retryDelay)
 			}
 		}
-		if err := source.wait(ctx, retryDelay); err != nil {
+		waitErr := source.wait(ctx, retryDelay)
+		if contextDone(ctx) {
 			return nil
+		}
+		if waitErr != nil {
+			return fmt.Errorf("wait before reconnecting DonationAlerts listener: %w", waitErr)
 		}
 		retryDelay = min(retryDelay*2, source.retryMax)
 	}
 	return nil
 }
+
+func contextDone(ctx context.Context) bool { return ctx.Err() != nil }
 
 type sessionResult struct {
 	subscribed bool
