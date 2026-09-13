@@ -35,6 +35,7 @@ type HTTPStore interface {
 
 type HTTPHandler struct {
 	application   ChatAPI
+	activity      ActivityTracker
 	oauth         HTTPOauth
 	store         HTTPStore
 	serviceSecret string
@@ -44,8 +45,8 @@ type HTTPHandler struct {
 	deadLetters   DeadLetterReader
 }
 
-func NewHTTPHandler(application ChatAPI, oauth HTTPOauth, store HTTPStore, serviceSecret, webURL string, kickWebhook *KickWebhookHandler, boosty *BoostyConnector, deadLetters DeadLetterReader) *HTTPHandler {
-	return &HTTPHandler{application: application, oauth: oauth, store: store, serviceSecret: serviceSecret, webURL: webURL, kickWebhook: kickWebhook, boosty: boosty, deadLetters: deadLetters}
+func NewHTTPHandler(application ChatAPI, activity ActivityTracker, oauth HTTPOauth, store HTTPStore, serviceSecret, webURL string, kickWebhook *KickWebhookHandler, boosty *BoostyConnector, deadLetters DeadLetterReader) *HTTPHandler {
+	return &HTTPHandler{application: application, activity: activity, oauth: oauth, store: store, serviceSecret: serviceSecret, webURL: webURL, kickWebhook: kickWebhook, boosty: boosty, deadLetters: deadLetters}
 }
 
 func (handler *HTTPHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
@@ -83,6 +84,8 @@ func (handler *HTTPHandler) ServeHTTP(response http.ResponseWriter, request *htt
 		handler.handleModerate(response, request)
 	case request.URL.Path == "/internal/stream" && request.Method == http.MethodGet:
 		handler.handleStream(response, request)
+	case request.URL.Path == "/internal/admin/activity" && request.Method == http.MethodGet:
+		handler.handleActivity(response, request)
 	case request.URL.Path == "/internal/dead-letters" && request.Method == http.MethodGet:
 		handler.handleDeadLetters(response, request)
 	default:
@@ -280,6 +283,11 @@ func (handler *HTTPHandler) handleStream(response http.ResponseWriter, request *
 		writeError(response, http.StatusBadRequest, "invalid user id")
 		return
 	}
+	consumer, validConsumer := parseActivityConsumer(request.URL.Query().Get("consumer"))
+	if !validConsumer {
+		writeError(response, http.StatusBadRequest, "invalid activity consumer")
+		return
+	}
 	flusher, ok := response.(http.Flusher)
 	if !ok {
 		writeError(response, http.StatusInternalServerError, "streaming unsupported")
@@ -290,6 +298,7 @@ func (handler *HTTPHandler) handleStream(response http.ResponseWriter, request *
 	response.Header().Set("X-Accel-Buffering", "no")
 	response.WriteHeader(http.StatusOK)
 	flusher.Flush()
+	go handler.activity.Track(request.Context(), userID, consumer)
 	encoder := json.NewEncoder(response)
 	for event := range handler.application.Stream(request.Context(), userID) {
 		if err := encoder.Encode(event); err != nil {
@@ -297,6 +306,11 @@ func (handler *HTTPHandler) handleStream(response http.ResponseWriter, request *
 		}
 		flusher.Flush()
 	}
+}
+
+func (handler *HTTPHandler) handleActivity(response http.ResponseWriter, request *http.Request) {
+	value, err := handler.activity.Snapshot(request.Context())
+	writeResult(response, value, err)
 }
 
 func (handler *HTTPHandler) handleKickWebhook(response http.ResponseWriter, request *http.Request) {

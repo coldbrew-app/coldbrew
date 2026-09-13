@@ -12,6 +12,18 @@ import { donationIntegration, DonationIntegrationError } from "./client.js";
 afterEach(() => vi.unstubAllGlobals());
 
 describe("donation integration client", () => {
+  it("checks service health without a request body", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ status: "ok" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(donationIntegration.health()).resolves.toEqual({ status: "ok" });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://donations.test/health",
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(fetchMock.mock.calls[0]?.[1]?.body).toBeUndefined();
+  });
+
   it("authenticates connect requests", async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ connected: true }));
     vi.stubGlobal("fetch", fetchMock);

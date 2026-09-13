@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ChatActivitySnapshotSchema,
   ChatModerationCommandSchema,
   ChatProviderSchema,
   chatMessageKey,
@@ -27,5 +28,16 @@ describe("chat domain", () => {
         durationSeconds: 1_209_601,
       }).success,
     ).toBe(false);
+  });
+
+  it("normalizes chat activity timestamps at the wire boundary", () => {
+    const result = ChatActivitySnapshotSchema.parse({
+      trackingSince: "2026-09-01T00:00:00Z",
+      multichat: { now: 2, day: 5, week: 12, month: 30 },
+      overlay: { now: 1, day: 3, week: 8, month: 20 },
+      total: { now: 2, day: 6, week: 14, month: 35 },
+    });
+
+    expect(result.trackingSince).toEqual(new Date("2026-09-01T00:00:00Z"));
   });
 });

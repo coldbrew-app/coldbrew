@@ -71,6 +71,21 @@ type httpTestStore struct{}
 
 func (*httpTestStore) Disconnect(context.Context, int, string) error { return nil }
 
+type httpTestActivity struct {
+	snapshot ActivitySnapshot
+	tracked  chan activityRecord
+}
+
+func (activity *httpTestActivity) Track(_ context.Context, userID int, consumer ActivityConsumer) {
+	if activity.tracked != nil {
+		activity.tracked <- activityRecord{UserID: userID, Consumer: consumer}
+	}
+}
+
+func (activity *httpTestActivity) Snapshot(context.Context) (ActivitySnapshot, error) {
+	return activity.snapshot, nil
+}
+
 type httpTestDeadLetters struct {
 	beforeSequence uint64
 	limit          int
@@ -89,7 +104,7 @@ func newHTTPTestHandler(application *httpTestApplication) (*HTTPHandler, *httpTe
 }
 
 func newHTTPTestHandlerWithDeadLetters(application *httpTestApplication, oauth *httpTestOauth, deadLetters DeadLetterReader) *HTTPHandler {
-	return NewHTTPHandler(application, oauth, &httpTestStore{}, httpTestSecret, "https://web.example", nil, nil, deadLetters)
+	return NewHTTPHandler(application, &httpTestActivity{}, oauth, &httpTestStore{}, httpTestSecret, "https://web.example", nil, nil, deadLetters)
 }
 
 func TestHTTPHandlerListsDeadLetters(t *testing.T) {
@@ -183,9 +198,53 @@ func TestHTTPHandlerStreamsNDJSON(t *testing.T) {
 	close(events)
 	handler, _ := newHTTPTestHandler(&httpTestApplication{events: events})
 	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, authorizedRequest(http.MethodGet, "/internal/stream?userId=42", ""))
+	handler.ServeHTTP(response, authorizedRequest(http.MethodGet, "/internal/stream?userId=42&consumer=multichat", ""))
 	if response.Header().Get("Content-Type") != "application/x-ndjson" || !strings.Contains(response.Body.String(), `"occurredAt":"2026-09-03T09:00:00Z"`) {
 		t.Fatalf("headers=%v body=%s", response.Header(), response.Body.String())
+	}
+}
+
+func TestHTTPHandlerRejectsInvalidStreamConsumer(t *testing.T) {
+	handler, _ := newHTTPTestHandler(&httpTestApplication{})
+	for _, path := range []string{
+		"/internal/stream?userId=42",
+		"/internal/stream?userId=42&consumer=dashboard",
+	} {
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, authorizedRequest(http.MethodGet, path, ""))
+		if response.Code != http.StatusBadRequest {
+			t.Errorf("%s status = %d", path, response.Code)
+		}
+	}
+}
+
+func TestHTTPHandlerTracksStreamConsumer(t *testing.T) {
+	events := make(chan StreamEvent)
+	close(events)
+	activity := &httpTestActivity{tracked: make(chan activityRecord, 1)}
+	oauth := &httpTestOauth{available: map[string]bool{}}
+	handler := NewHTTPHandler(&httpTestApplication{events: events}, activity, oauth, &httpTestStore{}, httpTestSecret, "https://web.example", nil, nil, &httpTestDeadLetters{})
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, authorizedRequest(http.MethodGet, "/internal/stream?userId=42&consumer=overlay", ""))
+	select {
+	case record := <-activity.tracked:
+		if record.UserID != 42 || record.Consumer != ActivityConsumerOverlay {
+			t.Fatalf("tracked = %+v", record)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("activity was not tracked")
+	}
+}
+
+func TestHTTPHandlerServesActivitySnapshot(t *testing.T) {
+	trackingSince := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	activity := &httpTestActivity{snapshot: ActivitySnapshot{TrackingSince: trackingSince, Multichat: ActivityPeriod{Now: 3, Day: 8, Week: 20, Month: 40}}}
+	oauth := &httpTestOauth{available: map[string]bool{}}
+	handler := NewHTTPHandler(&httpTestApplication{}, activity, oauth, &httpTestStore{}, httpTestSecret, "https://web.example", nil, nil, &httpTestDeadLetters{})
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, authorizedRequest(http.MethodGet, "/internal/admin/activity", ""))
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"multichat":{"now":3,"day":8,"week":20,"month":40}`) {
+		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
 	}
 }
 

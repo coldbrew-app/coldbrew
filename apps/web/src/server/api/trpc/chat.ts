@@ -49,7 +49,11 @@ async function callChatService<Value>(operation: Promise<Value>): Promise<Value>
   }
 }
 
-async function* streamForUser(userId: number, signal?: AbortSignal) {
+async function* streamForUser(
+  userId: number,
+  consumer: "multichat" | "overlay",
+  signal?: AbortSignal,
+) {
   if (signal === undefined) {
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
@@ -57,7 +61,7 @@ async function* streamForUser(userId: number, signal?: AbortSignal) {
     });
   }
   try {
-    yield* chatService.stream(userId, signal);
+    yield* chatService.stream(userId, consumer, signal);
   } catch (error) {
     if (error instanceof ChatServiceError) {
       throw toTRPCError(error);
@@ -194,7 +198,7 @@ export const chatRouter = router({
     .mutation(({ ctx, input }) => callChatService(chatService.moderate(ctx.userId, input))),
 
   stream: authenticatedProcedure.subscription(({ ctx, signal }) =>
-    streamForUser(ctx.userId, signal),
+    streamForUser(ctx.userId, "multichat", signal),
   ),
 
   overlayStream: procedure
@@ -208,7 +212,7 @@ export const chatRouter = router({
       if (userId === null) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Chat overlay not found." });
       }
-      yield* streamForUser(userId, signal);
+      yield* streamForUser(userId, "overlay", signal);
     }),
 
   rotateOverlayToken: authenticatedProcedure

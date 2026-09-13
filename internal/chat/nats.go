@@ -24,6 +24,8 @@ const (
 	collectorLeaseBucket              = "chat_collectors"
 	chatStateBucket                   = "chat_source_states"
 	collectorRefreshBucket            = "chat_collector_refreshes"
+	chatActivityLiveBucket            = "chat_activity_live"
+	chatActivitySeenBucket            = "chat_activity_seen"
 	chatDeadLetterStream              = "CHAT_DEAD_LETTERS"
 	chatDeadLetterSubject             = "chat.dead_letter"
 	chatEventMaxAge                   = 15 * time.Minute
@@ -43,7 +45,7 @@ var (
 	natsNamespacePattern         = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,47}$`)
 	worktreeNatsNamespacePattern = regexp.MustCompile(`^wt_[0-9a-f]{8}$`)
 	worktreeNatsStreamPattern    = regexp.MustCompile(`^(WT_[0-9A-F]{8})_CHAT_(EVENTS|DEAD_LETTERS)$`)
-	worktreeNatsKeyValuePattern  = regexp.MustCompile(`^(wt_[0-9a-f]{8})_chat_(collectors|source_states|collector_refreshes)$`)
+	worktreeNatsKeyValuePattern  = regexp.MustCompile(`^(wt_[0-9a-f]{8})_chat_(collectors|source_states|collector_refreshes|activity_live|activity_seen)$`)
 )
 
 type natsResources struct {
@@ -54,6 +56,8 @@ type natsResources struct {
 	collectorLeaseBucket   string
 	chatStateBucket        string
 	collectorRefreshBucket string
+	chatActivityLiveBucket string
+	chatActivitySeenBucket string
 }
 
 func resourcesForNamespace(namespace string) (natsResources, error) {
@@ -66,6 +70,8 @@ func resourcesForNamespace(namespace string) (natsResources, error) {
 			collectorLeaseBucket:   collectorLeaseBucket,
 			chatStateBucket:        chatStateBucket,
 			collectorRefreshBucket: collectorRefreshBucket,
+			chatActivityLiveBucket: chatActivityLiveBucket,
+			chatActivitySeenBucket: chatActivitySeenBucket,
 		}, nil
 	}
 	if !natsNamespacePattern.MatchString(namespace) {
@@ -79,6 +85,8 @@ func resourcesForNamespace(namespace string) (natsResources, error) {
 		collectorLeaseBucket:   namespace + "_" + collectorLeaseBucket,
 		chatStateBucket:        namespace + "_" + chatStateBucket,
 		collectorRefreshBucket: namespace + "_" + collectorRefreshBucket,
+		chatActivityLiveBucket: namespace + "_" + chatActivityLiveBucket,
+		chatActivitySeenBucket: namespace + "_" + chatActivitySeenBucket,
 	}, nil
 }
 
@@ -88,6 +96,7 @@ type NatsConnection struct {
 	Leases           *NatsCollectorLeases
 	CollectorControl *NatsCollectorControl
 	DeadLetters      *NatsDeadLetterStore
+	Activity         *NatsActivityTracker
 }
 
 func ConnectNats(servers, namespace string) (*NatsConnection, error) {
@@ -143,8 +152,18 @@ func ConnectNats(servers, namespace string) (*NatsConnection, error) {
 		connection.Close()
 		return nil, err
 	}
+	activityLive, err := ensureKeyValue(jetstream, nats.KeyValueConfig{Bucket: resources.chatActivityLiveBucket, TTL: chatActivityLiveTTL, History: 1, Storage: nats.MemoryStorage})
+	if err != nil {
+		connection.Close()
+		return nil, err
+	}
+	activitySeen, err := ensureKeyValue(jetstream, nats.KeyValueConfig{Bucket: resources.chatActivitySeenBucket, TTL: chatActivitySeenTTL, History: 1, Storage: nats.FileStorage})
+	if err != nil {
+		connection.Close()
+		return nil, err
+	}
 	deadLetters := &NatsDeadLetterStore{jetstream: jetstream, stream: resources.deadLetterStream, subject: resources.deadLetterSubject}
-	return &NatsConnection{connection: connection, Broker: &NatsEventBroker{jetstream: jetstream, states: states, subjectPrefix: resources.subjectPrefix, stateBucket: resources.chatStateBucket, deadLetters: deadLetters}, Leases: &NatsCollectorLeases{bucket: leases}, CollectorControl: &NatsCollectorControl{bucket: refreshes}, DeadLetters: deadLetters}, nil
+	return &NatsConnection{connection: connection, Broker: &NatsEventBroker{jetstream: jetstream, states: states, subjectPrefix: resources.subjectPrefix, stateBucket: resources.chatStateBucket, deadLetters: deadLetters}, Leases: &NatsCollectorLeases{bucket: leases}, CollectorControl: &NatsCollectorControl{bucket: refreshes}, DeadLetters: deadLetters, Activity: NewNatsActivityTracker(activityLive, activitySeen)}, nil
 }
 
 func DeleteNatsNamespace(servers, namespace string) error {
@@ -223,7 +242,7 @@ func deleteNatsNamespace(jetstream nats.JetStreamContext, namespace string) erro
 	if err != nil {
 		return err
 	}
-	for _, bucket := range []string{resources.collectorLeaseBucket, resources.chatStateBucket, resources.collectorRefreshBucket} {
+	for _, bucket := range []string{resources.collectorLeaseBucket, resources.chatStateBucket, resources.collectorRefreshBucket, resources.chatActivityLiveBucket, resources.chatActivitySeenBucket} {
 		if err := jetstream.DeleteKeyValue(bucket); err != nil && !errors.Is(err, nats.ErrBucketNotFound) && !errors.Is(err, nats.ErrStreamNotFound) {
 			return err
 		}
