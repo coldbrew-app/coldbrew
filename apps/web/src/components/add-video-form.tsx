@@ -109,9 +109,7 @@ export function AddVideoForm({ onCancel, videoQueueId, queues }: Props) {
       });
       reset();
       onCancel();
-    } catch {
-      // The mutation error is rendered below the form.
-    }
+    } catch {}
   };
 
   return (
