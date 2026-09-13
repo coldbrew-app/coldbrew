@@ -33,15 +33,15 @@ function toServiceError(cause: unknown) {
   return new DonationIntegrationError("unexpected error", { cause });
 }
 
-async function request<Output>(path: string, schema: z.ZodType<Output>, body: unknown) {
+async function request<Output>(path: string, schema: z.ZodType<Output>, body?: unknown) {
   try {
     return await requestJson(serviceUrl(path).href, schema, {
-      method: "POST",
+      method: body === undefined ? "GET" : "POST",
       headers: {
         Authorization: `Bearer ${env.DONATIONS_SERVICE_SECRET}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(body),
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
   } catch (cause) {
     throw toServiceError(cause);
@@ -49,6 +49,10 @@ async function request<Output>(path: string, schema: z.ZodType<Output>, body: un
 }
 
 export const donationIntegration = {
+  health() {
+    return request("/health", z.object({ status: z.literal("ok") }));
+  },
+
   authorizationUrl(source: DonationSource, redirectUri: string, state = "") {
     return request("/internal/authorization-url", AuthorizationURLSchema, {
       redirectUri,

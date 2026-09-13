@@ -58,6 +58,14 @@ receive the live NATS subject for their Coldbrew user. The latest source state i
 short-lived NATS KV bucket so a newly opened editor does not incorrectly show an active source as
 offline; an incoming provider message also marks that source live.
 
+The administration overview counts unique streamers with an open multichat or OBS overlay stream.
+`apps/chat` records only the internal user ID, consumer kind, and last-seen time in namespace-scoped
+NATS KV buckets. A 15-second heartbeat and 45-second live TTL provide the current count; a
+file-backed 31-day TTL provides the 24-hour, 7-day, and 30-day windows across chat replicas and
+service restarts. The overview exposes when tracking began so a newly deployed instance does not
+present an incomplete rolling window as a full history. These activity records contain no chat
+messages, provider identities, or overlay tokens.
+
 Messages are never written to PostgreSQL. The browser keeps at most 500 normalized messages.
 PostgreSQL stores command audit rows without message text: provider, source, action, provider
 message/user ID, duration, status, safe detail, and timestamp. Disconnecting an account does not
@@ -114,8 +122,7 @@ dead-letter JetStream and terminated. If dead-letter publication fails, delivery
 record is safely stored. The stream retains at most 10,000 records or 64 MiB for
 30 days. Each record includes the original subject, failure time, error, and up to 64 KiB of the
 original payload. Publishing uses a content hash as the NATS message ID so multiple live subscribers
-do not duplicate the same poison message. Administrators can inspect these records at
-`/dead-letters`.
+do not duplicate the same poison message. Administrators can inspect these records at `/admin/dlq`.
 
 `apps/web` additionally requires `CHAT_SERVICE_URL`.
 Set `ADMIN_EMAILS` to a comma-separated list of normalized sign-in email addresses allowed to open

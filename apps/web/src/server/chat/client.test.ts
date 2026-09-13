@@ -137,6 +137,24 @@ describe("chat service adapter", () => {
     });
   });
 
+  it("loads and normalizes chat activity", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          trackingSince: "2026-09-01T00:00:00Z",
+          multichat: { now: 2, day: 5, week: 10, month: 20 },
+          overlay: { now: 1, day: 3, week: 7, month: 15 },
+          total: { now: 2, day: 6, week: 12, month: 24 },
+        }),
+      ),
+    );
+
+    const result = await chatService.adminActivity();
+
+    expect(result.trackingSince).toEqual(new Date("2026-09-01T00:00:00Z"));
+  });
+
   it("validates every streamed NDJSON event", async () => {
     vi.stubGlobal(
       "fetch",
@@ -164,7 +182,7 @@ describe("chat service adapter", () => {
     );
 
     const controller = new AbortController();
-    const iterator = chatService.stream(42, controller.signal)[Symbol.asyncIterator]();
+    const iterator = chatService.stream(42, "overlay", controller.signal)[Symbol.asyncIterator]();
     const first = await iterator.next();
     if (first.done === true) {
       throw new Error("Expected the chat stream to yield an event.");
@@ -173,6 +191,21 @@ describe("chat service adapter", () => {
     if (first.value.type === "message") {
       expect(first.value.message.occurredAt).toEqual(new Date("2026-09-03T09:00:00Z"));
     }
+    const requestInput = vi.mocked(fetch).mock.calls[0]?.[0];
+    if (requestInput === undefined) {
+      throw new Error("Expected a stream request.");
+    }
+    const requestedUrl = new URL(
+      typeof requestInput === "string"
+        ? requestInput
+        : requestInput instanceof URL
+          ? requestInput.href
+          : requestInput.url,
+    );
+    expect(Object.fromEntries(requestedUrl.searchParams)).toEqual({
+      consumer: "overlay",
+      userId: "42",
+    });
     await expect(iterator.next()).rejects.toMatchObject({
       name: ChatServiceError.name,
       detail: "validation error",
@@ -191,7 +224,7 @@ describe("chat service adapter", () => {
       }),
     );
     const controller = new AbortController();
-    const iterator = chatService.stream(42, controller.signal)[Symbol.asyncIterator]();
+    const iterator = chatService.stream(42, "multichat", controller.signal)[Symbol.asyncIterator]();
     const pending = iterator.next();
 
     controller.abort();

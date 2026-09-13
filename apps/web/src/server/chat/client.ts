@@ -1,4 +1,5 @@
 import {
+  ChatActivitySnapshotSchema,
   ChatBroadcastResultSchema,
   ChatCommandResultSchema,
   ChatConfigSchema,
@@ -73,6 +74,14 @@ function parseStreamEvent(line: string): ChatStreamEvent {
 }
 
 export const chatService = {
+  health() {
+    return request("/health", z.object({ status: z.literal("ok") }));
+  },
+
+  adminActivity() {
+    return request("/internal/admin/activity", ChatActivitySnapshotSchema);
+  },
+
   config(userId: number) {
     return request("/internal/config", ChatConfigSchema, { userId });
   },
@@ -126,15 +135,21 @@ export const chatService = {
     return request("/internal/moderate", ChatCommandResultSchema, { command, userId });
   },
 
-  deadLetters(beforeSequence?: string) {
-    const url = serviceUrl("/internal/dead-letters").withSearchParam("limit", "25");
+  deadLetters(beforeSequence?: string, limit = 25) {
+    const url = serviceUrl("/internal/dead-letters").withSearchParam("limit", limit);
     const pageUrl =
       beforeSequence === undefined ? url : url.withSearchParam("beforeSequence", beforeSequence);
     return request(pageUrl.pathname + pageUrl.search, ChatDeadLetterPageSchema);
   },
 
-  async *stream(userId: number, signal: AbortSignal): AsyncIterable<ChatStreamEvent> {
-    const url = serviceUrl("/internal/stream").withSearchParam("userId", userId);
+  async *stream(
+    userId: number,
+    consumer: "multichat" | "overlay",
+    signal: AbortSignal,
+  ): AsyncIterable<ChatStreamEvent> {
+    const url = serviceUrl("/internal/stream")
+      .withSearchParam("userId", userId)
+      .withSearchParam("consumer", consumer);
     let response: Response;
     try {
       response = await fetch(url.href, { headers: serviceHeaders(), signal });

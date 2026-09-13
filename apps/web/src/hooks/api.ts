@@ -240,3 +240,11 @@ export function useChatDeadLettersQ(beforeSequence?: string) {
     placeholderData: keepPreviousData,
   });
 }
+
+export function useAdminDashboardQ() {
+  const { trpc } = useApi();
+  return useQuery({
+    ...trpc.admin.dashboard.queryOptions(),
+    refetchInterval: 30_000,
+  });
+}

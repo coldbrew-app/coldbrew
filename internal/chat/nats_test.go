@@ -32,6 +32,9 @@ func TestResourcesForNamespace(t *testing.T) {
 	if resources.collectorLeaseBucket != "feature_a_12ab34cd_chat_collectors" {
 		t.Fatalf("collector lease bucket = %q", resources.collectorLeaseBucket)
 	}
+	if resources.chatActivityLiveBucket != "feature_a_12ab34cd_chat_activity_live" || resources.chatActivitySeenBucket != "feature_a_12ab34cd_chat_activity_seen" {
+		t.Fatalf("activity buckets = %q, %q", resources.chatActivityLiveBucket, resources.chatActivitySeenBucket)
+	}
 }
 
 func TestResourcesForEmptyNamespacePreservesProductionNames(t *testing.T) {
@@ -55,7 +58,7 @@ func TestResourcesForNamespaceRejectsInvalidValue(t *testing.T) {
 func TestWorktreeNamespacesFromResources(t *testing.T) {
 	namespaces := worktreeNamespacesFromResources(
 		[]string{"CHAT_EVENTS", "WT_1234ABCD_CHAT_EVENTS", "WT_DEADBEEF_CHAT_DEAD_LETTERS", "UNRELATED"},
-		[]string{"wt_1234abcd_chat_collectors", "wt_deadbeef_chat_source_states", "chat_collectors"},
+		[]string{"wt_1234abcd_chat_collectors", "wt_deadbeef_chat_source_states", "wt_1234abcd_chat_activity_seen", "chat_collectors"},
 	)
 	want := []string{"wt_1234abcd", "wt_deadbeef"}
 	if len(namespaces) != len(want) {

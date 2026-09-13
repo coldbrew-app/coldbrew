@@ -188,4 +188,20 @@ export const ChatDeadLetterPageSchema = z.object({
 });
 export type ChatDeadLetterPage = z.infer<typeof ChatDeadLetterPageSchema>;
 
+export const ChatActivityPeriodSchema = z.object({
+  now: z.int().nonnegative(),
+  day: z.int().nonnegative(),
+  week: z.int().nonnegative(),
+  month: z.int().nonnegative(),
+});
+export type ChatActivityPeriod = z.infer<typeof ChatActivityPeriodSchema>;
+
+export const ChatActivitySnapshotSchema = z.object({
+  trackingSince: z.coerce.date(),
+  multichat: ChatActivityPeriodSchema,
+  overlay: ChatActivityPeriodSchema,
+  total: ChatActivityPeriodSchema,
+});
+export type ChatActivitySnapshot = z.infer<typeof ChatActivitySnapshotSchema>;
+
 export const MAX_CHAT_MESSAGE_LENGTH = 500;
