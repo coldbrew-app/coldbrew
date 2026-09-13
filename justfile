@@ -86,7 +86,7 @@ lint-ts:
 
 [script("bash", "-euo", "pipefail")]
 lint-go:
-  go vet ./...
+  go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2 run
   stderr_file="$(mktemp)"
   trap 'rm -f "$stderr_file"' EXIT
   if ! diagnostics="$(rg --files --glob '*.go' | xargs go tool gopls check 2>"$stderr_file")"; then

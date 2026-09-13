@@ -103,6 +103,9 @@ func (synthesizer *ESpeakSynthesizer) Synthesize(ctx context.Context, text, voic
 				return Media{}, &SynthesisError{Code: SynthesisToolUnavailable, Err: err}
 			case MediaProcessingTimedOut:
 				return Media{}, &SynthesisError{Code: SynthesisTimedOut, Err: err}
+			case MediaTooLarge, MediaUnsupported, MediaInvalid, MediaDimensions, MediaDuration,
+				MediaContainsVideo, MediaProcessingFailed:
+				return Media{}, &SynthesisError{Code: SynthesisFailed, Err: err}
 			}
 		}
 		return Media{}, &SynthesisError{Code: SynthesisFailed, Err: err}

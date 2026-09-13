@@ -52,7 +52,7 @@ func NewKickWebhookHandler(publicKey string, store KickSourceStore, broker Event
 	}
 	key, ok := parsed.(*rsa.PublicKey)
 	if !ok {
-		return nil, errors.New("Kick webhook public key is not RSA")
+		return nil, errors.New("Kick webhook public key is not RSA") //nolint:staticcheck // Kick is a brand name and starts the user-facing error.
 	}
 	return &KickWebhookHandler{publicKey: key, store: store, broker: broker, now: time.Now}, nil
 }
@@ -74,8 +74,8 @@ func (handler *KickWebhookHandler) Handle(ctx context.Context, headers http.Head
 	if err != nil {
 		return err
 	}
-	if err := handler.verify(messageID, timestamp, body, signature); err != nil {
-		return err
+	if verifyErr := handler.verify(messageID, timestamp, body, signature); verifyErr != nil {
+		return verifyErr
 	}
 	if eventType != "chat.message.sent" {
 		return nil
@@ -93,8 +93,8 @@ func (handler *KickWebhookHandler) Handle(ctx context.Context, headers http.Head
 		Content   string `json:"content"`
 		CreatedAt string `json:"created_at"`
 	}
-	if err := json.Unmarshal([]byte(body), &message); err != nil || message.MessageID == "" || message.Broadcaster.UserID == "" || message.Broadcaster.Username == "" || message.Sender.UserID == "" || message.Sender.Username == "" {
-		return &KickWebhookError{Type: "invalid kick webhook", Detail: "Kick message payload is invalid", Cause: err}
+	if decodeErr := json.Unmarshal([]byte(body), &message); decodeErr != nil || message.MessageID == "" || message.Broadcaster.UserID == "" || message.Broadcaster.Username == "" || message.Sender.UserID == "" || message.Sender.Username == "" {
+		return &KickWebhookError{Type: "invalid kick webhook", Detail: "Kick message payload is invalid", Cause: decodeErr}
 	}
 	occurredAt, err := time.Parse(time.RFC3339Nano, message.CreatedAt)
 	if err != nil {

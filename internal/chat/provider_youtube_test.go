@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -151,8 +152,8 @@ func TestYoutubeStreamStopsAfterUnauthorizedFailure(t *testing.T) {
 		t.Fatal("missing connecting state")
 	}
 	err := <-providerErrors
-	providerError, ok := err.(*ProviderError)
-	if !ok || providerError.Type != "provider unauthorized" || requests != 1 {
+	var providerError *ProviderError
+	if !errors.As(err, &providerError) || providerError.Type != "provider unauthorized" || requests != 1 {
 		t.Fatalf("error=%v requests=%d", err, requests)
 	}
 	cancel()
@@ -181,7 +182,8 @@ func TestYoutubeLiveChatStopsAfterUnauthorizedFailure(t *testing.T) {
 		t.Fatal("unexpected YouTube state sequence")
 	}
 	err := <-providerErrors
-	if typed, ok := err.(*ProviderError); !ok || typed.Type != "provider unauthorized" {
+	var typed *ProviderError
+	if !errors.As(err, &typed) || typed.Type != "provider unauthorized" {
 		t.Fatalf("error = %v", err)
 	}
 	cancel()
@@ -206,8 +208,8 @@ func TestYoutubeSendMessageUsesDiscoveredChat(t *testing.T) {
 	if err := NewYoutubeProvider(client).SendMessage(context.Background(), youtubeTestSource(), "hello"); err != nil {
 		t.Fatal(err)
 	}
-	snippet := sent["snippet"].(map[string]any)
-	if snippet["liveChatId"] != "live-chat-1" || snippet["type"] != "textMessageEvent" {
+	snippet, ok := sent["snippet"].(map[string]any)
+	if !ok || snippet["liveChatId"] != "live-chat-1" || snippet["type"] != "textMessageEvent" {
 		t.Fatalf("body = %#v", sent)
 	}
 }
@@ -226,7 +228,7 @@ func TestYoutubeModerationReturnsAndUsesBanID(t *testing.T) {
 			return youtubeResponse(http.StatusNoContent, ``), nil
 		default:
 			t.Fatalf("method = %s", request.Method)
-			return nil, nil
+			return nil, errors.New("unexpected method")
 		}
 	})}
 	provider := NewYoutubeProvider(client)
@@ -245,8 +247,8 @@ func TestYoutubeMapsUnauthorizedResponse(t *testing.T) {
 		return youtubeResponse(http.StatusUnauthorized, `{}`), nil
 	})}
 	err := NewYoutubeProvider(client).SendMessage(context.Background(), youtubeTestSource(), "hello")
-	providerError, ok := err.(*ProviderError)
-	if !ok || providerError.Type != "provider unauthorized" {
+	var providerError *ProviderError
+	if !errors.As(err, &providerError) || providerError.Type != "provider unauthorized" {
 		t.Fatalf("error = %v", err)
 	}
 }

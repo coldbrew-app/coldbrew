@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -81,7 +82,7 @@ func TestOauthSubscribesToKickChatWebhook(t *testing.T) {
 			return oauthResponse(`{"data":[]}`), nil
 		default:
 			t.Fatalf("unexpected request %d: %s", requestNumber, request.URL)
-			return nil, nil
+			return nil, errors.New("unexpected request")
 		}
 	})}
 	oauth := NewOauth(store, "http://localhost:5173/api/chat", OauthConfigs(nil, nil, &[2]string{"client-id", "client-secret"}, nil), client)
@@ -96,8 +97,12 @@ func TestOauthSubscribesToKickChatWebhook(t *testing.T) {
 		t.Fatalf("unexpected Kick subscription: %#v", subscriptionBody)
 	}
 	events, ok := subscriptionBody["events"].([]any)
-	if !ok || len(events) != 1 || events[0].(map[string]any)["name"] != "chat.message.sent" {
+	if !ok || len(events) != 1 {
 		t.Fatalf("unexpected Kick events: %#v", subscriptionBody["events"])
+	}
+	event, ok := events[0].(map[string]any)
+	if !ok || event["name"] != "chat.message.sent" {
+		t.Fatalf("unexpected Kick event: %#v", events[0])
 	}
 	if store.savedConnection.ProviderUserID != "123" || store.savedSource.SourceURL != "https://kick.com/streamer" {
 		t.Fatalf("unexpected saved account: %#v %#v", store.savedConnection, store.savedSource)
@@ -125,7 +130,7 @@ func TestOauthConnectsVKVideoWithVKIDDevice(t *testing.T) {
 			return oauthResponse(`{"response":[{"id":123,"first_name":"Иван","last_name":"Иванов","screen_name":"streamer"}]}`), nil
 		default:
 			t.Fatalf("unexpected request %d: %s", requestNumber, request.URL)
-			return nil, nil
+			return nil, errors.New("unexpected request")
 		}
 	})}
 	oauth := NewOauth(store, "http://localhost:5173/api/chat", OauthConfigs(nil, nil, nil, &[2]string{"client-id", "client-secret"}), client)
@@ -165,7 +170,7 @@ func TestOauthRejectsTokenResponsesOutsideOriginalSchema(t *testing.T) {
 		oauth := NewOauth(&oauthTestStore{}, "https://chat.example/api/chat", nil, &http.Client{Transport: oauthRoundTripFunc(func(*http.Request) (*http.Response, error) {
 			return oauthResponse(body), nil
 		})})
-		_, err := oauth.exchangeToken(context.Background(), ProviderConfig{Provider: "youtube", ClientID: "client", ClientSecret: "secret", TokenURL: "https://oauth.example/token"}, oauthCallback{Code: "code"}, "verifier")
+		_, err := oauth.exchangeToken(context.Background(), ProviderConfig{Provider: "youtube", ClientID: "client", ClientSecret: "secret", TokenURL: "https://oauth.example/token"}, oauthCallback{Code: "code"}, "verifier") //nolint:gosec // These are inert test-only credentials for a fake transport.
 		if err == nil {
 			t.Fatalf("accepted invalid token response: %s", body)
 		}

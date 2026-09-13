@@ -237,7 +237,7 @@ func (adapter *StreamlabsAdapter) Run(ctx context.Context, accessToken string, c
 			return nil
 		case err := <-listenerDone:
 			if err == nil && ctx.Err() == nil {
-				return errors.New("Streamlabs listener stopped unexpectedly")
+				return errors.New("listener for Streamlabs stopped unexpectedly")
 			}
 			return err
 		case <-wakes:

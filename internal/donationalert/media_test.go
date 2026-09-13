@@ -264,8 +264,8 @@ func TestNativeCommandLimiterBoundsConcurrencyAndHonorsContext(t *testing.T) {
 
 	waitCtx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
-	if _, err := limiter.acquire(waitCtx); !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("waiting acquire error = %v, want deadline exceeded", err)
+	if _, acquireErr := limiter.acquire(waitCtx); !errors.Is(acquireErr, context.DeadlineExceeded) {
+		t.Fatalf("waiting acquire error = %v, want deadline exceeded", acquireErr)
 	}
 	release()
 
@@ -356,7 +356,7 @@ func silentWave(duration time.Duration) []byte {
 	dataSize := sampleCount * bytesPerSample
 	content := make([]byte, 44+dataSize)
 	copy(content[0:4], "RIFF")
-	binary.LittleEndian.PutUint32(content[4:8], uint32(len(content)-8))
+	binary.LittleEndian.PutUint32(content[4:8], checkedUint32(len(content)-8))
 	copy(content[8:12], "WAVE")
 	copy(content[12:16], "fmt ")
 	binary.LittleEndian.PutUint32(content[16:20], 16)
@@ -367,8 +367,15 @@ func silentWave(duration time.Duration) []byte {
 	binary.LittleEndian.PutUint16(content[32:34], bytesPerSample)
 	binary.LittleEndian.PutUint16(content[34:36], 16)
 	copy(content[36:40], "data")
-	binary.LittleEndian.PutUint32(content[40:44], uint32(dataSize))
+	binary.LittleEndian.PutUint32(content[40:44], checkedUint32(dataSize))
 	return content
+}
+
+func checkedUint32(value int) uint32 {
+	if value < 0 || uint64(value) > uint64(^uint32(0)) {
+		panic("test WAV size exceeds uint32")
+	}
+	return uint32(value)
 }
 
 func encodedPNG(t *testing.T) []byte {

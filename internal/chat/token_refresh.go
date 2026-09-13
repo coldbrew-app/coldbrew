@@ -91,7 +91,7 @@ func (refresher *TokenRefresher) Refresh(ctx context.Context, source ConnectedSo
 		}
 		return ConnectedSource{}, refreshProviderError("Не удалось обновить авторизацию чата", err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		_, _ = io.Copy(io.Discard, response.Body)
 		if config.UsesBoosty && response.StatusCode != http.StatusBadRequest && response.StatusCode != http.StatusUnauthorized && response.StatusCode != http.StatusForbidden {
@@ -105,16 +105,16 @@ func (refresher *TokenRefresher) Refresh(ctx context.Context, source ConnectedSo
 		ExpiresIn    *int    `json:"expires_in"`
 		State        string  `json:"state"`
 	}
-	if err := json.NewDecoder(response.Body).Decode(&token); err != nil || token.AccessToken == "" || (token.RefreshToken != nil && *token.RefreshToken == "") || (token.ExpiresIn != nil && *token.ExpiresIn <= 0) || (config.UsesVKID && token.State != state) || (config.UsesBoosty && (token.RefreshToken == nil || token.ExpiresIn == nil || *token.ExpiresIn <= 0 || *token.ExpiresIn > 31_536_000)) {
-		if err == nil {
-			err = errors.New("invalid token response")
+	if decodeErr := json.NewDecoder(response.Body).Decode(&token); decodeErr != nil || token.AccessToken == "" || (token.RefreshToken != nil && *token.RefreshToken == "") || (token.ExpiresIn != nil && *token.ExpiresIn <= 0) || (config.UsesVKID && token.State != state) || (config.UsesBoosty && (token.RefreshToken == nil || token.ExpiresIn == nil || *token.ExpiresIn <= 0 || *token.ExpiresIn > 31_536_000)) {
+		if decodeErr == nil {
+			decodeErr = errors.New("invalid token response")
 		}
-		return ConnectedSource{}, refreshProviderError("Не удалось обновить авторизацию чата", err)
+		return ConnectedSource{}, refreshProviderError("Не удалось обновить авторизацию чата", decodeErr)
 	}
 	if config.UsesBoosty {
 		var identity boostyUser
-		if err := NewBoostyProvider(refresher.client).request(ctx, token.AccessToken, "/v1/user/current", &identity); err != nil {
-			return ConnectedSource{}, err
+		if identityErr := NewBoostyProvider(refresher.client).request(ctx, token.AccessToken, "/v1/user/current", &identity); identityErr != nil {
+			return ConnectedSource{}, identityErr
 		}
 		if strings.ToLower(strings.TrimSpace(identity.BlogURL)) != source.Source.ProviderSourceID {
 			return ConnectedSource{}, &ProviderError{Type: "provider unauthorized", Detail: "Boosty refresh token belongs to a different account"}
@@ -233,19 +233,28 @@ func (provider *RefreshingProvider) Moderate(ctx context.Context, source Connect
 func TokenRefreshConfigs(youtube, twitch, kick, vkVideo *[2]string, publicURL string) []RefreshConfig {
 	configs := make([]RefreshConfig, 0, 4)
 	if youtube != nil {
-		configs = append(configs, RefreshConfig{Provider: "youtube", ClientID: youtube[0], ClientSecret: youtube[1], TokenURL: "https://oauth2.googleapis.com/token"})
+		configs = append(configs, tokenRefreshConfig(youtube, "youtube", "https://oauth2.googleapis.com/token"))
 	}
 	if twitch != nil {
-		configs = append(configs, RefreshConfig{Provider: "twitch", ClientID: twitch[0], ClientSecret: twitch[1], TokenURL: "https://id.twitch.tv/oauth2/token"})
+		configs = append(configs, tokenRefreshConfig(twitch, "twitch", "https://id.twitch.tv/oauth2/token"))
 	}
 	if kick != nil {
-		configs = append(configs, RefreshConfig{Provider: "kick", ClientID: kick[0], ClientSecret: kick[1], TokenURL: "https://id.kick.com/oauth/token"})
+		configs = append(configs, tokenRefreshConfig(kick, "kick", "https://id.kick.com/oauth/token"))
 	}
 	if vkVideo != nil {
 		callbackURL := strings.TrimSuffix(publicURL, "/") + "/oauth/vk_video/callback"
-		configs = append(configs, RefreshConfig{Provider: "vk_video", ClientID: vkVideo[0], ClientSecret: vkVideo[1], TokenURL: "https://id.vk.ru/oauth2/auth", RedirectURL: callbackURL, UsesVKID: true})
+		config := tokenRefreshConfig(vkVideo, "vk_video", "https://id.vk.ru/oauth2/auth")
+		config.RedirectURL = callbackURL
+		config.UsesVKID = true
+		configs = append(configs, config)
 	}
-	return append(configs, RefreshConfig{Provider: "boosty", TokenURL: "https://api.boosty.to/oauth/token/", UsesBoosty: true})
+	boosty := RefreshConfig{Provider: "boosty", UsesBoosty: true}
+	boosty.TokenURL = "https://api.boosty.to/oauth/token/"
+	return append(configs, boosty)
+}
+
+func tokenRefreshConfig(credentials *[2]string, provider, tokenURL string) RefreshConfig {
+	return RefreshConfig{Provider: provider, ClientID: credentials[0], ClientSecret: credentials[1], TokenURL: tokenURL}
 }
 
 var _ CredentialStore = (*Store)(nil)

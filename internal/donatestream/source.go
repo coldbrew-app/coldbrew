@@ -54,7 +54,7 @@ func (source *Source) Run(ctx context.Context, widgetToken string, emit func(Don
 		if emitted {
 			retryDelay = source.retryStart
 		}
-		if ctx.Err() != nil {
+		if contextDone(ctx) {
 			return nil
 		}
 		if isUnauthorized(err) {
@@ -63,20 +63,26 @@ func (source *Source) Run(ctx context.Context, widgetToken string, emit func(Don
 		if err != nil {
 			slog.Warn("donate.stream listener will reconnect", "error", err, "retry", retryDelay)
 		}
-		if err := source.wait(ctx, retryDelay); err != nil {
+		waitErr := source.wait(ctx, retryDelay)
+		if contextDone(ctx) {
 			return nil
+		}
+		if waitErr != nil {
+			return fmt.Errorf("wait before reconnecting donate.stream listener: %w", waitErr)
 		}
 		retryDelay = min(retryDelay*2, source.retryMax)
 	}
 	return nil
 }
 
+func contextDone(ctx context.Context) bool { return ctx.Err() != nil }
+
 func (source *Source) runSession(ctx context.Context, widgetToken string, emit func(Donation) error, stopAfterAuthentication bool) (bool, error) {
 	socket, err := source.dial(ctx, source.webSocketURL)
 	if err != nil {
 		return false, fmt.Errorf("open donate.stream websocket: %w", err)
 	}
-	defer socket.Close()
+	defer func() { _ = socket.Close() }()
 	emitted := false
 	for ctx.Err() == nil {
 		body, err := socket.Read(ctx)

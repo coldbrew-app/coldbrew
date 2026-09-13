@@ -160,9 +160,10 @@ func (session socketSession) run(ctx context.Context) (sessionResult, error) {
 		return result, errors.New("invalid DonationAlerts websocket timing configuration")
 	}
 
-	connection, _, err := websocket.Dial(ctx, session.url, nil)
-	if err != nil {
-		return result, &transportError{cause: fmt.Errorf("open DonationAlerts websocket: %w", err)}
+	// websocket.Dial owns and closes the handshake response body.
+	connection, _, dialErr := websocket.Dial(ctx, session.url, nil) //nolint:bodyclose
+	if dialErr != nil {
+		return result, &transportError{cause: fmt.Errorf("open DonationAlerts websocket: %w", dialErr)}
 	}
 	connection.SetReadLimit(maxSocketMessageBytes)
 	sessionCtx, cancel := context.WithCancel(ctx)
@@ -177,20 +178,20 @@ func (session socketSession) run(ctx context.Context) (sessionResult, error) {
 	pending := make(map[uint64]pendingCommand)
 	send := func(method int, kind commandKind, params any) error {
 		nextID++
-		body, err := json.Marshal(socketCommand{ID: nextID, Method: method, Params: params})
-		if err != nil {
-			return fmt.Errorf("encode DonationAlerts %s command: %w", kind, err)
+		body, encodeErr := json.Marshal(socketCommand{ID: nextID, Method: method, Params: params})
+		if encodeErr != nil {
+			return fmt.Errorf("encode DonationAlerts %s command: %w", kind, encodeErr)
 		}
 		writeCtx, writeCancel := context.WithTimeout(sessionCtx, session.commandTimeout)
 		defer writeCancel()
-		if err := connection.Write(writeCtx, websocket.MessageText, body); err != nil {
-			return &transportError{cause: fmt.Errorf("write DonationAlerts %s command: %w", kind, err)}
+		if writeErr := connection.Write(writeCtx, websocket.MessageText, body); writeErr != nil {
+			return &transportError{cause: fmt.Errorf("write DonationAlerts %s command: %w", kind, writeErr)}
 		}
 		pending[nextID] = pendingCommand{kind: kind, deadline: time.Now().Add(session.commandTimeout)}
 		return nil
 	}
-	if err := send(methodConnect, commandConnect, map[string]string{"token": session.connectionToken}); err != nil {
-		return result, err
+	if sendErr := send(methodConnect, commandConnect, map[string]string{"token": session.connectionToken}); sendErr != nil {
+		return result, sendErr
 	}
 
 	var socketClientID string
@@ -237,11 +238,11 @@ func (session socketSession) run(ctx context.Context) (sessionResult, error) {
 				ping = pingTimer.C
 			}
 			var envelope map[string]json.RawMessage
-			if err := json.Unmarshal(read.body, &envelope); err != nil || envelope == nil {
-				if err == nil {
-					err = errors.New("expected JSON object")
+			if decodeEnvelopeErr := json.Unmarshal(read.body, &envelope); decodeEnvelopeErr != nil || envelope == nil {
+				if decodeEnvelopeErr == nil {
+					decodeEnvelopeErr = errors.New("expected JSON object")
 				}
-				return result, fmt.Errorf("invalid DonationAlerts websocket message: %w; raw message: %s", err, read.body)
+				return result, fmt.Errorf("invalid DonationAlerts websocket message: %w; raw message: %s", decodeEnvelopeErr, read.body)
 			}
 			if len(envelope) == 0 {
 				logUnhandledSocketMessage(ctx, read.body, 0, nil, "", "empty protocol message")
@@ -249,12 +250,12 @@ func (session socketSession) run(ctx context.Context) (sessionResult, error) {
 			}
 
 			var reply socketReply
-			if err := json.Unmarshal(read.body, &reply); err != nil {
-				return result, fmt.Errorf("invalid DonationAlerts websocket message: %w; raw message: %s", err, read.body)
+			if decodeReplyErr := json.Unmarshal(read.body, &reply); decodeReplyErr != nil {
+				return result, fmt.Errorf("invalid DonationAlerts websocket message: %w; raw message: %s", decodeReplyErr, read.body)
 			}
 			if reply.ID == 0 {
-				if err := session.handlePush(ctx, reply.Result, read.body, &result); err != nil {
-					return result, err
+				if pushErr := session.handlePush(ctx, reply.Result, read.body, &result); pushErr != nil {
+					return result, pushErr
 				}
 				continue
 			}
@@ -271,16 +272,17 @@ func (session socketSession) run(ctx context.Context) (sessionResult, error) {
 			switch command.kind {
 			case commandConnect:
 				var connected connectResult
-				if err := decodeResult(reply.Result, &connected, command.kind, read.body); err != nil {
-					return result, err
+				if decodeErr := decodeResult(reply.Result, &connected, command.kind, read.body); decodeErr != nil {
+					return result, decodeErr
 				}
 				if connected.Client == "" || connected.Version == "" {
 					return result, fmt.Errorf("invalid DonationAlerts connect result: missing client or version; raw message: %s", read.body)
 				}
 				socketClientID = connected.Client
-				connectionRefreshTimer, err = refreshTimer(connectionRefreshTimer, connected.Expires, connected.TTL, "connection", read.body)
-				if err != nil {
-					return result, err
+				var refreshErr error
+				connectionRefreshTimer, refreshErr = refreshTimer(connectionRefreshTimer, connected.Expires, connected.TTL, "connection", read.body)
+				if refreshErr != nil {
+					return result, refreshErr
 				}
 				connectionRefresh = timerChannel(connectionRefreshTimer)
 				if pingTimer == nil {
@@ -288,10 +290,10 @@ func (session socketSession) run(ctx context.Context) (sessionResult, error) {
 					ping = pingTimer.C
 				}
 				tokenCtx, tokenCancel := context.WithTimeout(sessionCtx, session.commandTimeout)
-				token, err := session.refreshSubscriptionToken(tokenCtx, socketClientID)
+				token, tokenErr := session.refreshSubscriptionToken(tokenCtx, socketClientID)
 				tokenCancel()
-				if err != nil {
-					return result, err
+				if tokenErr != nil {
+					return result, tokenErr
 				}
 				params := map[string]any{"channel": session.channel, "token": token}
 				if result.position.valid {
@@ -300,13 +302,13 @@ func (session socketSession) run(ctx context.Context) (sessionResult, error) {
 					params["seq"] = result.position.sequence
 					params["gen"] = result.position.generation
 				}
-				if err := send(methodSubscribe, commandSubscribe, params); err != nil {
-					return result, err
+				if sendErr := send(methodSubscribe, commandSubscribe, params); sendErr != nil {
+					return result, sendErr
 				}
 			case commandSubscribe:
 				var subscribed subscriptionResult
-				if err := decodeResult(reply.Result, &subscribed, command.kind, read.body); err != nil {
-					return result, err
+				if decodeErr := decodeResult(reply.Result, &subscribed, command.kind, read.body); decodeErr != nil {
+					return result, decodeErr
 				}
 				if subscribed.Recoverable && subscribed.Epoch == "" {
 					return result, fmt.Errorf("invalid DonationAlerts subscribe result: missing recovery epoch; raw message: %s", read.body)
@@ -314,9 +316,10 @@ func (session socketSession) run(ctx context.Context) (sessionResult, error) {
 				attemptedRecovery := result.position.valid
 				previousPosition := result.position
 				result.subscribed = true
-				subscriptionRefreshTimer, err = refreshTimer(subscriptionRefreshTimer, subscribed.Expires, subscribed.TTL, "subscription", read.body)
-				if err != nil {
-					return result, err
+				var refreshErr error
+				subscriptionRefreshTimer, refreshErr = refreshTimer(subscriptionRefreshTimer, subscribed.Expires, subscribed.TTL, "subscription", read.body)
+				if refreshErr != nil {
+					return result, refreshErr
 				}
 				subscriptionRefresh = timerChannel(subscriptionRefreshTimer)
 				publications := subscribed.Publications
@@ -347,8 +350,8 @@ func (session socketSession) run(ctx context.Context) (sessionResult, error) {
 					)
 				}
 				for _, publication := range publications {
-					if err := session.emitPublication(ctx, publication, read.body, &result); err != nil {
-						return result, err
+					if emitErr := session.emitPublication(ctx, publication, read.body, &result); emitErr != nil {
+						return result, emitErr
 					}
 				}
 				result.position = baseline
@@ -356,22 +359,24 @@ func (session socketSession) run(ctx context.Context) (sessionResult, error) {
 				// A successful correlated reply is the heartbeat acknowledgement.
 			case commandRefresh:
 				var refreshed refreshResult
-				if err := decodeResult(reply.Result, &refreshed, command.kind, read.body); err != nil {
-					return result, err
+				if decodeErr := decodeResult(reply.Result, &refreshed, command.kind, read.body); decodeErr != nil {
+					return result, decodeErr
 				}
-				connectionRefreshTimer, err = refreshTimer(connectionRefreshTimer, refreshed.Expires, refreshed.TTL, "connection", read.body)
-				if err != nil {
-					return result, err
+				var refreshErr error
+				connectionRefreshTimer, refreshErr = refreshTimer(connectionRefreshTimer, refreshed.Expires, refreshed.TTL, "connection", read.body)
+				if refreshErr != nil {
+					return result, refreshErr
 				}
 				connectionRefresh = timerChannel(connectionRefreshTimer)
 			case commandSubRefresh:
 				var refreshed refreshResult
-				if err := decodeResult(reply.Result, &refreshed, command.kind, read.body); err != nil {
-					return result, err
+				if decodeErr := decodeResult(reply.Result, &refreshed, command.kind, read.body); decodeErr != nil {
+					return result, decodeErr
 				}
-				subscriptionRefreshTimer, err = refreshTimer(subscriptionRefreshTimer, refreshed.Expires, refreshed.TTL, "subscription", read.body)
-				if err != nil {
-					return result, err
+				var refreshErr error
+				subscriptionRefreshTimer, refreshErr = refreshTimer(subscriptionRefreshTimer, refreshed.Expires, refreshed.TTL, "subscription", read.body)
+				if refreshErr != nil {
+					return result, refreshErr
 				}
 				subscriptionRefresh = timerChannel(subscriptionRefreshTimer)
 			}
@@ -478,7 +483,8 @@ func decodeResult(body json.RawMessage, target any, kind commandKind, raw []byte
 func refreshTimer(existing *time.Timer, expires bool, ttl uint32, name string, raw []byte) (*time.Timer, error) {
 	stopTimer(existing)
 	if !expires {
-		return nil, nil
+		// A nil timer intentionally represents a resource that does not expire.
+		return nil, nil //nolint:nilnil
 	}
 	if ttl == 0 {
 		return nil, fmt.Errorf("invalid DonationAlerts %s refresh TTL; raw message: %s", name, raw)

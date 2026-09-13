@@ -62,7 +62,11 @@ func (telegram *Telegram) call(ctx context.Context, method string, input any, ou
 		// net/http errors contain the request URL, including the bot token.
 		return errors.New("Telegram request failed: " + strings.ReplaceAll(err.Error(), telegram.token, "[REDACTED]"))
 	}
-	defer response.Body.Close()
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			slog.Warn("Close Telegram response body", "error", err)
+		}
+	}()
 	var body struct {
 		OK          bool            `json:"ok"`
 		Result      json.RawMessage `json:"result"`
@@ -134,7 +138,7 @@ func (telegram *Telegram) RunCommands(ctx context.Context) error {
 		}
 		for _, update := range updates {
 			if ctx.Err() != nil {
-				return nil
+				break
 			}
 			if update.Message != nil {
 				words := strings.Fields(update.Message.Text)

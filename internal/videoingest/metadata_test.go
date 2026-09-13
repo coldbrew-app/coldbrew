@@ -37,9 +37,9 @@ func TestMetadataFailureThenRecovery(t *testing.T) {
 			store, pool := newIntegrationStore(t)
 			ctx := context.Background()
 			seedDonation(t, pool, 1101)
-			_, err := pool.Exec(ctx, `UPDATE donation SET message = $1 WHERE donation_id = 1101`, "Посмотри видео, пожалуйста: https://www.youtube.com/watch?v=_JXL6Fn99l8&t=13s")
-			if err != nil {
-				t.Fatal(err)
+			_, updateErr := pool.Exec(ctx, `UPDATE donation SET message = $1 WHERE donation_id = 1101`, "Посмотри видео, пожалуйста: https://www.youtube.com/watch?v=_JXL6Fn99l8&t=13s")
+			if updateErr != nil {
+				t.Fatal(updateErr)
 			}
 			if _, err := NewWorker(store, DefaultConfig()).ProcessNext(ctx); err != nil {
 				t.Fatal(err)
@@ -83,9 +83,9 @@ func TestMetadataFailureThenRecovery(t *testing.T) {
 			// Model owner retry and a user edit while the HTTP request is in flight.
 			// js_date rounds to milliseconds, so now() can round into the future.
 			// Make the retry unambiguously due without depending on runner speed.
-			_, err = pool.Exec(ctx, `UPDATE video_metadata_job SET completed_at = NULL, available_at = now() - interval '1 second'`)
-			if err != nil {
-				t.Fatal(err)
+			_, retryUpdateErr := pool.Exec(ctx, `UPDATE video_metadata_job SET completed_at = NULL, available_at = now() - interval '1 second'`)
+			if retryUpdateErr != nil {
+				t.Fatal(retryUpdateErr)
 			}
 			client.Transport = metadataTransport(func(*http.Request) (*http.Response, error) {
 				if _, err := pool.Exec(ctx, `UPDATE video SET start_seconds = 10, end_seconds = 70`); err != nil {

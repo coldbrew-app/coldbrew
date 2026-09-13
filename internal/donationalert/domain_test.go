@@ -44,8 +44,8 @@ func TestPlaybackJSONUsesLosslessDonationIDAndPublicKind(t *testing.T) {
 		t.Fatal(err)
 	}
 	var decoded map[string]any
-	if err := json.Unmarshal(encoded, &decoded); err != nil {
-		t.Fatal(err)
+	if decodeErr := json.Unmarshal(encoded, &decoded); decodeErr != nil {
+		t.Fatal(decodeErr)
 	}
 	if decoded["donationId"] != "9007199254740993" {
 		t.Fatalf("donationId = %#v, JSON = %s", decoded["donationId"], encoded)

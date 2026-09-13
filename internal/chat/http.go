@@ -348,10 +348,13 @@ func (handler *HTTPHandler) handleOauthCallback(response http.ResponseWriter, re
 		}
 		slog.Error("OAuth callback failed", "provider", provider, "error", err)
 	}
-	redirect, parseErr := url.Parse(returnURL)
+	redirect, parseErr := sameOriginRedirect(handler.webURL, returnURL)
 	if parseErr != nil {
-		writeError(response, http.StatusInternalServerError, "invalid return URL")
-		return
+		redirect, parseErr = sameOriginRedirect(handler.webURL, strings.TrimSuffix(handler.webURL, "/")+"/chat")
+		if parseErr != nil {
+			writeError(response, http.StatusInternalServerError, "invalid return URL")
+			return
+		}
 	}
 	query := redirect.Query()
 	query.Set("chat_oauth", status)
@@ -361,7 +364,19 @@ func (handler *HTTPHandler) handleOauthCallback(response http.ResponseWriter, re
 		query.Set("chat_oauth_error", oauthErrorType)
 	}
 	redirect.RawQuery = query.Encode()
-	http.Redirect(response, request, redirect.String(), http.StatusFound)
+	http.Redirect(response, request, redirect.String(), http.StatusFound) //nolint:gosec // The redirect was restricted to the configured web origin above.
+}
+
+func sameOriginRedirect(webURL, candidate string) (*url.URL, error) {
+	trusted, err := url.Parse(webURL)
+	if err != nil || !trusted.IsAbs() || trusted.Host == "" || trusted.User != nil {
+		return nil, errors.New("invalid web URL")
+	}
+	redirect, err := url.Parse(candidate)
+	if err != nil || !redirect.IsAbs() || redirect.User != nil || !strings.EqualFold(redirect.Scheme, trusted.Scheme) || !strings.EqualFold(redirect.Host, trusted.Host) {
+		return nil, errors.New("invalid return URL")
+	}
+	return redirect, nil
 }
 
 func absoluteRequestURL(request *http.Request) string {

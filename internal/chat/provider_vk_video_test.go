@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -52,7 +53,7 @@ func TestVKVideoStreamDiscoversBroadcastAndReadsLongPoll(t *testing.T) {
 			return vkVideoResponse(`{"ts":2,"events":[{"type":"video_comment_new","comment":{"id":77,"from_id":42,"text":"Привет","date":1788681600},"user":{"id":42,"first_name":"Иван","last_name":"Иванов"}}]}`), nil
 		default:
 			t.Fatalf("unexpected request: %s", request.URL)
-			return nil, nil
+			return nil, errors.New("unexpected request")
 		}
 	})}
 

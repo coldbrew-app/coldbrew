@@ -54,8 +54,11 @@ func (tokenCipher *TokenCipher) Decrypt(envelope []byte) (string, error) {
 	ciphertext := envelope[1+nonceSize+tagSize:]
 	sealed := append(append(make([]byte, 0, len(ciphertext)+len(tag)), ciphertext...), tag...)
 	plaintext, err := tokenCipher.aead.Open(nil, nonce, sealed, nil)
-	if err != nil || len(plaintext) == 0 {
-		return "", fmt.Errorf("%w: %v", ErrTokenDecryption, err)
+	if err != nil {
+		return "", fmt.Errorf("%w: %w", ErrTokenDecryption, err)
+	}
+	if len(plaintext) == 0 {
+		return "", ErrTokenDecryption
 	}
 	return string(plaintext), nil
 }

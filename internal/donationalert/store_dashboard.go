@@ -37,14 +37,14 @@ func (store *Store) SetOverlayTokenHash(ctx context.Context, userID int, tokenHa
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
-		if err := recoverUserPlayback(ctx, tx, userID, now, OverlayRotatedDiagnostic); err != nil {
-			return err
+		if recoverErr := recoverUserPlayback(ctx, tx, userID, now, OverlayRotatedDiagnostic); recoverErr != nil {
+			return recoverErr
 		}
-		if _, err := tx.Exec(ctx, `
+		if _, execErr := tx.Exec(ctx, `
 			DELETE FROM donation_alert_player
 			WHERE user_id = $1
-		`, userID); err != nil {
-			return err
+		`, userID); execErr != nil {
+			return execErr
 		}
 		_, err = tx.Exec(ctx, `
 			INSERT INTO donation_alert_overlay (user_id, token_hash, updated_at)
@@ -141,14 +141,14 @@ func (store *Store) StreamState(ctx context.Context, tokenHash, playerID string,
 			return err
 		}
 		if !leaseExpires.After(now) {
-			if err := recoverAssignedPlayback(ctx, tx, userID, playerID, generation, now, PlayerDisconnectedDiagnostic); err != nil {
-				return err
+			if recoverErr := recoverAssignedPlayback(ctx, tx, userID, playerID, generation, now, PlayerDisconnectedDiagnostic); recoverErr != nil {
+				return recoverErr
 			}
 			leaseLost = true
 			return nil
 		}
-		if err := recoverTimedOutPlayback(ctx, tx, userID, now); err != nil {
-			return err
+		if recoverErr := recoverTimedOutPlayback(ctx, tx, userID, now); recoverErr != nil {
+			return recoverErr
 		}
 		playback, err = scanPlayback(tx.QueryRow(ctx, playbackSelect+`
 			WHERE user_id = $3
@@ -196,14 +196,14 @@ func (store *Store) Dashboard(ctx context.Context, userID int, now time.Time) (D
 			return Dashboard{}, err
 		}
 	}
-	if err := store.pool.QueryRow(ctx, `
+	if queryErr := store.pool.QueryRow(ctx, `
 		SELECT EXISTS (
 			SELECT 1
 			FROM donation_alert_overlay
 			WHERE user_id = $1 AND token_hash IS NOT NULL
 		)
-	`, userID).Scan(&dashboard.HasOverlayToken); err != nil {
-		return Dashboard{}, err
+	`, userID).Scan(&dashboard.HasOverlayToken); queryErr != nil {
+		return Dashboard{}, queryErr
 	}
 
 	rows, err := store.pool.Query(ctx, `
@@ -225,26 +225,26 @@ func (store *Store) Dashboard(ctx context.Context, userID int, now time.Time) (D
 	}
 	for rows.Next() {
 		var source Source
-		if err := rows.Scan(&source); err != nil {
+		if scanErr := rows.Scan(&source); scanErr != nil {
 			rows.Close()
-			return Dashboard{}, err
+			return Dashboard{}, scanErr
 		}
 		dashboard.ConnectedSources = append(dashboard.ConnectedSources, source)
 	}
-	if err := rows.Err(); err != nil {
+	if rowsErr := rows.Err(); rowsErr != nil {
 		rows.Close()
-		return Dashboard{}, err
+		return Dashboard{}, rowsErr
 	}
 	rows.Close()
 
-	if err := store.pool.QueryRow(ctx, `
+	if queryErr := store.pool.QueryRow(ctx, `
 		SELECT count(*)
 		FROM donation_alert_playback
 		WHERE user_id = $1
 			AND status IN ('preparing', 'pending')
 			AND expires_at > $2
-	`, userID, now).Scan(&dashboard.PendingCount); err != nil {
-		return Dashboard{}, err
+	`, userID, now).Scan(&dashboard.PendingCount); queryErr != nil {
+		return Dashboard{}, queryErr
 	}
 
 	player, err := store.dashboardPlayer(ctx, userID, now)
@@ -268,16 +268,16 @@ func (store *Store) Dashboard(ctx context.Context, userID int, now time.Time) (D
 		return Dashboard{}, err
 	}
 	for rows.Next() {
-		playback, err := scanPlayback(rows)
-		if err != nil {
+		playback, scanErr := scanPlayback(rows)
+		if scanErr != nil {
 			rows.Close()
-			return Dashboard{}, err
+			return Dashboard{}, scanErr
 		}
 		dashboard.RecentPlaybacks = append(dashboard.RecentPlaybacks, *playback)
 	}
-	if err := rows.Err(); err != nil {
+	if rowsErr := rows.Err(); rowsErr != nil {
 		rows.Close()
-		return Dashboard{}, err
+		return Dashboard{}, rowsErr
 	}
 	rows.Close()
 
@@ -303,8 +303,8 @@ func (store *Store) Dashboard(ctx context.Context, userID int, now time.Time) (D
 	for rows.Next() {
 		var detail string
 		var occurredAt time.Time
-		if err := rows.Scan(&detail, &occurredAt); err != nil {
-			return Dashboard{}, err
+		if scanErr := rows.Scan(&detail, &occurredAt); scanErr != nil {
+			return Dashboard{}, scanErr
 		}
 		code := diagnosticCode(detail)
 		dashboard.Diagnostics = append(dashboard.Diagnostics, Diagnostic{
@@ -345,7 +345,7 @@ func (store *Store) dashboardPlayer(ctx context.Context, userID int, now time.Ti
 		&player.CurrentPlaybackID,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
+		return nil, nil //nolint:nilnil // No active player is a valid dashboard state.
 	}
 	if err != nil {
 		return nil, err
@@ -360,7 +360,7 @@ func (store *Store) currentPlaybackForUser(ctx context.Context, userID int) (*Pl
 		LIMIT 1
 	`, userID))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
+		return nil, nil //nolint:nilnil // No current playback is a valid dashboard state.
 	}
 	return playback, err
 }
@@ -495,6 +495,8 @@ func diagnosticDescription(code DiagnosticCode) string {
 		return "The active alert player disconnected during playback."
 	case OverlayRotatedDiagnostic:
 		return "Playback stopped because the OBS link was rotated."
+	case PlaybackIssueDiagnostic:
+		return "The alert did not complete normally."
 	default:
 		return "The alert did not complete normally."
 	}

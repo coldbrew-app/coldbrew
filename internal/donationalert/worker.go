@@ -34,7 +34,7 @@ func (worker *Worker) Run(ctx context.Context) error {
 		preparation, err := worker.store.ClaimPreparation(ctx, worker.now())
 		if err != nil {
 			if ctx.Err() != nil {
-				return nil
+				return nil //nolint:nilerr // Context cancellation is a graceful worker shutdown.
 			}
 			return fmt.Errorf("claim donation alert speech preparation: %w", err)
 		}

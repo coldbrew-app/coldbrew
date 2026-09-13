@@ -36,7 +36,7 @@ func (repository *fakeRepository) GetSource(_ context.Context, _ int, sourceID s
 			return &copy, nil
 		}
 	}
-	return nil, nil
+	return nil, nil //nolint:nilnil // The repository contract represents a missing source with a nil pointer.
 }
 func (repository *fakeRepository) SetSourceEnabled(_ context.Context, _ int, sourceID string, enabled bool) (bool, error) {
 	for index, source := range repository.sources {

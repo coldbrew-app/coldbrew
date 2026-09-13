@@ -56,7 +56,7 @@ func (store *Store) RunMetadata(ctx context.Context, client *http.Client, apiKey
 
 func (store *Store) processMetadata(ctx context.Context, client *http.Client, apiKey string) (bool, error) {
 	var job metadataJob
-	err := store.pool.QueryRow(ctx, `
+	claimErr := store.pool.QueryRow(ctx, `
 		WITH candidate AS (
 			SELECT video_id FROM video_metadata_job
 			WHERE completed_at IS NULL AND available_at <= now()
@@ -73,11 +73,11 @@ func (store *Store) processMetadata(ctx context.Context, client *http.Client, ap
 		SELECT claimed.video_id, generation, attempts, video.url
 		FROM claimed JOIN video USING (video_id)
 	`).Scan(&job.VideoID, &job.Generation, &job.Attempts, &job.URL)
-	if errors.Is(err, pgx.ErrNoRows) {
+	if errors.Is(claimErr, pgx.ErrNoRows) {
 		return false, nil
 	}
-	if err != nil {
-		return false, err
+	if claimErr != nil {
+		return false, claimErr
 	}
 
 	// Fetch a canonical watch URL: source segment parameters must not constrain
@@ -88,7 +88,7 @@ func (store *Store) processMetadata(ctx context.Context, client *http.Client, ap
 	}
 	timing, lookupErr := youtube.GetTiming(ctx, client, apiKey, "https://www.youtube.com/watch?v="+url.QueryEscape(id), nil)
 	if ctx.Err() != nil {
-		return true, nil
+		return true, nil //nolint:nilerr // Context cancellation is a graceful worker shutdown.
 	}
 	title := timing.Title
 
@@ -97,6 +97,8 @@ func (store *Store) processMetadata(ctx context.Context, client *http.Client, ap
 	nextAttempt := time.Now()
 	if lookupErr != nil {
 		code = "duration_unavailable"
+		// Retry jitter is not used for a security-sensitive value.
+		//nolint:gosec
 		delay := time.Duration(float64(metadataDelay(job.Attempts)) * (0.8 + rand.Float64()*0.4))
 		var httpError *youtube.HTTPError
 		var transport *youtube.TransportError
@@ -121,7 +123,7 @@ func (store *Store) processMetadata(ctx context.Context, client *http.Client, ap
 			"next_attempt_at", nextAttempt)
 	}
 
-	err = pgx.BeginFunc(ctx, store.pool, func(tx pgx.Tx) error {
+	transactionErr := pgx.BeginFunc(ctx, store.pool, func(tx pgx.Tx) error {
 		result, err := tx.Exec(ctx, `
 			UPDATE video_metadata_job
 			SET lease_expires_at = NULL,
@@ -151,5 +153,5 @@ func (store *Store) processMetadata(ctx context.Context, client *http.Client, ap
 		`, job.VideoID, timing.DurationSeconds, title)
 		return err
 	})
-	return true, err
+	return true, transactionErr
 }

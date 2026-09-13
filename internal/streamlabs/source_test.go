@@ -136,7 +136,7 @@ func TestSourceReturnsUnauthorizedWithoutDialling(t *testing.T) {
 	source := NewSource(client)
 	source.dial = func(context.Context, string) (Socket, error) {
 		t.Fatal("unexpected socket dial")
-		return nil, nil
+		return nil, errors.New("unreachable")
 	}
 	err := source.Run(context.Background(), "expired", func() error { return nil })
 	var requestError *RequestError

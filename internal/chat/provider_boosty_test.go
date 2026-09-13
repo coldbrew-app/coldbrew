@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -16,6 +17,18 @@ type boostyTestStore struct {
 	source     SaveSource
 	userID     int
 	saves      int
+}
+
+func TestBoostyEndpointRejectsCrossOriginPaths(t *testing.T) {
+	for _, path := range []string{"https://evil.example/steal", "//evil.example/steal", "relative/path"} {
+		if endpoint, err := boostyEndpoint("https://api.boosty.to", path); err == nil {
+			t.Fatalf("accepted %q as %q", path, endpoint)
+		}
+	}
+	endpoint, err := boostyEndpoint("https://api.boosty.to", "/v1/blog/name?limit=10")
+	if err != nil || endpoint != "https://api.boosty.to/v1/blog/name?limit=10" {
+		t.Fatalf("endpoint=%q err=%v", endpoint, err)
+	}
 }
 
 func (s *boostyTestStore) HasSourceCapacity(_ context.Context, userID int, provider, blog string) (bool, error) {
@@ -281,7 +294,7 @@ func TestBoostyConnectPreservesExpiryBeforeCollectorRefresh(t *testing.T) {
 func TestBoostyConnectRejectsSharedRefreshSession(t *testing.T) {
 	client := &http.Client{Transport: oauthRoundTripFunc(func(*http.Request) (*http.Response, error) {
 		t.Fatal("unconfirmed session reached Boosty")
-		return nil, nil
+		return nil, errors.New("unexpected request")
 	})}
 	store := &boostyTestStore{capacity: true}
 	err := NewBoostyConnector(NewBoostyProvider(client), store).Connect(context.Background(), 7, BoostyCredentials{AccessToken: "access", RefreshToken: "refresh", DeviceID: "browser"})

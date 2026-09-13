@@ -284,7 +284,10 @@ func (integration *integration) listen(ctx context.Context, connection Connectio
 			checkpoint = batch.Checkpoint
 			return nil
 		})
-		if err == nil || ctx.Err() != nil {
+		if contextDone(ctx) {
+			return nil
+		}
+		if err == nil {
 			return nil
 		}
 		if !integration.provider.Unauthorized(err) {
@@ -312,6 +315,8 @@ func (integration *integration) listen(ctx context.Context, connection Connectio
 	}
 	return nil
 }
+
+func contextDone(ctx context.Context) bool { return ctx.Err() != nil }
 
 func (integration *integration) syncRecentHistory(ctx context.Context) {
 	integration.syncHistory(ctx, true)

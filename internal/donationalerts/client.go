@@ -332,14 +332,14 @@ func (client *Client) doJSONPriority(ctx context.Context, method, path string, b
 	if contentType != "" {
 		request.Header.Set("Content-Type", contentType)
 	}
-	if err := client.limiter.wait(ctx, priority); err != nil {
-		return &RequestError{Operation: method + " " + path, Cause: err}
+	if waitErr := client.limiter.wait(ctx, priority); waitErr != nil {
+		return &RequestError{Operation: method + " " + path, Cause: waitErr}
 	}
 	response, err := client.HTTPClient.Do(request)
 	if err != nil {
 		return &RequestError{Operation: method + " " + path, Cause: err}
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return &RequestError{Unauthorized: response.StatusCode == http.StatusUnauthorized, Status: response.StatusCode, Operation: method + " " + path}
 	}

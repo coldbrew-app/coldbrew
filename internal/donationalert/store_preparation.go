@@ -88,7 +88,7 @@ func (store *Store) ClaimPreparation(ctx context.Context, now time.Time) (*Prepa
 		return nil, err
 	}
 	if !found {
-		return nil, nil
+		return nil, nil //nolint:nilnil // No eligible preparation job is a successful claim result.
 	}
 	return &preparation, nil
 }

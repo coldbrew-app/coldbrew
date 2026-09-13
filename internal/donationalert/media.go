@@ -75,6 +75,8 @@ func (e *MediaError) IsUserInput() bool {
 	switch e.Code {
 	case MediaTooLarge, MediaUnsupported, MediaInvalid, MediaDimensions, MediaDuration, MediaContainsVideo:
 		return true
+	case MediaToolUnavailable, MediaProcessingFailed, MediaProcessingTimedOut:
+		return false
 	default:
 		return false
 	}
@@ -290,14 +292,14 @@ func (processor *FFmpegMediaProcessor) probeFile(ctx context.Context, content []
 	}
 	path := file.Name()
 	cleanup := func() { _ = os.Remove(path) }
-	if _, err := file.Write(content); err != nil {
+	if _, writeErr := file.Write(content); writeErr != nil {
 		_ = file.Close()
 		cleanup()
-		return probeOutput{}, "", nil, &MediaError{Code: MediaProcessingFailed, Err: err}
+		return probeOutput{}, "", nil, &MediaError{Code: MediaProcessingFailed, Err: writeErr}
 	}
-	if err := file.Close(); err != nil {
+	if closeErr := file.Close(); closeErr != nil {
 		cleanup()
-		return probeOutput{}, "", nil, &MediaError{Code: MediaProcessingFailed, Err: err}
+		return probeOutput{}, "", nil, &MediaError{Code: MediaProcessingFailed, Err: closeErr}
 	}
 
 	commandCtx, cancel := context.WithTimeout(ctx, processor.timeout)
@@ -452,7 +454,9 @@ func (runner execCommandRunner) Run(ctx context.Context, spec commandSpec) ([]by
 	}
 	defer release()
 
-	command := exec.CommandContext(ctx, spec.name, spec.args...)
+	// Executable names and arguments come only from the fixed ffmpeg, ffprobe,
+	// and espeak command specifications constructed in this package.
+	command := exec.CommandContext(ctx, spec.name, spec.args...) //nolint:gosec
 	command.Stdin = bytes.NewReader(spec.input)
 	stdout := newLimitedBuffer(spec.maxOutputBytes)
 	stderr := newLimitedBuffer(maxCommandErrorBytes)

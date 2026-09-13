@@ -233,12 +233,13 @@ func (publisher *publisher) run(ctx context.Context) {
 	for {
 		select {
 		case event := <-publisher.queue:
-			publisher.send(event)
+			publisher.send(ctx, event)
 		case <-ctx.Done():
+			drainCtx := context.WithoutCancel(ctx)
 			for {
 				select {
 				case event := <-publisher.queue:
-					publisher.send(event)
+					publisher.send(drainCtx, event)
 				default:
 					return
 				}
@@ -247,15 +248,15 @@ func (publisher *publisher) run(ctx context.Context) {
 	}
 }
 
-func (publisher *publisher) send(event Event) {
+func (publisher *publisher) send(ctx context.Context, event Event) {
 	body, err := json.Marshal(event)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "encode operational log event: %v\n", err)
 		return
 	}
 	for attempt := 0; attempt < 3; attempt++ {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		_, err = publisher.jetstream.Publish(publisher.subject, body, nats.MsgId(event.ID), nats.Context(ctx))
+		attemptCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		_, err = publisher.jetstream.Publish(publisher.subject, body, nats.MsgId(event.ID), nats.Context(attemptCtx))
 		cancel()
 		if err == nil {
 			return

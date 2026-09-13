@@ -86,6 +86,8 @@ func (provider *YoutubeProvider) handleYoutubeLiveChatError(ctx context.Context,
 		return false
 	case codes.InvalidArgument:
 		errorType = "provider rejected command"
+	case codes.OK, codes.Canceled, codes.Unknown, codes.DeadlineExceeded, codes.AlreadyExists, codes.Aborted, codes.OutOfRange, codes.Unimplemented, codes.Internal, codes.Unavailable, codes.DataLoss:
+		errorType = "provider unavailable"
 	default:
 		errorType = "provider unavailable"
 	}

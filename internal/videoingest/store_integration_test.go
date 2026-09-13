@@ -91,9 +91,9 @@ func TestLeaseExpiryReclaimsWithNewGeneration(t *testing.T) {
 	store, pool := newIntegrationStore(t)
 	seedDonation(t, pool, 1)
 	now := time.Date(2026, 9, 4, 12, 0, 0, 0, time.UTC)
-	first, err := store.Claim(context.Background(), now, time.Minute)
-	if err != nil {
-		t.Fatal(err)
+	first, firstErr := store.Claim(context.Background(), now, time.Minute)
+	if firstErr != nil {
+		t.Fatal(firstErr)
 	}
 	if job, err := store.Claim(context.Background(), now.Add(59*time.Second), time.Minute); err != nil || job != nil {
 		t.Fatalf("claim before expiry = %#v, %v", job, err)
@@ -195,9 +195,9 @@ func newIntegrationStore(t *testing.T) (*Store, *pgxpool.Pool) {
 		t.Skip("VIDEO_INGEST_TEST_DATABASE_URL is not set")
 	}
 	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, databaseURL)
-	if err != nil {
-		t.Fatal(err)
+	admin, adminErr := pgxpool.New(ctx, databaseURL)
+	if adminErr != nil {
+		t.Fatal(adminErr)
 	}
 	schema := fmt.Sprintf("videoingest_test_%d_%d", os.Getpid(), testSchemaSequence.Add(1))
 	if _, err := admin.Exec(ctx, "CREATE SCHEMA "+schema); err != nil {
@@ -210,32 +210,33 @@ func newIntegrationStore(t *testing.T) (*Store, *pgxpool.Pool) {
 		admin.Close()
 	})
 
-	database, err := url.Parse(databaseURL)
-	if err != nil {
-		t.Fatal(err)
+	database, parseErr := url.Parse(databaseURL)
+	if parseErr != nil {
+		t.Fatal(parseErr)
 	}
 	query := database.Query()
 	query.Set("search_path", schema+","+schema+"_auth")
 	database.RawQuery = query.Encode()
 
-	repositoryRoot, err := filepath.Abs("../..")
-	if err != nil {
-		t.Fatal(err)
+	repositoryRoot, rootErr := filepath.Abs("../..")
+	if rootErr != nil {
+		t.Fatal(rootErr)
 	}
-	command := exec.Command(filepath.Join(repositoryRoot, "node_modules", ".bin", "dbmate"), "--no-dump-schema", "up")
+	// The executable path is constructed from the test repository root, not from untrusted input.
+	command := exec.Command(filepath.Join(repositoryRoot, "node_modules", ".bin", "dbmate"), "--no-dump-schema", "up") //nolint:gosec
 	command.Dir = repositoryRoot
 	command.Env = append(os.Environ(), "DATABASE_URL="+database.String())
 	if output, err := command.CombinedOutput(); err != nil {
 		t.Fatalf("apply test migrations: %v\n%s", err, output)
 	}
 
-	config, err := pgxpool.ParseConfig(database.String())
-	if err != nil {
-		t.Fatal(err)
+	config, configErr := pgxpool.ParseConfig(database.String())
+	if configErr != nil {
+		t.Fatal(configErr)
 	}
-	pool, err := pgxpool.NewWithConfig(ctx, config)
-	if err != nil {
-		t.Fatal(err)
+	pool, poolErr := pgxpool.NewWithConfig(ctx, config)
+	if poolErr != nil {
+		t.Fatal(poolErr)
 	}
 	t.Cleanup(pool.Close)
 	return NewStore(pool), pool

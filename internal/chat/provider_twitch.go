@@ -30,7 +30,10 @@ type twitchSocket interface {
 
 func NewTwitchProvider(clientID, clientSecret string, client *http.Client) *TwitchProvider {
 	return &TwitchProvider{clientID: clientID, clientSecret: clientSecret, client: client, apiURL: "https://api.twitch.tv", dial: func(ctx context.Context, rawURL string) (twitchSocket, error) {
-		connection, _, err := websocket.Dial(ctx, rawURL, nil)
+		connection, response, err := websocket.Dial(ctx, rawURL, nil)
+		if response != nil && response.Body != nil {
+			_ = response.Body.Close()
+		}
 		return connection, err
 	}}
 }
@@ -136,11 +139,11 @@ func decodeTwitchEvent(body []byte) (*twitchEvent, error) {
 		Payload json.RawMessage `json:"payload"`
 	}
 	if err := json.Unmarshal(body, &envelope); err != nil || envelope.Metadata.MessageType == "" {
-		return nil, errors.New("Could not decode the Twitch socket message")
+		return nil, errors.New("could not decode the Twitch socket message")
 	}
 	switch envelope.Metadata.MessageType {
 	case "session_keepalive":
-		return nil, nil
+		return nil, nil //nolint:nilnil // A nil event is the explicit representation of an ignorable keepalive.
 	case "session_welcome":
 		var payload struct {
 			Session struct {
@@ -148,7 +151,7 @@ func decodeTwitchEvent(body []byte) (*twitchEvent, error) {
 			} `json:"session"`
 		}
 		if json.Unmarshal(envelope.Payload, &payload) != nil || payload.Session.ID == "" {
-			return nil, errors.New("Could not decode the Twitch socket message")
+			return nil, errors.New("could not decode the Twitch socket message")
 		}
 		return &twitchEvent{Type: "welcome", SessionID: payload.Session.ID}, nil
 	case "session_reconnect":
@@ -158,7 +161,7 @@ func decodeTwitchEvent(body []byte) (*twitchEvent, error) {
 			} `json:"session"`
 		}
 		if json.Unmarshal(envelope.Payload, &payload) != nil || payload.Session.ReconnectURL == "" {
-			return nil, errors.New("Could not decode the Twitch socket message")
+			return nil, errors.New("could not decode the Twitch socket message")
 		}
 		return &twitchEvent{Type: "reconnect", ReconnectURL: payload.Session.ReconnectURL}, nil
 	case "revocation":
@@ -171,7 +174,7 @@ func decodeTwitchEvent(body []byte) (*twitchEvent, error) {
 			} `json:"subscription"`
 		}
 		if json.Unmarshal(envelope.Payload, &payload) != nil || payload.Subscription.Status == "" || payload.Subscription.Condition.BroadcasterUserID == "" {
-			return nil, errors.New("Could not decode the Twitch socket message")
+			return nil, errors.New("could not decode the Twitch socket message")
 		}
 		return &twitchEvent{Type: "revocation", Reason: payload.Subscription.Status, BroadcasterID: payload.Subscription.Condition.BroadcasterUserID}, nil
 	case "notification":
@@ -186,15 +189,15 @@ func decodeTwitchEvent(body []byte) (*twitchEvent, error) {
 			} `json:"event"`
 		}
 		if json.Unmarshal(envelope.Payload, &payload) != nil || payload.Event.MessageID == "" || payload.Event.ChatterUserID == "" || payload.Event.ChatterUserName == "" {
-			return nil, errors.New("Could not decode the Twitch socket message")
+			return nil, errors.New("could not decode the Twitch socket message")
 		}
 		occurredAt, err := time.Parse(time.RFC3339Nano, envelope.Metadata.MessageTimestamp)
 		if err != nil {
-			return nil, errors.New("Could not decode the Twitch socket message")
+			return nil, errors.New("could not decode the Twitch socket message")
 		}
 		return &twitchEvent{Type: "message", MessageID: payload.Event.MessageID, AuthorID: payload.Event.ChatterUserID, Author: payload.Event.ChatterUserName, Text: payload.Event.Message.Text, OccurredAt: occurredAt}, nil
 	default:
-		return nil, nil
+		return nil, nil //nolint:nilnil // Unknown event types are intentionally ignored for forward compatibility.
 	}
 }
 
@@ -246,7 +249,10 @@ func (provider *TwitchProvider) Moderate(ctx context.Context, source ConnectedSo
 		detail = "Twitch rejected the unban"
 	}
 	if data, ok := body.(map[string]any); ok {
-		inner := data["data"].(map[string]any)
+		inner, ok := data["data"].(map[string]any)
+		if !ok {
+			return ProviderCommandSuccess{}, operationError(detail, errors.New("invalid Twitch moderation request"))
+		}
 		if command.Type == "timeout_user" {
 			inner["duration"] = command.DurationSeconds
 		}
@@ -286,7 +292,7 @@ func (provider *TwitchProvider) request(ctx context.Context, source ConnectedSou
 	if err != nil {
 		return operationError(detail, err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		_, _ = io.Copy(io.Discard, response.Body)
 		return operationError(detail, &ProviderHTTPError{Status: response.StatusCode})

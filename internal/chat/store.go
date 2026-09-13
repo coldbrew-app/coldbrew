@@ -108,16 +108,16 @@ func (store *Store) GetConfig(ctx context.Context, userID int) (Config, error) {
 	for connectionRows.Next() {
 		var connection Connection
 		var scopes []string
-		if err := connectionRows.Scan(&connection.ConnectionID, &connection.Provider, &connection.ProviderUserID, &connection.DisplayName, &connection.Status, &scopes, &connection.ConnectedAt); err != nil {
+		if scanErr := connectionRows.Scan(&connection.ConnectionID, &connection.Provider, &connection.ProviderUserID, &connection.DisplayName, &connection.Status, &scopes, &connection.ConnectedAt); scanErr != nil {
 			connectionRows.Close()
-			return Config{}, err
+			return Config{}, scanErr
 		}
 		connection.Capabilities = CapabilitiesFor(connection.Provider, scopes)
 		connections = append(connections, connection)
 	}
-	if err := connectionRows.Err(); err != nil {
+	if rowsErr := connectionRows.Err(); rowsErr != nil {
 		connectionRows.Close()
-		return Config{}, err
+		return Config{}, rowsErr
 	}
 	connectionRows.Close()
 
@@ -133,15 +133,15 @@ func (store *Store) GetConfig(ctx context.Context, userID int) (Config, error) {
 	sources := make([]Source, 0)
 	for sourceRows.Next() {
 		var source Source
-		if err := sourceRows.Scan(&source.SourceID, &source.ConnectionID, &source.Provider, &source.ProviderSourceID, &source.DisplayName, &source.SourceURL, &source.Position, &source.Enabled); err != nil {
+		if scanErr := sourceRows.Scan(&source.SourceID, &source.ConnectionID, &source.Provider, &source.ProviderSourceID, &source.DisplayName, &source.SourceURL, &source.Position, &source.Enabled); scanErr != nil {
 			sourceRows.Close()
-			return Config{}, err
+			return Config{}, scanErr
 		}
 		sources = append(sources, source)
 	}
-	if err := sourceRows.Err(); err != nil {
+	if rowsErr := sourceRows.Err(); rowsErr != nil {
 		sourceRows.Close()
-		return Config{}, err
+		return Config{}, rowsErr
 	}
 	sourceRows.Close()
 
@@ -295,6 +295,9 @@ func (scanner *prefixedScanner) Scan(destinations ...any) error {
 }
 
 func (store *Store) GetEnabledSourceByProviderID(ctx context.Context, provider, providerSourceID string) (*OwnedConnectedSource, error) {
+	if err := validateProvider(provider); err != nil {
+		return nil, err
+	}
 	row := store.pool.QueryRow(ctx, `
 		SELECT
 			source.user_id,
@@ -323,7 +326,7 @@ func (store *Store) GetEnabledSourceByProviderID(ctx context.Context, provider, 
 	var userID int
 	connectedSource, err := store.scanConnectedSource(&prefixedScanner{scanner: row, prefix: []any{&userID}})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
+		return nil, nil //nolint:nilnil // A missing enabled source is a normal lookup result.
 	}
 	if err != nil {
 		return nil, err
@@ -332,6 +335,9 @@ func (store *Store) GetEnabledSourceByProviderID(ctx context.Context, provider, 
 }
 
 func (store *Store) HasSourceCapacity(ctx context.Context, userID int, provider, providerSourceID string) (bool, error) {
+	if err := validateProvider(provider); err != nil {
+		return false, err
+	}
 	var capacity bool
 	err := store.pool.QueryRow(ctx, `
 		SELECT
@@ -346,6 +352,12 @@ func (store *Store) HasSourceCapacity(ctx context.Context, userID int, provider,
 }
 
 func (store *Store) SaveProviderAccount(ctx context.Context, userID int, connection SaveConnection, source SaveSource) (string, error) {
+	if err := validateProvider(connection.Provider); err != nil {
+		return "", err
+	}
+	if connection.Provider != source.Provider {
+		return "", errors.New("chat connection and source providers differ")
+	}
 	var connectionID string
 	err := pgx.BeginFunc(ctx, store.pool, func(tx pgx.Tx) error {
 		var err error
@@ -427,12 +439,15 @@ func (store *Store) UpdateConnectionCredentials(ctx context.Context, connectionI
 		RETURNING token_version
 	`, accessCiphertext, refreshCiphertext, expiresAt, connectionID, expectedVersion).Scan(&tokenVersion)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
+		return nil, nil //nolint:nilnil // A nil version signals that the compare-and-swap lost a race.
 	}
 	return &tokenVersion, err
 }
 
 func (store *Store) CreateOauthAttempt(ctx context.Context, stateHash string, userID int, provider, verifier, returnURL string, expiresAt time.Time) error {
+	if err := validateProvider(provider); err != nil {
+		return err
+	}
 	verifierCiphertext, err := store.tokenCipher.Encrypt(verifier)
 	if err != nil {
 		return err
@@ -450,6 +465,9 @@ func (store *Store) CreateOauthAttempt(ctx context.Context, stateHash string, us
 }
 
 func (store *Store) ConsumeOauthAttempt(ctx context.Context, stateHash, provider string) (*OauthAttempt, error) {
+	if err := validateProvider(provider); err != nil {
+		return nil, err
+	}
 	var attempt OauthAttempt
 	var verifierCiphertext []byte
 	err := store.pool.QueryRow(ctx, `
@@ -458,7 +476,7 @@ func (store *Store) ConsumeOauthAttempt(ctx context.Context, stateHash, provider
 		RETURNING user_id, provider::text, pkce_verifier_ciphertext, return_url
 	`, stateHash, provider).Scan(&attempt.UserID, &attempt.Provider, &verifierCiphertext, &attempt.ReturnURL)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
+		return nil, nil //nolint:nilnil // A missing row is the normal representation of an expired OAuth attempt.
 	}
 	if err != nil {
 		return nil, err

@@ -17,17 +17,17 @@ func TestStoreReadsNullableDeviceID(t *testing.T) {
 		t.Skip("CHAT_STORE_TEST_DATABASE_URL is required for PostgreSQL integration tests")
 	}
 	ctx := context.Background()
-	config, err := pgxpool.ParseConfig(databaseURL)
-	if err != nil {
-		t.Fatal(err)
+	config, configErr := pgxpool.ParseConfig(databaseURL)
+	if configErr != nil {
+		t.Fatal(configErr)
 	}
 	config.MaxConns = 1 // Keep temporary tables on the same PostgreSQL session.
-	pool, err := pgxpool.NewWithConfig(ctx, config)
-	if err != nil {
-		t.Fatal(err)
+	pool, poolErr := pgxpool.NewWithConfig(ctx, config)
+	if poolErr != nil {
+		t.Fatal(poolErr)
 	}
 	defer pool.Close()
-	_, err = pool.Exec(ctx, `
+	_, setupErr := pool.Exec(ctx, `
 		CREATE TEMP TABLE chat_provider_connection (
 			chat_provider_connection_id uuid, user_id integer, status text,
 			access_token_ciphertext bytea, refresh_token_ciphertext bytea,
@@ -45,8 +45,8 @@ func TestStoreReadsNullableDeviceID(t *testing.T) {
 		VALUES ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001',
 			1, 'youtube', 'channel', 'Channel', 'https://youtube.com/channel/channel', 0, true);
 	`)
-	if err != nil {
-		t.Fatal(err)
+	if setupErr != nil {
+		t.Fatal(setupErr)
 	}
 	store := NewStore(pool, nil)
 	for _, deviceID := range []string{"", "vk-device"} {
@@ -203,27 +203,27 @@ func TestBoostySessionExpiryAndRotationWithPostgres(t *testing.T) {
 		t.Skip("CHAT_STORE_TEST_DATABASE_URL is required for PostgreSQL integration tests")
 	}
 	ctx := context.Background()
-	config, err := pgxpool.ParseConfig(databaseURL)
-	if err != nil {
-		t.Fatal(err)
+	config, configErr := pgxpool.ParseConfig(databaseURL)
+	if configErr != nil {
+		t.Fatal(configErr)
 	}
 	config.MaxConns = 1
-	pool, err := pgxpool.NewWithConfig(ctx, config)
-	if err != nil {
-		t.Fatal(err)
+	pool, poolErr := pgxpool.NewWithConfig(ctx, config)
+	if poolErr != nil {
+		t.Fatal(poolErr)
 	}
 	defer pool.Close()
 	// Exercise the applied schema without exposing test credentials to running collectors.
-	_, err = pool.Exec(ctx, `
+	_, setupErr := pool.Exec(ctx, `
   CREATE TEMP TABLE chat_provider_connection (LIKE public.chat_provider_connection INCLUDING ALL);
   CREATE TEMP TABLE chat_source (LIKE public.chat_source INCLUDING ALL);
  `)
-	if err != nil {
-		t.Fatal(err)
+	if setupErr != nil {
+		t.Fatal(setupErr)
 	}
-	cipher, err := NewTokenCipher("boosty-postgres-test-secret")
-	if err != nil {
-		t.Fatal(err)
+	cipher, cipherErr := NewTokenCipher("boosty-postgres-test-secret")
+	if cipherErr != nil {
+		t.Fatal(cipherErr)
 	}
 	store := NewStore(pool, cipher)
 	rotations := 0
@@ -244,31 +244,31 @@ func TestBoostySessionExpiryAndRotationWithPostgres(t *testing.T) {
 	now := time.Now().Truncate(time.Millisecond)
 	expiry := now.Add(time.Hour).UnixMilli()
 	input := BoostyCredentials{AccessToken: "access", RefreshToken: "refresh", DeviceID: "separate-device", ExpiresAt: &expiry, DedicatedSession: true}
-	if err := NewBoostyConnector(NewBoostyProvider(client), store).Connect(ctx, 1, input); err != nil {
-		t.Fatal(err)
+	if connectErr := NewBoostyConnector(NewBoostyProvider(client), store).Connect(ctx, 1, input); connectErr != nil {
+		t.Fatal(connectErr)
 	}
-	sources, err := store.GetEnabledSources(ctx, 1)
-	if err != nil {
-		t.Fatal(err)
+	sources, sourcesErr := store.GetEnabledSources(ctx, 1)
+	if sourcesErr != nil {
+		t.Fatal(sourcesErr)
 	}
 	if len(sources) != 1 || sources[0].Credentials.ExpiresAt == nil || sources[0].Credentials.ExpiresAt.UnixMilli() != expiry {
 		t.Fatal("imported expiry did not survive database round trip")
 	}
 	refresher := NewTokenRefresher(store, TokenRefreshConfigs(nil, nil, nil, nil, ""), client)
 	refresher.now = func() time.Time { return now }
-	if _, err := refresher.Refresh(ctx, sources[0]); err != nil {
-		t.Fatal(err)
+	if _, refreshErr := refresher.Refresh(ctx, sources[0]); refreshErr != nil {
+		t.Fatal(refreshErr)
 	}
 	if rotations != 0 {
 		t.Fatal("fresh session was rotated")
 	}
 	refresher.now = func() time.Time { return now.Add(time.Hour) }
-	if _, err := refresher.Refresh(ctx, sources[0]); err != nil {
-		t.Fatal(err)
+	if _, refreshErr := refresher.Refresh(ctx, sources[0]); refreshErr != nil {
+		t.Fatal(refreshErr)
 	}
-	reloaded, err := store.GetEnabledSources(ctx, 1)
-	if err != nil {
-		t.Fatal(err)
+	reloaded, reloadErr := store.GetEnabledSources(ctx, 1)
+	if reloadErr != nil {
+		t.Fatal(reloadErr)
 	}
 	if len(reloaded) != 1 {
 		t.Fatal("connection lost after renewal")

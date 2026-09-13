@@ -298,7 +298,7 @@ func (store *Store) Skip(ctx context.Context, userID int, now time.Time) (*strin
 		return nil, err
 	}
 	if !found {
-		return nil, nil
+		return nil, nil //nolint:nilnil // An empty queue is a successful skip with no playback.
 	}
 	return &playbackID, nil
 }
