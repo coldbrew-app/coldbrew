@@ -45,6 +45,28 @@ CREATE TYPE public.chat_provider_connection_status AS ENUM (
 CREATE DOMAIN public.currency_code AS character(3)
 CONSTRAINT currency_code_check CHECK ((value ~ '^[A-Z]{3}$'::text));
 
+CREATE TYPE public.donation_alert_asset_kind AS ENUM (
+  'image',
+  'sound',
+  'tts'
+);
+
+CREATE TYPE public.donation_alert_playback_kind AS ENUM (
+  'incoming',
+  'replay',
+  'test'
+);
+
+CREATE TYPE public.donation_alert_playback_status AS ENUM (
+  'preparing',
+  'pending',
+  'playing',
+  'completed',
+  'skipped',
+  'expired',
+  'interrupted'
+);
+
 CREATE TYPE public.donation_source AS ENUM (
   'donationalerts',
   'donate_stream',
@@ -344,6 +366,128 @@ CREATE TABLE public.donation (
   videos_parsed_at   public.js_date
 );
 
+CREATE TABLE public.donation_alert_asset (
+  donation_alert_asset_id uuid                             DEFAULT gen_random_uuid() NOT NULL,
+  user_id                 integer                          NOT NULL,
+  kind                    public.donation_alert_asset_kind NOT NULL,
+  mime_type               text                             NOT NULL,
+  content                 bytea                            NOT NULL,
+  content_hash            character(64)                    NOT NULL,
+  duration_ms             public.nonnegative_int,
+  created_at              public.js_date                   DEFAULT now() NOT NULL,
+  CONSTRAINT donation_alert_asset_content_check CHECK (((octet_length(content) >= 1) AND (octet_length(content) <= 10485760))),
+  CONSTRAINT donation_alert_asset_content_hash_check CHECK ((content_hash ~ '^[0-9a-f]{64}$'::text)),
+  CONSTRAINT donation_alert_asset_mime_type_check CHECK (((char_length(mime_type) >= 1) AND (char_length(mime_type) <= 100)))
+);
+
+CREATE TABLE public.donation_alert_configuration (
+  user_id             integer                NOT NULL,
+  enabled             boolean                DEFAULT FALSE NOT NULL,
+  paused              boolean                DEFAULT FALSE NOT NULL,
+  display_duration_ms public.positive_int    DEFAULT 7000 NOT NULL,
+  sound_volume        public.nonnegative_int DEFAULT 80 NOT NULL,
+  tts_enabled         boolean                DEFAULT FALSE NOT NULL,
+  tts_voice           text                   DEFAULT 'ru'::text NOT NULL,
+  tts_volume          public.nonnegative_int DEFAULT 80 NOT NULL,
+  accent_color        character(7)           DEFAULT '#f59e0b'::bpchar NOT NULL,
+  image_asset_id      uuid,
+  sound_asset_id      uuid,
+  updated_at          public.js_date         DEFAULT now() NOT NULL,
+  CONSTRAINT donation_alert_configuration_accent_color_check CHECK ((accent_color ~ '^#[0-9a-fA-F]{6}$'::text)),
+  CONSTRAINT donation_alert_configuration_display_duration_ms_check CHECK ((((display_duration_ms)::integer >= 1000) AND ((display_duration_ms)::integer <= 30000))),
+  CONSTRAINT donation_alert_configuration_sound_volume_check CHECK (((sound_volume)::integer <= 100)),
+  CONSTRAINT donation_alert_configuration_tts_voice_check CHECK (((char_length(trim(BOTH FROM tts_voice)) >= 1) AND (char_length(trim(BOTH FROM tts_voice)) <= 64))),
+  CONSTRAINT donation_alert_configuration_tts_volume_check CHECK (((tts_volume)::integer <= 100))
+);
+
+CREATE TABLE public.donation_alert_overlay (
+  user_id    integer        NOT NULL,
+  token_hash character(64),
+  updated_at public.js_date DEFAULT now() NOT NULL,
+  CONSTRAINT donation_alert_overlay_token_hash_check CHECK ((token_hash ~ '^[0-9a-f]{64}$'::text))
+);
+
+CREATE TABLE public.donation_alert_playback (
+  donation_alert_playback_id   uuid                                  DEFAULT gen_random_uuid() NOT NULL,
+  queue_sequence               bigint                                NOT NULL,
+  user_id                      integer                               NOT NULL,
+  donation_id                  bigint,
+  kind                         public.donation_alert_playback_kind   NOT NULL,
+  status                       public.donation_alert_playback_status NOT NULL,
+  source                       public.donation_source,
+  author                       text,
+  message                      text,
+  amount                       public.money_amount                   NOT NULL,
+  currency                     public.currency_code                  NOT NULL,
+  image_asset_id               uuid,
+  sound_asset_id               uuid,
+  tts_asset_id                 uuid,
+  display_duration_ms          public.positive_int                   NOT NULL,
+  sound_volume                 public.nonnegative_int                NOT NULL,
+  tts_volume                   public.nonnegative_int                NOT NULL,
+  tts_voice                    text                                  NOT NULL,
+  accent_color                 character(7)                          NOT NULL,
+  created_at                   public.js_date                        NOT NULL,
+  available_at                 public.js_date                        NOT NULL,
+  expires_at                   public.js_date                        NOT NULL,
+  started_at                   public.js_date,
+  finished_at                  public.js_date,
+  player_id                    uuid,
+  player_generation            bigint,
+  preparation_generation       bigint                                DEFAULT 0 NOT NULL,
+  preparation_attempts         public.nonnegative_int                DEFAULT 0 NOT NULL,
+  preparation_lease_expires_at public.js_date,
+  last_error                   text,
+  CONSTRAINT donation_alert_playback_accent_color_check CHECK ((accent_color ~ '^#[0-9a-fA-F]{6}$'::text)),
+  CONSTRAINT donation_alert_playback_author_check CHECK ((char_length(author) <= 200)),
+  CONSTRAINT donation_alert_playback_check
+    CHECK ((((kind = 'test'::public.donation_alert_playback_kind) AND (donation_id IS NULL)) OR ((kind = any(ARRAY['incoming'::public.donation_alert_playback_kind, 'replay'::public.donation_alert_playback_kind])) AND (donation_id IS NOT NULL)))),
+  CONSTRAINT donation_alert_playback_check1 CHECK (((expires_at)::timestamp with time zone > (created_at)::timestamp with time zone)),
+  CONSTRAINT donation_alert_playback_display_duration_ms_check CHECK ((((display_duration_ms)::integer >= 1000) AND ((display_duration_ms)::integer <= 30000))),
+  CONSTRAINT donation_alert_playback_last_error_check CHECK ((char_length(last_error) <= 1000)),
+  CONSTRAINT donation_alert_playback_message_check CHECK ((char_length(message) <= 2000)),
+  CONSTRAINT donation_alert_playback_player_generation_check CHECK ((player_generation >= 0)),
+  CONSTRAINT donation_alert_playback_preparation_generation_check CHECK ((preparation_generation >= 0)),
+  CONSTRAINT donation_alert_playback_sound_volume_check CHECK (((sound_volume)::integer <= 100)),
+  CONSTRAINT donation_alert_playback_tts_voice_check CHECK (((char_length(trim(BOTH FROM tts_voice)) >= 1) AND (char_length(trim(BOTH FROM tts_voice)) <= 64))),
+  CONSTRAINT donation_alert_playback_tts_volume_check CHECK (((tts_volume)::integer <= 100))
+);
+
+ALTER TABLE public.donation_alert_playback ALTER COLUMN queue_sequence ADD GENERATED ALWAYS AS IDENTITY (
+  SEQUENCE NAME public.donation_alert_playback_queue_sequence_seq
+  START WITH 1
+  INCREMENT BY 1
+  NO MINVALUE
+  NO MAXVALUE
+  CACHE 1
+);
+
+CREATE TABLE public.donation_alert_player (
+  user_id          integer        NOT NULL,
+  player_id        uuid           NOT NULL,
+  generation       bigint         DEFAULT 0 NOT NULL,
+  active           boolean        DEFAULT FALSE NOT NULL,
+  visible          boolean        DEFAULT FALSE NOT NULL,
+  connected_at     public.js_date NOT NULL,
+  last_seen_at     public.js_date NOT NULL,
+  lease_expires_at public.js_date NOT NULL,
+  CONSTRAINT donation_alert_player_generation_check CHECK ((generation >= 0))
+);
+
+CREATE TABLE public.donation_alert_renderer_diagnostic (
+  donation_alert_playback_id uuid           CONSTRAINT donation_alert_renderer_dia_donation_alert_playback_id_not_null NOT NULL,
+  user_id                    integer        NOT NULL,
+  code                       text           NOT NULL,
+  occurred_at                public.js_date NOT NULL,
+  CONSTRAINT donation_alert_renderer_diagnostic_code_check CHECK ((code = any(ARRAY['image_unavailable'::text, 'sound_unavailable'::text, 'tts_unavailable'::text, 'audio_blocked'::text])))
+);
+
+CREATE TABLE public.donation_alert_source (
+  user_id integer                NOT NULL,
+  source  public.donation_source NOT NULL,
+  enabled boolean                DEFAULT TRUE NOT NULL
+);
+
 ALTER TABLE public.donation ALTER COLUMN donation_id ADD GENERATED ALWAYS AS IDENTITY (
   SEQUENCE NAME public.donation_donation_id_seq
   START WITH 1
@@ -577,6 +721,42 @@ ADD CONSTRAINT donate_stream_connection_pkey PRIMARY KEY (user_id);
 ALTER TABLE ONLY public.donate_stream_connection
 ADD CONSTRAINT donate_stream_connection_widget_group_uid_key UNIQUE (widget_group_uid);
 
+ALTER TABLE ONLY public.donation_alert_asset
+ADD CONSTRAINT donation_alert_asset_donation_alert_asset_id_user_id_key UNIQUE (donation_alert_asset_id, user_id);
+
+ALTER TABLE ONLY public.donation_alert_asset
+ADD CONSTRAINT donation_alert_asset_pkey PRIMARY KEY (donation_alert_asset_id);
+
+ALTER TABLE ONLY public.donation_alert_asset
+ADD CONSTRAINT donation_alert_asset_user_id_kind_content_hash_key UNIQUE (user_id, kind, content_hash);
+
+ALTER TABLE ONLY public.donation_alert_configuration
+ADD CONSTRAINT donation_alert_configuration_pkey PRIMARY KEY (user_id);
+
+ALTER TABLE ONLY public.donation_alert_overlay
+ADD CONSTRAINT donation_alert_overlay_pkey PRIMARY KEY (user_id);
+
+ALTER TABLE ONLY public.donation_alert_overlay
+ADD CONSTRAINT donation_alert_overlay_token_hash_key UNIQUE (token_hash);
+
+ALTER TABLE ONLY public.donation_alert_playback
+ADD CONSTRAINT donation_alert_playback_donation_alert_playback_id_user_id_key UNIQUE (donation_alert_playback_id, user_id);
+
+ALTER TABLE ONLY public.donation_alert_playback
+ADD CONSTRAINT donation_alert_playback_pkey PRIMARY KEY (donation_alert_playback_id);
+
+ALTER TABLE ONLY public.donation_alert_playback
+ADD CONSTRAINT donation_alert_playback_queue_sequence_key UNIQUE (queue_sequence);
+
+ALTER TABLE ONLY public.donation_alert_player
+ADD CONSTRAINT donation_alert_player_pkey PRIMARY KEY (user_id);
+
+ALTER TABLE ONLY public.donation_alert_renderer_diagnostic
+ADD CONSTRAINT donation_alert_renderer_diagnostic_pkey PRIMARY KEY (donation_alert_playback_id, code);
+
+ALTER TABLE ONLY public.donation_alert_source
+ADD CONSTRAINT donation_alert_source_pkey PRIMARY KEY (user_id, source);
+
 ALTER TABLE ONLY public.donation
 ADD CONSTRAINT donation_pkey PRIMARY KEY (donation_id);
 
@@ -652,6 +832,38 @@ CREATE INDEX chat_source_connection_idx ON public.chat_source USING btree (chat_
 
 CREATE INDEX chat_source_user_enabled_idx ON public.chat_source USING btree (user_id, "position") WHERE enabled;
 
+CREATE INDEX donation_alert_playback_expiry_idx ON public.donation_alert_playback USING btree (expires_at) WHERE (
+  status = any(ARRAY['preparing'::public.donation_alert_playback_status, 'pending'::public.donation_alert_playback_status])
+);
+
+CREATE UNIQUE INDEX donation_alert_playback_incoming_donation_idx ON public.donation_alert_playback USING btree (donation_id) WHERE (kind = 'incoming'::public.donation_alert_playback_kind);
+
+CREATE INDEX donation_alert_playback_pending_idx ON public.donation_alert_playback USING btree (user_id, available_at, queue_sequence) WHERE (
+  status = 'pending'::public.donation_alert_playback_status
+);
+
+CREATE UNIQUE INDEX donation_alert_playback_playing_user_idx ON public.donation_alert_playback USING btree (user_id) WHERE (status = 'playing'::public.donation_alert_playback_status);
+
+CREATE INDEX donation_alert_playback_preparing_idx ON public.donation_alert_playback USING btree (available_at, preparation_lease_expires_at, queue_sequence) WHERE (
+  status = 'preparing'::public.donation_alert_playback_status
+);
+
+CREATE INDEX donation_alert_playback_recent_idx ON public.donation_alert_playback USING btree (user_id, queue_sequence DESC);
+
+CREATE INDEX donation_alert_playback_terminal_retention_idx ON public.donation_alert_playback USING btree (finished_at) WHERE (
+  status
+  = any(
+    ARRAY[
+      'completed'::public.donation_alert_playback_status,
+      'skipped'::public.donation_alert_playback_status,
+      'expired'::public.donation_alert_playback_status,
+      'interrupted'::public.donation_alert_playback_status
+    ]
+  )
+);
+
+CREATE INDEX donation_alert_renderer_diagnostic_recent_idx ON public.donation_alert_renderer_diagnostic USING btree (user_id, occurred_at DESC);
+
 CREATE INDEX donation_user_occurred_idx ON public.donation USING btree (user_id, occurred_at DESC, donation_id DESC);
 
 CREATE INDEX donation_video_scan_available_idx ON public.donation_video_scan USING btree (available_at, lease_expires_at, donation_id) WHERE (completed_at IS NULL);
@@ -717,6 +929,46 @@ ADD CONSTRAINT chat_source_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.
 ALTER TABLE ONLY public.donate_stream_connection
 ADD CONSTRAINT donate_stream_connection_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
 
+ALTER TABLE ONLY public.donation_alert_asset
+ADD CONSTRAINT donation_alert_asset_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.donation_alert_configuration
+ADD CONSTRAINT donation_alert_configuration_image_asset_id_user_id_fkey FOREIGN KEY (image_asset_id, user_id) REFERENCES public.donation_alert_asset (donation_alert_asset_id, user_id);
+
+ALTER TABLE ONLY public.donation_alert_configuration
+ADD CONSTRAINT donation_alert_configuration_sound_asset_id_user_id_fkey FOREIGN KEY (sound_asset_id, user_id) REFERENCES public.donation_alert_asset (donation_alert_asset_id, user_id);
+
+ALTER TABLE ONLY public.donation_alert_configuration
+ADD CONSTRAINT donation_alert_configuration_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.donation_alert_overlay
+ADD CONSTRAINT donation_alert_overlay_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.donation_alert_playback
+ADD CONSTRAINT donation_alert_playback_donation_id_fkey FOREIGN KEY (donation_id) REFERENCES public.donation (donation_id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.donation_alert_playback
+ADD CONSTRAINT donation_alert_playback_image_asset_id_user_id_fkey FOREIGN KEY (image_asset_id, user_id) REFERENCES public.donation_alert_asset (donation_alert_asset_id, user_id);
+
+ALTER TABLE ONLY public.donation_alert_playback
+ADD CONSTRAINT donation_alert_playback_sound_asset_id_user_id_fkey FOREIGN KEY (sound_asset_id, user_id) REFERENCES public.donation_alert_asset (donation_alert_asset_id, user_id);
+
+ALTER TABLE ONLY public.donation_alert_playback
+ADD CONSTRAINT donation_alert_playback_tts_asset_id_user_id_fkey FOREIGN KEY (tts_asset_id, user_id) REFERENCES public.donation_alert_asset (donation_alert_asset_id, user_id);
+
+ALTER TABLE ONLY public.donation_alert_playback
+ADD CONSTRAINT donation_alert_playback_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.donation_alert_player
+ADD CONSTRAINT donation_alert_player_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.donation_alert_renderer_diagnostic
+ADD CONSTRAINT donation_alert_renderer_diagn_donation_alert_playback_id_u_fkey
+  FOREIGN KEY (donation_alert_playback_id, user_id) REFERENCES public.donation_alert_playback (donation_alert_playback_id, user_id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.donation_alert_source
+ADD CONSTRAINT donation_alert_source_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.donation_alert_configuration (user_id) ON DELETE CASCADE;
+
 ALTER TABLE ONLY public.donation
 ADD CONSTRAINT donation_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
 
@@ -760,4 +1012,5 @@ INSERT INTO public.schema_migrations (version) VALUES
 ('20260909195358'),
 ('20260910120000'),
 ('20260910180000'),
+('20260913000000'),
 ('20260913144100');

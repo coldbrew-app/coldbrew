@@ -19,7 +19,7 @@ type donateStreamProvider interface {
 type donateStreamPersistence interface {
 	DonateStreamConnections(context.Context) ([]DonateStreamConnection, error)
 	SaveDonateStreamConnection(context.Context, int, donatestream.Connection) error
-	InsertDonateStreamDonations(context.Context, int, []donatestream.Donation) error
+	InsertDonateStreamDonations(context.Context, int, string, []donatestream.Donation, IngestionOrigin, time.Time) error
 	DisconnectDonateStream(context.Context, int) error
 	DisconnectDonateStreamIfToken(context.Context, int, string) (bool, error)
 }
@@ -34,6 +34,7 @@ type DonateStreamApplication struct {
 	store        donateStreamPersistence
 	provider     donateStreamProvider
 	refreshEvery time.Duration
+	now          func() time.Time
 }
 
 func NewDonateStreamApplication(store *Store, source *donatestream.Source) *DonateStreamApplication {
@@ -41,7 +42,7 @@ func NewDonateStreamApplication(store *Store, source *donatestream.Source) *Dona
 }
 
 func newDonateStreamApplication(store donateStreamPersistence, provider donateStreamProvider) *DonateStreamApplication {
-	return &DonateStreamApplication{store: store, provider: provider, refreshEvery: 10 * time.Second}
+	return &DonateStreamApplication{store: store, provider: provider, refreshEvery: 10 * time.Second, now: time.Now}
 }
 
 func (application *DonateStreamApplication) Connect(ctx context.Context, userID int, widgetURL string) error {
@@ -144,7 +145,7 @@ func (application *DonateStreamApplication) refreshListeners(ctx context.Context
 
 func (application *DonateStreamApplication) listen(ctx context.Context, connection DonateStreamConnection) error {
 	err := application.provider.Run(ctx, connection.WidgetToken, func(donation donatestream.Donation) error {
-		return application.store.InsertDonateStreamDonations(ctx, connection.UserID, []donatestream.Donation{donation})
+		return application.store.InsertDonateStreamDonations(ctx, connection.UserID, connection.WidgetToken, []donatestream.Donation{donation}, LiveOrigin, application.now())
 	})
 	if err == nil || ctx.Err() != nil {
 		return nil

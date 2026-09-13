@@ -17,8 +17,11 @@ import (
 )
 
 const (
-	defaultBaseURL     = "https://www.donationalerts.com"
-	donationDateLayout = "2006-01-02 15:04:05"
+	defaultBaseURL            = "https://www.donationalerts.com"
+	donationDateLayout        = "2006-01-02 15:04:05"
+	maximumRecentHistoryPages = 4
+	providerRequestInterval   = 1050 * time.Millisecond
+	recentHistoryRequestLimit = 10 * time.Second
 )
 
 var scopes = []string{"oauth-user-show", "oauth-donation-subscribe", "oauth-donation-index"}
@@ -105,10 +108,16 @@ type Client struct {
 	HTTPClient *http.Client
 	BaseURL    string
 	PageDelay  time.Duration
+	limiter    *requestLimiter
 }
 
 func NewClient(httpClient *http.Client) *Client {
-	return &Client{HTTPClient: httpClient, BaseURL: defaultBaseURL, PageDelay: 250 * time.Millisecond}
+	return &Client{
+		HTTPClient: httpClient,
+		BaseURL:    defaultBaseURL,
+		PageDelay:  250 * time.Millisecond,
+		limiter:    newRequestLimiter(providerRequestInterval),
+	}
 }
 
 func AuthorizationURL(clientID, redirectURI string) string {
@@ -159,6 +168,19 @@ func (client *Client) RefreshTokens(ctx context.Context, config Config, refreshT
 }
 
 func (client *Client) GetDonations(ctx context.Context, accessToken string) ([]Donation, error) {
+	return client.getDonations(ctx, accessToken, nil, 0, regularRequest)
+}
+
+// GetDonationsAfter reads a bounded recovery window instead of walking an
+// account's lifetime history. Four pages cover the alert queue's 100-item
+// bound while preventing one account from monopolizing a recovery pass. The
+// provider does not guarantee response ordering, so every page in the bounded
+// window is inspected.
+func (client *Client) GetDonationsAfter(ctx context.Context, accessToken string, occurredAfter time.Time) ([]Donation, error) {
+	return client.getDonations(ctx, accessToken, &occurredAfter, maximumRecentHistoryPages, recoveryRequest)
+}
+
+func (client *Client) getDonations(ctx context.Context, accessToken string, occurredAfter *time.Time, maximumPages int, priority requestPriority) ([]Donation, error) {
 	donations := make([]Donation, 0)
 	for pageNumber := 1; ; pageNumber++ {
 		if pageNumber > 1 && client.PageDelay > 0 {
@@ -177,7 +199,14 @@ func (client *Client) GetDonations(ctx context.Context, accessToken string) ([]D
 			} `json:"meta"`
 		}
 		path := "/api/v1/alerts/donations?page=" + strconv.Itoa(pageNumber)
-		if err := client.doJSON(ctx, http.MethodGet, path, nil, accessToken, &page); err != nil {
+		requestCtx := ctx
+		cancel := func() {}
+		if priority == recoveryRequest {
+			requestCtx, cancel = context.WithTimeout(ctx, recentHistoryRequestLimit)
+		}
+		err := client.doJSONPriority(requestCtx, http.MethodGet, path, nil, accessToken, "", &page, priority)
+		cancel()
+		if err != nil {
 			return nil, err
 		}
 		if page.Meta.LastPage <= 0 {
@@ -188,9 +217,12 @@ func (client *Client) GetDonations(ctx context.Context, accessToken string) ([]D
 			if err != nil {
 				return nil, requestValidationError("read donations", err)
 			}
+			if occurredAfter != nil && !donation.OccurredAt.After(*occurredAfter) {
+				continue
+			}
 			donations = append(donations, donation)
 		}
-		if pageNumber >= page.Meta.LastPage {
+		if len(page.Data) == 0 || pageNumber >= page.Meta.LastPage || maximumPages > 0 && pageNumber >= maximumPages {
 			return donations, nil
 		}
 	}
@@ -282,10 +314,14 @@ func (client *Client) doJSON(ctx context.Context, method, path string, body io.R
 	if body != nil {
 		contentType = "application/x-www-form-urlencoded"
 	}
-	return client.doJSONContentType(ctx, method, path, body, accessToken, contentType, target)
+	return client.doJSONPriority(ctx, method, path, body, accessToken, contentType, target, criticalRequest)
 }
 
 func (client *Client) doJSONContentType(ctx context.Context, method, path string, body io.Reader, accessToken, contentType string, target any) error {
+	return client.doJSONPriority(ctx, method, path, body, accessToken, contentType, target, criticalRequest)
+}
+
+func (client *Client) doJSONPriority(ctx context.Context, method, path string, body io.Reader, accessToken, contentType string, target any, priority requestPriority) error {
 	request, err := http.NewRequestWithContext(ctx, method, strings.TrimRight(client.BaseURL, "/")+path, body)
 	if err != nil {
 		return &RequestError{Operation: method + " " + path, Cause: err}
@@ -295,6 +331,9 @@ func (client *Client) doJSONContentType(ctx context.Context, method, path string
 	}
 	if contentType != "" {
 		request.Header.Set("Content-Type", contentType)
+	}
+	if err := client.limiter.wait(ctx, priority); err != nil {
+		return &RequestError{Operation: method + " " + path, Cause: err}
 	}
 	response, err := client.HTTPClient.Do(request)
 	if err != nil {

@@ -26,14 +26,15 @@ type HTTPHandler struct {
 	application   httpApplication
 	donateStream  httpDonateStreamApplication
 	serviceSecret string
+	alertHandler  http.Handler
 }
 
-func NewHTTPHandler(application *Application, donateStream *DonateStreamApplication, serviceSecret string) *HTTPHandler {
-	return newHTTPHandler(application, donateStream, serviceSecret)
+func NewHTTPHandler(application *Application, donateStream *DonateStreamApplication, serviceSecret string, alertHandler http.Handler) *HTTPHandler {
+	return newHTTPHandler(application, donateStream, serviceSecret, alertHandler)
 }
 
-func newHTTPHandler(application httpApplication, donateStream httpDonateStreamApplication, serviceSecret string) *HTTPHandler {
-	return &HTTPHandler{application: application, donateStream: donateStream, serviceSecret: serviceSecret}
+func newHTTPHandler(application httpApplication, donateStream httpDonateStreamApplication, serviceSecret string, alertHandler http.Handler) *HTTPHandler {
+	return &HTTPHandler{application: application, donateStream: donateStream, serviceSecret: serviceSecret, alertHandler: alertHandler}
 }
 
 func (handler *HTTPHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
@@ -43,6 +44,10 @@ func (handler *HTTPHandler) ServeHTTP(response http.ResponseWriter, request *htt
 	}
 	if !handler.authenticated(request) {
 		writeError(response, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if strings.HasPrefix(request.URL.Path, "/internal/alerts/") && handler.alertHandler != nil {
+		handler.alertHandler.ServeHTTP(response, request)
 		return
 	}
 	switch {

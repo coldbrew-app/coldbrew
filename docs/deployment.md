@@ -419,9 +419,17 @@ guaranteed user limit.
 
 The main known constraints in the current implementation are:
 
-- the hourly history sync processes users sequentially; DonationAlerts fetches
-  every page of each connected user's history, while Streamlabs walks only back
-  to its saved checkpoint;
+- the hourly full-history sync processes users sequentially in a worker that is
+  separate from live listeners and five-minute recent recovery; DonationAlerts
+  still fetches every lifetime page during that full pass, while recent
+  recovery filters a complete four-page window by the ten-minute freshness
+  boundary and Streamlabs walks back to its saved checkpoint;
+- one process-wide DonationAlerts limiter spaces every REST request by at least
+  1.05 seconds to remain below the application's 60-request-per-minute quota;
+  OAuth, refresh, and listener setup normally preempt history, but recent
+  recovery receives a permit after four consecutive critical requests and
+  regular history receives one after four consecutive recovery requests;
+  recovery uses four workers with per-account and per-request deadlines;
 - listener startup has no explicit concurrency limit or reconnect jitter;
 - the donation integration exposes a process health endpoint but no per-listener
   heartbeat;

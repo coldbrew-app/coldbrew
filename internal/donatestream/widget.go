@@ -70,7 +70,9 @@ func (e *RequestError) Unwrap() error { return e.Cause }
 func ParseWidgetURL(rawURL string) (Connection, error) {
 	parsed, err := url.ParseRequestURI(strings.TrimSpace(rawURL))
 	if err != nil {
-		return Connection{}, invalidWidgetURL(err)
+		// url.Error includes the complete input URL, including its capability
+		// token. Keep parser details out of errors because callers log them.
+		return Connection{}, invalidWidgetURL(errors.New("malformed widget URL"))
 	}
 	if parsed.Scheme != "https" || parsed.Hostname() != widgetHost || parsed.Port() != "" || parsed.User != nil || strings.TrimSuffix(parsed.Path, "/") != widgetPath || parsed.Fragment != "" {
 		return Connection{}, invalidWidgetURL(errors.New("unexpected widget URL origin or path"))

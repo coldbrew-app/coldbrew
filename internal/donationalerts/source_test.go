@@ -80,7 +80,7 @@ func TestSourceRefreshesExpiringConnectionAndSubscription(t *testing.T) {
 	})
 	defer server.Close()
 
-	client := NewClient(server.Client())
+	client := newUnthrottledClient(server.Client())
 	client.BaseURL = server.URL
 	source := NewSource(client)
 	source.webSocketURL = websocketURL(server.URL)
@@ -169,7 +169,7 @@ func TestSourceReconnectsAndResubscribesAfterConnectionReset(t *testing.T) {
 	})
 	defer server.Close()
 
-	client := NewClient(server.Client())
+	client := newUnthrottledClient(server.Client())
 	client.BaseURL = server.URL
 	source := NewSource(client)
 	source.webSocketURL = websocketURL(server.URL)
@@ -324,7 +324,7 @@ func TestSourceSendsProtocolHeartbeatAndAnswersNativePing(t *testing.T) {
 	})
 	defer server.Close()
 
-	client := NewClient(server.Client())
+	client := newUnthrottledClient(server.Client())
 	client.BaseURL = server.URL
 	source := NewSource(client)
 	source.webSocketURL = websocketURL(server.URL)
@@ -383,7 +383,7 @@ func TestSourceReconnectsWhenHeartbeatIsNotAcknowledged(t *testing.T) {
 	})
 	defer server.Close()
 
-	client := NewClient(server.Client())
+	client := newUnthrottledClient(server.Client())
 	client.BaseURL = server.URL
 	source := NewSource(client)
 	source.webSocketURL = websocketURL(server.URL)
@@ -447,7 +447,7 @@ func TestSourceReportsUnknownAndInvalidBatchedPushesAndKeepsListening(t *testing
 	})
 	defer server.Close()
 
-	client := NewClient(server.Client())
+	client := newUnthrottledClient(server.Client())
 	client.BaseURL = server.URL
 	source := NewSource(client)
 	source.webSocketURL = websocketURL(server.URL)
@@ -505,7 +505,7 @@ func TestSourceReportsMalformedFrameWithRawMessage(t *testing.T) {
 	})
 	defer server.Close()
 
-	client := NewClient(server.Client())
+	client := newUnthrottledClient(server.Client())
 	client.BaseURL = server.URL
 	source := NewSource(client)
 	source.webSocketURL = websocketURL(server.URL)
@@ -578,7 +578,7 @@ func TestSourcePropagatesUnauthorizedTokenRefresh(t *testing.T) {
 			})
 			defer server.Close()
 
-			client := NewClient(server.Client())
+			client := newUnthrottledClient(server.Client())
 			client.BaseURL = server.URL
 			source := NewSource(client)
 			source.webSocketURL = websocketURL(server.URL)
@@ -622,7 +622,7 @@ func TestSourcePropagatesUnauthorizedInitialChannelToken(t *testing.T) {
 	})
 	defer server.Close()
 
-	client := NewClient(server.Client())
+	client := newUnthrottledClient(server.Client())
 	client.BaseURL = server.URL
 	source := NewSource(client)
 	source.webSocketURL = websocketURL(server.URL)
@@ -740,7 +740,7 @@ func TestSourceCancelsEstablishedSession(t *testing.T) {
 	})
 	defer server.Close()
 
-	client := NewClient(server.Client())
+	client := newUnthrottledClient(server.Client())
 	client.BaseURL = server.URL
 	source := NewSource(client)
 	source.webSocketURL = websocketURL(server.URL)
@@ -792,7 +792,7 @@ func TestSourceSupportsConcurrentRuns(t *testing.T) {
 	})
 	defer server.Close()
 
-	client := NewClient(server.Client())
+	client := newUnthrottledClient(server.Client())
 	client.BaseURL = server.URL
 	source := NewSource(client)
 	source.webSocketURL = websocketURL(server.URL)

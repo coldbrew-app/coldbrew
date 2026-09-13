@@ -4,6 +4,7 @@ import {
   Outlet,
   Scripts,
   createRootRouteWithContext,
+  useRouterState,
 } from "@tanstack/react-router";
 import { createIsomorphicFn } from "@tanstack/react-start";
 import { CosmicArt } from "@web/components/cosmic-art";
@@ -34,6 +35,7 @@ import type { Viewer } from "../server/api/_util";
 import { currentViewerQueryOptions } from "../server/viewer";
 import PageLoadingSkeleton from "./-components/page-loading-skeleton";
 
+import alertCss from "../../alerts.css?url";
 import appCss from "../../styles.css?url";
 
 const i18n = createI18n({
@@ -167,6 +169,7 @@ export const Route = createRootRouteWithContext<
     ],
     links: [
       { href: appCss, rel: "stylesheet" },
+      { href: alertCss, rel: "stylesheet" },
       { href: favicon, rel: "icon", type: "image/png" },
     ],
   }),
@@ -175,13 +178,17 @@ export const Route = createRootRouteWithContext<
 
 function RootDocument() {
   const { locale, theme } = Route.useRouteContext();
+  const isOverlay = useRouterState({
+    select: ({ location }) =>
+      location.pathname === "/alerts/overlay" || location.pathname.startsWith("/chat/overlay/"),
+  });
 
   return (
     <html className={theme === "dark" ? "dark" : undefined} lang={locale} suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
-      <body>
+      <body className={isOverlay ? "overlay-document" : undefined}>
         <I18nProvider initialLocale={locale}>
           <TooltipProvider>
             <Outlet />
@@ -330,19 +337,12 @@ function AuthenticatedApplicationContent() {
             </Link>
             <Link
               activeProps={{ className: activeNavItem }}
-              disabled
               className={navItem}
               onClick={() => setOpenMobile(false)}
               to="/alerts"
             >
               <Icons.alerts aria-hidden="true" />
               {t("alerts")}
-              <Tooltip>
-                <TooltipTrigger aria-label={t("underConstruction")}>
-                  <Icons.warn aria-hidden="true" className="size-3.5" />
-                </TooltipTrigger>
-                <TooltipContent>{t("underConstruction")}</TooltipContent>
-              </Tooltip>
             </Link>
             {viewer.isAdmin && (
               <Link

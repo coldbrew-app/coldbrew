@@ -87,6 +87,54 @@ func TestGetDonations(t *testing.T) {
 	}
 }
 
+func TestGetDonationsAfterFiltersEveryBoundedPageWithoutAssumingOrder(t *testing.T) {
+	requests := 0
+	client, closeServer := testClient(t, func(writer http.ResponseWriter, request *http.Request) {
+		requests++
+		switch request.URL.Query().Get("page") {
+		case "1":
+			_, _ = writer.Write([]byte(`{"data":[{"id":10,"username":null,"message":null,"amount":"1.00","currency":"RUB","created_at":"2026-09-13 11:50:00"},{"id":30,"username":null,"message":null,"amount":"3.00","currency":"RUB","created_at":"2026-09-13 12:00:00"}],"meta":{"last_page":2}}`))
+		case "2":
+			_, _ = writer.Write([]byte(`{"data":[{"id":20,"username":null,"message":null,"amount":"2.00","currency":"RUB","created_at":"2026-09-13 11:56:00"}],"meta":{"last_page":2}}`))
+		default:
+			t.Fatalf("unexpected recovery page: %s", request.URL.Query().Get("page"))
+		}
+	})
+	defer closeServer()
+
+	cutoff := time.Date(2026, 9, 13, 11, 50, 0, 0, time.UTC)
+	donations, err := client.GetDonationsAfter(context.Background(), "access-token", cutoff)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if requests != 2 {
+		t.Fatalf("recovery requests = %d, want 2", requests)
+	}
+	if len(donations) != 2 || donations[0].SourceDonationID != "30" || donations[1].SourceDonationID != "20" {
+		t.Fatalf("recovered donations = %#v", donations)
+	}
+}
+
+func TestGetDonationsAfterHasHardPageBudget(t *testing.T) {
+	requests := 0
+	client, closeServer := testClient(t, func(writer http.ResponseWriter, _ *http.Request) {
+		requests++
+		if requests > maximumRecentHistoryPages {
+			t.Fatalf("recovery exceeded page budget: %d", requests)
+		}
+		_, _ = writer.Write([]byte(`{"data":[{"id":1,"username":null,"message":null,"amount":"1.00","currency":"RUB","created_at":"2026-09-13 12:00:00"}],"meta":{"last_page":99}}`))
+	})
+	defer closeServer()
+
+	cutoff := time.Date(2026, 9, 13, 11, 50, 0, 0, time.UTC)
+	if _, err := client.GetDonationsAfter(context.Background(), "access-token", cutoff); err != nil {
+		t.Fatal(err)
+	}
+	if requests != maximumRecentHistoryPages {
+		t.Fatalf("recovery requests = %d, want %d", requests, maximumRecentHistoryPages)
+	}
+}
+
 func TestGetDonationsAcceptsNumericAmount(t *testing.T) {
 	client, closeServer := testClient(t, func(writer http.ResponseWriter, _ *http.Request) {
 		_, _ = writer.Write([]byte(`{"data":[{"id":1,"username":null,"message":null,"amount":10,"currency":"USD","created_at":"2026-08-22 12:00:00"}],"meta":{"last_page":1}}`))
@@ -133,6 +181,31 @@ func TestGetDonationsClassifiesUnauthorized(t *testing.T) {
 	}
 }
 
+func TestClientSpacesAllProviderRESTRequests(t *testing.T) {
+	requestTimes := make(chan time.Time, 2)
+	client, closeServer := testClient(t, func(writer http.ResponseWriter, request *http.Request) {
+		requestTimes <- time.Now()
+		if request.URL.Path == "/api/v1/user/oauth" {
+			_, _ = writer.Write([]byte(`{"data":{"id":1,"socket_connection_token":"socket-token"}}`))
+			return
+		}
+		_, _ = writer.Write([]byte(`{"data":[],"meta":{"last_page":1}}`))
+	})
+	defer closeServer()
+	client.limiter = newRequestLimiter(25 * time.Millisecond)
+	if _, err := client.GetDonations(context.Background(), "access-token"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.SocketProfile(context.Background(), "access-token"); err != nil {
+		t.Fatal(err)
+	}
+	first := <-requestTimes
+	second := <-requestTimes
+	if spacing := second.Sub(first); spacing < 20*time.Millisecond {
+		t.Fatalf("provider request spacing = %s", spacing)
+	}
+}
+
 func testClient(t *testing.T, handler http.HandlerFunc) (*Client, func()) {
 	t.Helper()
 	httpClient := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
@@ -140,10 +213,16 @@ func testClient(t *testing.T, handler http.HandlerFunc) (*Client, func()) {
 		handler.ServeHTTP(recorder, request)
 		return recorder.Result(), nil
 	})}
-	client := NewClient(httpClient)
+	client := newUnthrottledClient(httpClient)
 	client.BaseURL = "https://donationalerts.test"
 	client.PageDelay = 0
 	return client, func() {}
+}
+
+func newUnthrottledClient(httpClient *http.Client) *Client {
+	client := NewClient(httpClient)
+	client.limiter = newRequestLimiter(0)
+	return client
 }
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
