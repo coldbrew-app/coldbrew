@@ -11,64 +11,6 @@ type Props = {
   variant?: "portal" | "orbit" | "beans" | "signal";
 };
 
-export function CosmicArt({ className, variant = "portal" }: Props) {
-  if (variant === "signal") {
-    return <SignalArt className={className} />;
-  }
-  if (variant === "orbit") {
-    return <OrbitArt className={className} />;
-  }
-  if (variant === "beans") {
-    return <BeanComets className={className} />;
-  }
-
-  return (
-    <div
-      aria-hidden="true"
-      className={cn("pointer-events-none relative aspect-[320/230] overflow-visible", className)}
-    >
-      <img
-        alt=""
-        className="absolute top-[20.4348%] left-[14.0625%] h-[69.5652%] w-3/4 object-contain"
-        height="171"
-        sizes="248px"
-        src={cosmicCup}
-        srcSet={`${cosmicCup} 256w, ${cosmicCup2x} 512w`}
-        width="256"
-      />
-      <svg
-        className="absolute inset-0 size-full overflow-visible"
-        fill="none"
-        viewBox="0 0 320 230"
-      >
-        <g>
-          <ellipse
-            className="animate-cosmic-orbit-dashes motion-reduce:animate-none"
-            cx="160"
-            cy="101"
-            pathLength="588"
-            rx="126"
-            ry="57"
-            stroke="#FFF8ED"
-            strokeDasharray="5 9"
-          />
-          <g className={orbitBodyClassName}>
-            <circle r="8" fill="#FF647C" stroke="#251820" strokeWidth="3" />
-          </g>
-          <g
-            className={cn(
-              orbitBodyClassName,
-              "[animation-delay:-9s] motion-reduce:[offset-distance:50%]",
-            )}
-          >
-            <path d="M-5-5 0-17 5-5 17 0 5 5 0 17-5 5-17 0-5-5Z" fill="#FFBD3E" />
-          </g>
-        </g>
-      </svg>
-    </div>
-  );
-}
-
 function SignalArt({ className }: Pick<Props, "className">) {
   return (
     <svg
@@ -161,5 +103,63 @@ function BeanComets({ className }: Pick<Props, "className">) {
       <circle cx="32" cy="28" r="6" fill="#54CFA5" />
       <path d="m62 57 3 7 7 3-7 3-3 7-3-7-7-3 7-3 3-7Z" fill="#4056E8" />
     </svg>
+  );
+}
+
+export function CosmicArt({ className, variant = "portal" }: Props) {
+  if (variant === "signal") {
+    return <SignalArt className={className} />;
+  }
+  if (variant === "orbit") {
+    return <OrbitArt className={className} />;
+  }
+  if (variant === "beans") {
+    return <BeanComets className={className} />;
+  }
+
+  return (
+    <div
+      aria-hidden="true"
+      className={cn("pointer-events-none relative aspect-[320/230] overflow-visible", className)}
+    >
+      <img
+        alt=""
+        className="absolute top-[20.4348%] left-[14.0625%] h-[69.5652%] w-3/4 object-contain"
+        height="171"
+        sizes="248px"
+        src={cosmicCup}
+        srcSet={`${cosmicCup} 256w, ${cosmicCup2x} 512w`}
+        width="256"
+      />
+      <svg
+        className="absolute inset-0 size-full overflow-visible"
+        fill="none"
+        viewBox="0 0 320 230"
+      >
+        <g>
+          <ellipse
+            className="animate-cosmic-orbit-dashes motion-reduce:animate-none"
+            cx="160"
+            cy="101"
+            pathLength="588"
+            rx="126"
+            ry="57"
+            stroke="#FFF8ED"
+            strokeDasharray="5 9"
+          />
+          <g className={orbitBodyClassName}>
+            <circle r="8" fill="#FF647C" stroke="#251820" strokeWidth="3" />
+          </g>
+          <g
+            className={cn(
+              orbitBodyClassName,
+              "[animation-delay:-9s] motion-reduce:[offset-distance:50%]",
+            )}
+          >
+            <path d="M-5-5 0-17 5-5 17 0 5 5 0 17-5 5-17 0-5-5Z" fill="#FFBD3E" />
+          </g>
+        </g>
+      </svg>
+    </div>
   );
 }
