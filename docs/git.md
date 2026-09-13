@@ -22,3 +22,9 @@ this workflow in order:
 
 The workflow is complete only when the pull request has been merged into
 `master`.
+
+## Issue tracking
+
+Open issues in the `coldbrew` repository are automatically added to the
+`Omnistream` GitHub Project with the `Backlog` status. This behavior is managed
+by the project's `Auto-add to project` and `Item added to project` workflows.
