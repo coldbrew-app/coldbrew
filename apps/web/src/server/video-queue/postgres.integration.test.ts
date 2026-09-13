@@ -37,7 +37,7 @@ describe.skipIf(!databaseUrl)("video queues in PostgreSQL", () => {
     admin = postgres(databaseUrl!, { max: 1, onnotice: () => {} });
     await admin.unsafe(`CREATE SCHEMA ${schemaName}`);
     const testDatabaseUrl = new URL(databaseUrl!);
-    testDatabaseUrl.searchParams.set("search_path", schemaName);
+    testDatabaseUrl.searchParams.set("search_path", `${schemaName},${schemaName}_auth`);
     await execFileAsync(
       resolve(repositoryRoot, "node_modules/.bin/dbmate"),
       ["--no-dump-schema", "up"],
@@ -57,6 +57,7 @@ describe.skipIf(!databaseUrl)("video queues in PostgreSQL", () => {
     await sql?.end();
     // This generated schema belongs only to this test, never to the application's data.
     if (schemaName) await admin.unsafe(`DROP SCHEMA ${schemaName} CASCADE`);
+    if (schemaName) await admin.unsafe(`DROP SCHEMA ${schemaName}_auth CASCADE`);
     await admin?.end();
   });
 

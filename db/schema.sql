@@ -12,6 +12,8 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
+CREATE SCHEMA auth;
+
 CREATE TYPE public.chat_moderation_action_status AS ENUM (
   'succeeded',
   'failed',
@@ -166,7 +168,7 @@ SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
-CREATE TABLE public.auth_account (
+CREATE TABLE auth.auth_account (
   id                      text           NOT NULL,
   "accountId"             text           NOT NULL,
   "providerId"            text           NOT NULL,
@@ -182,7 +184,7 @@ CREATE TABLE public.auth_account (
   "updatedAt"             public.js_date NOT NULL
 );
 
-CREATE TABLE public.auth_session (
+CREATE TABLE auth.auth_session (
   id          text           NOT NULL,
   "expiresAt" public.js_date NOT NULL,
   token       text           NOT NULL,
@@ -193,7 +195,7 @@ CREATE TABLE public.auth_session (
   "userId"    text           NOT NULL
 );
 
-CREATE TABLE public.auth_user (
+CREATE TABLE auth.auth_user (
   id              text           NOT NULL,
   name            text           NOT NULL,
   email           text           NOT NULL,
@@ -203,7 +205,7 @@ CREATE TABLE public.auth_user (
   "updatedAt"     public.js_date DEFAULT now() NOT NULL
 );
 
-CREATE TABLE public.auth_verification (
+CREATE TABLE auth.auth_verification (
   id          text           NOT NULL,
   identifier  text           NOT NULL,
   value       text           NOT NULL,
@@ -506,22 +508,22 @@ ALTER TABLE ONLY public.video_priority ALTER COLUMN video_priority_id SET DEFAUL
 
 ALTER TABLE ONLY public.video_queue ALTER COLUMN video_queue_id SET DEFAULT nextval('public.video_queue_video_queue_id_seq'::regclass);
 
-ALTER TABLE ONLY public.auth_account
+ALTER TABLE ONLY auth.auth_account
 ADD CONSTRAINT auth_account_pkey PRIMARY KEY (id);
 
-ALTER TABLE ONLY public.auth_session
+ALTER TABLE ONLY auth.auth_session
 ADD CONSTRAINT auth_session_pkey PRIMARY KEY (id);
 
-ALTER TABLE ONLY public.auth_session
+ALTER TABLE ONLY auth.auth_session
 ADD CONSTRAINT auth_session_token_key UNIQUE (token);
 
-ALTER TABLE ONLY public.auth_user
+ALTER TABLE ONLY auth.auth_user
 ADD CONSTRAINT auth_user_email_key UNIQUE (email);
 
-ALTER TABLE ONLY public.auth_user
+ALTER TABLE ONLY auth.auth_user
 ADD CONSTRAINT auth_user_pkey PRIMARY KEY (id);
 
-ALTER TABLE ONLY public.auth_verification
+ALTER TABLE ONLY auth.auth_verification
 ADD CONSTRAINT auth_verification_pkey PRIMARY KEY (id);
 
 ALTER TABLE ONLY public.chat_moderation_action
@@ -632,11 +634,11 @@ ADD CONSTRAINT video_queue_user_id_label_key UNIQUE (user_id, label);
 ALTER TABLE ONLY public.video_queue
 ADD CONSTRAINT video_queue_video_queue_id_user_id_key UNIQUE (video_queue_id, user_id);
 
-CREATE INDEX "auth_account_userId_idx" ON public.auth_account USING btree ("userId");
+CREATE INDEX "auth_account_userId_idx" ON auth.auth_account USING btree ("userId");
 
-CREATE INDEX "auth_session_userId_idx" ON public.auth_session USING btree ("userId");
+CREATE INDEX "auth_session_userId_idx" ON auth.auth_session USING btree ("userId");
 
-CREATE INDEX auth_verification_identifier_idx ON public.auth_verification USING btree (identifier);
+CREATE INDEX auth_verification_identifier_idx ON auth.auth_verification USING btree (identifier);
 
 CREATE INDEX chat_moderation_action_user_occurred_idx ON public.chat_moderation_action USING btree (user_id, occurred_at DESC, chat_moderation_action_id DESC);
 
@@ -681,11 +683,11 @@ user_id,
 video_queue_id,
 video_priority_id ON public.video FOR EACH ROW EXECUTE FUNCTION public.set_video_priority_id();
 
-ALTER TABLE ONLY public.auth_account
-ADD CONSTRAINT "auth_account_userId_fkey" FOREIGN KEY ("userId") REFERENCES public.auth_user (id) ON DELETE CASCADE;
+ALTER TABLE ONLY auth.auth_account
+ADD CONSTRAINT "auth_account_userId_fkey" FOREIGN KEY ("userId") REFERENCES auth.auth_user (id) ON DELETE CASCADE;
 
-ALTER TABLE ONLY public.auth_session
-ADD CONSTRAINT "auth_session_userId_fkey" FOREIGN KEY ("userId") REFERENCES public.auth_user (id) ON DELETE CASCADE;
+ALTER TABLE ONLY auth.auth_session
+ADD CONSTRAINT "auth_session_userId_fkey" FOREIGN KEY ("userId") REFERENCES auth.auth_user (id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.chat_moderation_action
 ADD CONSTRAINT chat_moderation_action_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
@@ -728,7 +730,7 @@ ALTER TABLE ONLY public.streamlabs_connection
 ADD CONSTRAINT streamlabs_connection_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public."user"
-ADD CONSTRAINT user_auth_user_id_fkey FOREIGN KEY (auth_user_id) REFERENCES public.auth_user (id);
+ADD CONSTRAINT user_auth_user_id_fkey FOREIGN KEY (auth_user_id) REFERENCES auth.auth_user (id);
 
 ALTER TABLE ONLY public.video
 ADD CONSTRAINT video_donation_id_fkey FOREIGN KEY (donation_id) REFERENCES public.donation (donation_id) ON DELETE CASCADE;
@@ -757,4 +759,5 @@ INSERT INTO public.schema_migrations (version) VALUES
 ('20260909000000'),
 ('20260909195358'),
 ('20260910120000'),
-('20260910180000');
+('20260910180000'),
+('20260913144100');

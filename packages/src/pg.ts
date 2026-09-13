@@ -9,9 +9,10 @@ export function parseJsonb(value: string) {
   return parsed;
 }
 
-export function createSql(url: string) {
+export function createSql(url: string, options: { readonly searchPath?: string } = {}) {
   return postgres(url, {
     max: 10,
+    connection: options.searchPath === undefined ? {} : { search_path: options.searchPath },
     transform: postgres.camel,
     types: {
       // Int64 in JSONB does not fit into JS number.
