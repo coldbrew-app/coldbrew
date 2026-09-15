@@ -45,6 +45,12 @@ const sources = {
     name: "Tourniquet",
     url: "https://tourniquet.app/profile/widgets",
   },
+  streamelements: {
+    mark: "SE",
+    markClassName: "from-violet-500 to-fuchsia-600",
+    name: "StreamElements",
+    url: "https://streamelements.com/dashboard/revenue/tips",
+  },
 } satisfies Record<
   DonationSource,
   { mark: string; markClassName: string; name: string; url: string }

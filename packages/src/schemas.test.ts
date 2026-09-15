@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   DonationAmountSchema,
   DonationAssetSchema,
+  DonationSourceConnectionStatusSchema,
   DonationSourceSchema,
   MoneyAmountSchema,
   PublicQueueSettingsSchema,
@@ -17,6 +18,7 @@ describe("DonationSourceSchema", () => {
       "donate_stream",
       "streamlabs",
       "tourniquet",
+      "streamelements",
     ]);
   });
 });
@@ -31,6 +33,16 @@ describe("DonationAssetSchema", () => {
   it("accepts provider asset names and rejects unsafe values", () => {
     expect(DonationAssetSchema.parse("USDT (TRX)")).toBe("USDT (TRX)");
     expect(DonationAssetSchema.safeParse("usd").success).toBe(false);
+  });
+});
+
+describe("DonationSourceConnectionStatusSchema", () => {
+  it("keeps user-visible connection states closed and explicit", () => {
+    expect(DonationSourceConnectionStatusSchema.options).toEqual([
+      "connected",
+      "reauthorization_required",
+      "error",
+    ]);
   });
 });
 

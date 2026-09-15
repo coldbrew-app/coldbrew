@@ -41,6 +41,8 @@ import { Route as AuthenticatedAdminAdminDlqRouteImport } from './routes/_authen
 import { Route as ApiAlertsMediaAssetIdRouteImport } from './routes/api/alerts/media.$assetId'
 import { Route as ApiIntegrationDonationalertsAuthorizeRouteImport } from './routes/api/integration/donationalerts/authorize'
 import { Route as ApiIntegrationDonationalertsCallbackRouteImport } from './routes/api/integration/donationalerts/callback'
+import { Route as ApiIntegrationStreamelementsAuthorizeRouteImport } from './routes/api/integration/streamelements/authorize'
+import { Route as ApiIntegrationStreamelementsCallbackRouteImport } from './routes/api/integration/streamelements/callback'
 import { Route as ApiIntegrationStreamlabsAuthorizeRouteImport } from './routes/api/integration/streamlabs/authorize'
 import { Route as ApiIntegrationStreamlabsCallbackRouteImport } from './routes/api/integration/streamlabs/callback'
 
@@ -209,6 +211,18 @@ const ApiIntegrationDonationalertsCallbackRoute =
     path: '/api/integration/donationalerts/callback',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiIntegrationStreamelementsAuthorizeRoute =
+  ApiIntegrationStreamelementsAuthorizeRouteImport.update({
+    id: '/api/integration/streamelements/authorize',
+    path: '/api/integration/streamelements/authorize',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiIntegrationStreamelementsCallbackRoute =
+  ApiIntegrationStreamelementsCallbackRouteImport.update({
+    id: '/api/integration/streamelements/callback',
+    path: '/api/integration/streamelements/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiIntegrationStreamlabsAuthorizeRoute =
   ApiIntegrationStreamlabsAuthorizeRouteImport.update({
     id: '/api/integration/streamlabs/authorize',
@@ -252,6 +266,8 @@ export interface FileRoutesByFullPath {
   '/api/alerts/media/$assetId': typeof ApiAlertsMediaAssetIdRoute
   '/api/integration/donationalerts/authorize': typeof ApiIntegrationDonationalertsAuthorizeRoute
   '/api/integration/donationalerts/callback': typeof ApiIntegrationDonationalertsCallbackRoute
+  '/api/integration/streamelements/authorize': typeof ApiIntegrationStreamelementsAuthorizeRoute
+  '/api/integration/streamelements/callback': typeof ApiIntegrationStreamelementsCallbackRoute
   '/api/integration/streamlabs/authorize': typeof ApiIntegrationStreamlabsAuthorizeRoute
   '/api/integration/streamlabs/callback': typeof ApiIntegrationStreamlabsCallbackRoute
   '/admin/': typeof AuthenticatedAdminAdminIndexRoute
@@ -284,6 +300,8 @@ export interface FileRoutesByTo {
   '/api/alerts/media/$assetId': typeof ApiAlertsMediaAssetIdRoute
   '/api/integration/donationalerts/authorize': typeof ApiIntegrationDonationalertsAuthorizeRoute
   '/api/integration/donationalerts/callback': typeof ApiIntegrationDonationalertsCallbackRoute
+  '/api/integration/streamelements/authorize': typeof ApiIntegrationStreamelementsAuthorizeRoute
+  '/api/integration/streamelements/callback': typeof ApiIntegrationStreamelementsCallbackRoute
   '/api/integration/streamlabs/authorize': typeof ApiIntegrationStreamlabsAuthorizeRoute
   '/api/integration/streamlabs/callback': typeof ApiIntegrationStreamlabsCallbackRoute
   '/admin': typeof AuthenticatedAdminAdminIndexRoute
@@ -321,6 +339,8 @@ export interface FileRoutesById {
   '/api/alerts/media/$assetId': typeof ApiAlertsMediaAssetIdRoute
   '/api/integration/donationalerts/authorize': typeof ApiIntegrationDonationalertsAuthorizeRoute
   '/api/integration/donationalerts/callback': typeof ApiIntegrationDonationalertsCallbackRoute
+  '/api/integration/streamelements/authorize': typeof ApiIntegrationStreamelementsAuthorizeRoute
+  '/api/integration/streamelements/callback': typeof ApiIntegrationStreamelementsCallbackRoute
   '/api/integration/streamlabs/authorize': typeof ApiIntegrationStreamlabsAuthorizeRoute
   '/api/integration/streamlabs/callback': typeof ApiIntegrationStreamlabsCallbackRoute
   '/_authenticated/_admin/admin/': typeof AuthenticatedAdminAdminIndexRoute
@@ -357,6 +377,8 @@ export interface FileRouteTypes {
     | '/api/alerts/media/$assetId'
     | '/api/integration/donationalerts/authorize'
     | '/api/integration/donationalerts/callback'
+    | '/api/integration/streamelements/authorize'
+    | '/api/integration/streamelements/callback'
     | '/api/integration/streamlabs/authorize'
     | '/api/integration/streamlabs/callback'
     | '/admin/'
@@ -389,6 +411,8 @@ export interface FileRouteTypes {
     | '/api/alerts/media/$assetId'
     | '/api/integration/donationalerts/authorize'
     | '/api/integration/donationalerts/callback'
+    | '/api/integration/streamelements/authorize'
+    | '/api/integration/streamelements/callback'
     | '/api/integration/streamlabs/authorize'
     | '/api/integration/streamlabs/callback'
     | '/admin'
@@ -425,6 +449,8 @@ export interface FileRouteTypes {
     | '/api/alerts/media/$assetId'
     | '/api/integration/donationalerts/authorize'
     | '/api/integration/donationalerts/callback'
+    | '/api/integration/streamelements/authorize'
+    | '/api/integration/streamelements/callback'
     | '/api/integration/streamlabs/authorize'
     | '/api/integration/streamlabs/callback'
     | '/_authenticated/_admin/admin/'
@@ -450,6 +476,8 @@ export interface RootRouteChildren {
   ApiAlertsMediaAssetIdRoute: typeof ApiAlertsMediaAssetIdRoute
   ApiIntegrationDonationalertsAuthorizeRoute: typeof ApiIntegrationDonationalertsAuthorizeRoute
   ApiIntegrationDonationalertsCallbackRoute: typeof ApiIntegrationDonationalertsCallbackRoute
+  ApiIntegrationStreamelementsAuthorizeRoute: typeof ApiIntegrationStreamelementsAuthorizeRoute
+  ApiIntegrationStreamelementsCallbackRoute: typeof ApiIntegrationStreamelementsCallbackRoute
   ApiIntegrationStreamlabsAuthorizeRoute: typeof ApiIntegrationStreamlabsAuthorizeRoute
   ApiIntegrationStreamlabsCallbackRoute: typeof ApiIntegrationStreamlabsCallbackRoute
 }
@@ -680,6 +708,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiIntegrationDonationalertsCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/integration/streamelements/authorize': {
+      id: '/api/integration/streamelements/authorize'
+      path: '/api/integration/streamelements/authorize'
+      fullPath: '/api/integration/streamelements/authorize'
+      preLoaderRoute: typeof ApiIntegrationStreamelementsAuthorizeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/integration/streamelements/callback': {
+      id: '/api/integration/streamelements/callback'
+      path: '/api/integration/streamelements/callback'
+      fullPath: '/api/integration/streamelements/callback'
+      preLoaderRoute: typeof ApiIntegrationStreamelementsCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/integration/streamlabs/authorize': {
       id: '/api/integration/streamlabs/authorize'
       path: '/api/integration/streamlabs/authorize'
@@ -788,6 +830,10 @@ const rootRouteChildren: RootRouteChildren = {
     ApiIntegrationDonationalertsAuthorizeRoute,
   ApiIntegrationDonationalertsCallbackRoute:
     ApiIntegrationDonationalertsCallbackRoute,
+  ApiIntegrationStreamelementsAuthorizeRoute:
+    ApiIntegrationStreamelementsAuthorizeRoute,
+  ApiIntegrationStreamelementsCallbackRoute:
+    ApiIntegrationStreamelementsCallbackRoute,
   ApiIntegrationStreamlabsAuthorizeRoute:
     ApiIntegrationStreamlabsAuthorizeRoute,
   ApiIntegrationStreamlabsCallbackRoute: ApiIntegrationStreamlabsCallbackRoute,
@@ -795,13 +841,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

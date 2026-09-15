@@ -9,6 +9,7 @@ import { z } from "zod";
 
 import { donationAlertsAuthorizationStartURL } from "../../donationalerts.js";
 import { store } from "../../sensors/db/index.js";
+import { streamElementsAuthorizationStartURL } from "../../streamelements.js";
 import { streamlabsAuthorizationStartURL } from "../../streamlabs.js";
 import { authenticatedProcedure, procedure, router } from "./_config.js";
 import { adminRouter } from "./admin.js";
@@ -35,11 +36,13 @@ export const appRouter = router({
       z.object({
         donationAlerts: z.url(),
         streamlabs: z.url(),
+        streamElements: z.url(),
       }),
     )
     .query(() => ({
       donationAlerts: donationAlertsAuthorizationStartURL,
       streamlabs: streamlabsAuthorizationStartURL,
+      streamElements: streamElementsAuthorizationStartURL,
     })),
 
   userInfo: procedure.query(async ({ ctx }) => {

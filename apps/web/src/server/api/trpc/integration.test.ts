@@ -40,17 +40,20 @@ describe("integrationRouter", () => {
     expect(connectDonateStream).toHaveBeenCalledWith(42, widgetUrl);
   });
 
-  it("routes Streamlabs disconnects to the authenticated user's connection", async () => {
-    disconnect.mockResolvedValue(null);
-    const caller = integrationRouter.createCaller({
-      request: new Request("http://localhost/trpc"),
-      userId: UserIdSchema.parse(42),
-    });
+  it.each(["streamlabs", "streamelements"] as const)(
+    "routes %s disconnects to the authenticated user's connection",
+    async (source) => {
+      disconnect.mockResolvedValue(null);
+      const caller = integrationRouter.createCaller({
+        request: new Request("http://localhost/trpc"),
+        userId: UserIdSchema.parse(42),
+      });
 
-    await caller.disconnect({ source: "streamlabs" });
+      await caller.disconnect({ source });
 
-    expect(disconnect).toHaveBeenCalledWith("streamlabs", 42);
-  });
+      expect(disconnect).toHaveBeenCalledWith(source, 42);
+    },
+  );
 
   it("connects Tourniquet only for the authenticated user", async () => {
     connectTourniquet.mockResolvedValue({ connected: true });
