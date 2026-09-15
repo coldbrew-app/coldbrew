@@ -158,6 +158,122 @@ func TestIngestionSuppressesInitialHistoryAndQueuesNewDonationsOnceInOrder(t *te
 	assertPlaybackIDs(t, pool, []string{"live-old", "live-new", "recovery-fresh"})
 }
 
+func TestStreamElementsRecoveryReplayQueuesFreshDonationAndVideoScanOnce(t *testing.T) {
+	store, pool := newDonationIntegrationStore(t)
+	seedDonationUser(t, pool, 1)
+	ctx := context.Background()
+	alertStore := donationalert.NewStore(pool)
+	settings := donationalert.DefaultSettings()
+	settings.Enabled = true
+	if _, err := alertStore.UpdateSettings(ctx, 1, settings); err != nil {
+		t.Fatal(err)
+	}
+
+	now := time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC)
+	providerStore := store.forSource(StreamElementsSource)
+	known := testDonation("known", now.Add(-2*time.Minute))
+	connection := ProviderConnection{
+		SourceUserID: "streamelements-channel",
+		Tokens:       Tokens{AccessToken: "access", RefreshToken: "refresh"},
+	}
+	if err := providerStore.SaveConnectionWithDonations(
+		ctx,
+		1,
+		connection,
+		DonationBatch{Donations: []Donation{known}},
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	fresh := testDonation("fresh-delayed", now.Add(-time.Minute))
+	message := "Please play https://youtu.be/dQw4w9WgXcQ"
+	fresh.Message = &message
+	replay := DonationBatch{Donations: []Donation{
+		known,
+		fresh,
+		testDonation("stale-backdated", now.Add(-11*time.Minute)),
+	}}
+	for range 2 {
+		if err := providerStore.SaveDonations(ctx, 1, 1, replay, RecoveryOrigin, now); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	assertPlaybackIDs(t, pool, []string{"fresh-delayed"})
+	var donations, videoScans int
+	if err := pool.QueryRow(ctx, `
+		SELECT
+			(SELECT count(*) FROM donation),
+			(SELECT count(*) FROM donation_video_scan)
+	`).Scan(&donations, &videoScans); err != nil {
+		t.Fatal(err)
+	}
+	if donations != 3 || videoScans != 3 {
+		t.Fatalf("donations=%d video scans=%d; want one of each per source donation", donations, videoScans)
+	}
+}
+
+func TestStreamElementsConnectionFailureStatusIsVersionGuarded(t *testing.T) {
+	store, pool := newDonationIntegrationStore(t)
+	seedDonationUser(t, pool, 1)
+	ctx := context.Background()
+	now := time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC)
+	providerStore := store.forSource(StreamElementsSource)
+	connection := ProviderConnection{
+		SourceUserID: "streamelements-channel",
+		Tokens:       Tokens{AccessToken: "access", RefreshToken: "refresh"},
+	}
+	if err := providerStore.SaveConnectionWithDonations(ctx, 1, connection, DonationBatch{}); err != nil {
+		t.Fatal(err)
+	}
+
+	updated, err := providerStore.RequireReauthorizationIfVersion(ctx, 1, 1)
+	if err != nil || !updated {
+		t.Fatalf("require reauthorization updated=%v error=%v", updated, err)
+	}
+	connections, err := providerStore.Connections(ctx)
+	if err != nil || len(connections) != 0 {
+		t.Fatalf("active connections=%#v error=%v", connections, err)
+	}
+	if err := providerStore.SaveDonations(
+		ctx,
+		1,
+		1,
+		DonationBatch{Donations: []Donation{testDonation("rejected", now)}},
+		RecoveryOrigin,
+		now,
+	); !errors.Is(err, ErrStaleCredentials) {
+		t.Fatalf("inactive connection save error = %v", err)
+	}
+
+	reconnected := ProviderConnection{
+		SourceUserID: connection.SourceUserID,
+		Tokens:       Tokens{AccessToken: "renewed-access", RefreshToken: "renewed-refresh"},
+	}
+	if err := providerStore.SaveConnectionWithDonations(ctx, 1, reconnected, DonationBatch{}); err != nil {
+		t.Fatal(err)
+	}
+	if updated, err := providerStore.MarkConnectionErrorIfVersion(ctx, 1, 1); err != nil || updated {
+		t.Fatalf("stale failure updated=%v error=%v", updated, err)
+	}
+	if updated, err := providerStore.MarkConnectionErrorIfVersion(ctx, 1, 2); err != nil || !updated {
+		t.Fatalf("current failure updated=%v error=%v", updated, err)
+	}
+
+	var status string
+	var tokenVersion int
+	if err := pool.QueryRow(ctx, `
+		SELECT status, token_version
+		FROM streamelements_connection
+		WHERE user_id = 1
+	`).Scan(&status, &tokenVersion); err != nil {
+		t.Fatal(err)
+	}
+	if status != "error" || tokenVersion != 2 {
+		t.Fatalf("status=%q token version=%d", status, tokenVersion)
+	}
+}
+
 func TestDonateStreamIngestionRequiresCurrentConnectionToken(t *testing.T) {
 	store, pool := newDonationIntegrationStore(t)
 	seedDonationUser(t, pool, 1)
