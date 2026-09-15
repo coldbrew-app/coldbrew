@@ -15,6 +15,7 @@ const (
 	DonationAlertsSource Source = "donationalerts"
 	DonateStreamSource   Source = "donate_stream"
 	StreamlabsSource     Source = "streamlabs"
+	TourniquetSource     Source = "tourniquet"
 )
 
 func validIngestionOrigin(origin IngestionOrigin) bool {
@@ -40,6 +41,8 @@ func (source Source) displayName() string {
 		return "donate.stream"
 	case StreamlabsSource:
 		return "Streamlabs"
+	case TourniquetSource:
+		return "Tourniquet"
 	default:
 		return string(source)
 	}
@@ -48,7 +51,7 @@ func (source Source) displayName() string {
 func parseSource(value string) (Source, bool) {
 	source := Source(value)
 	switch source {
-	case DonationAlertsSource, DonateStreamSource, StreamlabsSource:
+	case DonationAlertsSource, DonateStreamSource, StreamlabsSource, TourniquetSource:
 		return source, true
 	default:
 		return "", false

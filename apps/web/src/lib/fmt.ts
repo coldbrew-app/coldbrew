@@ -1,4 +1,9 @@
-import type { CurrencyCode, MoneyAmount } from "@streambrew/packages/schemas.js";
+import type {
+  CurrencyCode,
+  DonationAmount,
+  DonationAsset,
+  MoneyAmount,
+} from "@streambrew/packages/schemas.js";
 
 import type { Locale } from "./i18n";
 
@@ -38,20 +43,29 @@ export function fmtListDate(date: Date, locale: Locale, now = new Date()) {
   return fmtDate(date, locale);
 }
 
-export function fmtAmount(amount: MoneyAmount, currency: CurrencyCode, locale: Locale) {
+export function fmtAmount(
+  amount: MoneyAmount | DonationAmount,
+  currency: CurrencyCode | DonationAsset,
+  locale: Locale,
+) {
   const [integer, fraction = "00"] = amount.split(".");
-  const fractionDigits = amount.endsWith(".00") ? 0 : 2;
+  const significantFraction = fraction.replace(/0+$/, "");
+  const fractionDigits =
+    fraction.length <= 2 && significantFraction.length > 0 ? 2 : significantFraction.length;
+  const displayFraction = fractionDigits === 2 ? fraction.padEnd(2, "0") : significantFraction;
+  const usesCurrencyStyle = /^[A-Z]{3}$/.test(currency);
   const formatter = new Intl.NumberFormat(localeTag[locale], {
-    currency,
+    ...(usesCurrencyStyle ? { currency } : {}),
     maximumFractionDigits: fractionDigits,
     minimumFractionDigits: fractionDigits,
-    style: "currency",
+    style: usesCurrencyStyle ? "currency" : "decimal",
   });
 
-  return formatter
+  const formatted = formatter
     .formatToParts(BigInt(integer))
-    .map((part) => (part.type === "fraction" ? fraction : part.value))
+    .map((part) => (part.type === "fraction" ? displayFraction : part.value))
     .join("");
+  return usesCurrencyStyle ? formatted : `${formatted}\u00a0${currency}`;
 }
 
 export function fmtRubles(amount: number, locale: Locale) {

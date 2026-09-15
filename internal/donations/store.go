@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/streambrew-app/streambrew/internal/donatestream"
 	"github.com/streambrew-app/streambrew/internal/donationalert"
+	"github.com/streambrew-app/streambrew/internal/tourniquet"
 )
 
 type Store struct{ pool *pgxpool.Pool }
@@ -308,5 +309,81 @@ func (store *Store) DisconnectDonateStreamIfToken(ctx context.Context, userID in
 	return command.RowsAffected() == 1, err
 }
 
+func (store *Store) TourniquetConnections(ctx context.Context) ([]TourniquetConnection, error) {
+	rows, err := store.pool.Query(ctx, `
+		SELECT user_id, widget_token
+		FROM tourniquet_connection
+		ORDER BY user_id
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	connections := make([]TourniquetConnection, 0)
+	for rows.Next() {
+		var connection TourniquetConnection
+		if err := rows.Scan(&connection.UserID, &connection.WidgetToken); err != nil {
+			return nil, err
+		}
+		connections = append(connections, connection)
+	}
+	return connections, rows.Err()
+}
+
+func (store *Store) SaveTourniquetConnection(ctx context.Context, userID int, connection tourniquet.Connection) error {
+	_, err := store.pool.Exec(ctx, `
+		INSERT INTO tourniquet_connection (user_id, widget_token)
+		VALUES ($1, $2)
+		ON CONFLICT (user_id) DO UPDATE
+		SET
+			widget_token = EXCLUDED.widget_token,
+			updated_at = now()
+	`, userID, connection.WidgetToken)
+	return err
+}
+
+func (store *Store) InsertTourniquetDonations(ctx context.Context, userID int, widgetToken string, donations []tourniquet.Donation, origin IngestionOrigin, acceptedAt time.Time) error {
+	if len(donations) == 0 {
+		return nil
+	}
+	return pgx.BeginFunc(ctx, store.pool, func(tx pgx.Tx) error {
+		var connectionUserID int
+		err := tx.QueryRow(ctx, `
+			SELECT user_id
+			FROM tourniquet_connection
+			WHERE user_id = $1 AND widget_token = $2
+			FOR UPDATE
+		`, userID, widgetToken).Scan(&connectionUserID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrStaleCredentials
+		}
+		if err != nil {
+			return err
+		}
+		values := make([]Donation, 0, len(donations))
+		for _, donation := range donations {
+			values = append(values, Donation{
+				SourceDonationID: donation.SourceDonationID,
+				Author:           donation.Author,
+				Message:          donation.Message,
+				Amount:           donation.Amount,
+				Currency:         donation.Currency,
+				SourceCreatedAt:  donation.SourceCreatedAt,
+				OccurredAt:       donation.OccurredAt,
+			})
+		}
+		return insertDonations(ctx, tx, TourniquetSource, userID, values, origin, acceptedAt)
+	})
+}
+
+func (store *Store) DisconnectTourniquet(ctx context.Context, userID int) error {
+	_, err := store.pool.Exec(ctx, `
+		DELETE FROM tourniquet_connection
+		WHERE user_id = $1
+	`, userID)
+	return err
+}
+
 var _ persistence = (*providerStore)(nil)
 var _ donateStreamPersistence = (*Store)(nil)
+var _ tourniquetPersistence = (*Store)(nil)

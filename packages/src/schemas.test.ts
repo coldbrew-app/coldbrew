@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DonationAmountSchema,
+  DonationAssetSchema,
   DonationSourceSchema,
   MoneyAmountSchema,
   PublicQueueSettingsSchema,
@@ -10,7 +12,25 @@ import {
 
 describe("DonationSourceSchema", () => {
   it("accepts all configured donation sources", () => {
-    expect(DonationSourceSchema.options).toEqual(["donationalerts", "donate_stream", "streamlabs"]);
+    expect(DonationSourceSchema.options).toEqual([
+      "donationalerts",
+      "donate_stream",
+      "streamlabs",
+      "tourniquet",
+    ]);
+  });
+});
+
+describe("DonationAmountSchema", () => {
+  it("preserves crypto precision and trims insignificant zeroes", () => {
+    expect(DonationAmountSchema.parse("0.000123450000000000")).toBe("0.00012345");
+  });
+});
+
+describe("DonationAssetSchema", () => {
+  it("accepts provider asset names and rejects unsafe values", () => {
+    expect(DonationAssetSchema.parse("USDT (TRX)")).toBe("USDT (TRX)");
+    expect(DonationAssetSchema.safeParse("usd").success).toBe(false);
   });
 });
 

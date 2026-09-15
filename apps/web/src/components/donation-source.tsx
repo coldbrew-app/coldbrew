@@ -39,6 +39,12 @@ const sources = {
     name: "Streamlabs",
     url: "https://streamlabs.com/dashboard",
   },
+  tourniquet: {
+    mark: "TQ",
+    markClassName: "from-indigo-500 to-fuchsia-600",
+    name: "Tourniquet",
+    url: "https://tourniquet.app/profile/widgets",
+  },
 } satisfies Record<
   DonationSource,
   { mark: string; markClassName: string; name: string; url: string }

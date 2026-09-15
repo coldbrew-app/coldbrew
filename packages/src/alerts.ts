@@ -1,10 +1,10 @@
 import { z } from "zod";
 
 import {
-  CurrencyCodeSchema,
+  DonationAmountSchema,
+  DonationAssetSchema,
   DonationIdSchema,
   DonationSourceSchema,
-  MoneyAmountSchema,
 } from "./schemas.js";
 
 export const AlertAssetIdSchema = z.uuid().brand("alert asset id");
@@ -93,8 +93,8 @@ export const AlertPlaybackSchema = z.object({
   source: DonationSourceSchema.nullable(),
   author: stringWithMaximumCodePoints(200).nullable(),
   message: stringWithMaximumCodePoints(2_000).nullable(),
-  amount: MoneyAmountSchema,
-  currency: CurrencyCodeSchema,
+  amount: DonationAmountSchema,
+  currency: DonationAssetSchema,
   imageAssetId: AlertAssetIdSchema.nullable(),
   soundAssetId: AlertAssetIdSchema.nullable(),
   ttsAssetId: AlertAssetIdSchema.nullable(),

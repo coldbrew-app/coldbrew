@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/streambrew-app/streambrew/internal/donatestream"
+	"github.com/streambrew-app/streambrew/internal/tourniquet"
 )
 
 const httpTestSecret = "12345678901234567890123456789012"
@@ -39,6 +40,19 @@ func (application *httpTestDonateStreamApplication) Disconnect(_ context.Context
 	return nil
 }
 
+func newHTTPTestHandler(application httpApplication, donateStream, tourniquet httpWidgetApplication, alertHandler http.Handler) *HTTPHandler {
+	if donateStream == nil {
+		donateStream = &httpTestDonateStreamApplication{}
+	}
+	if tourniquet == nil {
+		tourniquet = &httpTestDonateStreamApplication{}
+	}
+	return newHTTPHandler(application, map[Source]httpWidgetApplication{
+		DonateStreamSource: donateStream,
+		TourniquetSource:   tourniquet,
+	}, httpTestSecret, alertHandler)
+}
+
 func (application *httpTestApplication) AuthorizationURL(source Source, redirectURI, state string) (string, error) {
 	application.authorizedSource = source
 	return "https://provider.test/authorize?redirect_uri=" + redirectURI + "&state=" + state, nil
@@ -62,7 +76,7 @@ func authorizedRequest(path, body string) *http.Request {
 }
 
 func TestHTTPHandlerRejectsInvalidSecret(t *testing.T) {
-	handler := newHTTPHandler(&httpTestApplication{}, &httpTestDonateStreamApplication{}, httpTestSecret, nil)
+	handler := newHTTPTestHandler(&httpTestApplication{}, nil, nil, nil)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/internal/disconnect", strings.NewReader(`{"source":"streamlabs","userId":42}`)))
 	if response.Code != http.StatusUnauthorized {
@@ -76,7 +90,7 @@ func TestHTTPHandlerAuthenticatesBeforeDelegatingAlerts(t *testing.T) {
 		called = true
 		response.WriteHeader(http.StatusNoContent)
 	})
-	handler := newHTTPHandler(&httpTestApplication{}, &httpTestDonateStreamApplication{}, httpTestSecret, alertHandler)
+	handler := newHTTPTestHandler(&httpTestApplication{}, nil, nil, alertHandler)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/internal/alerts/dashboard", strings.NewReader(`{"userId":42}`)))
 	if response.Code != http.StatusUnauthorized || called {
@@ -90,7 +104,7 @@ func TestHTTPHandlerAuthenticatesBeforeDelegatingAlerts(t *testing.T) {
 }
 
 func TestHTTPHandlerValidatesConnectInput(t *testing.T) {
-	handler := newHTTPHandler(&httpTestApplication{}, &httpTestDonateStreamApplication{}, httpTestSecret, nil)
+	handler := newHTTPTestHandler(&httpTestApplication{}, nil, nil, nil)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, authorizedRequest("/internal/connect", `{"userId":42,"source":"donationalerts","authCode":"code","redirectUri":"javascript:alert(1)","accessToken":""}`))
 	if response.Code != http.StatusBadRequest {
@@ -99,7 +113,7 @@ func TestHTTPHandlerValidatesConnectInput(t *testing.T) {
 }
 
 func TestHTTPAuthorizationURLRequiresStreamlabsState(t *testing.T) {
-	handler := newHTTPHandler(&httpTestApplication{}, &httpTestDonateStreamApplication{}, httpTestSecret, nil)
+	handler := newHTTPTestHandler(&httpTestApplication{}, nil, nil, nil)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, authorizedRequest("/internal/authorization-url", `{"source":"streamlabs","redirectUri":"https://streambrew.test/callback","state":"short"}`))
 	if response.Code != http.StatusBadRequest {
@@ -109,7 +123,7 @@ func TestHTTPAuthorizationURLRequiresStreamlabsState(t *testing.T) {
 
 func TestHTTPAuthorizationURLRoutesProvider(t *testing.T) {
 	application := &httpTestApplication{}
-	handler := newHTTPHandler(application, &httpTestDonateStreamApplication{}, httpTestSecret, nil)
+	handler := newHTTPTestHandler(application, nil, nil, nil)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, authorizedRequest("/internal/authorization-url", `{"source":"streamlabs","redirectUri":"https://streambrew.test/callback","state":"12345678901234567890123456789012"}`))
 	if response.Code != http.StatusOK || application.authorizedSource != StreamlabsSource {
@@ -119,7 +133,7 @@ func TestHTTPAuthorizationURLRoutesProvider(t *testing.T) {
 
 func TestHTTPDisconnectUsesAuthenticatedOwnerAndSourceOnly(t *testing.T) {
 	application := &httpTestApplication{}
-	handler := newHTTPHandler(application, &httpTestDonateStreamApplication{}, httpTestSecret, nil)
+	handler := newHTTPTestHandler(application, nil, nil, nil)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, authorizedRequest("/internal/disconnect", `{"source":"streamlabs","userId":42}`))
 	if response.Code != http.StatusOK || application.disconnectedUser != 42 || application.disconnectedSource != StreamlabsSource {
@@ -135,7 +149,7 @@ func TestHTTPDisconnectUsesAuthenticatedOwnerAndSourceOnly(t *testing.T) {
 
 func TestHTTPConnectsAndDisconnectsDonateStream(t *testing.T) {
 	donateStream := &httpTestDonateStreamApplication{}
-	handler := newHTTPHandler(&httpTestApplication{}, donateStream, httpTestSecret, nil)
+	handler := newHTTPTestHandler(&httpTestApplication{}, donateStream, nil, nil)
 	response := httptest.NewRecorder()
 	widgetURL := "https://donate.stream/widget-alert?uid=group&token=1234567890abcdef"
 	handler.ServeHTTP(response, authorizedRequest("/internal/connect", `{"userId":42,"source":"donate_stream","authCode":"","redirectUri":"","widgetUrl":"`+widgetURL+`"}`))
@@ -158,9 +172,42 @@ func TestHTTPConnectRejectsInvalidDonateStreamWidgetURL(t *testing.T) {
 			Cause:        errors.New("invalid token"),
 		},
 	}
-	handler := newHTTPHandler(&httpTestApplication{}, donateStream, httpTestSecret, nil)
+	handler := newHTTPTestHandler(&httpTestApplication{}, donateStream, nil, nil)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, authorizedRequest("/internal/connect", `{"userId":42,"source":"donate_stream","authCode":"","redirectUri":"","widgetUrl":"https://donate.stream/widget-alert?uid=group%26token=1234567890abcdef"}`))
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
+	}
+}
+
+func TestHTTPConnectsAndDisconnectsTourniquet(t *testing.T) {
+	tourniquetApplication := &httpTestDonateStreamApplication{}
+	handler := newHTTPTestHandler(&httpTestApplication{}, nil, tourniquetApplication, nil)
+	response := httptest.NewRecorder()
+	widgetURL := "https://tourniquet.app/widgets/alert/AbCdEf0123456789GhIjKlMn"
+	handler.ServeHTTP(response, authorizedRequest("/internal/connect", `{"userId":42,"source":"tourniquet","authCode":"","redirectUri":"","widgetUrl":"`+widgetURL+`"}`))
+	if response.Code != http.StatusOK || tourniquetApplication.connectedUser != 42 || tourniquetApplication.widgetURL != widgetURL {
+		t.Fatalf("status=%d application=%#v", response.Code, tourniquetApplication)
+	}
+
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, authorizedRequest("/internal/disconnect", `{"userId":42,"source":"tourniquet"}`))
+	if response.Code != http.StatusOK || tourniquetApplication.disconnectedUser != 42 {
+		t.Fatalf("status=%d application=%#v", response.Code, tourniquetApplication)
+	}
+}
+
+func TestHTTPConnectRejectsInvalidTourniquetWidgetURL(t *testing.T) {
+	tourniquetApplication := &httpTestDonateStreamApplication{
+		connectErr: &tourniquet.RequestError{
+			InvalidInput: true,
+			Operation:    "parse widget URL",
+			Cause:        errors.New("invalid token"),
+		},
+	}
+	handler := newHTTPTestHandler(&httpTestApplication{}, nil, tourniquetApplication, nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, authorizedRequest("/internal/connect", `{"userId":42,"source":"tourniquet","authCode":"","redirectUri":"","widgetUrl":"https://tourniquet.app/widgets/alert/short"}`))
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
 	}

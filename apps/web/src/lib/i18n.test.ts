@@ -1,4 +1,9 @@
-import { CurrencyCodeSchema, MoneyAmountSchema } from "@streambrew/packages/schemas.js";
+import {
+  CurrencyCodeSchema,
+  DonationAmountSchema,
+  DonationAssetSchema,
+  MoneyAmountSchema,
+} from "@streambrew/packages/schemas.js";
 import { describe, expect, it } from "vitest";
 
 import { fmtAmount, fmtDate, fmtListDate, fmtRubles, formatMoneyInputValue } from "./fmt";
@@ -91,6 +96,16 @@ describe("localized formatters", () => {
     expect(fmtAmount(MoneyAmountSchema.parse("9007199254740993.42"), usd, "en")).toBe(
       "$9,007,199,254,740,993.42",
     );
+  });
+
+  it("formats crypto assets with their original precision", () => {
+    expect(
+      fmtAmount(
+        DonationAmountSchema.parse("0.000123450000000000"),
+        DonationAssetSchema.parse("USDT (TRX)"),
+        "en",
+      ),
+    ).toBe("0.00012345\u00a0USDT (TRX)");
   });
 
   it.each([

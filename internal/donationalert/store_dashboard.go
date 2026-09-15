@@ -217,6 +217,9 @@ func (store *Store) Dashboard(ctx context.Context, userID int, now time.Time) (D
 			UNION ALL
 			SELECT 'streamlabs'::text
 			WHERE EXISTS (SELECT 1 FROM streamlabs_connection WHERE user_id = $1)
+			UNION ALL
+			SELECT 'tourniquet'::text
+			WHERE EXISTS (SELECT 1 FROM tourniquet_connection WHERE user_id = $1)
 		) AS connected
 		ORDER BY source
 	`, userID)

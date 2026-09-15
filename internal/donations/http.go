@@ -17,24 +17,27 @@ type httpApplication interface {
 	Disconnect(context.Context, Source, int) error
 }
 
-type httpDonateStreamApplication interface {
+type httpWidgetApplication interface {
 	Connect(context.Context, int, string) error
 	Disconnect(context.Context, int) error
 }
 
 type HTTPHandler struct {
 	application   httpApplication
-	donateStream  httpDonateStreamApplication
+	widgetSources map[Source]httpWidgetApplication
 	serviceSecret string
 	alertHandler  http.Handler
 }
 
-func NewHTTPHandler(application *Application, donateStream *DonateStreamApplication, serviceSecret string, alertHandler http.Handler) *HTTPHandler {
-	return newHTTPHandler(application, donateStream, serviceSecret, alertHandler)
+func NewHTTPHandler(application *Application, donateStream *DonateStreamApplication, tourniquet *TourniquetApplication, serviceSecret string, alertHandler http.Handler) *HTTPHandler {
+	return newHTTPHandler(application, map[Source]httpWidgetApplication{
+		DonateStreamSource: donateStream,
+		TourniquetSource:   tourniquet,
+	}, serviceSecret, alertHandler)
 }
 
-func newHTTPHandler(application httpApplication, donateStream httpDonateStreamApplication, serviceSecret string, alertHandler http.Handler) *HTTPHandler {
-	return &HTTPHandler{application: application, donateStream: donateStream, serviceSecret: serviceSecret, alertHandler: alertHandler}
+func newHTTPHandler(application httpApplication, widgetSources map[Source]httpWidgetApplication, serviceSecret string, alertHandler http.Handler) *HTTPHandler {
+	return &HTTPHandler{application: application, widgetSources: widgetSources, serviceSecret: serviceSecret, alertHandler: alertHandler}
 }
 
 func (handler *HTTPHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
@@ -72,7 +75,7 @@ func (handler *HTTPHandler) handleAuthorizationURL(response http.ResponseWriter,
 		return
 	}
 	source, validSource := parseSource(input.Source)
-	if !validSource || source == DonateStreamSource || !validRedirectURI(input.RedirectURI) || (source == StreamlabsSource && !validOAuthState(input.State)) {
+	if !validSource || handler.widgetSources[source] != nil || !validRedirectURI(input.RedirectURI) || (source == StreamlabsSource && !validOAuthState(input.State)) {
 		writeError(response, http.StatusBadRequest, "invalid OAuth authorization request")
 		return
 	}
@@ -109,18 +112,18 @@ func (handler *HTTPHandler) handleConnect(response http.ResponseWriter, request 
 		writeError(response, http.StatusBadRequest, "invalid donation source")
 		return
 	}
-	if source == DonateStreamSource {
+	if widgetSource := handler.widgetSources[source]; widgetSource != nil {
 		if len(input.WidgetURL) == 0 || len(input.WidgetURL) > 4096 || input.AuthCode != "" || input.RedirectURI != "" {
 			writeError(response, http.StatusBadRequest, "invalid widget connection request")
 			return
 		}
-		if err := handler.donateStream.Connect(request.Context(), input.UserID, input.WidgetURL); err != nil {
-			slog.Error("donate.stream connection failed", "userId", input.UserID, "error", err)
-			if donateStreamInvalidInput(err) || donateStreamUnauthorized(err) {
-				writeError(response, http.StatusBadRequest, "invalid donate.stream widget URL")
+		if err := widgetSource.Connect(request.Context(), input.UserID, input.WidgetURL); err != nil {
+			slog.Error(source.displayName()+" connection failed", "userId", input.UserID, "error", err)
+			if invalidWidgetSourceInput(source, err) {
+				writeError(response, http.StatusBadRequest, "invalid "+source.displayName()+" widget URL")
 				return
 			}
-			writeError(response, http.StatusBadGateway, "donate.stream connection failed")
+			writeError(response, http.StatusBadGateway, source.displayName()+" connection failed")
 			return
 		}
 	} else {
@@ -151,8 +154,8 @@ func (handler *HTTPHandler) handleDisconnect(response http.ResponseWriter, reque
 		return
 	}
 	var err error
-	if source == DonateStreamSource {
-		err = handler.donateStream.Disconnect(request.Context(), input.UserID)
+	if widgetSource := handler.widgetSources[source]; widgetSource != nil {
+		err = widgetSource.Disconnect(request.Context(), input.UserID)
 	} else {
 		err = handler.application.Disconnect(request.Context(), source, input.UserID)
 	}
@@ -162,6 +165,17 @@ func (handler *HTTPHandler) handleDisconnect(response http.ResponseWriter, reque
 		return
 	}
 	writeJSON(response, http.StatusOK, nil)
+}
+
+func invalidWidgetSourceInput(source Source, err error) bool {
+	switch source {
+	case DonateStreamSource:
+		return donateStreamInvalidInput(err) || donateStreamUnauthorized(err)
+	case TourniquetSource:
+		return tourniquetInvalidInput(err)
+	default:
+		return false
+	}
 }
 
 func decodeInput(response http.ResponseWriter, request *http.Request, value any) bool {
@@ -207,4 +221,5 @@ func writeJSON(response http.ResponseWriter, status int, value any) {
 
 var _ http.Handler = (*HTTPHandler)(nil)
 var _ httpApplication = (*Application)(nil)
-var _ httpDonateStreamApplication = (*DonateStreamApplication)(nil)
+var _ httpWidgetApplication = (*DonateStreamApplication)(nil)
+var _ httpWidgetApplication = (*TourniquetApplication)(nil)

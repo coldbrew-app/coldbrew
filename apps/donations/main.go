@@ -20,6 +20,7 @@ import (
 	"github.com/streambrew-app/streambrew/internal/donations"
 	"github.com/streambrew-app/streambrew/internal/observability"
 	"github.com/streambrew-app/streambrew/internal/streamlabs"
+	"github.com/streambrew-app/streambrew/internal/tourniquet"
 )
 
 func main() {
@@ -76,19 +77,21 @@ func run() error {
 		streamlabsProvider,
 	)
 	donateStreamApplication := donations.NewDonateStreamApplication(store, donatestream.NewSource())
+	tourniquetApplication := donations.NewTourniquetApplication(store, tourniquet.NewSource())
 	alertStore := donationalert.NewStore(pool)
 	alertApplication := donationalert.NewApplication(alertStore, donationalert.NewFFmpegMediaProcessor())
 	alertWorker := donationalert.NewWorker(alertStore, donationalert.NewESpeakSynthesizer())
 	alertRetentionWorker := donationalert.NewRetentionWorker(alertStore)
 	server := &http.Server{
 		Addr:              ":" + strconv.Itoa(config.port),
-		Handler:           donations.NewHTTPHandler(oauthApplication, donateStreamApplication, config.serviceSecret, donationalert.NewHTTPHandler(alertApplication)),
+		Handler:           donations.NewHTTPHandler(oauthApplication, donateStreamApplication, tourniquetApplication, config.serviceSecret, donationalert.NewHTTPHandler(alertApplication)),
 		ReadTimeout:       30 * time.Second,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
-	workerErrors := make(chan error, 4)
+	workerErrors := make(chan error, 5)
 	go func() { workerErrors <- oauthApplication.Run(ctx) }()
 	go func() { workerErrors <- donateStreamApplication.Run(ctx) }()
+	go func() { workerErrors <- tourniquetApplication.Run(ctx) }()
 	go func() { workerErrors <- alertWorker.Run(ctx) }()
 	go func() { workerErrors <- alertRetentionWorker.Run(ctx) }()
 	serverErrors := make(chan error, 1)
@@ -118,7 +121,7 @@ func run() error {
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		shutdownErr = fmt.Errorf("shutdown donations HTTP: %w", err)
 	}
-	for workersFinished < 4 {
+	for workersFinished < 5 {
 		if err := <-workerErrors; err != nil {
 			runErr = errors.Join(runErr, fmt.Errorf("stop donation integration worker: %w", err))
 		}

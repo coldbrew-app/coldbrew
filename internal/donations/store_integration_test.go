@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/streambrew-app/streambrew/internal/donatestream"
 	"github.com/streambrew-app/streambrew/internal/donationalert"
+	"github.com/streambrew-app/streambrew/internal/tourniquet"
 )
 
 var donationTestSchemaSequence atomic.Uint64
@@ -191,6 +192,61 @@ func TestDonateStreamIngestionRequiresCurrentConnectionToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertPlaybackIDs(t, pool, []string{"donate-stream-live"})
+}
+
+func TestTourniquetIngestionIsIdempotentAndRequiresCurrentConnectionToken(t *testing.T) {
+	store, pool := newDonationIntegrationStore(t)
+	seedDonationUser(t, pool, 1)
+	ctx := context.Background()
+	alertStore := donationalert.NewStore(pool)
+	settings := donationalert.DefaultSettings()
+	settings.Enabled = true
+	if _, err := alertStore.UpdateSettings(ctx, 1, settings); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveTourniquetConnection(ctx, 1, tourniquet.Connection{WidgetToken: "current-token-1234"}); err != nil {
+		t.Fatal(err)
+	}
+
+	now := time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC)
+	donation := tourniquet.Donation{
+		SourceDonationID: "tourniquet-live",
+		Amount:           "0.00012345",
+		Currency:         "USDT (TRX)",
+		SourceCreatedAt:  "2026-09-15 12:00:00",
+		OccurredAt:       now,
+	}
+	if err := store.InsertTourniquetDonations(ctx, 1, "stale-token-1234", []tourniquet.Donation{donation}, LiveOrigin, now); !errors.Is(err, ErrStaleCredentials) {
+		t.Fatalf("stale token error = %v", err)
+	}
+	if err := store.InsertTourniquetDonations(ctx, 1, "current-token-1234", []tourniquet.Donation{donation, donation}, LiveOrigin, now); err != nil {
+		t.Fatal(err)
+	}
+	assertPlaybackIDs(t, pool, []string{"tourniquet-live"})
+
+	var amount, currency, sourceCreatedAt string
+	if err := pool.QueryRow(ctx, `
+		SELECT amount::text, currency::text, source_created_at
+		FROM donation
+		WHERE source = 'tourniquet' AND source_donation_id = 'tourniquet-live'
+	`).Scan(&amount, &currency, &sourceCreatedAt); err != nil {
+		t.Fatal(err)
+	}
+	if amount != "0.000123450000000000" || currency != "USDT (TRX)" || sourceCreatedAt != donation.SourceCreatedAt {
+		t.Fatalf("amount=%q currency=%q sourceCreatedAt=%q", amount, currency, sourceCreatedAt)
+	}
+	var pendingVideoScans int
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*)
+		FROM donation_video_scan
+		JOIN donation USING (donation_id)
+		WHERE donation.source = 'tourniquet'
+	`).Scan(&pendingVideoScans); err != nil {
+		t.Fatal(err)
+	}
+	if pendingVideoScans != 1 {
+		t.Fatalf("pending video scans = %d, want 1", pendingVideoScans)
+	}
 }
 
 func TestIncomingAlertBoundsDonorControlledSnapshot(t *testing.T) {
