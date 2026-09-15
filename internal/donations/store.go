@@ -30,8 +30,8 @@ func (store *Store) forSource(source Source) *providerStore {
 	switch source {
 	case DonationAlertsSource:
 		table = "donationalerts_connection"
-	case DonateStreamSource:
-		panic("donate.stream uses its dedicated store")
+	case DonateStreamSource, TourniquetSource:
+		panic(source.displayName() + " uses its dedicated store")
 	case StreamlabsSource:
 		table = "streamlabs_connection"
 	default:

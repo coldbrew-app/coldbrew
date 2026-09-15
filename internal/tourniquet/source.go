@@ -50,17 +50,18 @@ func (source *Source) Run(ctx context.Context, widgetToken string, emit func(Don
 		if emitted {
 			retryDelay = source.retryStart
 		}
-		if ctx.Err() != nil {
+		if contextDone(ctx) {
 			return nil
 		}
 		if err != nil {
 			slog.Warn("Tourniquet listener will reconnect", "error", err, "retry", retryDelay)
 		}
-		if err := source.wait(ctx, retryDelay); err != nil {
-			if ctx.Err() != nil {
-				return nil
-			}
-			return fmt.Errorf("wait before reconnecting Tourniquet listener: %w", err)
+		waitErr := source.wait(ctx, retryDelay)
+		if contextDone(ctx) {
+			return nil
+		}
+		if waitErr != nil {
+			return fmt.Errorf("wait before reconnecting Tourniquet listener: %w", waitErr)
 		}
 		retryDelay = min(retryDelay*2, source.retryMax)
 	}
@@ -114,7 +115,7 @@ func (source *Source) runSession(ctx context.Context, widgetToken string, emit f
 			}
 			emitted = true
 		case "pusher:error":
-			return emitted, errors.New("Tourniquet websocket reported an error")
+			return emitted, errors.New("tourniquet websocket reported an error")
 		}
 	}
 	return emitted, nil
@@ -161,6 +162,8 @@ func writeEnvelope(ctx context.Context, socket Socket, event string, data any) e
 	}
 	return nil
 }
+
+func contextDone(ctx context.Context) bool { return ctx.Err() != nil }
 
 func waitContext(ctx context.Context, duration time.Duration) error {
 	timer := time.NewTimer(duration)
