@@ -293,10 +293,10 @@ function Overview() {
                       {t("manage")} <Icons.chevronRight aria-hidden="true" size={16} />
                     </Link>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="grid gap-2 sm:grid-cols-2">
                     <div className="flex min-w-0 items-center gap-2 rounded-xl bg-muted/55 p-2.5">
                       <DonationAlertsMark />
-                      <span className="truncate text-xs font-semibold text-card-foreground">
+                      <span className="min-w-0 grow truncate text-xs font-semibold text-card-foreground">
                         <DonationAlertsNameLink />
                       </span>
                       <DonationAlertsConnectionStatus connected={donationAlertsConnected} />
@@ -310,7 +310,7 @@ function Overview() {
                     </div>
                     <div className="flex min-w-0 items-center gap-2 rounded-xl bg-muted/55 p-2.5">
                       <StreamlabsMark />
-                      <span className="truncate text-xs font-semibold text-card-foreground">
+                      <span className="min-w-0 grow truncate text-xs font-semibold text-card-foreground">
                         <StreamlabsNameLink />
                       </span>
                       <StreamlabsConnectionStatus connected={streamlabsConnected} />
