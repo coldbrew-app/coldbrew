@@ -95,6 +95,11 @@ one hour after the previous pass finishes. Each user retains at most 100
 preparing or pending items; older overflow is marked expired. Opening OBS
 therefore cannot play an unbounded stale burst.
 
+Widget-link integrations without a provider history API are live-only and do
+not run recovery. In particular, Tourniquet cannot import donations created
+before connection or recover events missed during a disconnect; see
+[Tourniquet donation integration](tourniquet.md#available-integration-surface).
+
 ## Queue and playback
 
 The donation and presentation fields of an active playback are snapshots. They include
