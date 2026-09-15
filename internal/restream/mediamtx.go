@@ -39,12 +39,12 @@ func (client *MediaMTXClient) Configure(ctx context.Context, path string, destin
 	payload := map[string]any{
 		"source": "publisher", "overridePublisher": false, "forward": forward,
 	}
-	status, err := client.request(ctx, http.MethodPatch, "/v3/config/paths/patch/"+url.PathEscape(path), payload, nil)
+	status, err := client.request(ctx, http.MethodPost, "/v3/config/paths/add/"+url.PathEscape(path), payload, nil)
 	if err != nil {
 		return err
 	}
-	if status == http.StatusNotFound {
-		status, err = client.request(ctx, http.MethodPost, "/v3/config/paths/add/"+url.PathEscape(path), payload, nil)
+	if status == http.StatusBadRequest {
+		status, err = client.request(ctx, http.MethodPatch, "/v3/config/paths/patch/"+url.PathEscape(path), payload, nil)
 		if err != nil {
 			return err
 		}

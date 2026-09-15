@@ -27,7 +27,7 @@ func TestMediaMTXClientConfiguresNativeForward(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if method != http.MethodPatch || path != "/v3/config/paths/patch/sb_stream-key" {
+	if method != http.MethodPost || path != "/v3/config/paths/add/sb_stream-key" {
 		t.Fatalf("request = %s %s", method, path)
 	}
 	if payload["source"] != "publisher" || payload["overridePublisher"] != false {
@@ -40,6 +40,34 @@ func TestMediaMTXClientConfiguresNativeForward(t *testing.T) {
 	forwardDestination, ok := forward[0].(map[string]any)
 	if !ok || forwardDestination["dest"] != "rtmps://8.8.8.8/app#secret" {
 		t.Fatalf("forward payload = %#v", payload["forward"])
+	}
+}
+
+func TestMediaMTXClientPatchesAnExistingForward(t *testing.T) {
+	var requests []string
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		requests = append(requests, request.Method+" "+request.URL.Path)
+		if request.Method == http.MethodPost {
+			response.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		response.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	client := NewMediaMTXClient(server.URL, server.Client())
+
+	err := client.Configure(context.Background(), "sb_stream-key", []Destination{
+		{ID: "destination-1", TargetURL: "rtmps://8.8.8.8/app#secret"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := []string{
+		"POST /v3/config/paths/add/sb_stream-key",
+		"PATCH /v3/config/paths/patch/sb_stream-key",
+	}
+	if len(requests) != len(expected) || requests[0] != expected[0] || requests[1] != expected[1] {
+		t.Fatalf("requests = %#v", requests)
 	}
 }
 
