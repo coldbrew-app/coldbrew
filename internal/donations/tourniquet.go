@@ -78,7 +78,7 @@ func (application *TourniquetApplication) listen(ctx context.Context, connection
 	err := application.provider.Run(ctx, connection.WidgetToken, func(donation tourniquet.Donation) error {
 		return application.store.InsertTourniquetDonations(ctx, connection.UserID, connection.WidgetToken, []tourniquet.Donation{donation}, LiveOrigin, application.now())
 	})
-	if ctx.Err() != nil {
+	if contextDone(ctx) {
 		return nil
 	}
 	return err
