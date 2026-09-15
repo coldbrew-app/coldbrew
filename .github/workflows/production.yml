@@ -134,6 +134,10 @@ jobs:
 
   deploy:
     name: Deploy to VPS
+    if: >-
+      always() &&
+      needs.resolve.result == 'success' &&
+      needs.publish.result == 'success'
     needs:
       - resolve
       - publish
