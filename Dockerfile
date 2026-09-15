@@ -28,20 +28,16 @@ COPY apps/chat ./apps/chat
 COPY apps/alerts ./apps/alerts
 COPY internal ./internal
 
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/video ./apps/video
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/donations ./apps/donations
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/chat ./apps/chat
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/alerts ./apps/alerts
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/ \
+    ./apps/video ./apps/donations ./apps/chat ./apps/alerts
 
-FROM oven/bun:1.3.14 AS runtime
+FROM oven/bun:1.3.14-alpine AS runtime
 
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-RUN apt-get update \
-    && apt-get install --yes --no-install-recommends espeak-ng ffmpeg \
-    && rm -rf /var/lib/apt/lists/* \
+RUN apk add --no-cache espeak-ng ffmpeg \
     && espeak-ng --version \
     && ffmpeg -version >/dev/null \
     && ffprobe -version >/dev/null \
@@ -55,10 +51,6 @@ RUN apt-get update \
         -of default=nokey=1:noprint_wrappers=1 /tmp/streambrew-tts-smoke.ogg)" = opus \
     && rm -f /tmp/streambrew-tts-smoke.wav /tmp/streambrew-tts-smoke.ogg
 
-COPY --from=dependencies --chown=bun:bun /app/node_modules ./node_modules
-COPY --from=build --chown=bun:bun /app/package.json ./package.json
-COPY --from=build --chown=bun:bun /app/packages ./packages
-COPY --from=build --chown=bun:bun /app/apps/web/package.json ./apps/web/package.json
 COPY --from=build --chown=bun:bun /app/apps/web/.output ./apps/web/.output
 COPY --from=go-build --chown=bun:bun /out/chat ./bin/chat
 COPY --from=go-build --chown=bun:bun /out/alerts ./bin/alerts

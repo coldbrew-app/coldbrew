@@ -43,6 +43,7 @@ jobs:
 
   quality:
     name: CI
+    if: github.event_name == 'workflow_dispatch'
     needs: resolve
     permissions:
       contents: read
@@ -52,6 +53,10 @@ jobs:
 
   publish:
     name: Publish production images
+    if: >-
+      always() &&
+      needs.resolve.result == 'success' &&
+      (github.event_name == 'push' || needs.quality.result == 'success')
     needs:
       - resolve
       - quality
@@ -75,7 +80,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Check for existing application image
+        id: application_image
+        run: |
+          if docker buildx imagetools inspect \
+            "ghcr.io/${{ github.repository_owner }}/streambrew:${{ needs.resolve.outputs.sha }}" \
+            >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build and publish application image
+        if: steps.application_image.outputs.exists != 'true'
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
@@ -87,7 +104,7 @@ jobs:
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ needs.resolve.outputs.sha }}
           cache-from: type=gha,scope=application
-          cache-to: type=gha,mode=max,scope=application
+          cache-to: type=gha,mode=max,scope=application,timeout=1m,ignore-error=true
 
       - name: Check for existing PostgreSQL WAL-G image
         id: postgres_image
@@ -113,7 +130,7 @@ jobs:
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ needs.resolve.outputs.sha }}
           cache-from: type=gha,scope=postgres-walg
-          cache-to: type=gha,mode=max,scope=postgres-walg
+          cache-to: type=gha,mode=max,scope=postgres-walg,timeout=1m,ignore-error=true
 
   deploy:
     name: Deploy to VPS
@@ -197,7 +214,7 @@ jobs:
           WALG_KEEP_FULL_BACKUPS: ${{ vars.WALG_KEEP_FULL_BACKUPS }}
           WALG_S3_PREFIX: ${{ vars.WALG_S3_PREFIX }}
         run: |
-          node --input-type=module - "$RUNNER_TEMP/production.env" <<'NODE'
+          node --input-type=module - "$RUNNER_TEMP/$REMOTE_ENV_FILE" <<'NODE'
           import { writeFileSync } from "node:fs"
 
           const outputPath = process.argv[2]
@@ -285,6 +302,8 @@ jobs:
               optional.filter((name) => process.env[name]).map((name) => [name, process.env[name]]),
             ),
             DATABASE_URL: databaseUrl,
+            STREAMBREW_IMAGE: process.env.APP_IMAGE,
+            STREAMBREW_POSTGRES_IMAGE: process.env.POSTGRES_IMAGE,
           }
           const quote = (value) => `'${value.replaceAll("'", "\\'")}'`
           const contents = Object.entries(values)
@@ -294,23 +313,16 @@ jobs:
           writeFileSync(outputPath, `${contents}\n`, { encoding: "utf8", mode: 0o600 })
           NODE
 
+          printf '%s' "$GHCR_TOKEN" > "$RUNNER_TEMP/$REMOTE_GHCR_TOKEN_FILE"
+          chmod 600 "$RUNNER_TEMP/$REMOTE_GHCR_TOKEN_FILE"
           scp \
             -i "$RUNNER_TEMP/deploy_key" \
             -P "$SSH_PORT" \
             -o BatchMode=yes \
             -o IdentitiesOnly=yes \
-            "$RUNNER_TEMP/production.env" \
-            "$SSH_USER@$SSH_HOST:$REMOTE_ENV_FILE"
-
-          printf '%s' "$GHCR_TOKEN" > "$RUNNER_TEMP/ghcr-token"
-          chmod 600 "$RUNNER_TEMP/ghcr-token"
-          scp \
-            -i "$RUNNER_TEMP/deploy_key" \
-            -P "$SSH_PORT" \
-            -o BatchMode=yes \
-            -o IdentitiesOnly=yes \
-            "$RUNNER_TEMP/ghcr-token" \
-            "$SSH_USER@$SSH_HOST:$REMOTE_GHCR_TOKEN_FILE"
+            "$RUNNER_TEMP/$REMOTE_ENV_FILE" \
+            "$RUNNER_TEMP/$REMOTE_GHCR_TOKEN_FILE" \
+            "$SSH_USER@$SSH_HOST:"
 
       - name: Deploy immutable images
         run: |
@@ -430,6 +442,11 @@ jobs:
             migrations_changed=false
           fi
 
+          caddy_changed=true
+          if [[ -n "$previous_sha" ]] && git diff --quiet "$previous_sha" "$target_sha" -- Caddyfile; then
+            caddy_changed=false
+          fi
+
           if [[ "$migrations_changed" == true && "$migrations_applied" != true ]]; then
             echo "db/migrations differs from the deployed revision." >&2
             echo "Apply the target migrations on the VPS, then manually run this workflow" >&2
@@ -446,7 +463,9 @@ jobs:
             docker compose stop web video
           fi
 
-          if just production-deploy "$app_image" "$postgres_image"; then
+          if STREAMBREW_DEPLOY_ENV_PREPARED=true \
+            STREAMBREW_RECREATE_CADDY="$caddy_changed" \
+            just production-deploy "$app_image" "$postgres_image"; then
             printf '%s\n' "$target_sha" > .deployed-sha
             exit 0
           fi
@@ -471,7 +490,9 @@ jobs:
               echo "Using the pre-rename PostgreSQL package for the first StreamBrew rollback."
             fi
 
-            just production-deploy \
+            STREAMBREW_DEPLOY_ENV_PREPARED=true \
+              STREAMBREW_RECREATE_CADDY="$caddy_changed" \
+              just production-deploy \
               "$rollback_app_image" \
               "$rollback_postgres_image" || \
               echo "Automatic rollback also failed; inspect the VPS immediately." >&2
