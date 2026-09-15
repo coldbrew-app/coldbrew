@@ -353,6 +353,21 @@ func TestHistorySyncUsesRecoveryOrigin(t *testing.T) {
 	}
 }
 
+func TestPermanentHistoryFailureMarksOnlyMatchingConnectionVersion(t *testing.T) {
+	store := &applicationTestStore{connections: []Connection{{
+		UserID: 42, AccessToken: "access", TokenVersion: 3,
+	}}}
+	provider := testProvider()
+	provider.historyErr = &permanentTestError{}
+	integration := newIntegration(store, provider)
+
+	integration.syncHistory(context.Background(), false)
+
+	if store.connectionErrorUser != 42 || store.connectionErrorVersion != 3 {
+		t.Fatalf("conditional error user=%d version=%d", store.connectionErrorUser, store.connectionErrorVersion)
+	}
+}
+
 type recoveryIsolationStore struct {
 	applicationTestStore
 	saved chan<- int
