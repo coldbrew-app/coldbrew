@@ -63,7 +63,7 @@ export class RestreamStore {
       `,
       this.sql`
         SELECT
-          restream_destination_id,
+          restream_destination_id AS destination_id,
           platform,
           label,
           server_url,
@@ -76,7 +76,7 @@ export class RestreamStore {
       `,
       this.sql`
         SELECT
-          restream_session_id,
+          restream_session_id AS session_id,
           status,
           started_at,
           live_at,
@@ -122,7 +122,10 @@ export class RestreamStore {
 
   private async sessionDestinations(sessionId: string) {
     const rows = await this.sql`
-      SELECT restream_destination_id, state, outbound_bytes
+      SELECT
+        restream_destination_id AS destination_id,
+        state,
+        outbound_bytes
       FROM restream_session_destination
       WHERE restream_session_id = ${sessionId}
       ORDER BY restream_destination_id
@@ -197,7 +200,7 @@ export class RestreamStore {
           ${streamKeyHint(input.streamKey)},
           ${count}
         )
-        RETURNING restream_destination_id
+        RETURNING restream_destination_id AS destination_id
       `;
       const schema = z.object({ destinationId: RestreamDestinationIdSchema });
       return schema.parse(rows[0]).destinationId;
@@ -303,7 +306,7 @@ export class RestreamStore {
 
       const destinationRows = await sql`
         SELECT
-          restream_destination_id,
+          restream_destination_id AS destination_id,
           server_url,
           stream_key_ciphertext
         FROM restream_destination
@@ -328,7 +331,7 @@ export class RestreamStore {
       const sessionRows = await sql`
         INSERT INTO restream_session (user_id, node_id, publisher_id)
         VALUES (${ingest.userId}, ${nodeId}, ${publisherId})
-        RETURNING restream_session_id
+        RETURNING restream_session_id AS session_id
       `;
       const sessionSchema = z.object({ sessionId: RestreamSessionIdSchema });
       const { sessionId } = sessionSchema.parse(sessionRows[0]);

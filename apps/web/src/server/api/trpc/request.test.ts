@@ -12,6 +12,8 @@ describe("tRPC request body boundary", () => {
     const bounded = await boundTrpcRequest(request);
 
     expect(bounded).toBeInstanceOf(Request);
+    expect((bounded as Request).url).toBe(request.url);
+    expect((bounded as Request).headers.get("content-length")).toBeNull();
     await expect((bounded as Request).text()).resolves.toBe('{"token":"secret"}');
   });
 
