@@ -129,10 +129,10 @@ services:
           "CMD-SHELL",
           'bun -e ''fetch("http://127.0.0.1:3000/api/health").then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))''',
         ]
-      interval: 15s
+      interval: 3s
       timeout: 3s
-      retries: 5
-      start_period: 15s
+      retries: 20
+      start_period: 5s
     mem_limit: 512m
     cpus: 0.75
 
@@ -155,10 +155,10 @@ services:
           "CMD-SHELL",
           'bun -e ''fetch("http://127.0.0.1:3001/health").then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))''',
         ]
-      interval: 15s
+      interval: 3s
       timeout: 3s
-      retries: 5
-      start_period: 15s
+      retries: 20
+      start_period: 5s
     mem_limit: 512m
     cpus: 0.75
 
@@ -193,10 +193,10 @@ services:
           "CMD-SHELL",
           'bun -e ''fetch("http://127.0.0.1:3002/health").then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))''',
         ]
-      interval: 15s
+      interval: 3s
       timeout: 3s
-      retries: 5
-      start_period: 15s
+      retries: 20
+      start_period: 5s
     mem_limit: 384m
     cpus: 0.5
 

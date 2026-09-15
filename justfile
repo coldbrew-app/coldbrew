@@ -86,10 +86,14 @@ lint-ts:
 
 [script("bash", "-euo", "pipefail")]
 lint-go:
-  go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2 run
+  if command -v golangci-lint >/dev/null 2>&1; then
+    golangci-lint run
+  else
+    go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2 run
+  fi
   stderr_file="$(mktemp)"
   trap 'rm -f "$stderr_file"' EXIT
-  if ! diagnostics="$(rg --files --glob '*.go' | xargs go tool gopls check 2>"$stderr_file")"; then
+  if ! diagnostics="$(git ls-files --cached --others --exclude-standard -z -- '*.go' | xargs -0 go tool gopls check 2>"$stderr_file")"; then
     cat "$stderr_file" >&2
     printf '%s\n' "$diagnostics" >&2
     exit 1
@@ -141,16 +145,19 @@ production-deploy $app_image $postgres_image:
   export STREAMBREW_IMAGE="$app_image"
   export STREAMBREW_POSTGRES_IMAGE="$postgres_image"
 
-  # Keep manual Compose operations and host restarts on the deployed immutable images.
-  bunx dotenvx set -f .env --plain STREAMBREW_IMAGE "$STREAMBREW_IMAGE"
-  bunx dotenvx set -f .env --plain STREAMBREW_POSTGRES_IMAGE "$STREAMBREW_POSTGRES_IMAGE"
+  if [[ "${STREAMBREW_DEPLOY_ENV_PREPARED:-false}" != true ]]; then
+    # Keep manual Compose operations and host restarts on the deployed images.
+    bunx dotenvx set -f .env --plain STREAMBREW_IMAGE "$STREAMBREW_IMAGE"
+    bunx dotenvx set -f .env --plain STREAMBREW_POSTGRES_IMAGE "$STREAMBREW_POSTGRES_IMAGE"
+  fi
 
   docker compose pull postgres web
   docker compose up --no-build --detach --wait --wait-timeout 180 --remove-orphans
-  # Git may replace the bind-mounted Caddyfile inode without Compose detecting
-  # a service change. Recreate Caddy so it mounts the checked-out revision.
-  # The same recipe also recreates it with the previous file during rollback.
-  docker compose up --no-build --detach --wait --wait-timeout 180 --force-recreate --no-deps caddy
+  if [[ "${STREAMBREW_RECREATE_CADDY:-true}" == true ]]; then
+    # Git may replace the bind-mounted Caddyfile inode without Compose detecting
+    # a service change. Recreate Caddy so it mounts the checked-out revision.
+    docker compose up --no-build --detach --wait --wait-timeout 180 --force-recreate --no-deps caddy
+  fi
   bunx dotenvx run -f .env --overload -- \
     bash -c 'curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 3 --retry-connrefused "${APP_DOMAIN%/}/api/health" >/dev/null'
   bunx dotenvx run -f .env --overload -- \

@@ -16,45 +16,32 @@ on:
 
 permissions: {}
 
+env:
+  APP_DOMAIN: http://localhost:3000
+  BETTER_AUTH_SECRET: ci-only-secret-at-least-thirty-two-characters
+  CHAT_SERVICE_SECRET: ci-only-chat-service-secret-at-least-thirty-two-characters
+  CHAT_SERVICE_URL: http://127.0.0.1:3001
+  CHAT_TOKEN_ENCRYPTION_SECRET: ci-only-chat-token-encryption-secret-at-least-thirty-two-characters
+  CHAT_STORE_TEST_DATABASE_URL: postgresql://streambrew:streambrew@127.0.0.1:5432/streambrew
+  VIDEO_INGEST_TEST_DATABASE_URL: postgresql://streambrew:streambrew@127.0.0.1:5432/streambrew?sslmode=disable
+  DATABASE_URL: postgresql://streambrew:streambrew@127.0.0.1:5432/streambrew?sslmode=disable
+  DONATION_ALERTS_CLIENT_ID: "1"
+  DONATION_ALERTS_CLIENT_SECRET: ci-only
+  STREAMLABS_CLIENT_ID: ci-only
+  STREAMLABS_CLIENT_SECRET: ci-only
+  DONATIONS_SERVICE_SECRET: ci-only-donations-service-secret-at-least-thirty-two-characters
+  DONATIONS_SERVICE_URL: http://127.0.0.1:3002
+  GOOGLE_CLIENT_ID: ci-only
+  GOOGLE_CLIENT_SECRET: ci-only
+  YOUTUBE_CLIENT_ID: ci-only
+  YOUTUBE_CLIENT_SECRET: ci-only
+
 jobs:
-  quality:
-    name: Quality checks
+  static:
+    name: Static checks
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_DB: streambrew
-          POSTGRES_USER: streambrew
-          POSTGRES_PASSWORD: streambrew
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U streambrew -d streambrew"
-          --health-interval 1s
-          --health-timeout 3s
-          --health-retries 30
     permissions:
       contents: read
-    env:
-      APP_DOMAIN: http://localhost:3000
-      BETTER_AUTH_SECRET: ci-only-secret-at-least-thirty-two-characters
-      CHAT_SERVICE_SECRET: ci-only-chat-service-secret-at-least-thirty-two-characters
-      CHAT_SERVICE_URL: http://127.0.0.1:3001
-      CHAT_TOKEN_ENCRYPTION_SECRET: ci-only-chat-token-encryption-secret-at-least-thirty-two-characters
-      CHAT_STORE_TEST_DATABASE_URL: postgresql://streambrew:streambrew@127.0.0.1:5432/streambrew
-      VIDEO_INGEST_TEST_DATABASE_URL: postgresql://streambrew:streambrew@127.0.0.1:5432/streambrew?sslmode=disable
-      DATABASE_URL: postgresql://streambrew:streambrew@127.0.0.1:5432/streambrew?sslmode=disable
-      DONATION_ALERTS_CLIENT_ID: "1"
-      DONATION_ALERTS_CLIENT_SECRET: ci-only
-      STREAMLABS_CLIENT_ID: ci-only
-      STREAMLABS_CLIENT_SECRET: ci-only
-      DONATIONS_SERVICE_SECRET: ci-only-donations-service-secret-at-least-thirty-two-characters
-      DONATIONS_SERVICE_URL: http://127.0.0.1:3002
-      GOOGLE_CLIENT_ID: ci-only
-      GOOGLE_CLIENT_SECRET: ci-only
-      YOUTUBE_CLIENT_ID: ci-only
-      YOUTUBE_CLIENT_SECRET: ci-only
     steps:
       - name: Check out revision
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -80,8 +67,66 @@ jobs:
         with:
           version: v0.40.0
 
-      - name: Install ripgrep
-        run: sudo apt-get update && sudo apt-get install --yes ripgrep
+      - name: Set up golangci-lint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.13.2
+          install-only: true
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Create empty CI environment file
+        run: install -m 600 /dev/null .env
+
+      - name: Check types
+        run: just typecheck
+
+      - name: Lint and check formatting
+        run: just lint
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: streambrew
+          POSTGRES_USER: streambrew
+          POSTGRES_PASSWORD: streambrew
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U streambrew -d streambrew"
+          --health-interval 1s
+          --health-timeout 3s
+          --health-retries 30
+    permissions:
+      contents: read
+    steps:
+      - name: Check out revision
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ inputs.revision || github.sha }}
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Set up just
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+
+      - name: Set up sqruff
+        uses: quarylabs/install-sqruff-cli-action@7805329baf7cf340e849e254cddc782f08f2d36c # main
+        with:
+          version: v0.40.0
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -94,8 +139,19 @@ jobs:
           DBMATE_NO_DUMP_SCHEMA: "true"
         run: just db-migrate
 
-      - name: Check types
-        run: just typecheck
+      - name: Run tests
+        run: just test
 
-      - name: Lint, format, and test
-        run: just check
+  quality:
+    name: Quality checks
+    if: always()
+    needs:
+      - static
+      - tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify all checks passed
+        env:
+          STATIC_RESULT: ${{ needs.static.result }}
+          TEST_RESULT: ${{ needs.tests.result }}
+        run: test "$STATIC_RESULT" = success && test "$TEST_RESULT" = success
