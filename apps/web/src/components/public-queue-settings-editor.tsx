@@ -13,10 +13,6 @@ const i18n = createI18n({
     en: "Public video queue",
     ru: "Доступ к очереди по ссылке",
   },
-  publicQueueSettingsDescription: {
-    en: "Choose what viewers can see through your shared link.",
-    ru: "Настройте, что зрители увидят в публичной очереди.",
-  },
   publicQueueEnabled: {
     en: "Link enabled",
     ru: "Доступ по ссылке включён",
@@ -30,24 +26,24 @@ const i18n = createI18n({
     ru: "Открыть доступ по ссылке",
   },
   publicQueueEnabledDescription: {
-    en: "Anyone with the link can open your video queue.",
-    ru: "Все, у кого есть ссылка, смогут посмотреть очередь видео.",
+    en: "Anyone with the link can view the queue.",
+    ru: "Очередь видна всем, у кого есть ссылка.",
   },
   publicQueueShowAmounts: {
     en: "Show amounts",
     ru: "Показывать суммы",
   },
   publicQueueShowAmountsDescription: {
-    en: "Show the amount assigned to each video.",
-    ru: "Показывать сумму для очереди у каждого видео.",
+    en: "The queue amount for each video.",
+    ru: "Сумма для очереди у каждого видео.",
   },
   publicQueueShowWatched: {
     en: "Show watched videos",
     ru: "Показывать просмотренные видео",
   },
   publicQueueShowWatchedDescription: {
-    en: "Add a separate public history of watched videos.",
-    ru: "Добавить отдельный раздел с просмотренными видео.",
+    en: "A separate tab with watched videos.",
+    ru: "Отдельная вкладка с просмотренными видео.",
   },
   openPublicQueue: {
     en: "Open public queue",
@@ -127,9 +123,6 @@ export function PublicQueueSettingsEditor() {
             <h2 className="font-heading text-lg font-semibold text-card-foreground">
               {t("publicQueueSettings")}
             </h2>
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              {t("publicQueueSettingsDescription")}
-            </p>
           </div>
         </div>
         <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground">

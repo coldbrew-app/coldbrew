@@ -23,10 +23,6 @@ const i18n = createI18n({
   disconnecting: { en: "Disconnecting…", ru: "Отключаем…" },
   disconnect: { en: "Disconnect", ru: "Отключить" },
   connect: { en: "Connect", ru: "Подключить" },
-  connectAnySource: {
-    en: "Connect any source or all of them — donations from different sources remain isolated.",
-    ru: "Можно подключить один источник или все сразу — донаты из разных источников не смешиваются.",
-  },
   loadingAuthorization: { en: "Loading authorization…", ru: "Получаем ссылку…" },
   authorizationUnavailable: {
     en: "Authorization is unavailable",
@@ -268,11 +264,6 @@ function RouteComponent() {
             disconnectM={disconnectM}
             onConnect={() => setShowDonateStreamForm(true)}
           />
-        </div>
-
-        <div className="flex items-center gap-2 px-2 text-xs text-muted-foreground">
-          <Icons.checked aria-hidden="true" size={15} className="shrink-0 text-primary" />
-          {t("connectAnySource")}
         </div>
       </div>
       {showDonateStreamForm && (
