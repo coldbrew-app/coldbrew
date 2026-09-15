@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/streambrew-app/streambrew/internal/donationalerts"
+	"github.com/streambrew-app/streambrew/internal/streamelements"
 	"github.com/streambrew-app/streambrew/internal/streamlabs"
 )
 
@@ -16,6 +17,7 @@ const (
 	DonateStreamSource   Source = "donate_stream"
 	StreamlabsSource     Source = "streamlabs"
 	TourniquetSource     Source = "tourniquet"
+	StreamElementsSource Source = "streamelements"
 )
 
 func validIngestionOrigin(origin IngestionOrigin) bool {
@@ -43,6 +45,8 @@ func (source Source) displayName() string {
 		return "Streamlabs"
 	case TourniquetSource:
 		return "Tourniquet"
+	case StreamElementsSource:
+		return "StreamElements"
 	default:
 		return string(source)
 	}
@@ -51,7 +55,7 @@ func (source Source) displayName() string {
 func parseSource(value string) (Source, bool) {
 	source := Source(value)
 	switch source {
-	case DonationAlertsSource, DonateStreamSource, StreamlabsSource, TourniquetSource:
+	case DonationAlertsSource, DonateStreamSource, StreamlabsSource, TourniquetSource, StreamElementsSource:
 		return source, true
 	default:
 		return "", false
@@ -88,8 +92,8 @@ type provider interface {
 	AuthorizationURL(redirectURI, state string) string
 	IssueConnection(context.Context, string, string) (ProviderConnection, error)
 	RefreshTokens(context.Context, string) (Tokens, error)
-	GetDonations(context.Context, string, *string, *time.Time) (DonationBatch, error)
-	Run(context.Context, string, *string, func(DonationBatch) error) error
+	GetDonations(context.Context, string, string, *string, *time.Time) (DonationBatch, error)
+	Run(context.Context, string, string, *string, func(DonationBatch) error) error
 	Unauthorized(error) bool
 }
 
@@ -131,7 +135,7 @@ func (adapter *DonationAlertsAdapter) RefreshTokens(ctx context.Context, refresh
 	return Tokens{AccessToken: tokens.AccessToken, RefreshToken: tokens.RefreshToken}, nil
 }
 
-func (adapter *DonationAlertsAdapter) GetDonations(ctx context.Context, accessToken string, _ *string, occurredAfter *time.Time) (DonationBatch, error) {
+func (adapter *DonationAlertsAdapter) GetDonations(ctx context.Context, accessToken, _ string, _ *string, occurredAfter *time.Time) (DonationBatch, error) {
 	var donations []donationalerts.Donation
 	var err error
 	if occurredAfter == nil {
@@ -145,7 +149,7 @@ func (adapter *DonationAlertsAdapter) GetDonations(ctx context.Context, accessTo
 	return DonationBatch{Donations: donationAlertsDonations(donations)}, nil
 }
 
-func (adapter *DonationAlertsAdapter) Run(ctx context.Context, accessToken string, _ *string, emit func(DonationBatch) error) error {
+func (adapter *DonationAlertsAdapter) Run(ctx context.Context, accessToken, _ string, _ *string, emit func(DonationBatch) error) error {
 	return adapter.source.Run(ctx, accessToken, func(donation donationalerts.Donation) error {
 		return emit(DonationBatch{Donations: donationAlertsDonations([]donationalerts.Donation{donation})})
 	})
@@ -210,7 +214,7 @@ func (adapter *StreamlabsAdapter) RefreshTokens(ctx context.Context, refreshToke
 	return Tokens{AccessToken: tokens.AccessToken, RefreshToken: tokens.RefreshToken}, nil
 }
 
-func (adapter *StreamlabsAdapter) GetDonations(ctx context.Context, accessToken string, checkpoint *string, _ *time.Time) (DonationBatch, error) {
+func (adapter *StreamlabsAdapter) GetDonations(ctx context.Context, accessToken, _ string, checkpoint *string, _ *time.Time) (DonationBatch, error) {
 	history, err := adapter.client.GetDonations(ctx, accessToken, checkpoint)
 	if err != nil {
 		return DonationBatch{}, err
@@ -218,7 +222,7 @@ func (adapter *StreamlabsAdapter) GetDonations(ctx context.Context, accessToken 
 	return streamlabsBatch(history), nil
 }
 
-func (adapter *StreamlabsAdapter) Run(ctx context.Context, accessToken string, checkpoint *string, emit func(DonationBatch) error) error {
+func (adapter *StreamlabsAdapter) Run(ctx context.Context, accessToken, _ string, checkpoint *string, emit func(DonationBatch) error) error {
 	listenerCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	wakes := make(chan struct{}, 1)
@@ -289,4 +293,84 @@ func streamlabsBatch(history streamlabs.History) DonationBatch {
 		}
 	}
 	return DonationBatch{Donations: donations, Checkpoint: history.Checkpoint}
+}
+
+type StreamElementsAdapter struct {
+	client *streamelements.Client
+	source *streamelements.Source
+	config streamelements.Config
+}
+
+func NewStreamElementsAdapter(client *streamelements.Client, source *streamelements.Source, config streamelements.Config) *StreamElementsAdapter {
+	return &StreamElementsAdapter{client: client, source: source, config: config}
+}
+
+func (*StreamElementsAdapter) Source() Source { return StreamElementsSource }
+
+func (adapter *StreamElementsAdapter) AuthorizationURL(redirectURI, state string) string {
+	return streamelements.AuthorizationURL(adapter.config.ClientID, redirectURI, state)
+}
+
+func (adapter *StreamElementsAdapter) IssueConnection(ctx context.Context, authCode, redirectURI string) (ProviderConnection, error) {
+	connection, err := adapter.client.IssueConnection(ctx, adapter.config, authCode, redirectURI)
+	if err != nil {
+		return ProviderConnection{}, err
+	}
+	return ProviderConnection{
+		SourceUserID: connection.SourceUserID,
+		Tokens: Tokens{
+			AccessToken:  connection.AccessToken,
+			RefreshToken: connection.RefreshToken,
+		},
+	}, nil
+}
+
+func (adapter *StreamElementsAdapter) RefreshTokens(ctx context.Context, refreshToken string) (Tokens, error) {
+	tokens, err := adapter.client.RefreshTokens(ctx, adapter.config, refreshToken)
+	if err != nil {
+		return Tokens{}, err
+	}
+	return Tokens{AccessToken: tokens.AccessToken, RefreshToken: tokens.RefreshToken}, nil
+}
+
+func (adapter *StreamElementsAdapter) GetDonations(ctx context.Context, accessToken, sourceUserID string, checkpoint *string, _ *time.Time) (DonationBatch, error) {
+	history, err := adapter.client.GetDonations(ctx, accessToken, sourceUserID, checkpoint)
+	if err != nil {
+		return DonationBatch{}, err
+	}
+	return streamElementsBatch(history), nil
+}
+
+func (adapter *StreamElementsAdapter) Run(ctx context.Context, accessToken, sourceUserID string, _ *string, emit func(DonationBatch) error) error {
+	return adapter.source.Run(ctx, accessToken, sourceUserID, func(donation streamelements.Donation) error {
+		return emit(DonationBatch{Donations: streamElementsDonations([]streamelements.Donation{donation})})
+	})
+}
+
+func (*StreamElementsAdapter) Unauthorized(err error) bool {
+	var requestError *streamelements.RequestError
+	return errors.As(err, &requestError) && requestError.Unauthorized
+}
+
+func streamElementsBatch(history streamelements.History) DonationBatch {
+	return DonationBatch{
+		Donations:  streamElementsDonations(history.Donations),
+		Checkpoint: history.Checkpoint,
+	}
+}
+
+func streamElementsDonations(donations []streamelements.Donation) []Donation {
+	result := make([]Donation, len(donations))
+	for index, donation := range donations {
+		result[index] = Donation{
+			SourceDonationID: donation.SourceDonationID,
+			Author:           donation.Author,
+			Message:          donation.Message,
+			Amount:           donation.Amount,
+			Currency:         donation.Currency,
+			SourceCreatedAt:  donation.SourceCreatedAt,
+			OccurredAt:       donation.OccurredAt,
+		}
+	}
+	return result
 }
