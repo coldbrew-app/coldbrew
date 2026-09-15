@@ -5,6 +5,12 @@ import { z } from "zod";
 import { authorizeDonationAlerts, donationAlertsAuthorizationURL } from "../donationalerts.js";
 import { env } from "../env.js";
 import {
+  clearStreamElementsOAuthAttempt,
+  createStreamElementsOAuthAttempt,
+  verifyStreamElementsOAuthAttempt,
+} from "../streamelements-oauth-state.js";
+import { authorizeStreamElements, streamElementsAuthorizationURL } from "../streamelements.js";
+import {
   clearStreamlabsOAuthAttempt,
   createStreamlabsOAuthAttempt,
   verifyStreamlabsOAuthAttempt,
@@ -13,9 +19,12 @@ import { authorizeStreamlabs, streamlabsAuthorizationURL } from "../streamlabs.j
 import { getUserId } from "./_util.js";
 
 const AuthCodeSchema = z.string().min(1).max(4096);
-const StreamlabsStateSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
+const OAuthStateSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 
-function integrationResultURL(source: "donationalerts" | "streamlabs", success: boolean) {
+function integrationResultURL(
+  source: "donationalerts" | "streamlabs" | "streamelements",
+  success: boolean,
+) {
   return rurl("/integrations", env.APP_DOMAIN)
     .withSearchParam("source", source)
     .withSearchParam("success", success).href;
@@ -82,7 +91,7 @@ export async function handleStreamlabsAuthorize(request: Request): Promise<Respo
 
 export async function handleStreamlabsCallback(request: Request): Promise<Response> {
   const url = rurl(request.url);
-  const state = StreamlabsStateSchema.safeParse(url.searchParams.get("state"));
+  const state = OAuthStateSchema.safeParse(url.searchParams.get("state"));
   const clearCookie = clearStreamlabsOAuthAttempt();
   const userId = await getUserId(request);
   if (userId === null) {
@@ -108,5 +117,50 @@ export async function handleStreamlabsCallback(request: Request): Promise<Respon
   } catch (error) {
     logError("Streamlabs callback failed", error, { userId });
     return redirect(integrationResultURL("streamlabs", false), clearCookie);
+  }
+}
+
+export async function handleStreamElementsAuthorize(request: Request): Promise<Response> {
+  const userId = await getUserId(request);
+  if (userId === null) {
+    return new Response(null, { status: 401 });
+  }
+  const attempt = createStreamElementsOAuthAttempt(userId);
+  try {
+    return redirect(await streamElementsAuthorizationURL(attempt.state), attempt.cookie);
+  } catch (error) {
+    logError("StreamElements authorization failed", error, { userId });
+    return redirect(
+      integrationResultURL("streamelements", false),
+      clearStreamElementsOAuthAttempt(),
+    );
+  }
+}
+
+export async function handleStreamElementsCallback(request: Request): Promise<Response> {
+  const url = rurl(request.url);
+  const state = OAuthStateSchema.safeParse(url.searchParams.get("state"));
+  const clearCookie = clearStreamElementsOAuthAttempt();
+  const userId = await getUserId(request);
+  if (userId === null) {
+    return new Response(null, {
+      headers: { "Set-Cookie": clearCookie },
+      status: 401,
+    });
+  }
+  if (!state.success || !verifyStreamElementsOAuthAttempt(request, state.data, userId)) {
+    return redirect(integrationResultURL("streamelements", false), clearCookie);
+  }
+  const authCode = AuthCodeSchema.safeParse(url.searchParams.get("code"));
+  if (!authCode.success) {
+    return redirect(integrationResultURL("streamelements", false), clearCookie);
+  }
+
+  try {
+    await authorizeStreamElements(userId, authCode.data);
+    return redirect(integrationResultURL("streamelements", true), clearCookie);
+  } catch (error) {
+    logError("StreamElements callback failed", error, { userId });
+    return redirect(integrationResultURL("streamelements", false), clearCookie);
   }
 }

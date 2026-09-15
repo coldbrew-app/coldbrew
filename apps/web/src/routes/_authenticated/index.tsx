@@ -18,6 +18,11 @@ import { DashboardSkeleton } from "@web/components/loading-skeletons";
 import MockChart from "@web/components/mock-chart";
 import QueryErrorState from "@web/components/query-error-state";
 import {
+  StreamElementsConnectionStatus,
+  StreamElementsMark,
+  StreamElementsNameLink,
+} from "@web/components/streamelements";
+import {
   StreamlabsConnectionStatus,
   StreamlabsMark,
   StreamlabsNameLink,
@@ -155,8 +160,13 @@ function Overview() {
   const donateStreamConnected = userInfo !== null && userInfo.hasDonateStreamConnection;
   const streamlabsConnected = userInfo !== null && userInfo.hasStreamlabsConnection;
   const tourniquetConnected = userInfo !== null && userInfo.hasTourniquetConnection;
+  const streamElementsConnected = userInfo !== null && userInfo.hasStreamElementsConnection;
   const hasDonationConnection =
-    donationAlertsConnected || donateStreamConnected || streamlabsConnected || tourniquetConnected;
+    donationAlertsConnected ||
+    donateStreamConnected ||
+    streamlabsConnected ||
+    tourniquetConnected ||
+    streamElementsConnected;
   const { locale, t } = useI18n(i18n);
 
   const total = donationOverviewQ.data?.totalAmount ?? 0;
@@ -314,6 +324,13 @@ function Overview() {
                         <StreamlabsNameLink />
                       </span>
                       <StreamlabsConnectionStatus connected={streamlabsConnected} />
+                    </div>
+                    <div className="flex min-w-0 items-center gap-2 rounded-xl bg-muted/55 p-2.5">
+                      <StreamElementsMark />
+                      <span className="min-w-0 grow truncate text-xs font-semibold text-card-foreground">
+                        <StreamElementsNameLink />
+                      </span>
+                      <StreamElementsConnectionStatus connected={streamElementsConnected} />
                     </div>
                     <div className="flex min-w-0 items-center gap-2 rounded-xl bg-muted/55 p-2.5">
                       <DonationSourceMark source="tourniquet" />

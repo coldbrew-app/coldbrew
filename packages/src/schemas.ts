@@ -33,6 +33,7 @@ export const DonationSourceSchema = z.enum([
   "donate_stream",
   "streamlabs",
   "tourniquet",
+  "streamelements",
 ]);
 export type DonationSource = z.infer<typeof DonationSourceSchema>;
 
@@ -183,6 +184,13 @@ export const SharedVideoSchema = z
   );
 export type SharedVideo = z.infer<typeof SharedVideoSchema>;
 
+export const DonationSourceConnectionStatusSchema = z.enum([
+  "connected",
+  "reauthorization_required",
+  "error",
+]);
+export type DonationSourceConnectionStatus = z.infer<typeof DonationSourceConnectionStatusSchema>;
+
 export const UserInfoSchema = z.object({
   userId: UserIdSchema,
   slug: SlugSchema,
@@ -191,6 +199,8 @@ export const UserInfoSchema = z.object({
   hasDonateStreamConnection: z.boolean(),
   hasStreamlabsConnection: z.boolean(),
   hasTourniquetConnection: z.boolean(),
+  hasStreamElementsConnection: z.boolean(),
+  streamElementsConnectionStatus: DonationSourceConnectionStatusSchema.nullable(),
   publicQueueSettings: PublicQueueSettingsSchema,
 });
 export type UserInfo = z.infer<typeof UserInfoSchema>;

@@ -1,4 +1,7 @@
-import { DonationSourceSchema } from "@streambrew/packages/schemas.js";
+import {
+  type DonationSourceConnectionStatus,
+  DonationSourceSchema,
+} from "@streambrew/packages/schemas.js";
 import { createFileRoute } from "@tanstack/react-router";
 import { CosmicPageHeader } from "@web/components/cosmic-page-header";
 import { DonateStreamConnectionForm } from "@web/components/donate-stream-connection-form";
@@ -21,8 +24,6 @@ import { createI18n, createTranslator, useI18n } from "../../lib/i18n";
 const i18n = createI18n({
   integrations: { en: "Integrations", ru: "Интеграции" },
   disconnecting: { en: "Disconnecting…", ru: "Отключаем…" },
-  disconnect: { en: "Disconnect", ru: "Отключить" },
-  connect: { en: "Connect", ru: "Подключить" },
   loadingAuthorization: { en: "Loading authorization…", ru: "Получаем ссылку…" },
   authorizationUnavailable: {
     en: "Authorization is unavailable",
@@ -35,6 +36,27 @@ const i18n = createI18n({
   connectionFailed: {
     en: ({ source }: { source: string }) => `${source} could not be connected. Please try again.`,
     ru: ({ source }: { source: string }) => `Не удалось подключить ${source}. Попробуйте ещё раз.`,
+  },
+  disconnectFailed: {
+    en: ({ source }: { source: string }) =>
+      `${source} could not be disconnected. Please try again.`,
+    ru: ({ source }: { source: string }) => `Не удалось отключить ${source}. Попробуйте ещё раз.`,
+  },
+  connectSource: {
+    en: ({ source }: { source: string }) => `Connect ${source}`,
+    ru: ({ source }: { source: string }) => `Подключить ${source}`,
+  },
+  disconnectSource: {
+    en: ({ source }: { source: string }) => `Disconnect ${source}`,
+    ru: ({ source }: { source: string }) => `Отключить ${source}`,
+  },
+  authorizationExpired: {
+    en: "Authorization expired. Connect again to resume synchronization.",
+    ru: "Авторизация истекла. Подключите источник заново, чтобы продолжить синхронизацию.",
+  },
+  synchronizationStopped: {
+    en: "Synchronization stopped because of an integration error. Connect again to retry.",
+    ru: "Синхронизация остановлена из-за ошибки интеграции. Подключите источник заново.",
   },
 });
 
@@ -73,7 +95,7 @@ function ConnectionNotice() {
 
 type DisconnectMutation = ReturnType<typeof useDisconnectM>;
 type AuthUrlQuery = ReturnType<typeof useAuthUrlQ>;
-type OAuthDonationSource = "donationalerts" | "streamlabs";
+type OAuthDonationSource = "donationalerts" | "streamlabs" | "streamelements";
 type WidgetDonationSource = "donate_stream" | "tourniquet";
 
 function DonationConnectionAction({
@@ -90,9 +112,12 @@ function DonationConnectionAction({
   source: OAuthDonationSource;
 }) {
   const { t } = useI18n(i18n);
+  const sourceName = donationSourceDetails(source).name;
   const disconnecting = disconnectM.isPending && disconnectM.variables?.source === source;
   if (connected) {
-    const label = t(disconnecting ? "disconnecting" : "disconnect");
+    const label = disconnecting
+      ? t("disconnecting")
+      : t("disconnectSource", { source: sourceName });
     return (
       <Tooltip>
         <TooltipTrigger
@@ -118,12 +143,13 @@ function DonationConnectionAction({
     );
   }
   if (authUrl) {
+    const label = t("connectSource", { source: sourceName });
     return (
       <Tooltip>
         <TooltipTrigger
           render={
             <Button
-              aria-label={t("connect")}
+              aria-label={label}
               className="shrink-0"
               nativeButton={false}
               render={<a href={authUrl} />}
@@ -133,7 +159,7 @@ function DonationConnectionAction({
             </Button>
           }
         />
-        <TooltipContent>{t("connect")}</TooltipContent>
+        <TooltipContent>{label}</TooltipContent>
       </Tooltip>
     );
   }
@@ -158,12 +184,14 @@ function DonationConnectionAction({
 function DonationIntegrationCard({
   authUrl,
   authUrlQ,
+  connectionIssue,
   connected,
   disconnectM,
   source,
 }: {
   authUrl?: string;
   authUrlQ: AuthUrlQuery;
+  connectionIssue?: string;
   connected: boolean;
   disconnectM: DisconnectMutation;
   source: OAuthDonationSource;
@@ -171,9 +199,16 @@ function DonationIntegrationCard({
   return (
     <article className="cosmic-panel flex items-center gap-3 overflow-hidden p-3">
       <DonationSourceMark source={source} />
-      <h2 className="min-w-0 grow font-heading text-base font-semibold text-card-foreground">
-        <DonationSourceNameLink source={source} />
-      </h2>
+      <div className="flex min-w-0 grow flex-col gap-0.5">
+        <h2 className="font-heading text-base font-semibold text-card-foreground">
+          <DonationSourceNameLink source={source} />
+        </h2>
+        {connectionIssue && (
+          <p className="text-xs leading-snug text-destructive" role="status">
+            {connectionIssue}
+          </p>
+        )}
+      </div>
       <DonationConnectionAction
         authUrl={authUrl}
         authUrlQ={authUrlQ}
@@ -198,7 +233,11 @@ function WidgetIntegrationCard({
 }) {
   const { t } = useI18n(i18n);
   const disconnecting = disconnectM.isPending && disconnectM.variables?.source === source;
-  const label = t(disconnecting ? "disconnecting" : connected ? "disconnect" : "connect");
+  const label = disconnecting
+    ? t("disconnecting")
+    : t(connected ? "disconnectSource" : "connectSource", {
+        source: donationSourceDetails(source).name,
+      });
   return (
     <article className="cosmic-panel flex items-center gap-3 overflow-hidden p-3">
       <DonationSourceMark source={source} />
@@ -239,13 +278,31 @@ function RouteComponent() {
   const [widgetFormSource, setWidgetFormSource] = useState<WidgetDonationSource | null>(null);
   const disconnectM = useDisconnectM();
   const { t } = useI18n(i18n);
+  const streamElementsStatus: DonationSourceConnectionStatus | null =
+    userInfo?.streamElementsConnectionStatus ?? null;
+  const streamElementsIssue =
+    streamElementsStatus === "reauthorization_required"
+      ? t("authorizationExpired")
+      : streamElementsStatus === "error"
+        ? t("synchronizationStopped")
+        : undefined;
 
   return (
     <section className="cosmic-panel flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
       <CosmicPageHeader title={t("integrations")} variant="beans" />
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-3 sm:p-4">
         <ConnectionNotice />
-        <div className="grid shrink-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {disconnectM.isError && disconnectM.variables && (
+          <div
+            className="rounded-xl border border-red-300/50 bg-red-50 px-3.5 py-3 text-[13px] text-red-700 dark:bg-red-400/10 dark:text-red-300"
+            role="alert"
+          >
+            {t("disconnectFailed", {
+              source: donationSourceDetails(disconnectM.variables.source).name,
+            })}
+          </div>
+        )}
+        <div className="grid shrink-0 gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <DonationIntegrationCard
             authUrl={authUrlQ.data?.donationAlerts}
             authUrlQ={authUrlQ}
@@ -259,6 +316,14 @@ function RouteComponent() {
             connected={userInfo?.hasStreamlabsConnection ?? false}
             disconnectM={disconnectM}
             source="streamlabs"
+          />
+          <DonationIntegrationCard
+            authUrl={authUrlQ.data?.streamElements}
+            authUrlQ={authUrlQ}
+            connectionIssue={streamElementsIssue}
+            connected={userInfo?.hasStreamElementsConnection ?? false}
+            disconnectM={disconnectM}
+            source="streamelements"
           />
           <WidgetIntegrationCard
             connected={userInfo?.hasDonateStreamConnection ?? false}

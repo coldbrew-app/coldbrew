@@ -22,6 +22,43 @@ describe("Store.getOrCreateUserId", () => {
   });
 });
 
+describe("Store.getUserInfo", () => {
+  it("reports every donation-source connection independently", async () => {
+    const query = vi.fn(async (_strings: TemplateStringsArray) => [
+      {
+        userId: 7,
+        slug: "streamer",
+        queueCurrency: "RUB",
+        hasDonationAlertsConnection: true,
+        hasDonateStreamConnection: false,
+        hasStreamlabsConnection: false,
+        hasStreamElementsConnection: true,
+        streamElementsConnectionStatus: "connected",
+        publicQueueSettings: {
+          enabled: false,
+          showAmounts: false,
+          showWatchedVideos: false,
+        },
+      },
+    ]);
+    const store = new Store(query as never);
+
+    const userInfo = await store.getUserInfo(UserIdSchema.parse(7));
+
+    expect(userInfo).toMatchObject({
+      hasDonationAlertsConnection: true,
+      hasDonateStreamConnection: false,
+      hasStreamlabsConnection: false,
+      hasStreamElementsConnection: true,
+      streamElementsConnectionStatus: "connected",
+    });
+    expect(query).toHaveBeenCalledOnce();
+    expect(query.mock.calls[0]?.[0].join("?")).toContain(
+      "LEFT JOIN streamelements_connection USING (user_id)",
+    );
+  });
+});
+
 describe("Store.listDonationsPage", () => {
   const occurredAt = new Date("2026-01-01T00:00:00Z");
   const donation = {
