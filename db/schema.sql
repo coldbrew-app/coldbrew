@@ -91,6 +91,25 @@ CONSTRAINT nonnegative_int_check CHECK ((value >= 0));
 CREATE DOMAIN public.positive_int AS integer
 CONSTRAINT positive_int_check CHECK ((value > 0));
 
+CREATE TYPE public.restream_destination_platform AS ENUM (
+  'twitch',
+  'youtube',
+  'kick',
+  'custom'
+);
+
+CREATE TYPE public.restream_destination_state AS ENUM (
+  'idle',
+  'forwarding',
+  'error'
+);
+
+CREATE TYPE public.restream_session_status AS ENUM (
+  'connecting',
+  'live',
+  'ended'
+);
+
 CREATE TYPE public.video_provider AS ENUM (
   'youtube'
 );
@@ -529,6 +548,62 @@ CREATE TABLE public.donationalerts_connection (
   CONSTRAINT donationalerts_connection_token_version_check CHECK ((token_version > 0))
 );
 
+CREATE TABLE public.restream_destination (
+  restream_destination_id uuid                                 DEFAULT gen_random_uuid() NOT NULL,
+  user_id                 integer                              NOT NULL,
+  platform                public.restream_destination_platform NOT NULL,
+  label                   text                                 NOT NULL,
+  server_url              text                                 NOT NULL,
+  stream_key_ciphertext   bytea                                NOT NULL,
+  stream_key_hint         text                                 NOT NULL,
+  enabled                 boolean                              DEFAULT TRUE NOT NULL,
+  "position"              public.nonnegative_int               NOT NULL,
+  created_at              public.js_date                       DEFAULT now() NOT NULL,
+  updated_at              public.js_date                       DEFAULT now() NOT NULL,
+  CONSTRAINT restream_destination_label_check CHECK (((char_length(trim(BOTH FROM label)) >= 1) AND (char_length(trim(BOTH FROM label)) <= 64))),
+  CONSTRAINT restream_destination_position_check CHECK ((("position")::integer < 3)),
+  CONSTRAINT restream_destination_server_url_check
+    CHECK ((((char_length(server_url) >= 10) AND (char_length(server_url) <= 2048)) AND (server_url ~ '^rtmps?://'::text) AND (strpos(server_url, '#'::text) = 0))),
+  CONSTRAINT restream_destination_stream_key_ciphertext_check CHECK (((octet_length(stream_key_ciphertext) >= 30) AND (octet_length(stream_key_ciphertext) <= 2048))),
+  CONSTRAINT restream_destination_stream_key_hint_check CHECK (((char_length(stream_key_hint) >= 1) AND (char_length(stream_key_hint) <= 8)))
+);
+
+CREATE TABLE public.restream_ingest (
+  user_id               integer        NOT NULL,
+  stream_key_hash       character(64)  NOT NULL,
+  stream_key_ciphertext bytea          NOT NULL,
+  created_at            public.js_date DEFAULT now() NOT NULL,
+  updated_at            public.js_date DEFAULT now() NOT NULL,
+  CONSTRAINT restream_ingest_stream_key_ciphertext_check CHECK (((octet_length(stream_key_ciphertext) >= 30) AND (octet_length(stream_key_ciphertext) <= 2048))),
+  CONSTRAINT restream_ingest_stream_key_hash_check CHECK ((stream_key_hash ~ '^[0-9a-f]{64}$'::text))
+);
+
+CREATE TABLE public.restream_session (
+  restream_session_id uuid                           DEFAULT gen_random_uuid() NOT NULL,
+  user_id             integer                        NOT NULL,
+  node_id             text                           NOT NULL,
+  publisher_id        text                           NOT NULL,
+  status              public.restream_session_status DEFAULT 'connecting'::public.restream_session_status NOT NULL,
+  started_at          public.js_date                 DEFAULT now() NOT NULL,
+  live_at             public.js_date,
+  last_heartbeat_at   public.js_date                 DEFAULT now() NOT NULL,
+  ended_at            public.js_date,
+  CONSTRAINT restream_session_check
+    CHECK ((((status = 'connecting'::public.restream_session_status) AND (live_at IS NULL) AND (ended_at IS NULL)) OR ((status = 'live'::public.restream_session_status) AND (live_at IS NOT NULL) AND (ended_at IS NULL)) OR ((status = 'ended'::public.restream_session_status) AND (ended_at IS NOT NULL)))),
+  CONSTRAINT restream_session_node_id_check CHECK (((char_length(node_id) >= 1) AND (char_length(node_id) <= 64))),
+  CONSTRAINT restream_session_publisher_id_check CHECK (((char_length(publisher_id) >= 1) AND (char_length(publisher_id) <= 128)))
+);
+
+CREATE TABLE public.restream_session_destination (
+  restream_session_id     uuid                              NOT NULL,
+  restream_destination_id uuid                              NOT NULL,
+  user_id                 integer                           NOT NULL,
+  state                   public.restream_destination_state DEFAULT 'idle'::public.restream_destination_state NOT NULL,
+  outbound_bytes          bigint                            DEFAULT 0 NOT NULL,
+  updated_at              public.js_date                    DEFAULT now() NOT NULL,
+  CONSTRAINT restream_session_destination_outbound_bytes_check CHECK ((outbound_bytes >= 0))
+);
+
 CREATE TABLE public.schema_migrations (
   version character varying NOT NULL
 );
@@ -787,6 +862,33 @@ ADD CONSTRAINT donationalerts_connection_pkey PRIMARY KEY (user_id);
 ALTER TABLE ONLY public.donationalerts_connection
 ADD CONSTRAINT donationalerts_connection_source_user_id_key UNIQUE (source_user_id);
 
+ALTER TABLE ONLY public.restream_destination
+ADD CONSTRAINT restream_destination_pkey PRIMARY KEY (restream_destination_id);
+
+ALTER TABLE ONLY public.restream_destination
+ADD CONSTRAINT restream_destination_restream_destination_id_user_id_key UNIQUE (restream_destination_id, user_id);
+
+ALTER TABLE ONLY public.restream_destination
+ADD CONSTRAINT restream_destination_user_id_position_key UNIQUE (user_id, "position");
+
+ALTER TABLE ONLY public.restream_ingest
+ADD CONSTRAINT restream_ingest_pkey PRIMARY KEY (user_id);
+
+ALTER TABLE ONLY public.restream_ingest
+ADD CONSTRAINT restream_ingest_stream_key_hash_key UNIQUE (stream_key_hash);
+
+ALTER TABLE ONLY public.restream_session_destination
+ADD CONSTRAINT restream_session_destination_pkey PRIMARY KEY (restream_session_id, restream_destination_id);
+
+ALTER TABLE ONLY public.restream_session
+ADD CONSTRAINT restream_session_node_id_publisher_id_key UNIQUE (node_id, publisher_id);
+
+ALTER TABLE ONLY public.restream_session
+ADD CONSTRAINT restream_session_pkey PRIMARY KEY (restream_session_id);
+
+ALTER TABLE ONLY public.restream_session
+ADD CONSTRAINT restream_session_restream_session_id_user_id_key UNIQUE (restream_session_id, user_id);
+
 ALTER TABLE ONLY public.schema_migrations
 ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
 
@@ -890,6 +992,10 @@ CREATE INDEX donation_user_occurred_idx ON public.donation USING btree (user_id,
 CREATE INDEX donation_video_scan_available_idx ON public.donation_video_scan USING btree (available_at, lease_expires_at, donation_id) WHERE (completed_at IS NULL);
 
 CREATE INDEX donation_videos_unparsed_idx ON public.donation USING btree (occurred_at) WHERE (videos_parsed_at IS NULL);
+
+CREATE UNIQUE INDEX restream_session_active_user_idx ON public.restream_session USING btree (user_id) WHERE (status <> 'ended'::public.restream_session_status);
+
+CREATE INDEX restream_session_recent_user_idx ON public.restream_session USING btree (user_id, started_at DESC);
 
 CREATE INDEX video_bookmarked_idx ON public.video USING btree (bookmarked_at DESC, video_id DESC) WHERE (bookmarked_at IS NOT NULL);
 
@@ -999,6 +1105,23 @@ ADD CONSTRAINT donation_video_scan_donation_id_fkey FOREIGN KEY (donation_id) RE
 ALTER TABLE ONLY public.donationalerts_connection
 ADD CONSTRAINT donationalerts_connection_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
 
+ALTER TABLE ONLY public.restream_destination
+ADD CONSTRAINT restream_destination_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.restream_ingest
+ADD CONSTRAINT restream_ingest_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.restream_session_destination
+ADD CONSTRAINT restream_session_destination_restream_destination_id_user__fkey
+  FOREIGN KEY (restream_destination_id, user_id) REFERENCES public.restream_destination (restream_destination_id, user_id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.restream_session_destination
+ADD CONSTRAINT restream_session_destination_restream_session_id_user_id_fkey
+  FOREIGN KEY (restream_session_id, user_id) REFERENCES public.restream_session (restream_session_id, user_id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.restream_session
+ADD CONSTRAINT restream_session_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
+
 ALTER TABLE ONLY public.streamlabs_connection
 ADD CONSTRAINT streamlabs_connection_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
 
@@ -1038,5 +1161,6 @@ INSERT INTO public.schema_migrations (version) VALUES
 ('20260910180000'),
 ('20260913000000'),
 ('20260913144100'),
+('20260915141015'),
 ('20260915190000'),
 ('20260915190100');
