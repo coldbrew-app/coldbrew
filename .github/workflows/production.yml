@@ -547,14 +547,26 @@ jobs:
               )
             fi
 
-            if ! ssh streambrew-production docker run \
-              --rm \
-              --network coldbrew_internal \
-              --group-add "$TF_VAR_runtime_secrets_gid" \
-              --mount "type=bind,source=$TF_VAR_runtime_config_path,target=/run/streambrew/runtime.env,readonly" \
-              --entrypoint /bin/sh \
-              "$APP_IMAGE" \
-              -c 'set -a; . /run/streambrew/runtime.env; set +a; export DBMATE_NO_DUMP_SCHEMA=true; exec bunx dbmate --migrations-dir /app/db/migrations up'; then
+            if ! ssh streambrew-production sh -s -- \
+              "$TF_VAR_runtime_config_path" \
+              "$TF_VAR_runtime_secrets_gid" \
+              "$APP_IMAGE" <<'REMOTE'
+          set -eu
+
+          runtime_config_path="$1"
+          runtime_secrets_gid="$2"
+          app_image="$3"
+
+          exec docker run \
+            --rm \
+            --network coldbrew_internal \
+            --group-add "$runtime_secrets_gid" \
+            --mount "type=bind,source=$runtime_config_path,target=/run/streambrew/runtime.env,readonly" \
+            --entrypoint /bin/sh \
+            "$app_image" \
+            -c 'set -a; . /run/streambrew/runtime.env; set +a; export DBMATE_NO_DUMP_SCHEMA=true; exec bunx dbmate --migrations-dir /app/db/migrations up'
+          REMOTE
+            then
               if [[ "${#stopped_containers[@]}" -gt 0 ]]; then
                 ssh streambrew-production sh -s -- "${stopped_containers[@]}" <<'REMOTE'
           set -eu
