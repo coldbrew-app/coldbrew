@@ -33,6 +33,9 @@ env:
   DONATIONS_SERVICE_URL: http://127.0.0.1:3002
   GOOGLE_CLIENT_ID: ci-only
   GOOGLE_CLIENT_SECRET: ci-only
+  RESTREAM_CREDENTIALS_SECRET: ci-only-restream-credentials-secret-at-least-thirty-two-characters
+  RESTREAM_INGEST_URL: rtmp://127.0.0.1:1935
+  RESTREAM_MEDIA_SHARED_SECRET: ci-only-restream-media-secret-at-least-thirty-two-characters
   YOUTUBE_CLIENT_ID: ci-only
   YOUTUBE_CLIENT_SECRET: ci-only
 
