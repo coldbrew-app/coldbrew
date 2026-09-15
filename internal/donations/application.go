@@ -17,7 +17,8 @@ type persistence interface {
 	SaveDonations(context.Context, int, int, DonationBatch, IngestionOrigin, time.Time) error
 	SetTokensIfVersion(context.Context, int, int, Tokens) (bool, error)
 	Disconnect(context.Context, int) error
-	DisconnectIfVersion(context.Context, int, int) (bool, error)
+	RequireReauthorizationIfVersion(context.Context, int, int) (bool, error)
+	MarkConnectionErrorIfVersion(context.Context, int, int) (bool, error)
 }
 
 type Connection struct {
@@ -276,6 +277,7 @@ func (integration *integration) listen(ctx context.Context, connection Connectio
 	refreshToken := connection.RefreshToken
 	tokenVersion := connection.TokenVersion
 	checkpoint := connection.HistoryCheckpoint
+	refreshedBeforeAuthorization := false
 	for ctx.Err() == nil {
 		err := integration.provider.Run(ctx, accessToken, connection.SourceUserID, checkpoint, func(batch DonationBatch) error {
 			if err := integration.store.SaveDonations(ctx, connection.UserID, tokenVersion, batch, LiveOrigin, integration.now()); err != nil {
@@ -291,16 +293,36 @@ func (integration *integration) listen(ctx context.Context, connection Connectio
 			return nil
 		}
 		if !integration.provider.Unauthorized(err) {
-			return err
+			return integration.recordPermanentConnectionError(ctx, connection.UserID, tokenVersion, err)
+		}
+		if hadAuthorizedSession, supported := failureHadAuthorizedSession(err); supported {
+			if refreshedBeforeAuthorization && !hadAuthorizedSession {
+				updated, statusErr := integration.store.RequireReauthorizationIfVersion(ctx, connection.UserID, tokenVersion)
+				if statusErr != nil {
+					return errors.Join(err, statusErr)
+				}
+				if !updated {
+					return ErrStaleCredentials
+				}
+				return fmt.Errorf("%s rejected refreshed credentials: %w", integration.provider.Source().displayName(), err)
+			}
+			if hadAuthorizedSession {
+				refreshedBeforeAuthorization = false
+			}
 		}
 		tokens, refreshErr := integration.provider.RefreshTokens(ctx, refreshToken)
 		if refreshErr != nil {
 			if integration.provider.Unauthorized(refreshErr) {
-				if _, disconnectErr := integration.store.DisconnectIfVersion(ctx, connection.UserID, tokenVersion); disconnectErr != nil {
-					return errors.Join(refreshErr, disconnectErr)
+				updated, statusErr := integration.store.RequireReauthorizationIfVersion(ctx, connection.UserID, tokenVersion)
+				if statusErr != nil {
+					return errors.Join(refreshErr, statusErr)
+				}
+				if !updated {
+					return ErrStaleCredentials
 				}
 			}
-			return fmt.Errorf("refresh %s tokens: %w", integration.provider.Source().displayName(), refreshErr)
+			wrapped := fmt.Errorf("refresh %s tokens: %w", integration.provider.Source().displayName(), refreshErr)
+			return integration.recordPermanentConnectionError(ctx, connection.UserID, tokenVersion, wrapped)
 		}
 		updated, err := integration.store.SetTokensIfVersion(ctx, connection.UserID, tokenVersion, tokens)
 		if err != nil {
@@ -312,8 +334,31 @@ func (integration *integration) listen(ctx context.Context, connection Connectio
 		accessToken = tokens.AccessToken
 		refreshToken = tokens.RefreshToken
 		tokenVersion++
+		refreshedBeforeAuthorization = true
 	}
 	return nil
+}
+
+type authorizedSessionFailure interface {
+	HadAuthorizedSession() bool
+}
+
+func failureHadAuthorizedSession(err error) (bool, bool) {
+	var failure authorizedSessionFailure
+	if !errors.As(err, &failure) {
+		return false, false
+	}
+	return failure.HadAuthorizedSession(), true
+}
+
+func (integration *integration) recordPermanentConnectionError(ctx context.Context, userID, tokenVersion int, failure error) error {
+	if !integration.provider.Permanent(failure) {
+		return failure
+	}
+	if _, err := integration.store.MarkConnectionErrorIfVersion(ctx, userID, tokenVersion); err != nil {
+		return errors.Join(failure, fmt.Errorf("record %s connection error: %w", integration.provider.Source().displayName(), err))
+	}
+	return failure
 }
 
 func contextDone(ctx context.Context) bool { return ctx.Err() != nil }
@@ -381,6 +426,11 @@ func (integration *integration) syncConnectionHistory(ctx context.Context, name 
 		occurredAfter,
 	)
 	if err != nil {
+		if integration.provider.Permanent(err) {
+			if _, statusErr := integration.store.MarkConnectionErrorIfVersion(ctx, connection.UserID, connection.TokenVersion); statusErr != nil && ctx.Err() == nil {
+				slog.Error("record "+name+" history error", "userId", connection.UserID, "error", statusErr)
+			}
+		}
 		if ctx.Err() == nil {
 			slog.Error("fetch "+name+" history", "userId", connection.UserID, "error", err)
 		}
