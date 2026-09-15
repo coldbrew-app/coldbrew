@@ -55,19 +55,6 @@ export function DonateStreamConnectionForm({ onClose }: { onClose: () => void })
   const connect = useConnectDonateStreamM();
   return (
     <WidgetConnectionForm
-      copy={{
-        cancel: t("cancel"),
-        connect: t("connect"),
-        connecting: t("connecting"),
-        description: t("description"),
-        invalidWidgetURL: t("invalidWidgetURL"),
-        openWidgetSettings: t("openWidgetSettings"),
-        title: t("title"),
-        widgetURLHelp: t("widgetURLHelp"),
-        widgetURLLabel: t("widgetURLLabel"),
-        widgetURLPlaceholder: t("widgetURLPlaceholder"),
-        widgetURLSafety: t("widgetURLSafety"),
-      }}
       fieldId="donate-stream-widget-url"
       isError={connect.isError}
       isPending={connect.isPending}
@@ -75,6 +62,7 @@ export function DonateStreamConnectionForm({ onClose }: { onClose: () => void })
       onConnect={(widgetUrl, onSuccess) => connect.mutate({ widgetUrl }, { onSuccess })}
       onReset={() => connect.reset()}
       settingsURL="https://lk.donate.stream/widgets/alert/all"
+      translate={t}
     />
   );
 }

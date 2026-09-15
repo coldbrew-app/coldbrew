@@ -6,22 +6,20 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./ui/dial
 import { Field, FieldDescription, FieldError, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
 
-type WidgetConnectionFormCopy = {
-  cancel: string;
-  connect: string;
-  connecting: string;
-  description: string;
-  invalidWidgetURL: string;
-  openWidgetSettings: string;
-  title: string;
-  widgetURLHelp: string;
-  widgetURLLabel: string;
-  widgetURLPlaceholder: string;
-  widgetURLSafety: string;
-};
+type WidgetConnectionFormCopyKey =
+  | "cancel"
+  | "connect"
+  | "connecting"
+  | "description"
+  | "invalidWidgetURL"
+  | "openWidgetSettings"
+  | "title"
+  | "widgetURLHelp"
+  | "widgetURLLabel"
+  | "widgetURLPlaceholder"
+  | "widgetURLSafety";
 
 export function WidgetConnectionForm({
-  copy,
   fieldId,
   isError,
   isPending,
@@ -29,8 +27,8 @@ export function WidgetConnectionForm({
   onConnect,
   onReset,
   settingsURL,
+  translate,
 }: {
-  copy: WidgetConnectionFormCopy;
   fieldId: string;
   isError: boolean;
   isPending: boolean;
@@ -38,6 +36,7 @@ export function WidgetConnectionForm({
   onConnect: (widgetURL: string, onSuccess: () => void) => void;
   onReset: () => void;
   settingsURL: string;
+  translate: (key: WidgetConnectionFormCopyKey) => string;
 }) {
   const [widgetURL, setWidgetURL] = useState("");
   const submit = (event: FormEvent<HTMLFormElement>) => {
@@ -54,12 +53,12 @@ export function WidgetConnectionForm({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <div className="flex flex-col gap-2">
-          <DialogTitle>{copy.title}</DialogTitle>
-          <DialogDescription>{copy.description}</DialogDescription>
+          <DialogTitle>{translate("title")}</DialogTitle>
+          <DialogDescription>{translate("description")}</DialogDescription>
         </div>
         <form className="flex flex-col gap-5" onSubmit={submit}>
           <Field data-invalid={isError || undefined}>
-            <FieldLabel htmlFor={fieldId}>{copy.widgetURLLabel}</FieldLabel>
+            <FieldLabel htmlFor={fieldId}>{translate("widgetURLLabel")}</FieldLabel>
             <Input
               aria-invalid={isError || undefined}
               autoComplete="off"
@@ -69,7 +68,7 @@ export function WidgetConnectionForm({
                 setWidgetURL(event.target.value);
                 onReset();
               }}
-              placeholder={copy.widgetURLPlaceholder}
+              placeholder={translate("widgetURLPlaceholder")}
               spellCheck={false}
               type="url"
               value={widgetURL}
@@ -81,23 +80,23 @@ export function WidgetConnectionForm({
                 rel="noopener noreferrer"
                 target="_blank"
               >
-                {copy.openWidgetSettings}
+                {translate("openWidgetSettings")}
                 <Icons.externalLink aria-hidden="true" size={12} />
               </a>{" "}
-              {copy.widgetURLHelp}
+              {translate("widgetURLHelp")}
             </FieldDescription>
-            {isError && <FieldError>{copy.invalidWidgetURL}</FieldError>}
+            {isError && <FieldError>{translate("invalidWidgetURL")}</FieldError>}
           </Field>
           <div className="flex items-start gap-2 rounded-xl bg-muted/70 p-3 text-xs leading-relaxed text-muted-foreground">
             <Icons.secure aria-hidden="true" className="shrink-0 text-primary" size={15} />
-            <p>{copy.widgetURLSafety}</p>
+            <p>{translate("widgetURLSafety")}</p>
           </div>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button disabled={isPending} onClick={onClose} type="button" variant="outline">
-              {copy.cancel}
+              {translate("cancel")}
             </Button>
             <Button disabled={widgetURL.trim().length === 0 || isPending} type="submit">
-              {isPending ? copy.connecting : copy.connect}
+              {translate(isPending ? "connecting" : "connect")}
             </Button>
           </div>
         </form>
