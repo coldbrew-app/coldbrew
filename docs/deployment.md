@@ -1,7 +1,8 @@
 # StreamBrew production deployment
 
-Production is split into three Terraform roots. This keeps routine releases
-independent from cloud provisioning and keeps the application runtime portable:
+The main application stays on AWS and is split into three Terraform roots. This
+keeps routine releases independent from cloud provisioning and keeps the
+application runtime portable:
 
 | Root               | State                           | Responsibility                                                        | Normal trigger                         |
 | ------------------ | ------------------------------- | --------------------------------------------------------------------- | -------------------------------------- |
@@ -13,6 +14,12 @@ independent from cloud provisioning and keeps the application runtime portable:
 production releases do not copy the repository to the server and do not run
 Compose there. GitHub Actions builds immutable images, pulls them over SSH, and
 Terraform reconciles the Docker runtime.
+
+The bandwidth-heavy multistream media plane is the one exception: it runs as a
+stateless container on Hetzner Cloud and is deployed by
+`.github/workflows/restream.yml`. The AWS application remains its control plane.
+See [Multistream architecture and operations](restream.md) for provisioning,
+security boundaries, secrets, and recovery.
 
 ## Architecture
 
@@ -163,14 +170,18 @@ Runtime variables:
 | `WALG_ARCHIVE_TIMEOUT_SECONDS` | `300`                            | no        |
 | `WALG_BACKUP_INTERVAL_SECONDS` | `86400`                          | no        |
 | `WALG_KEEP_FULL_BACKUPS`       | `7`                              | no        |
+| `RESTREAM_INGEST_URL`          | `rtmp://media.example.com:1935`  | yes       |
 
 Required environment secrets are `SSH_PRIVATE_KEY`, `SSH_KNOWN_HOSTS`,
 `AXIOM_TOKEN`, `BETTER_AUTH_SECRET`, `CHAT_SERVICE_SECRET`,
 `CHAT_TOKEN_ENCRYPTION_SECRET`, `DONATION_ALERTS_CLIENT_SECRET`,
 `DONATIONS_SERVICE_SECRET`, `GOOGLE_CLIENT_SECRET`, `PGPASSWORD`,
+`RESTREAM_CREDENTIALS_SECRET`, `RESTREAM_MEDIA_SHARED_SECRET`,
 `STREAMLABS_CLIENT_SECRET`, `TELEGRAM_BOT_TOKEN`, `YOUTUBE_API_KEY`, and the
 WAL-G-only `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` pair. Optional OAuth
-secrets must be configured together with their matching client IDs.
+secrets must be configured together with their matching client IDs. The
+Hetzner deployment also has its own variables and secrets documented in
+[Multistream architecture and operations](restream.md#github-production-environment).
 
 Create `SSH_KNOWN_HOSTS` using the alias expected by the workflows, then verify
 the fingerprint through the Lightsail console before saving it:
