@@ -63,6 +63,36 @@ Apply each language's casing conventions: SQL uses `snake_case`, TypeScript uses
 - Treat a module's public interface as its test surface. Do not widen a public API or add dependency injection solely for tests.
 - Remove legacy code and compatibility paths instead of preserving them, but always ask for the user's explicit permission before removing them.
 
+## Git discipline for code changes
+
+Apply this workflow to every task that changes code. Research, investigation,
+review, planning, and other read-only tasks do not require a GitHub issue unless
+they also change code.
+
+1. Base the change on an open GitHub issue in this repository. If no suitable
+   open issue exists, create one before changing code. The issue must explain
+   the reason and motivation for the change. Create a new issue for follow-up
+   work instead of reopening a closed issue.
+2. Start from the current green `master`. If `master` is broken or its required
+   checks are red, restore it through a dedicated issue and pull request before
+   starting the planned implementation. Make code changes on a task branch,
+   never directly on `master`.
+3. Work in small increments. Commit every small, coherent step with a clear
+   message and any documentation that the step requires. Keep the uncommitted
+   diff small instead of accumulating a large batch of changes.
+4. Create a pull request for the issue. Include `Closes #<issue-number>` in the
+   pull request description so GitHub automatically closes the issue when the
+   pull request is merged into `master`. Use the pull request as the reviewable
+   unit through which a human can inspect and redirect the work.
+5. Run the relevant build, tests, and required CI checks. Merge only when the
+   pull request keeps `master` green. Resolve conflicts and failed checks, then
+   verify the result again.
+6. Escalate uncertain decisions to a human, especially architectural changes
+   and new product behavior. Green CI verifies automated rules; it does not
+   establish architectural correctness.
+7. Turn recurring review findings into automated repository checks when
+   practical.
+
 ## TypeScript and TSX
 
 <!-- intent-skills:start -->
@@ -117,7 +147,6 @@ Before editing TS and TSX files for a substantial task:
 ## Documentation
 
 - Documentation files referenced by this guide may and should be edited whenever needed, and kept up to date with the codebase and project conventions.
-- Follow the [Git workflow](docs/git.md) when the user asks to merge changes into `master`.
 - Read [the multichat architecture](docs/multichat.md) before changing chat providers, collectors, streams, overlays, or related external-service integrations.
 - Follow [donation alert terminology and behavior](docs/donation-alerts.md) when changing alert ingestion, playback, widgets, media, or settings.
 - In TypeScript, follow the [error-handling guide](docs/errors.md) when working with HTTP requests, subscriptions, streams, workers, or other external failures.
