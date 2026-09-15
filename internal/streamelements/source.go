@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log/slog"
 	mathrand "math/rand/v2"
-	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -70,6 +69,7 @@ func (source *Source) Run(
 	retryDelay := source.retryStart
 	reconnectToken := ""
 	restoreSubscription := false
+	authorized := false
 	room := channelID
 	for ctx.Err() == nil {
 		usingReconnectToken := reconnectToken != ""
@@ -88,10 +88,14 @@ func (source *Source) Run(
 		if result.room != "" {
 			room = result.room
 		}
+		authorized = authorized || result.subscribed
 		if contextDone(ctx) {
 			return nil
 		}
 		if isUnauthorized(err) {
+			return withAuthorized(err, authorized)
+		}
+		if isPermanent(err) {
 			return err
 		}
 		if result.reconnectToken != "" {
@@ -212,7 +216,15 @@ func (source *Source) runSession(
 			}
 		case "response":
 			if envelope.Error != "" {
-				return result, astroResponseError(envelope.Error)
+				if envelope.Nonce == subscribeNonce && subscribeNonce != "" {
+					return result, astroResponseError(envelope.Error)
+				}
+				// Astro documents rate-limit responses without a nonce. Other
+				// uncorrelated errors cannot safely be attributed to our subscribe.
+				if envelope.Nonce == "" && envelope.Error == "rate_limit_exceeded" {
+					return result, astroResponseError(envelope.Error)
+				}
+				continue
 			}
 			if result.subscribed || subscribeNonce == "" || envelope.Nonce != subscribeNonce {
 				continue
@@ -296,10 +308,20 @@ func astroResponseError(code string) error {
 			Operation:    operation,
 			Cause:        errors.New("authorization rejected"),
 		}
-	case "err_internal_error", "err_bad_request", "err_deadline_exceeded", "rate_limit_exceeded", "invalid_message_type":
+	case "err_bad_request", "invalid_message_type":
+		return &RequestError{
+			Permanent: true,
+			Operation: operation,
+			Cause:     errors.New(code),
+		}
+	case "err_internal_error", "err_deadline_exceeded", "rate_limit_exceeded":
 		return requestValidationError(operation, errors.New(code))
 	default:
-		return requestValidationError(operation, errors.New("unknown Astro error"))
+		return &RequestError{
+			Permanent: true,
+			Operation: operation,
+			Cause:     errors.New("unknown Astro error"),
+		}
 	}
 }
 
@@ -331,6 +353,21 @@ func isUnauthorized(err error) bool {
 	return errors.As(err, &requestError) && requestError.Unauthorized
 }
 
+func isPermanent(err error) bool {
+	var requestError *RequestError
+	return errors.As(err, &requestError) && requestError.Permanent
+}
+
+func withAuthorized(err error, authorized bool) error {
+	var requestError *RequestError
+	if !errors.As(err, &requestError) {
+		return err
+	}
+	result := *requestError
+	result.Authorized = result.Authorized || authorized
+	return &result
+}
+
 func jitterDelay(delay time.Duration) time.Duration {
 	// Jitter is only used to spread reconnect attempts.
 	percent := 80 + mathrand.IntN(41) //nolint:gosec
@@ -348,10 +385,9 @@ func dialSocket(ctx context.Context, rawURL string) (Socket, error) {
 			status = response.StatusCode
 		}
 		return nil, &RequestError{
-			Unauthorized: status == http.StatusUnauthorized,
-			Status:       status,
-			Operation:    "open Astro websocket",
-			Cause:        errors.New("websocket handshake failed"),
+			Status:    status,
+			Operation: "open Astro websocket",
+			Cause:     errors.New("websocket handshake failed"),
 		}
 	}
 	return &websocketAdapter{connection: connection}, nil

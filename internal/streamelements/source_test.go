@@ -14,7 +14,6 @@ import (
 	"reflect"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -202,6 +201,45 @@ func TestSourceIgnoresUnrelatedMessagesAndDoesNotFilterTipStateFields(t *testing
 	}
 }
 
+func TestSourceIgnoresUncorrelatedResponseErrors(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		response string
+	}{
+		{
+			name:     "foreign nonce",
+			response: `{"type":"response","nonce":"another-nonce","error":"err_unauthorized","data":{"message":"not our request"}}`,
+		},
+		{
+			name:     "non-global error without nonce",
+			response: `{"type":"response","error":"err_unauthorized","data":{"message":"uncorrelated"}}`,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			socket := newFakeSocket(
+				jsonRead(`{"type":"welcome","data":{"client_id":"client-id"}}`),
+				jsonRead(test.response),
+				jsonRead(`{"type":"response","nonce":"test-nonce","data":{"topic":"channel.tips","room":"`+testChannelID+`"}}`),
+				jsonRead(astroTipJSON(testChannelID, completedTipJSON("tip", "1", "USD", "2025-02-19T15:00:00Z", "Tipper", ""))),
+			)
+			source := testSource(socket)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			emitted := false
+			if err := source.Run(ctx, testAccessToken, testChannelID, func(Donation) error {
+				emitted = true
+				cancel()
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if !emitted {
+				t.Fatal("uncorrelated response error interrupted subscription")
+			}
+		})
+	}
+}
+
 func TestSourceReturnsUnauthorizedSubscribeErrorWithoutRetry(t *testing.T) {
 	socket := newFakeSocket(
 		jsonRead(`{"type":"welcome","data":{"client_id":"client-id"}}`),
@@ -217,7 +255,7 @@ func TestSourceReturnsUnauthorizedSubscribeErrorWithoutRetry(t *testing.T) {
 		return nil
 	})
 	var requestError *RequestError
-	if !errors.As(err, &requestError) || !requestError.Unauthorized {
+	if !errors.As(err, &requestError) || !requestError.Unauthorized || requestError.Authorized {
 		t.Fatalf("error = %v; want unauthorized RequestError", err)
 	}
 	if strings.Contains(err.Error(), testAccessToken) {
@@ -225,29 +263,7 @@ func TestSourceReturnsUnauthorizedSubscribeErrorWithoutRetry(t *testing.T) {
 	}
 }
 
-func TestSourceReturnsUnauthorizedHandshakeWithoutRetry(t *testing.T) {
-	source := NewSource()
-	var dials atomic.Int32
-	source.dial = func(context.Context, string) (Socket, error) {
-		dials.Add(1)
-		return nil, &RequestError{
-			Unauthorized: true,
-			Status:       http.StatusUnauthorized,
-			Operation:    "open Astro websocket",
-		}
-	}
-	source.wait = func(context.Context, time.Duration) error {
-		t.Fatal("unauthorized listener unexpectedly retried")
-		return nil
-	}
-	err := source.Run(context.Background(), testAccessToken, testChannelID, func(Donation) error { return nil })
-	var requestError *RequestError
-	if !errors.As(err, &requestError) || !requestError.Unauthorized || dials.Load() != 1 {
-		t.Fatalf("error = %v after %d dials", err, dials.Load())
-	}
-}
-
-func TestDialSocketClassifiesHTTP401(t *testing.T) {
+func TestDialSocketDoesNotClassifyHTTP401AsCredentialFailure(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 		writer.WriteHeader(http.StatusUnauthorized)
 	}))
@@ -255,8 +271,86 @@ func TestDialSocketClassifiesHTTP401(t *testing.T) {
 
 	_, err := dialSocket(context.Background(), websocketURL(server.URL))
 	var requestError *RequestError
-	if !errors.As(err, &requestError) || !requestError.Unauthorized || requestError.Status != http.StatusUnauthorized {
-		t.Fatalf("error = %v; want HTTP 401 RequestError", err)
+	if !errors.As(err, &requestError) || requestError.Unauthorized || requestError.Permanent ||
+		requestError.Status != http.StatusUnauthorized {
+		t.Fatalf("error = %v; want retryable non-credential HTTP 401 RequestError", err)
+	}
+}
+
+func TestSourceRetriesHandshakeHTTP401(t *testing.T) {
+	source := NewSource()
+	dials := 0
+	source.dial = func(context.Context, string) (Socket, error) {
+		dials++
+		return nil, &RequestError{
+			Status:    http.StatusUnauthorized,
+			Operation: "open Astro websocket",
+			Cause:     errors.New("websocket handshake failed"),
+		}
+	}
+	source.jitter = func(delay time.Duration) time.Duration { return delay }
+	ctx, cancel := context.WithCancel(context.Background())
+	waits := 0
+	source.wait = func(context.Context, time.Duration) error {
+		waits++
+		cancel()
+		return context.Canceled
+	}
+	if err := source.Run(ctx, testAccessToken, testChannelID, func(Donation) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if dials != 1 || waits != 1 {
+		t.Fatalf("dials=%d waits=%d; want retry after handshake HTTP 401", dials, waits)
+	}
+}
+
+func TestSourceReturnsPermanentSubscriptionFailuresWithoutRetry(t *testing.T) {
+	for _, code := range []string{"err_bad_request", "invalid_message_type", "future_error"} {
+		t.Run(code, func(t *testing.T) {
+			socket := newFakeSocket(
+				jsonRead(`{"type":"welcome","data":{"client_id":"client-id"}}`),
+				jsonRead(`{"type":"response","nonce":"test-nonce","error":"`+code+`","data":{"message":"rejected"}}`),
+			)
+			source := testSource(socket)
+			source.wait = func(context.Context, time.Duration) error {
+				t.Fatal("permanent listener failure unexpectedly retried")
+				return nil
+			}
+			err := source.Run(context.Background(), testAccessToken, testChannelID, func(Donation) error { return nil })
+			var requestError *RequestError
+			if !errors.As(err, &requestError) || !requestError.Permanent || requestError.Unauthorized {
+				t.Fatalf("error = %v; want permanent RequestError", err)
+			}
+		})
+	}
+}
+
+func TestSourceReportsPriorSubscriptionOnLaterUnauthorizedError(t *testing.T) {
+	first := newFakeSocket(
+		jsonRead(`{"type":"welcome","data":{"client_id":"client-id-1"}}`),
+		jsonRead(`{"type":"response","nonce":"test-nonce","data":{"topic":"channel.tips","room":"`+testChannelID+`"}}`),
+		socketRead{err: errors.New("connection reset")},
+	)
+	second := newFakeSocket(
+		jsonRead(`{"type":"welcome","data":{"client_id":"client-id-2"}}`),
+		jsonRead(`{"type":"response","nonce":"test-nonce","error":"err_unauthorized","data":{"message":"expired"}}`),
+	)
+	source := NewSource()
+	source.nonce = func() (string, error) { return "test-nonce", nil }
+	source.jitter = func(delay time.Duration) time.Duration { return delay }
+	source.wait = func(context.Context, time.Duration) error { return nil }
+	dials := 0
+	source.dial = func(context.Context, string) (Socket, error) {
+		dials++
+		if dials == 1 {
+			return first, nil
+		}
+		return second, nil
+	}
+	err := source.Run(context.Background(), testAccessToken, testChannelID, func(Donation) error { return nil })
+	var requestError *RequestError
+	if !errors.As(err, &requestError) || !requestError.Unauthorized || !requestError.Authorized || dials != 2 {
+		t.Fatalf("error = %#v after %d dials; want previously-authorized credential error", requestError, dials)
 	}
 }
 
@@ -662,11 +756,18 @@ func TestCoderWebsocketAdapterAnswersNativePing(t *testing.T) {
 }
 
 func TestAstroResponseErrorClassification(t *testing.T) {
-	for _, code := range []string{"err_internal_error", "err_bad_request", "err_deadline_exceeded", "rate_limit_exceeded", "invalid_message_type", "future_error"} {
+	for _, code := range []string{"err_internal_error", "err_deadline_exceeded", "rate_limit_exceeded"} {
 		err := astroResponseError(code)
 		var requestError *RequestError
-		if !errors.As(err, &requestError) || requestError.Unauthorized {
+		if !errors.As(err, &requestError) || requestError.Unauthorized || requestError.Permanent {
 			t.Fatalf("code %q error = %v; want retryable RequestError", code, err)
+		}
+	}
+	for _, code := range []string{"err_bad_request", "invalid_message_type", "future_error"} {
+		err := astroResponseError(code)
+		var requestError *RequestError
+		if !errors.As(err, &requestError) || requestError.Unauthorized || !requestError.Permanent {
+			t.Fatalf("code %q error = %v; want permanent RequestError", code, err)
 		}
 	}
 	err := astroResponseError("err_unauthorized")
