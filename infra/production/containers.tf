@@ -109,6 +109,10 @@ resource "docker_container" "wal_g" {
     }
   }
 
+  lifecycle {
+    ignore_changes = [env]
+  }
+
   depends_on = [docker_container.postgres]
 }
 
@@ -150,7 +154,7 @@ resource "docker_container" "nats" {
 }
 
 resource "docker_container" "chat" {
-  name  = "coldbrew-chat-1"
+  name  = "coldbrew-chat-${local.application_container_suffix}"
   image = var.application_image
 
   entrypoint = ["/bin/sh", "-c"]
@@ -202,11 +206,13 @@ resource "docker_container" "chat" {
     }
   }
 
-  depends_on = [docker_container.nats, docker_container.postgres]
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "docker_container" "donations" {
-  name  = "coldbrew-donations-1"
+  name  = "coldbrew-donations-${local.application_container_suffix}"
   image = var.application_image
 
   entrypoint = ["/bin/sh", "-c"]
@@ -252,11 +258,13 @@ resource "docker_container" "donations" {
     }
   }
 
-  depends_on = [docker_container.nats, docker_container.postgres]
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "docker_container" "video" {
-  name  = "coldbrew-video-1"
+  name  = "coldbrew-video-${local.application_container_suffix}"
   image = var.application_image
 
   entrypoint = ["/bin/sh", "-c"]
@@ -297,7 +305,7 @@ resource "docker_container" "video" {
 }
 
 resource "docker_container" "alerts" {
-  name  = "coldbrew-alerts-1"
+  name  = "coldbrew-alerts-${local.application_container_suffix}"
   image = var.application_image
 
   entrypoint = ["/bin/sh", "-c"]
@@ -338,7 +346,7 @@ resource "docker_container" "alerts" {
 }
 
 resource "docker_container" "web" {
-  name  = "coldbrew-web-1"
+  name  = "coldbrew-web-${local.application_container_suffix}"
   image = var.application_image
 
   entrypoint  = ["/bin/sh", "-c"]
@@ -386,7 +394,9 @@ resource "docker_container" "web" {
     }
   }
 
-  depends_on = [docker_container.chat, docker_container.donations, docker_container.nats, docker_container.postgres]
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "docker_container" "caddy" {
@@ -458,6 +468,10 @@ resource "docker_container" "caddy" {
     }
   }
 
+  lifecycle {
+    ignore_changes = [env]
+  }
+
   depends_on = [docker_container.web]
 }
 
@@ -510,5 +524,9 @@ resource "docker_container" "vector" {
       label = labels.key
       value = labels.value
     }
+  }
+
+  lifecycle {
+    ignore_changes = [env]
   }
 }

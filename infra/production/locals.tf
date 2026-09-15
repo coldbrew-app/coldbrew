@@ -1,4 +1,6 @@
 locals {
+  application_container_suffix = "${substr(var.application_revision, 0, 12)}-${var.deployment_nonce}"
+
   common_labels = {
     "com.streambrew.environment" = "production"
     "com.streambrew.managed-by"  = "terraform"

@@ -2,7 +2,8 @@ resource "docker_network" "internal" {
   name = "coldbrew_internal"
 
   lifecycle {
-    ignore_changes = [labels]
+    ignore_changes  = [labels]
+    prevent_destroy = true
   }
 
   labels {

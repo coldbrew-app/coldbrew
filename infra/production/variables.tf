@@ -33,8 +33,8 @@ variable "deployment_nonce" {
   type        = string
 
   validation {
-    condition     = length(trimspace(var.deployment_nonce)) > 0
-    error_message = "deployment_nonce must not be empty."
+    condition     = can(regex("^[0-9A-Za-z][0-9A-Za-z_.-]{0,31}$", var.deployment_nonce))
+    error_message = "deployment_nonce must be 1-32 Docker-name-safe characters."
   }
 }
 
