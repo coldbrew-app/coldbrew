@@ -21,6 +21,11 @@ on:
         required: true
         default: false
         type: boolean
+      reload_runtime_services:
+        description: Recreate Caddy, Vector, and WAL-G to reload their mounted runtime configuration
+        required: true
+        default: false
+        type: boolean
 
 permissions: {}
 
@@ -167,6 +172,7 @@ jobs:
       AWS_PROJECT_NAME: ${{ vars.AWS_PROJECT_NAME || 'streambrew' }}
       AWS_REGION: ${{ vars.AWS_REGION }}
       RESTART_DATABASE: ${{ github.event_name == 'workflow_dispatch' && inputs.restart_database || false }}
+      RELOAD_RUNTIME_SERVICES: ${{ github.event_name == 'workflow_dispatch' && inputs.reload_runtime_services || false }}
       TARGET_SHA: ${{ needs.resolve.outputs.sha }}
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
@@ -524,8 +530,21 @@ jobs:
               -auto-approve \
               "$RUNNER_TEMP/migration-prerequisites.tfplan"
 
+            stopped_containers=()
             if [[ -n "$previous_revision" ]]; then
-              ssh streambrew-production docker stop coldbrew-web-1 coldbrew-video-1 >/dev/null
+              mapfile -t stopped_containers < <(ssh streambrew-production sh -s <<'REMOTE'
+          set -eu
+
+          for service in web video; do
+            for container in $(docker ps -q \
+              --filter 'label=com.streambrew.managed-by=terraform' \
+              --filter "label=com.docker.compose.service=$service"); do
+              docker stop "$container" >/dev/null
+              printf '%s\n' "$container"
+            done
+          done
+          REMOTE
+              )
             fi
 
             if ! ssh streambrew-production docker run \
@@ -536,8 +555,11 @@ jobs:
               --entrypoint /bin/sh \
               "$APP_IMAGE" \
               -c 'set -a; . /run/streambrew/runtime.env; set +a; export DBMATE_NO_DUMP_SCHEMA=true; exec bunx dbmate --migrations-dir /app/db/migrations up'; then
-              if [[ -n "$previous_revision" ]]; then
-                ssh streambrew-production docker start coldbrew-web-1 coldbrew-video-1 >/dev/null
+              if [[ "${#stopped_containers[@]}" -gt 0 ]]; then
+                ssh streambrew-production sh -s -- "${stopped_containers[@]}" <<'REMOTE'
+          set -eu
+          docker start "$@" >/dev/null
+          REMOTE
               fi
               exit 1
             fi
@@ -546,6 +568,13 @@ jobs:
           plan_options=()
           if [[ "$RESTART_DATABASE" == true ]]; then
             plan_options+=("-replace=docker_container.postgres")
+          fi
+          if [[ "$RELOAD_RUNTIME_SERVICES" == true ]]; then
+            plan_options+=(
+              "-replace=docker_container.caddy"
+              "-replace=docker_container.vector"
+              "-replace=docker_container.wal_g"
+            )
           fi
 
           deployment_succeeded=true

@@ -232,6 +232,20 @@ probe. If Terraform apply or verification fails, it reapplies the previous image
 references recorded in state. That rollback does not reverse database
 migrations and does not change AWS infrastructure.
 
+Routine releases create revision-and-run-specific `chat`, `donations`, and
+`web` containers and wait for their Docker health checks before destroying the
+previous containers. Their stable network aliases keep Caddy routing to healthy
+instances throughout the change. Each event-processing `video` and `alerts`
+worker is destroyed before its replacement starts so two revisions of that
+worker cannot consume the same event concurrently. Caddy, Vector, WAL-G,
+PostgreSQL, and NATS are not restarted solely because the application revision
+changes.
+
+When a changed runtime file must be reloaded by Caddy, Vector, or WAL-G, run the
+workflow manually with `reload_runtime_services=true`. Use
+`restart_database=true` only when PostgreSQL itself must be recreated; both are
+explicit maintenance operations rather than routine release behavior.
+
 ## Validation and recovery
 
 Validate all roots locally:
