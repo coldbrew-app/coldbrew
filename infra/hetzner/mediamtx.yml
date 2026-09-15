@@ -1,0 +1,30 @@
+logLevel: warn
+logDestinations: [stdout]
+
+authMethod: http
+authHTTPAddress: http://127.0.0.1:9998/v1/auth
+authHTTPExclude:
+  - action: api
+
+api: yes
+apiAddress: 127.0.0.1:9997
+metrics: no
+pprof: no
+playback: no
+
+rtsp: no
+rtmp: yes
+rtmpAddress: :1935
+hls: no
+webrtc: no
+srt: no
+moq: no
+
+pathDefaults:
+  source: publisher
+  overridePublisher: no
+  runOnAvailable: /restream-media hook online
+  runOnUnavailable: /restream-media hook offline
+
+paths:
+  all_others:

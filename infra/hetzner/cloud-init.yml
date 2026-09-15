@@ -1,0 +1,35 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+packages:
+  - docker.io
+  - docker-compose-v2
+  - unattended-upgrades
+
+users:
+  - default
+  - name: streambrew
+    gecos: StreamBrew deployment
+    groups:
+      - docker
+    lock_passwd: true
+    shell: /bin/bash
+
+write_files:
+  - path: /etc/ssh/sshd_config.d/99-streambrew.conf
+    permissions: "0644"
+    content: |
+      PasswordAuthentication no
+      PermitRootLogin no
+      AllowUsers streambrew
+
+runcmd:
+  - install -d -m 0700 -o streambrew -g streambrew /home/streambrew/.ssh
+  - cp /root/.ssh/authorized_keys /home/streambrew/.ssh/authorized_keys
+  - chown streambrew:streambrew /home/streambrew/.ssh/authorized_keys
+  - chmod 0600 /home/streambrew/.ssh/authorized_keys
+  - install -d -m 0750 -o streambrew -g streambrew /opt/streambrew-restream
+  - systemctl enable --now docker
+  - systemctl restart ssh
+
+final_message: StreamBrew restream node is ready
