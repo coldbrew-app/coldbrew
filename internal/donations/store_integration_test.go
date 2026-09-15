@@ -186,6 +186,7 @@ func TestStreamElementsRecoveryReplayQueuesFreshDonationAndVideoScanOnce(t *test
 	}
 
 	fresh := testDonation("fresh-delayed", now.Add(-time.Minute))
+	fresh.Amount = "0.004999999999999999"
 	message := "Please play https://youtu.be/dQw4w9WgXcQ"
 	fresh.Message = &message
 	replay := DonationBatch{Donations: []Donation{
@@ -210,6 +211,19 @@ func TestStreamElementsRecoveryReplayQueuesFreshDonationAndVideoScanOnce(t *test
 	}
 	if donations != 3 || videoScans != 3 {
 		t.Fatalf("donations=%d video scans=%d; want one of each per source donation", donations, videoScans)
+	}
+	var donationAmount, alertAmount string
+	if err := pool.QueryRow(ctx, `
+		SELECT donation.amount::text, playback.amount::text
+		FROM donation
+		JOIN donation_alert_playback AS playback USING (donation_id)
+		WHERE donation.source = 'streamelements'
+			AND donation.source_donation_id = 'fresh-delayed'
+	`).Scan(&donationAmount, &alertAmount); err != nil {
+		t.Fatal(err)
+	}
+	if donationAmount != fresh.Amount || alertAmount != fresh.Amount {
+		t.Fatalf("donation amount=%q alert amount=%q; want %q", donationAmount, alertAmount, fresh.Amount)
 	}
 }
 
@@ -320,7 +334,7 @@ func TestTourniquetIngestionIsIdempotentAndRequiresCurrentConnectionToken(t *tes
 	if _, err := alertStore.UpdateSettings(ctx, 1, settings); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveTourniquetConnection(ctx, 1, tourniquet.Connection{WidgetToken: "current-token-1234"}); err != nil {
+	if err := store.SaveTourniquetConnection(ctx, 1, tourniquet.Connection{WidgetToken: "currenttoken1234abcd"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -332,10 +346,10 @@ func TestTourniquetIngestionIsIdempotentAndRequiresCurrentConnectionToken(t *tes
 		SourceCreatedAt:  "2026-09-15 12:00:00",
 		OccurredAt:       now,
 	}
-	if err := store.InsertTourniquetDonations(ctx, 1, "stale-token-1234", []tourniquet.Donation{donation}, LiveOrigin, now); !errors.Is(err, ErrStaleCredentials) {
+	if err := store.InsertTourniquetDonations(ctx, 1, "staletoken1234abcd", []tourniquet.Donation{donation}, LiveOrigin, now); !errors.Is(err, ErrStaleCredentials) {
 		t.Fatalf("stale token error = %v", err)
 	}
-	if err := store.InsertTourniquetDonations(ctx, 1, "current-token-1234", []tourniquet.Donation{donation, donation}, LiveOrigin, now); err != nil {
+	if err := store.InsertTourniquetDonations(ctx, 1, "currenttoken1234abcd", []tourniquet.Donation{donation, donation}, LiveOrigin, now); err != nil {
 		t.Fatal(err)
 	}
 	assertPlaybackIDs(t, pool, []string{"tourniquet-live"})

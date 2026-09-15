@@ -279,7 +279,7 @@ func (tip rawTip) donation(channelID string) (Donation, error) {
 	if !currencyPattern.MatchString(currency) {
 		return Donation{}, errors.New("invalid tip currency")
 	}
-	amount, err := money.Normalize(string(tip.Donation.Amount))
+	amount, err := money.NormalizeDonationAmount(string(tip.Donation.Amount))
 	if err != nil {
 		return Donation{}, err
 	}
