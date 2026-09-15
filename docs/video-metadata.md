@@ -29,11 +29,12 @@ the job. They never reset attempt history.
 
 ## Deployment
 
-Apply the reviewed migrations in `db/migrations` and deploy their matching application revision
-using the [deployment workflow](deployment.md). Coordinate the transition:
-old web code cannot parse NULL timing. Pause the old video worker during the
-transition, apply the migrations, and start all application services on the matching
-new revision. Do not leave mixed old/new web and worker versions running.
+Review the migrations in `db/migrations`, then deploy their matching application
+revision with `apply_migrations=true` using the [deployment
+workflow](deployment.md). The workflow pauses the old web and video processes
+before applying the migration because old web code cannot parse NULL timing, then
+starts all application services on the matching new revision. Do not leave mixed
+old/new web and worker versions running.
 
 The worker backfills missing metadata jobs for videos with unknown duration at
 startup. Existing known durations are retained. Applying migrations or deploying

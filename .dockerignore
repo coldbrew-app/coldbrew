@@ -9,5 +9,9 @@ node_modules
 **/.output
 **/dist
 **/*.tsbuildinfo
+**/.terraform
+**/*.tfplan
+**/*.tfstate
+**/*.tfstate.*
 coverage
 docs

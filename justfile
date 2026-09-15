@@ -70,16 +70,30 @@ typecheck: typecheck-scripts typecheck-web typecheck-go typecheck-packages
 fmt-sql:
   bun scripts/format-sql.ts db/schema.sql db/migrations/*.sql
 
-fmt: fmt-sql
+fmt-terraform:
+  terraform fmt -recursive infra
+
+fmt: fmt-sql fmt-terraform
   bunx oxfmt
   go fmt ./...
 
 fmt-check-sql:
   bun scripts/format-sql.ts --check db/schema.sql db/migrations/*.sql
 
-fmt-check: fmt-check-sql
+fmt-check-terraform:
+  terraform fmt -check -recursive infra
+
+fmt-check: fmt-check-sql fmt-check-terraform
   bunx oxfmt --check
   gofmt -l apps internal | awk '{ print; found = 1 } END { exit found }'
+
+terraform-validate:
+  terraform -chdir=infra/bootstrap init -backend=false -input=false
+  terraform -chdir=infra/bootstrap validate
+  terraform -chdir=infra/aws init -backend=false -input=false
+  terraform -chdir=infra/aws validate
+  terraform -chdir=infra/production init -backend=false -input=false
+  terraform -chdir=infra/production validate
 
 lint-ts:
   bunx oxlint

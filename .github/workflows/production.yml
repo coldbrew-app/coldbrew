@@ -11,8 +11,13 @@ on:
         required: true
         default: master
         type: string
-      migrations_applied:
-        description: Confirm that pending database migrations were applied manually
+      apply_migrations:
+        description: Apply pending database migrations before deploying the revision
+        required: true
+        default: false
+        type: boolean
+      restart_database:
+        description: Recreate PostgreSQL to reload database and WAL archive configuration
         required: true
         default: false
         type: boolean
@@ -133,7 +138,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=postgres-walg,timeout=1m,ignore-error=true
 
   deploy:
-    name: Deploy to VPS
+    name: Apply production Terraform
     if: >-
       always() &&
       needs.resolve.result == 'success' &&
@@ -144,6 +149,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write
       packages: read
     environment:
       name: Production
@@ -155,23 +161,120 @@ jobs:
       DEPLOY_PATH: ${{ vars.SSH_DEPLOY_PATH }}
       POSTGRES_IMAGE: ghcr.io/${{ github.repository_owner }}/streambrew-postgres-walg:${{ needs.resolve.outputs.postgres_tag }}
       REMOTE_ENV_FILE: .streambrew-production-env-${{ github.run_id }}-${{ github.run_attempt }}
-      REMOTE_GHCR_TOKEN_FILE: .streambrew-ghcr-token-${{ github.run_id }}-${{ github.run_attempt }}
-      MIGRATIONS_APPLIED: ${{ github.event_name == 'workflow_dispatch' && inputs.migrations_applied || false }}
-      GHCR_USERNAME: ${{ github.actor }}
-      SSH_HOST: ${{ vars.SSH_HOST }}
-      SSH_PORT: ${{ vars.SSH_PORT }}
-      SSH_USER: ${{ vars.SSH_USER }}
+      REMOTE_AXIOM_FILE: .streambrew-axiom-token-${{ github.run_id }}-${{ github.run_attempt }}
+      APPLY_MIGRATIONS: ${{ github.event_name == 'workflow_dispatch' && inputs.apply_migrations || false }}
+      AWS_LIGHTSAIL_INSTANCE_NAME: ${{ vars.AWS_LIGHTSAIL_INSTANCE_NAME || 'Ubuntu-1' }}
+      AWS_PROJECT_NAME: ${{ vars.AWS_PROJECT_NAME || 'streambrew' }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      RESTART_DATABASE: ${{ github.event_name == 'workflow_dispatch' && inputs.restart_database || false }}
       TARGET_SHA: ${{ needs.resolve.outputs.sha }}
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      TF_STATE_REGION: ${{ vars.TF_STATE_REGION }}
+      TF_VAR_application_image: ghcr.io/${{ github.repository_owner }}/streambrew:${{ needs.resolve.outputs.sha }}
+      TF_VAR_application_revision: ${{ needs.resolve.outputs.sha }}
+      TF_VAR_axiom_token_path: ${{ vars.SSH_DEPLOY_PATH }}/axiom_token
+      TF_VAR_deployment_nonce: ${{ github.run_id }}-${{ github.run_attempt }}
+      TF_VAR_docker_host: ssh://streambrew-production
+      TF_VAR_postgres_image: ghcr.io/${{ github.repository_owner }}/streambrew-postgres-walg:${{ needs.resolve.outputs.postgres_tag }}
+      TF_VAR_postgres_public_port: ${{ vars.PGPORT || '5432' }}
+      TF_VAR_runtime_config_path: ${{ vars.SSH_DEPLOY_PATH }}/runtime.env
     steps:
+      - name: Check out revision
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.resolve.outputs.sha }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.16.2
+          terraform_wrapper: false
+
+      - name: Authenticate to AWS
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          mask-aws-account-id: true
+          role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
+          role-session-name: streambrew-${{ github.run_id }}
+
+      - name: Discover the Lightsail production host
+        run: |
+          set -euo pipefail
+
+          instance_state="$(aws lightsail get-instance-state \
+            --instance-name "$AWS_LIGHTSAIL_INSTANCE_NAME" \
+            --query 'state.name' \
+            --output text)"
+          if [[ "$instance_state" != running ]]; then
+            echo "Expected Lightsail instance $AWS_LIGHTSAIL_INSTANCE_NAME to be running, got: $instance_state" >&2
+            exit 1
+          fi
+
+          public_ip="$(aws lightsail get-instance \
+            --instance-name "$AWS_LIGHTSAIL_INSTANCE_NAME" \
+            --query 'instance.publicIpAddress' \
+            --output text)"
+          if [[ -z "$public_ip" || "$public_ip" == None ]]; then
+            echo "Lightsail did not return a public IP for $AWS_LIGHTSAIL_INSTANCE_NAME" >&2
+            exit 1
+          fi
+
+          {
+            echo "SSH_HOST=$public_ip"
+            echo "SSH_PORT=22"
+            echo "SSH_USER=ubuntu"
+            echo "WALG_S3_PREFIX=${{ vars.WALG_S3_PREFIX }}"
+          } >> "$GITHUB_ENV"
+
       - name: Configure SSH
         env:
           SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
+          set -euo pipefail
           install -d -m 700 "$HOME/.ssh"
           printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
           printf '%s\n' "$SSH_PRIVATE_KEY" > "$RUNNER_TEMP/deploy_key"
           chmod 600 "$HOME/.ssh/known_hosts" "$RUNNER_TEMP/deploy_key"
+
+          cat > "$HOME/.ssh/config" <<SSH_CONFIG
+          Host streambrew-production
+            HostName $SSH_HOST
+            Port $SSH_PORT
+            User $SSH_USER
+            HostKeyAlias streambrew-production
+            IdentityFile $RUNNER_TEMP/deploy_key
+            IdentitiesOnly yes
+            BatchMode yes
+            ControlMaster auto
+            ControlPath $RUNNER_TEMP/ssh-%C
+            ControlPersist 10m
+            ServerAliveInterval 30
+            ServerAliveCountMax 3
+            StrictHostKeyChecking yes
+          SSH_CONFIG
+          chmod 600 "$HOME/.ssh/config"
+
+      - name: Pull immutable production images
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          trap 'ssh streambrew-production docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+          printf '%s' "$GHCR_TOKEN" | ssh streambrew-production \
+            docker login ghcr.io --username '${{ github.actor }}' --password-stdin
+          ssh streambrew-production sh -s -- "$APP_IMAGE" "$POSTGRES_IMAGE" <<'REMOTE'
+          set -eu
+          docker pull "$1"
+          docker pull "$2"
+          docker pull caddy:2.10.2-alpine
+          docker pull nats:2.11.17-alpine
+          docker pull timberio/vector:0.58.0-alpine
+          REMOTE
 
       - name: Generate and upload production environment
         env:
@@ -197,7 +300,6 @@ jobs:
           DONATIONS_SERVICE_SECRET: ${{ secrets.DONATIONS_SERVICE_SECRET }}
           GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           KICK_CLIENT_ID: ${{ vars.KICK_CLIENT_ID }}
           KICK_CLIENT_SECRET: ${{ secrets.KICK_CLIENT_SECRET }}
           KICK_WEBHOOK_PUBLIC_KEY: ${{ vars.KICK_WEBHOOK_PUBLIC_KEY }}
@@ -216,9 +318,8 @@ jobs:
           WALG_ARCHIVE_TIMEOUT_SECONDS: ${{ vars.WALG_ARCHIVE_TIMEOUT_SECONDS }}
           WALG_BACKUP_INTERVAL_SECONDS: ${{ vars.WALG_BACKUP_INTERVAL_SECONDS }}
           WALG_KEEP_FULL_BACKUPS: ${{ vars.WALG_KEEP_FULL_BACKUPS }}
-          WALG_S3_PREFIX: ${{ vars.WALG_S3_PREFIX }}
         run: |
-          node --input-type=module - "$RUNNER_TEMP/$REMOTE_ENV_FILE" <<'NODE'
+          node --input-type=module - "$RUNNER_TEMP/production.env" <<'NODE'
           import { writeFileSync } from "node:fs"
 
           const outputPath = process.argv[2]
@@ -226,7 +327,6 @@ jobs:
             "YOUTUBE_API_KEY",
             "APP_DOMAIN",
             "AWS_REGION",
-            "AXIOM_TOKEN",
             "BETTER_AUTH_SECRET",
             "CHAT_SERVICE_SECRET",
             "CHAT_TOKEN_ENCRYPTION_SECRET",
@@ -272,6 +372,12 @@ jobs:
           if (missing.length > 0) {
             throw new Error(`Missing GitHub production configuration: ${missing.join(", ")}`)
           }
+          if (!process.env.AXIOM_TOKEN) {
+            throw new Error("Missing GitHub production configuration: AXIOM_TOKEN")
+          }
+          if (process.env.PGHOST !== "postgres") {
+            throw new Error("PGHOST must be the Terraform network alias: postgres")
+          }
 
           const hasAccessKey = Boolean(process.env.AWS_ACCESS_KEY_ID)
           const hasSecretKey = Boolean(process.env.AWS_SECRET_ACCESS_KEY)
@@ -279,6 +385,9 @@ jobs:
             throw new Error(
               "AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must either both be set or both be omitted",
             )
+          }
+          if (process.env.AWS_SESSION_TOKEN && !hasAccessKey) {
+            throw new Error("AWS_SESSION_TOKEN requires the WAL-G access-key pair")
           }
 
           const optionalGroups = [
@@ -306,10 +415,8 @@ jobs:
               optional.filter((name) => process.env[name]).map((name) => [name, process.env[name]]),
             ),
             DATABASE_URL: databaseUrl,
-            STREAMBREW_IMAGE: process.env.APP_IMAGE,
-            STREAMBREW_POSTGRES_IMAGE: process.env.POSTGRES_IMAGE,
           }
-          const quote = (value) => `'${value.replaceAll("'", "\\'")}'`
+          const quote = (value) => `'${value.replaceAll("'", "'\\''")}'`
           const contents = Object.entries(values)
             .map(([name, value]) => `${name}=${quote(value)}`)
             .join("\n")
@@ -317,206 +424,220 @@ jobs:
           writeFileSync(outputPath, `${contents}\n`, { encoding: "utf8", mode: 0o600 })
           NODE
 
-          printf '%s' "$GHCR_TOKEN" > "$RUNNER_TEMP/$REMOTE_GHCR_TOKEN_FILE"
-          chmod 600 "$RUNNER_TEMP/$REMOTE_GHCR_TOKEN_FILE"
-          scp \
-            -i "$RUNNER_TEMP/deploy_key" \
-            -P "$SSH_PORT" \
-            -o BatchMode=yes \
-            -o IdentitiesOnly=yes \
-            "$RUNNER_TEMP/$REMOTE_ENV_FILE" \
-            "$RUNNER_TEMP/$REMOTE_GHCR_TOKEN_FILE" \
-            "$SSH_USER@$SSH_HOST:"
+          printf '%s' "$AXIOM_TOKEN" > "$RUNNER_TEMP/axiom_token"
+          chmod 600 "$RUNNER_TEMP/production.env" "$RUNNER_TEMP/axiom_token"
+          scp "$RUNNER_TEMP/production.env" "streambrew-production:$REMOTE_ENV_FILE"
+          scp "$RUNNER_TEMP/axiom_token" "streambrew-production:$REMOTE_AXIOM_FILE"
 
-      - name: Deploy immutable images
-        run: |
-          ssh \
-            -i "$RUNNER_TEMP/deploy_key" \
-            -p "$SSH_PORT" \
-            -o BatchMode=yes \
-            -o IdentitiesOnly=yes \
-            "$SSH_USER@$SSH_HOST" \
-            bash -s -- \
-              "$DEPLOY_PATH" \
-              "$TARGET_SHA" \
-              "$APP_IMAGE" \
-              "$POSTGRES_IMAGE" \
-              "$MIGRATIONS_APPLIED" \
-              "$GHCR_USERNAME" \
-              "$REMOTE_GHCR_TOKEN_FILE" \
-              "$REMOTE_ENV_FILE" <<'REMOTE'
+          ssh streambrew-production bash -s -- \
+            "$DEPLOY_PATH" \
+            "$REMOTE_ENV_FILE" \
+            "$REMOTE_AXIOM_FILE" <<'REMOTE'
           set -euo pipefail
 
           deploy_path="$1"
-          target_sha="$2"
-          app_image="$3"
-          postgres_image="$4"
-          migrations_applied="$5"
-          ghcr_username="$6"
-          ghcr_token="$HOME/$7"
-          production_env="$HOME/$8"
-          docker_config=""
-
-          cleanup() {
-            rm -f "$production_env" "$ghcr_token" "$deploy_path/.env.next"
-            if [[ -n "$docker_config" ]]; then
-              rm -rf "$docker_config"
-            fi
-          }
-          trap cleanup EXIT
-
-          export PATH="$HOME/.local/bin:$HOME/.bun/bin:$HOME/.cargo/bin:/usr/local/bin:$PATH"
-
-          for command_name in git docker just bunx curl; do
-            if ! command -v "$command_name" >/dev/null 2>&1; then
-              echo "Required production command is unavailable: $command_name" >&2
-              echo "Install it for the SSH user or place it in a standard user bin directory." >&2
-              exit 127
-            fi
-          done
-          docker compose version >/dev/null
+          production_env="$HOME/$2"
+          axiom_token="$HOME/$3"
 
           if [[ ! -f "$production_env" ]]; then
             echo "The uploaded production environment file is unavailable." >&2
             exit 1
           fi
-          if [[ ! -f "$ghcr_token" ]]; then
-            echo "The uploaded GHCR token is unavailable." >&2
+          if [[ ! -f "$axiom_token" ]]; then
+            echo "The uploaded Axiom token is unavailable." >&2
             exit 1
           fi
 
-          docker_config="$(mktemp -d)"
-          export DOCKER_CONFIG="$docker_config"
-          docker login ghcr.io --username "$ghcr_username" --password-stdin < "$ghcr_token"
-          rm -f "$ghcr_token"
+          install -d -m 750 "$deploy_path"
+          install -m 640 "$production_env" "$deploy_path/runtime.env.next"
+          install -m 640 "$axiom_token" "$deploy_path/axiom_token.next"
+          mv "$deploy_path/runtime.env.next" "$deploy_path/runtime.env"
+          mv "$deploy_path/axiom_token.next" "$deploy_path/axiom_token"
+          rm -f "$production_env" "$axiom_token"
 
-          required_env=(
-            YOUTUBE_API_KEY
-            APP_DOMAIN
-            PGDATABASE
-            PGUSER
-            PGPASSWORD
-            DATABASE_URL
-            AXIOM_TOKEN
-            BETTER_AUTH_SECRET
-            CHAT_SERVICE_SECRET
-            CHAT_TOKEN_ENCRYPTION_SECRET
-            TELEGRAM_BOT_TOKEN
-            GOOGLE_CLIENT_ID
-            GOOGLE_CLIENT_SECRET
-            DONATION_ALERTS_CLIENT_ID
-            DONATION_ALERTS_CLIENT_SECRET
-            STREAMLABS_CLIENT_ID
-            STREAMLABS_CLIENT_SECRET
-            DONATIONS_SERVICE_SECRET
-            WALG_S3_PREFIX
-            AWS_REGION
-          )
-          bunx dotenvx run -f "$production_env" --overload -- \
-            bash -c '
-              for name in "$@"; do
-                if [[ -z "${!name:-}" ]]; then
-                  echo "Generated production environment is missing required value: $name" >&2
-                  exit 1
-                fi
-              done
-            ' bash "${required_env[@]}"
+          command -v docker >/dev/null
+          docker info >/dev/null
+          id -g
+          REMOTE
 
-          cd "$deploy_path"
+          runtime_gid="$(ssh streambrew-production id -g)"
+          echo "TF_VAR_runtime_secrets_gid=$runtime_gid" >> "$GITHUB_ENV"
 
-          install -m 600 "$production_env" .env.next
-          mv .env.next .env
+      - name: Apply Terraform and verify release
+        env:
+          APP_DOMAIN: ${{ vars.APP_DOMAIN }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
 
-          if ! git diff --quiet || ! git diff --cached --quiet; then
-            echo "The production checkout has tracked local changes; refusing to overwrite them." >&2
-            exit 1
-          fi
+          terraform_state() {
+            terraform "$@"
+          }
 
-          git fetch --quiet --prune --tags origin
-          git cat-file -e "${target_sha}^{commit}"
+          terraform_init() {
+            terraform_state -chdir=infra/production init \
+              -input=false \
+              -reconfigure \
+              -backend-config="bucket=$TF_STATE_BUCKET" \
+              -backend-config="key=$AWS_PROJECT_NAME/production.tfstate" \
+              -backend-config="region=$TF_STATE_REGION" \
+              -backend-config="encrypt=true" \
+              -backend-config="use_lockfile=true"
+          }
 
-          previous_sha=""
-          if [[ -f .deployed-sha ]]; then
-            read -r previous_sha < .deployed-sha
-            git cat-file -e "${previous_sha}^{commit}"
-          fi
+          terraform_init
+
+          previous_revision="$(terraform_state -chdir=infra/production output -raw application_revision 2>/dev/null || true)"
+          previous_app_image="$(terraform_state -chdir=infra/production output -raw application_image 2>/dev/null || true)"
+          previous_postgres_image="$(terraform_state -chdir=infra/production output -raw postgres_image 2>/dev/null || true)"
 
           migrations_changed=true
-          if [[ -n "$previous_sha" ]] && git diff --quiet "$previous_sha" "$target_sha" -- db/migrations; then
+          if [[ -n "$previous_revision" ]] && git diff --quiet "$previous_revision" "$TARGET_SHA" -- db/migrations; then
             migrations_changed=false
           fi
 
-          caddy_changed=true
-          if [[ -n "$previous_sha" ]] && git diff --quiet "$previous_sha" "$target_sha" -- Caddyfile; then
-            caddy_changed=false
-          fi
-
-          if [[ "$migrations_changed" == true && "$migrations_applied" != true ]]; then
-            echo "db/migrations differs from the deployed revision." >&2
-            echo "Apply the target migrations on the VPS, then manually run this workflow" >&2
-            echo "for revision $target_sha with migrations_applied=true." >&2
+          if [[ "$migrations_changed" == true && "$APPLY_MIGRATIONS" != true ]]; then
+            if [[ -z "$previous_revision" ]]; then
+              echo "Bootstrapping PostgreSQL before the initial migration run."
+              terraform_state -chdir=infra/production plan \
+                -input=false \
+                -target=docker_container.postgres \
+                -out="$RUNNER_TEMP/database-bootstrap.tfplan"
+              terraform_state -chdir=infra/production apply \
+                -input=false \
+                -auto-approve \
+                "$RUNNER_TEMP/database-bootstrap.tfplan"
+            fi
+            echo "db/migrations differs from the deployed Terraform state." >&2
+            echo "Review the migrations, then run this workflow for $TARGET_SHA" >&2
+            echo "with apply_migrations=true." >&2
             exit 42
           fi
 
-          git checkout --quiet --detach "$target_sha"
-
-          # Schema transitions must not mix old web readers with new workers.
-          # Pull first to keep the coordinated application pause short.
           if [[ "$migrations_changed" == true ]]; then
-            docker pull "$app_image"
-            docker compose stop web video
+            terraform_state -chdir=infra/production plan \
+              -input=false \
+              -target=docker_container.postgres \
+              -out="$RUNNER_TEMP/migration-prerequisites.tfplan"
+            terraform_state -chdir=infra/production apply \
+              -input=false \
+              -auto-approve \
+              "$RUNNER_TEMP/migration-prerequisites.tfplan"
+
+            if [[ -n "$previous_revision" ]]; then
+              ssh streambrew-production docker stop coldbrew-web-1 coldbrew-video-1 >/dev/null
+            fi
+
+            if ! ssh streambrew-production docker run \
+              --rm \
+              --network coldbrew_internal \
+              --group-add "$TF_VAR_runtime_secrets_gid" \
+              --mount "type=bind,source=$TF_VAR_runtime_config_path,target=/run/streambrew/runtime.env,readonly" \
+              --entrypoint /bin/sh \
+              "$APP_IMAGE" \
+              -c 'set -a; . /run/streambrew/runtime.env; set +a; export DBMATE_NO_DUMP_SCHEMA=true; exec bunx dbmate --migrations-dir /app/db/migrations up'; then
+              if [[ -n "$previous_revision" ]]; then
+                ssh streambrew-production docker start coldbrew-web-1 coldbrew-video-1 >/dev/null
+              fi
+              exit 1
+            fi
           fi
 
-          if STREAMBREW_DEPLOY_ENV_PREPARED=true \
-            STREAMBREW_RECREATE_CADDY="$caddy_changed" \
-            just production-deploy "$app_image" "$postgres_image"; then
-            printf '%s\n' "$target_sha" > .deployed-sha
+          plan_options=()
+          if [[ "$RESTART_DATABASE" == true ]]; then
+            plan_options+=("-replace=docker_container.postgres")
+          fi
+
+          deployment_succeeded=true
+          if ! terraform_state -chdir=infra/production plan \
+            -input=false \
+            "${plan_options[@]}" \
+            -out="$RUNNER_TEMP/production.tfplan"; then
+            deployment_succeeded=false
+          fi
+
+          if [[ "$deployment_succeeded" == true ]] && ! terraform_state \
+            -chdir=infra/production apply \
+              -input=false \
+              -auto-approve \
+              "$RUNNER_TEMP/production.tfplan"; then
+            deployment_succeeded=false
+          fi
+
+          if [[ "$deployment_succeeded" == true ]] && ! ssh streambrew-production \
+            docker inspect --format '{{.Name}} {{.State.Running}}' \
+              coldbrew-postgres-1 coldbrew-wal-g-1 coldbrew-nats-1 coldbrew-chat-1 \
+              coldbrew-donations-1 coldbrew-video-1 coldbrew-alerts-1 coldbrew-web-1 \
+              coldbrew-caddy-1 coldbrew-vector-1 | awk '$2 != "true" { exit 1 }'; then
+            deployment_succeeded=false
+          fi
+
+          if [[ "$deployment_succeeded" == true ]] && ! curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 10 \
+            --retry-delay 3 \
+            --retry-connrefused \
+            "${APP_DOMAIN%/}/api/health" >/dev/null; then
+            deployment_succeeded=false
+          fi
+
+          if [[ "$deployment_succeeded" == true ]]; then
+            status="$(curl \
+              --silent \
+              --show-error \
+              --output /dev/null \
+              --write-out '%{http_code}' \
+              "${APP_DOMAIN%/}/api/chat/deployment-routing-probe")"
+            if [[ "$status" != 404 ]]; then
+              echo "Public /api/chat route bypasses web: expected HTTP 404, got $status" >&2
+              deployment_succeeded=false
+            fi
+          fi
+
+          if [[ "$deployment_succeeded" == true ]]; then
             exit 0
           fi
 
-          echo "Deployment failed health checks." >&2
-          if [[ -n "$previous_sha" ]]; then
-            echo "Rolling application containers back to $previous_sha." >&2
-            git checkout --quiet --detach "$previous_sha"
-            previous_postgres_tag="$(git rev-parse "${previous_sha}:docker/postgres-walg")"
-            app_repository="${app_image%:*}"
-            postgres_repository="${postgres_image%:*}"
-
-            rollback_app_image="${app_repository}:${previous_sha}"
-            if ! docker pull "$rollback_app_image"; then
-              rollback_app_image="${app_repository%/*}/coldbrew:${previous_sha}"
-              echo "Using the pre-rename application package for the first StreamBrew rollback."
-            fi
-
-            rollback_postgres_image="${postgres_repository}:${previous_postgres_tag}"
-            if ! docker pull "$rollback_postgres_image"; then
-              rollback_postgres_image="${postgres_repository%/*}/coldbrew-postgres-walg:${previous_postgres_tag}"
-              echo "Using the pre-rename PostgreSQL package for the first StreamBrew rollback."
-            fi
-
-            STREAMBREW_DEPLOY_ENV_PREPARED=true \
-              STREAMBREW_RECREATE_CADDY="$caddy_changed" \
-              just production-deploy \
-              "$rollback_app_image" \
-              "$rollback_postgres_image" || \
-              echo "Automatic rollback also failed; inspect the VPS immediately." >&2
-          else
-            echo "No previous CI/CD deployment is recorded; automatic rollback is unavailable." >&2
+          echo "Terraform deployment or release verification failed." >&2
+          if [[ -z "$previous_revision" || -z "$previous_app_image" || -z "$previous_postgres_image" ]]; then
+            echo "No previous Terraform release is available for automatic rollback." >&2
+            exit 1
           fi
-          exit 1
-          REMOTE
 
-      - name: Remove uploaded environment file
+          echo "Rolling production back to $previous_revision." >&2
+          (
+            trap 'ssh streambrew-production docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+            printf '%s' "$GHCR_TOKEN" | ssh streambrew-production \
+              docker login ghcr.io --username '${{ github.actor }}' --password-stdin
+            ssh streambrew-production sh -s -- \
+              "$previous_app_image" "$previous_postgres_image" <<'REMOTE'
+          set -eu
+          docker pull "$1"
+          docker pull "$2"
+          REMOTE
+          )
+          TF_VAR_application_revision="$previous_revision" \
+          TF_VAR_application_image="$previous_app_image" \
+          TF_VAR_postgres_image="$previous_postgres_image" \
+            terraform_state -chdir=infra/production plan \
+              -input=false \
+              -out="$RUNNER_TEMP/rollback.tfplan"
+          TF_VAR_application_revision="$previous_revision" \
+          TF_VAR_application_image="$previous_app_image" \
+          TF_VAR_postgres_image="$previous_postgres_image" \
+            terraform_state -chdir=infra/production apply \
+              -input=false \
+              -auto-approve \
+              "$RUNNER_TEMP/rollback.tfplan"
+          exit 1
+
+      - name: Remove transient uploads
         if: always()
         continue-on-error: true
         run: |
-          ssh \
-            -i "$RUNNER_TEMP/deploy_key" \
-            -p "$SSH_PORT" \
-            -o BatchMode=yes \
-            -o IdentitiesOnly=yes \
-            "$SSH_USER@$SSH_HOST" \
-            bash -s -- "$REMOTE_ENV_FILE" "$REMOTE_GHCR_TOKEN_FILE" <<'REMOTE'
+          ssh streambrew-production bash -s -- "$REMOTE_ENV_FILE" "$REMOTE_AXIOM_FILE" <<'REMOTE'
           set -euo pipefail
           rm -f "$HOME/$1" "$HOME/$2"
           REMOTE

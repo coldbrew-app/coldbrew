@@ -123,12 +123,12 @@ confirmation because it affects every checkout.
 
 ## Production
 
-Production is deployed to a VPS by the `Production` GitHub Actions workflow.
-It builds immutable application and PostgreSQL/WAL-G images, generates the
-server's untracked `.env` from the GitHub `Production` environment, deploys the
-Compose stack, and verifies its health. Do not replace that environment with a
-hand-written subset of variables: the complete setup, first-deployment, migrations,
-rollback, networking, and backup guidance lives in
+Production runs on Terraform-managed AWS infrastructure. The manual
+`AWS infrastructure` workflow manages Lightsail, its firewall and snapshots,
+and S3 backups. `Production` builds immutable application and PostgreSQL/WAL-G
+images and applies only the portable Docker runtime over SSH, so routine
+releases neither plan nor replace cloud resources. Bootstrap, first deployment,
+migrations, rollback, networking, and backup guidance lives in
 [the deployment guide](docs/deployment.md).
 
 PostgreSQL continuously archives WAL files to the configured S3-compatible
