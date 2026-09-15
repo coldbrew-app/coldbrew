@@ -90,9 +90,11 @@ they also change code.
    pull request description so GitHub automatically closes the issue when the
    pull request is merged into `master`. Use the pull request as the reviewable
    unit through which a human can inspect and redirect the work.
-5. Run the relevant build, tests, and required CI checks. Merge only when the
-   pull request keeps `master` green. Resolve conflicts and failed checks, then
-   verify the result again.
+5. Run the relevant build, tests, and required CI checks. Resolve conflicts and
+   failed checks, then verify the result again. A green, review-ready pull
+   request is the agent's normal completion point. Hand it to a human for
+   review, approval, and merge. An agent may merge a specific pull request only
+   when a human explicitly requests that merge.
 6. Escalate uncertain decisions to a human, especially architectural changes
    and new product behavior. Green CI verifies automated rules; it does not
    establish architectural correctness.
