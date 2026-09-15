@@ -321,6 +321,9 @@ jobs:
           PGPASSWORD: ${{ secrets.PGPASSWORD }}
           PGPORT: ${{ vars.PGPORT }}
           PGUSER: ${{ vars.PGUSER }}
+          RESTREAM_CREDENTIALS_SECRET: ${{ secrets.RESTREAM_CREDENTIALS_SECRET }}
+          RESTREAM_INGEST_URL: ${{ vars.RESTREAM_INGEST_URL }}
+          RESTREAM_MEDIA_SHARED_SECRET: ${{ secrets.RESTREAM_MEDIA_SHARED_SECRET }}
           WALG_ARCHIVE_TIMEOUT_SECONDS: ${{ vars.WALG_ARCHIVE_TIMEOUT_SECONDS }}
           WALG_BACKUP_INTERVAL_SECONDS: ${{ vars.WALG_BACKUP_INTERVAL_SECONDS }}
           WALG_KEEP_FULL_BACKUPS: ${{ vars.WALG_KEEP_FULL_BACKUPS }}
@@ -348,6 +351,9 @@ jobs:
             "PGHOST",
             "PGPASSWORD",
             "PGUSER",
+            "RESTREAM_CREDENTIALS_SECRET",
+            "RESTREAM_INGEST_URL",
+            "RESTREAM_MEDIA_SHARED_SECRET",
             "WALG_S3_PREFIX",
           ]
           const optional = [

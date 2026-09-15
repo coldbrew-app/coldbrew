@@ -13,6 +13,9 @@ export const env = createEnv({
     DONATIONS_SERVICE_URL: z.url(),
     GOOGLE_CLIENT_ID: z.string().nonempty(),
     GOOGLE_CLIENT_SECRET: z.string().nonempty(),
+    RESTREAM_CREDENTIALS_SECRET: z.string().min(32),
+    RESTREAM_INGEST_URL: z.string().regex(/^rtmp:\/\/[^\s/]+(?::\d+)?$/),
+    RESTREAM_MEDIA_SHARED_SECRET: z.string().min(32),
   },
   runtimeEnv: process.env,
 });

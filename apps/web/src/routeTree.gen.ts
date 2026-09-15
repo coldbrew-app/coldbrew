@@ -32,6 +32,7 @@ import { Route as ApiAlertsStreamRouteImport } from './routes/api/alerts/stream'
 import { Route as ApiAlertsUploadRouteImport } from './routes/api/alerts/upload'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiChatSplatRouteImport } from './routes/api/chat/$'
+import { Route as ApiRestreamMediaRouteImport } from './routes/api/restream/media'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api/trpc/$'
 import { Route as ChatOverlayTokenRouteImport } from './routes/chat.overlay.$token'
 import { Route as AuthenticatedAdminAdminIndexRouteImport } from './routes/_authenticated/_admin/admin/index'
@@ -157,6 +158,11 @@ const ApiChatSplatRoute = ApiChatSplatRouteImport.update({
   path: '/api/chat/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiRestreamMediaRoute = ApiRestreamMediaRouteImport.update({
+  id: '/api/restream/media',
+  path: '/api/restream/media',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTrpcSplatRoute = ApiTrpcSplatRouteImport.update({
   id: '/api/trpc/$',
   path: '/api/trpc/$',
@@ -230,6 +236,7 @@ export interface FileRoutesByFullPath {
   '/api/alerts/upload': typeof ApiAlertsUploadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/$': typeof ApiChatSplatRoute
+  '/api/restream/media': typeof ApiRestreamMediaRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/chat/overlay/$token': typeof ChatOverlayTokenRoute
   '/donations/': typeof AuthenticatedDonationsIndexRoute
@@ -260,6 +267,7 @@ export interface FileRoutesByTo {
   '/api/alerts/upload': typeof ApiAlertsUploadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/$': typeof ApiChatSplatRoute
+  '/api/restream/media': typeof ApiRestreamMediaRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/chat/overlay/$token': typeof ChatOverlayTokenRoute
   '/donations': typeof AuthenticatedDonationsIndexRoute
@@ -295,6 +303,7 @@ export interface FileRoutesById {
   '/api/alerts/upload': typeof ApiAlertsUploadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/$': typeof ApiChatSplatRoute
+  '/api/restream/media': typeof ApiRestreamMediaRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/chat/overlay/$token': typeof ChatOverlayTokenRoute
   '/_authenticated/donations/': typeof AuthenticatedDonationsIndexRoute
@@ -329,6 +338,7 @@ export interface FileRouteTypes {
     | '/api/alerts/upload'
     | '/api/auth/$'
     | '/api/chat/$'
+    | '/api/restream/media'
     | '/api/trpc/$'
     | '/chat/overlay/$token'
     | '/donations/'
@@ -359,6 +369,7 @@ export interface FileRouteTypes {
     | '/api/alerts/upload'
     | '/api/auth/$'
     | '/api/chat/$'
+    | '/api/restream/media'
     | '/api/trpc/$'
     | '/chat/overlay/$token'
     | '/donations'
@@ -393,6 +404,7 @@ export interface FileRouteTypes {
     | '/api/alerts/upload'
     | '/api/auth/$'
     | '/api/chat/$'
+    | '/api/restream/media'
     | '/api/trpc/$'
     | '/chat/overlay/$token'
     | '/_authenticated/donations/'
@@ -419,6 +431,7 @@ export interface RootRouteChildren {
   ApiAlertsUploadRoute: typeof ApiAlertsUploadRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiChatSplatRoute: typeof ApiChatSplatRoute
+  ApiRestreamMediaRoute: typeof ApiRestreamMediaRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
   ChatOverlayTokenRoute: typeof ChatOverlayTokenRoute
   ApiAlertsMediaAssetIdRoute: typeof ApiAlertsMediaAssetIdRoute
@@ -591,6 +604,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/restream/media': {
+      id: '/api/restream/media'
+      path: '/api/restream/media'
+      fullPath: '/api/restream/media'
+      preLoaderRoute: typeof ApiRestreamMediaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/trpc/$': {
       id: '/api/trpc/$'
       path: '/api/trpc/$'
@@ -738,6 +758,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAlertsUploadRoute: ApiAlertsUploadRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiChatSplatRoute: ApiChatSplatRoute,
+  ApiRestreamMediaRoute: ApiRestreamMediaRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,
   ChatOverlayTokenRoute: ChatOverlayTokenRoute,
   ApiAlertsMediaAssetIdRoute: ApiAlertsMediaAssetIdRoute,

@@ -15,6 +15,7 @@ import { adminRouter } from "./admin.js";
 import { alertsRouter } from "./alerts.js";
 import { chatRouter } from "./chat.js";
 import { integrationRouter } from "./integration.js";
+import { restreamRouter } from "./restream.js";
 import { videoProcedures } from "./video.js";
 
 const PAGE_SIZE = 25;
@@ -26,6 +27,7 @@ export const appRouter = router({
   alerts: alertsRouter,
   chat: chatRouter,
   integration: integrationRouter,
+  restream: restreamRouter,
   ...videoProcedures,
 
   authUrls: authenticatedProcedure
