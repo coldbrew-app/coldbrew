@@ -34,5 +34,10 @@ export async function boundTrpcRequest(request: Request): Promise<Request | Resp
   }
   const headers = new Headers(request.headers);
   headers.delete("content-length");
-  return new Request(request, { body, headers, method: "POST" });
+  return new Request(request.url, {
+    body,
+    headers,
+    method: "POST",
+    signal: request.signal,
+  });
 }

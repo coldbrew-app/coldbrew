@@ -81,7 +81,7 @@ describe("RestreamStore", () => {
     const cipher = testCipher();
     const database = createSqlMock((query) => {
       if (query.text.startsWith("SELECT user_id FROM restream_ingest")) return [{ userId }];
-      if (query.text.includes("SELECT restream_destination_id, server_url")) {
+      if (query.text.includes("FROM restream_destination") && query.text.includes("AND enabled")) {
         return [
           {
             destinationId,
