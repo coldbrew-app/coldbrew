@@ -13,6 +13,9 @@ func TestConvertWithDefaultRate(t *testing.T) {
 	}{
 		{name: "rubles to dollars", amount: "90.00", from: "RUB", to: "USD", expected: "1.00", ok: true},
 		{name: "euros to dollars rounds", amount: "1.00", from: "EUR", to: "USD", expected: "1.11", ok: true},
+		{name: "database donation scale", amount: "10.000000000000000000", from: "USD", to: "RUB", expected: "900.00", ok: true},
+		{name: "half cent rounds up", amount: "0.005", from: "USD", to: "USD", expected: "0.01", ok: true},
+		{name: "provider precision rounds once", amount: "0.004999999999999999", from: "USD", to: "USD", expected: "0.00", ok: true},
 		{name: "unsupported source", amount: "1.00", from: "AUD", to: "RUB", ok: false},
 	}
 
