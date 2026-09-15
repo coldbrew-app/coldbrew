@@ -176,6 +176,9 @@ func TestGetDonationsPaginatesLegacyHistoryAndPreservesOriginalMoney(t *testing.
 			query.Get("before") != "2025-02-20T10:30:00.123Z" {
 			t.Fatalf("query = %v", query)
 		}
+		if query.Has("after") {
+			t.Fatalf("ordinary checkpoint traversal unexpectedly has after: %v", query)
+		}
 		switch requests {
 		case 1:
 			if query.Get("offset") != "0" {
@@ -201,7 +204,7 @@ func TestGetDonationsPaginatesLegacyHistoryAndPreservesOriginalMoney(t *testing.
 		return time.Date(2025, 2, 20, 10, 30, 0, 123_000_000, time.UTC)
 	}
 
-	history, err := client.GetDonations(context.Background(), "access-token", testChannelID, nil)
+	history, err := client.GetDonations(context.Background(), "access-token", testChannelID, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,7 +242,7 @@ func TestGetDonationsSupportsCurrentPaginationShape(t *testing.T) {
 	})
 	client.PageDelay = 0
 
-	history, err := client.GetDonations(context.Background(), "access-token", testChannelID, nil)
+	history, err := client.GetDonations(context.Background(), "access-token", testChannelID, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -248,26 +251,99 @@ func TestGetDonationsSupportsCurrentPaginationShape(t *testing.T) {
 	}
 }
 
-func TestGetDonationsStopsAtCheckpoint(t *testing.T) {
+func TestGetDonationsFullReplayContinuesPastCheckpoint(t *testing.T) {
 	checkpoint := "tip-20"
 	requests := 0
-	client := testClient(t, func(writer http.ResponseWriter, _ *http.Request) {
+	client := testClient(t, func(writer http.ResponseWriter, request *http.Request) {
 		requests++
-		_, _ = writer.Write([]byte(`{"docs":[` +
-			completedTipJSON("tip-30", "3", "USD", "2025-02-19T15:00:00Z", "New", "") + `,` +
-			completedTipJSON("tip-20", "2", "USD", "2025-02-19T14:00:00Z", "Seen", "") + `,` +
-			completedTipJSON("tip-10", "1", "USD", "2025-02-19T13:00:00Z", "Old", "") +
-			`],"total":3}`))
+		if request.URL.Query().Has("after") {
+			t.Fatalf("full replay unexpectedly has after: %v", request.URL.Query())
+		}
+		switch requests {
+		case 1:
+			_, _ = writer.Write([]byte(`{"docs":[` +
+				completedTipJSON("tip-30", "3", "USD", "2025-02-19T15:00:00Z", "New", "") + `,` +
+				completedTipJSON("tip-20", "2", "USD", "2025-02-19T14:00:00Z", "Seen", "") +
+				`],"totalDocs":3,"hasNextPage":true}`))
+		case 2:
+			if request.URL.Query().Get("offset") != "2" {
+				t.Fatalf("second offset = %q", request.URL.Query().Get("offset"))
+			}
+			_, _ = writer.Write([]byte(`{"docs":[` +
+				completedTipJSON("tip-10", "1", "USD", "2025-02-19T13:00:00Z", "Old", "") +
+				`],"totalDocs":3,"hasNextPage":false}`))
+		default:
+			t.Fatalf("unexpected request %d", requests)
+		}
 	})
 	client.PageDelay = 0
 
-	history, err := client.GetDonations(context.Background(), "access-token", testChannelID, &checkpoint)
+	history, err := client.GetDonations(context.Background(), "access-token", testChannelID, &checkpoint, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if requests != 1 || len(history.Donations) != 1 || history.Donations[0].SourceDonationID != "tip-30" ||
-		history.Checkpoint == nil || *history.Checkpoint != "tip-30" {
+	ids := make([]string, len(history.Donations))
+	for index, donation := range history.Donations {
+		ids[index] = donation.SourceDonationID
+	}
+	if requests != 2 || !reflect.DeepEqual(ids, []string{"tip-30", "tip-20", "tip-10"}) ||
+		history.Checkpoint != nil {
 		t.Fatalf("history = %#v after %d requests", history, requests)
+	}
+}
+
+func TestGetDonationsOverlapContinuesPastCheckpointForDelayedTip(t *testing.T) {
+	checkpoint := "tip-head"
+	cutoff := time.Date(2025, 2, 19, 12, 30, 0, 456_000_000, time.FixedZone("UTC+2", 2*60*60))
+	requests := 0
+	client := testClient(t, func(writer http.ResponseWriter, request *http.Request) {
+		requests++
+		query := request.URL.Query()
+		if query.Get("after") != "2025-02-19T10:30:00.456Z" {
+			t.Fatalf("after = %q; want normalized UTC cutoff", query.Get("after"))
+		}
+		switch requests {
+		case 1:
+			if query.Get("offset") != "0" {
+				t.Fatalf("first offset = %q", query.Get("offset"))
+			}
+			_, _ = writer.Write([]byte(`{"docs":[` +
+				completedTipJSON("tip-new", "3", "USD", "2025-02-19T11:30:00Z", "New", "") + `,` +
+				completedTipJSON("tip-head", "2", "USD", "2025-02-19T11:00:00Z", "Seen", "") +
+				`],"totalDocs":3,"hasNextPage":true}`))
+		case 2:
+			if query.Get("offset") != "2" {
+				t.Fatalf("second offset = %q", query.Get("offset"))
+			}
+			_, _ = writer.Write([]byte(`{"docs":[` +
+				completedTipJSON("tip-delayed", "1", "USD", "2025-02-19T10:45:00Z", "Delayed", "") +
+				`],"totalDocs":3,"hasNextPage":false}`))
+		default:
+			t.Fatalf("unexpected request %d", requests)
+		}
+	})
+	client.PageDelay = 0
+	client.now = func() time.Time {
+		return time.Date(2025, 2, 20, 10, 30, 0, 0, time.UTC)
+	}
+
+	history, err := client.GetDonations(
+		context.Background(),
+		"access-token",
+		testChannelID,
+		&checkpoint,
+		&cutoff,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := make([]string, len(history.Donations))
+	for index, donation := range history.Donations {
+		ids[index] = donation.SourceDonationID
+	}
+	want := []string{"tip-new", "tip-head", "tip-delayed"}
+	if requests != 2 || !reflect.DeepEqual(ids, want) || history.Checkpoint != nil {
+		t.Fatalf("history IDs = %v checkpoint=%v after %d requests; want %v and nil checkpoint", ids, history.Checkpoint, requests, want)
 	}
 }
 
@@ -290,7 +366,7 @@ func TestGetDonationsDoesNotFilterProviderStatusModerationOrDeletionFields(t *te
 	})
 	client.PageDelay = 0
 
-	history, err := client.GetDonations(context.Background(), "access-token", testChannelID, nil)
+	history, err := client.GetDonations(context.Background(), "access-token", testChannelID, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -302,16 +378,16 @@ func TestGetDonationsDoesNotFilterProviderStatusModerationOrDeletionFields(t *te
 	}
 }
 
-func TestGetDonationsRetainsCheckpointForEmptyHistory(t *testing.T) {
+func TestGetDonationsReturnsNoCheckpointForEmptyReplay(t *testing.T) {
 	checkpoint := "tip-previous"
 	client := testClient(t, func(writer http.ResponseWriter, _ *http.Request) {
 		_, _ = writer.Write([]byte(`{"docs":[],"totalDocs":0,"hasNextPage":false}`))
 	})
-	history, err := client.GetDonations(context.Background(), "access-token", testChannelID, &checkpoint)
+	history, err := client.GetDonations(context.Background(), "access-token", testChannelID, &checkpoint, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(history.Donations) != 0 || history.Checkpoint == nil || *history.Checkpoint != checkpoint {
+	if len(history.Donations) != 0 || history.Checkpoint != nil {
 		t.Fatalf("history = %#v", history)
 	}
 }
@@ -340,7 +416,7 @@ func TestGetDonationsRejectsInvalidCompletedTips(t *testing.T) {
 				_, _ = writer.Write(body)
 			})
 			client.PageDelay = 0
-			_, err := client.GetDonations(context.Background(), "access-token", testChannelID, nil)
+			_, err := client.GetDonations(context.Background(), "access-token", testChannelID, nil, nil)
 			var requestError *RequestError
 			if !errors.As(err, &requestError) || requestError.Unauthorized {
 				t.Fatalf("error = %v; want validation RequestError", err)
@@ -356,7 +432,7 @@ func TestRESTUnauthorizedIsClassifiedWithoutLeakingAccessToken(t *testing.T) {
 		}
 		writer.WriteHeader(http.StatusUnauthorized)
 	})
-	_, err := client.GetDonations(context.Background(), "secret-access-token", testChannelID, nil)
+	_, err := client.GetDonations(context.Background(), "secret-access-token", testChannelID, nil, nil)
 	var requestError *RequestError
 	if !errors.As(err, &requestError) || !requestError.Unauthorized || requestError.Status != http.StatusUnauthorized {
 		t.Fatalf("error = %v; want unauthorized RequestError", err)
@@ -400,7 +476,7 @@ func TestGetDonationsRejectsInvalidJSONAndMissingChannel(t *testing.T) {
 		_, _ = writer.Write([]byte(`{"docs":`))
 	})
 	for _, channelID := range []string{testChannelID, ""} {
-		_, err := client.GetDonations(context.Background(), "access-token", channelID, nil)
+		_, err := client.GetDonations(context.Background(), "access-token", channelID, nil, nil)
 		var requestError *RequestError
 		if !errors.As(err, &requestError) {
 			t.Fatalf("channel %q error = %v; want RequestError", channelID, err)
@@ -497,8 +573,15 @@ func TestCompletedTipFixtureIsValidJSON(t *testing.T) {
 
 func TestRequestErrorUnwrapsCause(t *testing.T) {
 	cause := errors.New("cause")
-	err := &RequestError{Operation: "operation", Cause: cause}
+	err := &RequestError{Authorized: true, Operation: "operation", Cause: cause}
 	if !errors.Is(err, cause) || err.Error() != fmt.Sprintf("streamelements: operation: %v", cause) {
 		t.Fatalf("error = %v", err)
+	}
+	var authorizedSession interface {
+		HadAuthorizedSession() bool
+	}
+	if wrapped := fmt.Errorf("outer: %w", err); !errors.As(wrapped, &authorizedSession) ||
+		!authorizedSession.HadAuthorizedSession() {
+		t.Fatalf("wrapped RequestError does not expose its authorized-session state")
 	}
 }

@@ -63,9 +63,13 @@ type History struct {
 // RequestError classifies failures at a StreamElements boundary.
 type RequestError struct {
 	Unauthorized bool
-	Status       int
-	Operation    string
-	Cause        error
+	// Authorized reports that this listener Run had already confirmed an Astro
+	// subscription before the credentials were rejected.
+	Authorized bool
+	Permanent  bool
+	Status     int
+	Operation  string
+	Cause      error
 }
 
 func (err *RequestError) Error() string {
@@ -76,6 +80,9 @@ func (err *RequestError) Error() string {
 }
 
 func (err *RequestError) Unwrap() error { return err.Cause }
+
+// HadAuthorizedSession reports whether this listener Run subscribed before failing.
+func (err *RequestError) HadAuthorizedSession() bool { return err.Authorized }
 
 // Client calls the StreamElements OAuth and Kappa APIs.
 type Client struct {
@@ -147,12 +154,15 @@ func (client *Client) RefreshTokens(ctx context.Context, config Config, refreshT
 	})
 }
 
-// GetDonations walks the channel's tips from newest to oldest until checkpoint.
+// GetDonations walks the complete stable tips range from newest to oldest.
+// Only an initial unbounded traversal returns a checkpoint. Replays return no
+// checkpoint so a concurrent recovery cannot replace the initial history head.
 func (client *Client) GetDonations(
 	ctx context.Context,
 	accessToken string,
 	channelID string,
 	checkpoint *string,
+	occurredAfter *time.Time,
 ) (History, error) {
 	channelID = strings.TrimSpace(channelID)
 	if channelID == "" {
@@ -161,6 +171,7 @@ func (client *Client) GetDonations(
 
 	donations := make([]Donation, 0)
 	var newCheckpoint *string
+	initialTraversal := checkpoint == nil && occurredAfter == nil
 	offset := 0
 	syncStartedAt := client.now().UTC().Format(time.RFC3339Nano)
 
@@ -178,16 +189,19 @@ func (client *Client) GetDonations(
 			"sort":   {"-createdAt"},
 			"tz":     {"0"},
 		}
+		if occurredAfter != nil {
+			parameters.Set("after", occurredAfter.UTC().Format(time.RFC3339Nano))
+		}
 		path := "/kappa/v2/tips/" + url.PathEscape(channelID) + "?" + parameters.Encode()
 		var page tipsPage
 		if err := client.doJSON(ctx, http.MethodGet, path, nil, "", accessToken, &page); err != nil {
 			return History{}, err
 		}
 		if len(page.Docs) == 0 {
-			return History{Donations: donations, Checkpoint: checkpointOrNew(checkpoint, newCheckpoint)}, nil
+			return History{Donations: donations, Checkpoint: newCheckpoint}, nil
 		}
 
-		if newCheckpoint == nil {
+		if initialTraversal && newCheckpoint == nil {
 			if page.Docs[0].ID == "" {
 				return History{}, requestValidationError("read tips", errors.New("missing tip id"))
 			}
@@ -199,9 +213,6 @@ func (client *Client) GetDonations(
 			if raw.ID == "" {
 				return History{}, requestValidationError("read tips", errors.New("missing tip id"))
 			}
-			if checkpoint != nil && raw.ID == *checkpoint {
-				return History{Donations: donations, Checkpoint: newCheckpoint}, nil
-			}
 			donation, err := raw.donation(channelID)
 			if err != nil {
 				return History{}, requestValidationError("read tips", err)
@@ -211,7 +222,7 @@ func (client *Client) GetDonations(
 
 		offset += len(page.Docs)
 		if page.last(offset, pageNumber) {
-			return History{Donations: donations, Checkpoint: checkpointOrNew(checkpoint, newCheckpoint)}, nil
+			return History{Donations: donations, Checkpoint: newCheckpoint}, nil
 		}
 	}
 	return History{}, requestValidationError("read tips", errors.New("history exceeds pagination safety limit"))
@@ -307,13 +318,6 @@ func (value *stringOrNumber) UnmarshalJSON(body []byte) error {
 	}
 	*value = stringOrNumber(number.String())
 	return nil
-}
-
-func checkpointOrNew(checkpoint, next *string) *string {
-	if next != nil {
-		return next
-	}
-	return checkpoint
 }
 
 func (client *Client) fetchTokens(ctx context.Context, values url.Values) (Tokens, error) {
