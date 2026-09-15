@@ -881,9 +881,6 @@ ALTER TABLE ONLY public.restream_session_destination
 ADD CONSTRAINT restream_session_destination_pkey PRIMARY KEY (restream_session_id, restream_destination_id);
 
 ALTER TABLE ONLY public.restream_session
-ADD CONSTRAINT restream_session_node_id_publisher_id_key UNIQUE (node_id, publisher_id);
-
-ALTER TABLE ONLY public.restream_session
 ADD CONSTRAINT restream_session_pkey PRIMARY KEY (restream_session_id);
 
 ALTER TABLE ONLY public.restream_session
@@ -992,6 +989,8 @@ CREATE INDEX donation_user_occurred_idx ON public.donation USING btree (user_id,
 CREATE INDEX donation_video_scan_available_idx ON public.donation_video_scan USING btree (available_at, lease_expires_at, donation_id) WHERE (completed_at IS NULL);
 
 CREATE INDEX donation_videos_unparsed_idx ON public.donation USING btree (occurred_at) WHERE (videos_parsed_at IS NULL);
+
+CREATE UNIQUE INDEX restream_session_active_publisher_idx ON public.restream_session USING btree (node_id, publisher_id) WHERE (status <> 'ended'::public.restream_session_status);
 
 CREATE UNIQUE INDEX restream_session_active_user_idx ON public.restream_session USING btree (user_id) WHERE (status <> 'ended'::public.restream_session_status);
 
