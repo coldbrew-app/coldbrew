@@ -1,0 +1,24 @@
+services:
+  restream:
+    image: ${RESTREAM_MEDIA_IMAGE:?RESTREAM_MEDIA_IMAGE is required}
+    restart: unless-stopped
+    init: true
+    environment:
+      RESTREAM_NODE_ID: ${RESTREAM_NODE_ID:?RESTREAM_NODE_ID is required}
+      RESTREAM_CONTROL_URL: ${RESTREAM_CONTROL_URL:?RESTREAM_CONTROL_URL is required}
+      RESTREAM_MEDIA_SHARED_SECRET: ${RESTREAM_MEDIA_SHARED_SECRET:?RESTREAM_MEDIA_SHARED_SECRET is required}
+    ports:
+      - "1935:1935/tcp"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    healthcheck:
+      test: ["CMD", "/restream-media", "health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
