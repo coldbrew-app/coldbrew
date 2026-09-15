@@ -19,6 +19,7 @@ import (
 	"github.com/streambrew-app/streambrew/internal/donationalerts"
 	"github.com/streambrew-app/streambrew/internal/donations"
 	"github.com/streambrew-app/streambrew/internal/observability"
+	"github.com/streambrew-app/streambrew/internal/streamelements"
 	"github.com/streambrew-app/streambrew/internal/streamlabs"
 	"github.com/streambrew-app/streambrew/internal/tourniquet"
 )
@@ -71,10 +72,20 @@ func run() error {
 			RedirectURI:  config.streamlabsRedirectURI,
 		},
 	)
+	streamElementsClient := streamelements.NewClient(httpClient)
+	streamElementsProvider := donations.NewStreamElementsAdapter(
+		streamElementsClient,
+		streamelements.NewSource(),
+		streamelements.Config{
+			ClientID:     config.streamElementsClientID,
+			ClientSecret: config.streamElementsClientSecret,
+		},
+	)
 	oauthApplication := donations.NewApplication(
 		store,
 		donationAlertsProvider,
 		streamlabsProvider,
+		streamElementsProvider,
 	)
 	donateStreamApplication := donations.NewDonateStreamApplication(store, donatestream.NewSource())
 	tourniquetApplication := donations.NewTourniquetApplication(store, tourniquet.NewSource())
@@ -137,6 +148,8 @@ type serviceConfig struct {
 	streamlabsClientID         string
 	streamlabsClientSecret     string
 	streamlabsRedirectURI      string
+	streamElementsClientID     string
+	streamElementsClientSecret string
 	serviceSecret              string
 	port                       int
 }
@@ -153,11 +166,13 @@ func loadConfig() (serviceConfig, error) {
 		streamlabsClientID:         os.Getenv("STREAMLABS_CLIENT_ID"),
 		streamlabsClientSecret:     os.Getenv("STREAMLABS_CLIENT_SECRET"),
 		streamlabsRedirectURI:      streamlabsRedirectURI,
+		streamElementsClientID:     os.Getenv("STREAMELEMENTS_CLIENT_ID"),
+		streamElementsClientSecret: os.Getenv("STREAMELEMENTS_CLIENT_SECRET"),
 		serviceSecret:              os.Getenv("DONATIONS_SERVICE_SECRET"),
 		port:                       3002,
 	}
-	if config.databaseURL == "" || config.donationAlertsClientID == "" || config.donationAlertsClientSecret == "" || config.streamlabsClientID == "" || config.streamlabsClientSecret == "" {
-		return serviceConfig{}, errors.New("DATABASE_URL and DonationAlerts and Streamlabs client credentials are required")
+	if config.databaseURL == "" || config.donationAlertsClientID == "" || config.donationAlertsClientSecret == "" || config.streamlabsClientID == "" || config.streamlabsClientSecret == "" || config.streamElementsClientID == "" || config.streamElementsClientSecret == "" {
+		return serviceConfig{}, errors.New("DATABASE_URL and DonationAlerts, Streamlabs, and StreamElements client credentials are required")
 	}
 	if _, err := strconv.ParseUint(config.donationAlertsClientID, 10, 64); err != nil {
 		return serviceConfig{}, errors.New("DONATION_ALERTS_CLIENT_ID must be numeric")

@@ -29,6 +29,8 @@ env:
   DONATION_ALERTS_CLIENT_SECRET: ci-only
   STREAMLABS_CLIENT_ID: ci-only
   STREAMLABS_CLIENT_SECRET: ci-only
+  STREAMELEMENTS_CLIENT_ID: ci-only
+  STREAMELEMENTS_CLIENT_SECRET: ci-only
   DONATIONS_SERVICE_SECRET: ci-only-donations-service-secret-at-least-thirty-two-characters
   DONATIONS_SERVICE_URL: http://127.0.0.1:3002
   GOOGLE_CLIENT_ID: ci-only

@@ -143,7 +143,7 @@ func (integration *integration) connect(ctx context.Context, userID int, authCod
 	if err != nil {
 		return fmt.Errorf("issue %s connection: %w", name, err)
 	}
-	batch, err := integration.provider.GetDonations(ctx, connection.AccessToken, nil, nil)
+	batch, err := integration.provider.GetDonations(ctx, connection.AccessToken, connection.SourceUserID, nil, nil)
 	if err != nil {
 		return fmt.Errorf("import initial %s history: %w", name, err)
 	}
@@ -277,7 +277,7 @@ func (integration *integration) listen(ctx context.Context, connection Connectio
 	tokenVersion := connection.TokenVersion
 	checkpoint := connection.HistoryCheckpoint
 	for ctx.Err() == nil {
-		err := integration.provider.Run(ctx, accessToken, checkpoint, func(batch DonationBatch) error {
+		err := integration.provider.Run(ctx, accessToken, connection.SourceUserID, checkpoint, func(batch DonationBatch) error {
 			if err := integration.store.SaveDonations(ctx, connection.UserID, tokenVersion, batch, LiveOrigin, integration.now()); err != nil {
 				return err
 			}
@@ -373,7 +373,13 @@ func (integration *integration) syncConnectionHistory(ctx context.Context, name 
 		cutoff := integration.now().Add(-donationalert.MaxAlertAge)
 		occurredAfter = &cutoff
 	}
-	batch, err := integration.provider.GetDonations(accountCtx, connection.AccessToken, connection.HistoryCheckpoint, occurredAfter)
+	batch, err := integration.provider.GetDonations(
+		accountCtx,
+		connection.AccessToken,
+		connection.SourceUserID,
+		connection.HistoryCheckpoint,
+		occurredAfter,
+	)
 	if err != nil {
 		if ctx.Err() == nil {
 			slog.Error("fetch "+name+" history", "userId", connection.UserID, "error", err)

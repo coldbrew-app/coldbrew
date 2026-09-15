@@ -112,12 +112,16 @@ func TestHTTPHandlerValidatesConnectInput(t *testing.T) {
 	}
 }
 
-func TestHTTPAuthorizationURLRequiresStreamlabsState(t *testing.T) {
-	handler := newHTTPTestHandler(&httpTestApplication{}, nil, nil, nil)
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, authorizedRequest("/internal/authorization-url", `{"source":"streamlabs","redirectUri":"https://streambrew.test/callback","state":"short"}`))
-	if response.Code != http.StatusBadRequest {
-		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
+func TestHTTPAuthorizationURLRequiresStateForModernOAuthProviders(t *testing.T) {
+	for _, source := range []Source{StreamlabsSource, StreamElementsSource} {
+		t.Run(string(source), func(t *testing.T) {
+			handler := newHTTPTestHandler(&httpTestApplication{}, nil, nil, nil)
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, authorizedRequest("/internal/authorization-url", `{"source":"`+string(source)+`","redirectUri":"https://streambrew.test/callback","state":"short"}`))
+			if response.Code != http.StatusBadRequest {
+				t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
+			}
+		})
 	}
 }
 
@@ -127,6 +131,16 @@ func TestHTTPAuthorizationURLRoutesProvider(t *testing.T) {
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, authorizedRequest("/internal/authorization-url", `{"source":"streamlabs","redirectUri":"https://streambrew.test/callback","state":"12345678901234567890123456789012"}`))
 	if response.Code != http.StatusOK || application.authorizedSource != StreamlabsSource {
+		t.Fatalf("status=%d source=%q body=%s", response.Code, application.authorizedSource, response.Body.String())
+	}
+}
+
+func TestHTTPAuthorizationURLRoutesStreamElements(t *testing.T) {
+	application := &httpTestApplication{}
+	handler := newHTTPTestHandler(application, nil, nil, nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, authorizedRequest("/internal/authorization-url", `{"source":"streamelements","redirectUri":"https://streambrew.test/callback","state":"12345678901234567890123456789012"}`))
+	if response.Code != http.StatusOK || application.authorizedSource != StreamElementsSource {
 		t.Fatalf("status=%d source=%q body=%s", response.Code, application.authorizedSource, response.Body.String())
 	}
 }

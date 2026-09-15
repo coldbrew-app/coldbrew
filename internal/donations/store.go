@@ -34,6 +34,8 @@ func (store *Store) forSource(source Source) *providerStore {
 		panic(source.displayName() + " uses its dedicated store")
 	case StreamlabsSource:
 		table = "streamlabs_connection"
+	case StreamElementsSource:
+		table = "streamelements_connection"
 	default:
 		panic("unsupported donation source: " + source)
 	}

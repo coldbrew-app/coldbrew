@@ -74,7 +74,7 @@ func TestIntegrationRunImmediatelyRecoversFreshDonationAfterRestart(t *testing.T
 		},
 		Checkpoint: &nextCheckpoint,
 	}
-	provider.run = func(ctx context.Context, _ string, _ *string, _ func(DonationBatch) error) error {
+	provider.run = func(ctx context.Context, _, _ string, _ *string, _ func(DonationBatch) error) error {
 		<-ctx.Done()
 		return nil
 	}

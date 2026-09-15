@@ -75,7 +75,7 @@ func (handler *HTTPHandler) handleAuthorizationURL(response http.ResponseWriter,
 		return
 	}
 	source, validSource := parseSource(input.Source)
-	if !validSource || handler.widgetSources[source] != nil || !validRedirectURI(input.RedirectURI) || (source == StreamlabsSource && !validOAuthState(input.State)) {
+	if !validSource || handler.widgetSources[source] != nil || !validRedirectURI(input.RedirectURI) || (source != DonationAlertsSource && !validOAuthState(input.State)) {
 		writeError(response, http.StatusBadRequest, "invalid OAuth authorization request")
 		return
 	}

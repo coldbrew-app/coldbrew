@@ -51,14 +51,15 @@ type unauthorizedTestError struct{}
 func (*unauthorizedTestError) Error() string { return "unauthorized" }
 
 type applicationTestProvider struct {
-	source       Source
-	connection   ProviderConnection
-	batch        DonationBatch
-	historyErr   error
-	historyAfter *time.Time
-	getDonations func(context.Context, string, *string, *time.Time) (DonationBatch, error)
-	run          func(context.Context, string, *string, func(DonationBatch) error) error
-	refresh      func(context.Context, string) (Tokens, error)
+	source              Source
+	connection          ProviderConnection
+	batch               DonationBatch
+	historyErr          error
+	historyAfter        *time.Time
+	historySourceUserID string
+	getDonations        func(context.Context, string, string, *string, *time.Time) (DonationBatch, error)
+	run                 func(context.Context, string, string, *string, func(DonationBatch) error) error
+	refresh             func(context.Context, string) (Tokens, error)
 }
 
 func (provider *applicationTestProvider) Source() Source { return provider.source }
@@ -68,10 +69,11 @@ func (*applicationTestProvider) AuthorizationURL(redirectURI, state string) stri
 func (provider *applicationTestProvider) IssueConnection(context.Context, string, string) (ProviderConnection, error) {
 	return provider.connection, nil
 }
-func (provider *applicationTestProvider) GetDonations(ctx context.Context, accessToken string, checkpoint *string, occurredAfter *time.Time) (DonationBatch, error) {
+func (provider *applicationTestProvider) GetDonations(ctx context.Context, accessToken, sourceUserID string, checkpoint *string, occurredAfter *time.Time) (DonationBatch, error) {
 	if provider.getDonations != nil {
-		return provider.getDonations(ctx, accessToken, checkpoint, occurredAfter)
+		return provider.getDonations(ctx, accessToken, sourceUserID, checkpoint, occurredAfter)
 	}
+	provider.historySourceUserID = sourceUserID
 	if occurredAfter == nil {
 		provider.historyAfter = nil
 	} else {
@@ -80,8 +82,8 @@ func (provider *applicationTestProvider) GetDonations(ctx context.Context, acces
 	}
 	return provider.batch, provider.historyErr
 }
-func (provider *applicationTestProvider) Run(ctx context.Context, accessToken string, checkpoint *string, emit func(DonationBatch) error) error {
-	return provider.run(ctx, accessToken, checkpoint, emit)
+func (provider *applicationTestProvider) Run(ctx context.Context, accessToken, sourceUserID string, checkpoint *string, emit func(DonationBatch) error) error {
+	return provider.run(ctx, accessToken, sourceUserID, checkpoint, emit)
 }
 func (provider *applicationTestProvider) RefreshTokens(ctx context.Context, refreshToken string) (Tokens, error) {
 	return provider.refresh(ctx, refreshToken)
@@ -109,6 +111,9 @@ func TestConnectImportsHistoryBeforeAtomicSave(t *testing.T) {
 	if store.savedConnection == nil || *store.savedConnection != connection || len(store.savedBatch.Donations) != 1 || store.savedBatch.Donations[0].SourceDonationID != "donation-1" {
 		t.Fatalf("connection=%#v batch=%#v", store.savedConnection, store.savedBatch)
 	}
+	if provider.historySourceUserID != connection.SourceUserID {
+		t.Fatalf("history source user id = %q", provider.historySourceUserID)
+	}
 }
 
 func TestConnectHistoryFailureDoesNotSavePartialConnection(t *testing.T) {
@@ -130,7 +135,7 @@ func TestRefreshListenersReplacesListenerAfterReconnect(t *testing.T) {
 	started := make(chan string, 2)
 	cancelled := make(chan string, 2)
 	provider := testProvider()
-	provider.run = func(ctx context.Context, token string, _ *string, _ func(DonationBatch) error) error {
+	provider.run = func(ctx context.Context, token, _ string, _ *string, _ func(DonationBatch) error) error {
 		started <- token
 		<-ctx.Done()
 		cancelled <- token
@@ -164,7 +169,7 @@ func TestRefreshListenersReplacesListenerAfterReconnect(t *testing.T) {
 func TestListenerRejectsStaleRefresh(t *testing.T) {
 	store := &applicationTestStore{setTokensUpdated: false}
 	provider := testProvider()
-	provider.run = func(context.Context, string, *string, func(DonationBatch) error) error {
+	provider.run = func(context.Context, string, string, *string, func(DonationBatch) error) error {
 		return &unauthorizedTestError{}
 	}
 	provider.refresh = func(context.Context, string) (Tokens, error) {
@@ -180,7 +185,7 @@ func TestListenerRejectsStaleRefresh(t *testing.T) {
 func TestUnauthorizedRefreshDisconnectsOnlyMatchingVersion(t *testing.T) {
 	store := &applicationTestStore{}
 	provider := testProvider()
-	provider.run = func(context.Context, string, *string, func(DonationBatch) error) error {
+	provider.run = func(context.Context, string, string, *string, func(DonationBatch) error) error {
 		return &unauthorizedTestError{}
 	}
 	provider.refresh = func(context.Context, string) (Tokens, error) {
@@ -200,7 +205,10 @@ func TestListenerAdvancesHistoryCheckpointAfterPersist(t *testing.T) {
 	next := "new"
 	store := &applicationTestStore{}
 	provider := testProvider()
-	provider.run = func(_ context.Context, _ string, received *string, emit func(DonationBatch) error) error {
+	provider.run = func(_ context.Context, _, sourceUserID string, received *string, emit func(DonationBatch) error) error {
+		if sourceUserID != "source-user" {
+			t.Fatalf("source user id = %q", sourceUserID)
+		}
 		if received == nil || *received != checkpoint {
 			t.Fatalf("checkpoint = %v", received)
 		}
@@ -213,7 +221,7 @@ func TestListenerAdvancesHistoryCheckpointAfterPersist(t *testing.T) {
 	integration := newIntegration(store, provider)
 	acceptedAt := time.Date(2026, 9, 13, 12, 0, 0, 0, time.UTC)
 	integration.now = func() time.Time { return acceptedAt }
-	if err := integration.listen(context.Background(), Connection{UserID: 42, AccessToken: "access", TokenVersion: 1, HistoryCheckpoint: &checkpoint}); !errors.Is(err, context.Canceled) {
+	if err := integration.listen(context.Background(), Connection{UserID: 42, SourceUserID: "source-user", AccessToken: "access", TokenVersion: 1, HistoryCheckpoint: &checkpoint}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("error = %v", err)
 	}
 	if store.savedBatch.Checkpoint == nil || *store.savedBatch.Checkpoint != next {
@@ -226,7 +234,7 @@ func TestListenerAdvancesHistoryCheckpointAfterPersist(t *testing.T) {
 
 func TestHistorySyncUsesRecoveryOrigin(t *testing.T) {
 	checkpoint := "checkpoint"
-	store := &applicationTestStore{connections: []Connection{{UserID: 42, AccessToken: "access", TokenVersion: 3, HistoryCheckpoint: &checkpoint}}}
+	store := &applicationTestStore{connections: []Connection{{UserID: 42, SourceUserID: "source-user", AccessToken: "access", TokenVersion: 3, HistoryCheckpoint: &checkpoint}}}
 	provider := testProvider()
 	provider.batch = DonationBatch{Donations: []Donation{{SourceDonationID: "recovered"}}}
 	integration := newIntegration(store, provider)
@@ -235,6 +243,9 @@ func TestHistorySyncUsesRecoveryOrigin(t *testing.T) {
 	integration.syncHistory(context.Background(), false)
 	if store.savedOrigin != RecoveryOrigin || !store.savedAcceptedAt.Equal(acceptedAt) {
 		t.Fatalf("origin=%q acceptedAt=%v", store.savedOrigin, store.savedAcceptedAt)
+	}
+	if provider.historySourceUserID != "source-user" {
+		t.Fatalf("history source user id = %q", provider.historySourceUserID)
 	}
 }
 
@@ -259,7 +270,7 @@ func TestRecentHistorySyncDoesNotLetBlockedAccountDelayHealthyAccount(t *testing
 	}
 	blockedStarted := make(chan struct{})
 	provider := testProvider()
-	provider.getDonations = func(ctx context.Context, accessToken string, _ *string, occurredAfter *time.Time) (DonationBatch, error) {
+	provider.getDonations = func(ctx context.Context, accessToken, _ string, _ *string, occurredAfter *time.Time) (DonationBatch, error) {
 		if occurredAfter == nil {
 			return DonationBatch{}, errors.New("missing recovery cutoff")
 		}
