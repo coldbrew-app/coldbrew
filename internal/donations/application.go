@@ -306,9 +306,6 @@ func (integration *integration) listen(ctx context.Context, connection Connectio
 				}
 				return fmt.Errorf("%s rejected refreshed credentials: %w", integration.provider.Source().displayName(), err)
 			}
-			if hadAuthorizedSession {
-				refreshedBeforeAuthorization = false
-			}
 		}
 		tokens, refreshErr := integration.provider.RefreshTokens(ctx, refreshToken)
 		if refreshErr != nil {
