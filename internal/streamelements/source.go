@@ -18,8 +18,9 @@ import (
 )
 
 const (
-	defaultSocketURL = "wss://astro.streamelements.com"
-	tipsTopic        = "channel.tips"
+	defaultSocketURL        = "wss://astro.streamelements.com"
+	tipsTopic               = "channel.tips"
+	defaultSubscribeTimeout = 15 * time.Second
 )
 
 type Socket interface {
@@ -31,24 +32,26 @@ type Socket interface {
 type DialSocket func(context.Context, string) (Socket, error)
 
 type Source struct {
-	dial       DialSocket
-	socketURL  string
-	retryStart time.Duration
-	retryMax   time.Duration
-	wait       func(context.Context, time.Duration) error
-	jitter     func(time.Duration) time.Duration
-	nonce      func() (string, error)
+	dial             DialSocket
+	socketURL        string
+	retryStart       time.Duration
+	retryMax         time.Duration
+	subscribeTimeout time.Duration
+	wait             func(context.Context, time.Duration) error
+	jitter           func(time.Duration) time.Duration
+	nonce            func() (string, error)
 }
 
 func NewSource() *Source {
 	return &Source{
-		dial:       dialSocket,
-		socketURL:  defaultSocketURL,
-		retryStart: 5 * time.Second,
-		retryMax:   60 * time.Second,
-		wait:       waitContext,
-		jitter:     jitterDelay,
-		nonce:      subscriptionNonce,
+		dial:             dialSocket,
+		socketURL:        defaultSocketURL,
+		retryStart:       5 * time.Second,
+		retryMax:         60 * time.Second,
+		subscribeTimeout: defaultSubscribeTimeout,
+		wait:             waitContext,
+		jitter:           jitterDelay,
+		nonce:            subscriptionNonce,
 	}
 }
 
@@ -66,13 +69,21 @@ func (source *Source) Run(
 
 	retryDelay := source.retryStart
 	reconnectToken := ""
+	restoreSubscription := false
 	room := channelID
 	for ctx.Err() == nil {
-		restored := reconnectToken != ""
+		usingReconnectToken := reconnectToken != ""
 		socketURL, err := astroSocketURL(source.socketURL, reconnectToken)
 		result := sessionResult{}
 		if err == nil {
-			result, err = source.runSession(ctx, socketURL, accessToken, room, restored, emit)
+			result, err = source.runSession(
+				ctx,
+				socketURL,
+				accessToken,
+				room,
+				restoreSubscription,
+				emit,
+			)
 		}
 		if result.room != "" {
 			room = result.room
@@ -85,12 +96,14 @@ func (source *Source) Run(
 		}
 		if result.reconnectToken != "" {
 			reconnectToken = result.reconnectToken
+			restoreSubscription = result.subscribed
 			retryDelay = source.retryStart
 			continue
 		}
-		if restored {
+		if usingReconnectToken {
 			// An invalid or expired reconnect token must not poison later attempts.
 			reconnectToken = ""
+			restoreSubscription = false
 		}
 		if result.subscribed || result.emitted {
 			retryDelay = source.retryStart
@@ -124,7 +137,10 @@ func (source *Source) runSession(
 	restored bool,
 	emit func(Donation) error,
 ) (sessionResult, error) {
-	socket, err := source.dial(ctx, socketURL)
+	establishCtx, cancelEstablish := context.WithTimeout(ctx, source.subscribeTimeout)
+	defer cancelEstablish()
+
+	socket, err := source.dial(establishCtx, socketURL)
 	if err != nil {
 		var requestError *RequestError
 		if errors.As(err, &requestError) {
@@ -140,7 +156,11 @@ func (source *Source) runSession(
 	welcomeReceived := false
 	activeRoom := requestedRoom
 	for ctx.Err() == nil {
-		body, readErr := socket.Read(ctx)
+		readCtx := ctx
+		if !result.subscribed {
+			readCtx = establishCtx
+		}
+		body, readErr := socket.Read(readCtx)
 		if readErr != nil {
 			return result, fmt.Errorf("read StreamElements Astro websocket: %w", readErr)
 		}
@@ -166,6 +186,7 @@ func (source *Source) runSession(
 			if restored {
 				result.subscribed = true
 				result.room = activeRoom
+				cancelEstablish()
 				continue
 			}
 			subscribeNonce, err = source.nonce()
@@ -186,7 +207,7 @@ func (source *Source) runSession(
 			if err != nil {
 				return result, errors.New("encode StreamElements Astro subscription")
 			}
-			if err := socket.Write(ctx, encoded); err != nil {
+			if err := socket.Write(establishCtx, encoded); err != nil {
 				return result, fmt.Errorf("subscribe to StreamElements Astro: %w", err)
 			}
 		case "response":
@@ -204,6 +225,7 @@ func (source *Source) runSession(
 			activeRoom = response.Room
 			result.room = activeRoom
 			result.subscribed = true
+			cancelEstablish()
 		case "message":
 			if envelope.Topic != tipsTopic || envelope.Room != activeRoom {
 				continue

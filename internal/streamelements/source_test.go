@@ -35,10 +35,12 @@ type socketRead struct {
 type fakeSocket struct {
 	reads chan socketRead
 
-	mu       sync.Mutex
-	writes   [][]byte
-	writeErr error
-	closed   int
+	mu             sync.Mutex
+	writes         [][]byte
+	deadlines      []bool
+	writeDeadlines []bool
+	writeErr       error
+	closed         int
 }
 
 func newFakeSocket(reads ...socketRead) *fakeSocket {
@@ -50,6 +52,17 @@ func newFakeSocket(reads ...socketRead) *fakeSocket {
 }
 
 func (socket *fakeSocket) Read(ctx context.Context) ([]byte, error) {
+	_, hasDeadline := ctx.Deadline()
+	socket.mu.Lock()
+	socket.deadlines = append(socket.deadlines, hasDeadline)
+	socket.mu.Unlock()
+	// Prefer already-buffered protocol messages over cancellation so timeout tests
+	// can deterministically choose where the establishment window expires.
+	select {
+	case read := <-socket.reads:
+		return read.body, read.err
+	default:
+	}
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -58,11 +71,25 @@ func (socket *fakeSocket) Read(ctx context.Context) ([]byte, error) {
 	}
 }
 
-func (socket *fakeSocket) Write(_ context.Context, body []byte) error {
+func (socket *fakeSocket) readDeadlines() []bool {
+	socket.mu.Lock()
+	defer socket.mu.Unlock()
+	return append([]bool(nil), socket.deadlines...)
+}
+
+func (socket *fakeSocket) Write(ctx context.Context, body []byte) error {
+	_, hasDeadline := ctx.Deadline()
 	socket.mu.Lock()
 	defer socket.mu.Unlock()
 	socket.writes = append(socket.writes, append([]byte(nil), body...))
+	socket.writeDeadlines = append(socket.writeDeadlines, hasDeadline)
 	return socket.writeErr
+}
+
+func (socket *fakeSocket) writtenDeadlines() []bool {
+	socket.mu.Lock()
+	defer socket.mu.Unlock()
+	return append([]bool(nil), socket.writeDeadlines...)
 }
 
 func (socket *fakeSocket) Close() error {
@@ -355,6 +382,62 @@ func TestSourceUsesReconnectTokenWithoutResubscribing(t *testing.T) {
 	}
 }
 
+func TestSourceReconnectBeforeAcknowledgementResubscribesWithToken(t *testing.T) {
+	first := newFakeSocket(
+		jsonRead(`{"type":"welcome","data":{"client_id":"client-id-1"}}`),
+		jsonRead(`{"type":"reconnect","data":{"reconnect_token":"`+testReconnect+`"}}`),
+	)
+	second := newFakeSocket(
+		jsonRead(`{"type":"welcome","data":{"client_id":"client-id-2"}}`),
+		jsonRead(`{"type":"response","nonce":"test-nonce","data":{"topic":"channel.tips","room":"`+testChannelID+`"}}`),
+		jsonRead(astroTipJSON(testChannelID, completedTipJSON("resubscribed-tip", "3", "USD", "2025-02-19T15:00:00Z", "Tipper", ""))),
+	)
+	source := NewSource()
+	source.nonce = func() (string, error) { return "test-nonce", nil }
+	source.wait = func(context.Context, time.Duration) error {
+		t.Fatal("graceful reconnect unexpectedly waited")
+		return nil
+	}
+	dialedURLs := make([]string, 0, 2)
+	source.dial = func(_ context.Context, rawURL string) (Socket, error) {
+		dialedURLs = append(dialedURLs, rawURL)
+		if len(dialedURLs) == 1 {
+			return first, nil
+		}
+		return second, nil
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	if err := source.Run(ctx, testAccessToken, testRequestedRoom, func(donation Donation) error {
+		if donation.SourceDonationID != "resubscribed-tip" {
+			t.Fatalf("donation = %#v", donation)
+		}
+		cancel()
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(dialedURLs) != 2 {
+		t.Fatalf("dialed URLs = %v", dialedURLs)
+	}
+	reconnectedURL, err := url.Parse(dialedURLs[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reconnectedURL.Query().Get("reconnect_token") != testReconnect {
+		t.Fatalf("reconnected URL = %s", reconnectedURL)
+	}
+	if len(first.written()) != 1 || len(second.written()) != 1 {
+		t.Fatalf("subscription writes before=%q after=%q; want one in both sessions", first.written(), second.written())
+	}
+	var resubscription astroSubscribe
+	if err := json.Unmarshal(second.written()[0], &resubscription); err != nil {
+		t.Fatal(err)
+	}
+	if resubscription.Data.Room != testRequestedRoom || resubscription.Data.Token != testAccessToken {
+		t.Fatalf("resubscription = %#v", resubscription)
+	}
+}
+
 func TestSourceDiscardsFailedReconnectTokenAndDoesNotLogSecrets(t *testing.T) {
 	first := newFakeSocket(
 		jsonRead(`{"type":"welcome","data":{"client_id":"client-id-1"}}`),
@@ -428,6 +511,63 @@ func TestSourceReturnsValidationErrorsForMalformedProtocolMessages(t *testing.T)
 				t.Fatal("expected protocol validation error")
 			}
 		})
+	}
+}
+
+func TestRunSessionBoundsEstablishmentButRemovesDeadlineAfterSubscription(t *testing.T) {
+	if NewSource().subscribeTimeout != 15*time.Second {
+		t.Fatalf("default subscribe timeout = %s", NewSource().subscribeTimeout)
+	}
+
+	for _, test := range []struct {
+		name  string
+		reads []socketRead
+	}{
+		{name: "welcome", reads: nil},
+		{name: "subscription response", reads: []socketRead{
+			jsonRead(`{"type":"welcome","data":{"client_id":"client-id"}}`),
+		}},
+	} {
+		t.Run("times out waiting for "+test.name, func(t *testing.T) {
+			socket := newFakeSocket(test.reads...)
+			source := testSource(socket)
+			source.subscribeTimeout = -time.Second
+			_, err := source.runSession(
+				context.Background(),
+				"wss://astro.test",
+				testAccessToken,
+				testChannelID,
+				false,
+				func(Donation) error { return nil },
+			)
+			if !errors.Is(err, context.DeadlineExceeded) {
+				t.Fatalf("error = %v; want establishment deadline", err)
+			}
+		})
+	}
+
+	socket := newFakeSocket(
+		jsonRead(`{"type":"welcome","data":{"client_id":"client-id"}}`),
+		jsonRead(`{"type":"response","nonce":"test-nonce","data":{"topic":"channel.tips","room":"`+testChannelID+`"}}`),
+		socketRead{err: errors.New("established connection closed")},
+	)
+	source := testSource(socket)
+	result, err := source.runSession(
+		context.Background(),
+		"wss://astro.test",
+		testAccessToken,
+		testChannelID,
+		false,
+		func(Donation) error { return nil },
+	)
+	if err == nil || !result.subscribed {
+		t.Fatalf("result = %#v error = %v", result, err)
+	}
+	if deadlines := socket.readDeadlines(); !reflect.DeepEqual(deadlines, []bool{true, true, false}) {
+		t.Fatalf("read deadline flags = %v; want establishment-only deadline", deadlines)
+	}
+	if deadlines := socket.writtenDeadlines(); !reflect.DeepEqual(deadlines, []bool{true}) {
+		t.Fatalf("write deadline flags = %v; want bounded subscription write", deadlines)
 	}
 }
 
