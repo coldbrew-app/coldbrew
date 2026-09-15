@@ -63,10 +63,6 @@ const i18n = createI18n({
     en: "Admin panel",
     ru: "Админская панель",
   },
-  underConstruction: {
-    en: "Under construction",
-    ru: "В разработке",
-  },
   signOut: {
     en: "Sign out",
     ru: "Выйти",
@@ -330,26 +326,15 @@ function AuthenticatedApplicationContent() {
               <Icons.chat aria-hidden="true" />
               {t("chat")}
             </Link>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <span
-                    aria-disabled="true"
-                    className={`${navItem} cursor-not-allowed opacity-50 hover:bg-transparent! hover:text-sidebar-foreground/75! focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sidebar-ring`}
-                    role="link"
-                    tabIndex={0}
-                  >
-                    <Icons.multistream aria-hidden="true" />
-                    <span className="min-w-0 grow truncate">{t("multistream")}</span>
-                    <Icons.underDevelopment
-                      aria-hidden="true"
-                      className="size-4! shrink-0 text-sidebar-primary"
-                    />
-                  </span>
-                }
-              />
-              <TooltipContent side="right">{t("underConstruction")}</TooltipContent>
-            </Tooltip>
+            <Link
+              activeProps={{ className: activeNavItem }}
+              className={navItem}
+              onClick={() => setOpenMobile(false)}
+              to="/multistream"
+            >
+              <Icons.multistream aria-hidden="true" />
+              {t("multistream")}
+            </Link>
             <Link
               activeProps={{ className: activeNavItem }}
               className={navItem}

@@ -20,6 +20,7 @@ import { Route as AuthenticatedAlertsRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
 import { Route as AuthenticatedDonationsRouteImport } from './routes/_authenticated/donations'
 import { Route as AuthenticatedIntegrationsRouteImport } from './routes/_authenticated/integrations'
+import { Route as AuthenticatedMultistreamRouteImport } from './routes/_authenticated/multistream'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedVideosRouteImport } from './routes/_authenticated/videos'
 import { Route as AlertsOverlayRouteImport } from './routes/alerts.overlay'
@@ -95,6 +96,12 @@ const AuthenticatedIntegrationsRoute =
   AuthenticatedIntegrationsRouteImport.update({
     id: '/integrations',
     path: '/integrations',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedMultistreamRoute =
+  AuthenticatedMultistreamRouteImport.update({
+    id: '/multistream',
+    path: '/multistream',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
@@ -225,6 +232,7 @@ export interface FileRoutesByFullPath {
   '/chat': typeof AuthenticatedChatRoute
   '/donations': typeof AuthenticatedDonationsRouteWithChildren
   '/integrations': typeof AuthenticatedIntegrationsRoute
+  '/multistream': typeof AuthenticatedMultistreamRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/videos': typeof AuthenticatedVideosRoute
   '/alerts/overlay': typeof AlertsOverlayRoute
@@ -257,6 +265,7 @@ export interface FileRoutesByTo {
   '/alerts': typeof AuthenticatedAlertsRoute
   '/chat': typeof AuthenticatedChatRoute
   '/integrations': typeof AuthenticatedIntegrationsRoute
+  '/multistream': typeof AuthenticatedMultistreamRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/videos': typeof AuthenticatedVideosRoute
   '/alerts/overlay': typeof AlertsOverlayRoute
@@ -291,6 +300,7 @@ export interface FileRoutesById {
   '/_authenticated/chat': typeof AuthenticatedChatRoute
   '/_authenticated/donations': typeof AuthenticatedDonationsRouteWithChildren
   '/_authenticated/integrations': typeof AuthenticatedIntegrationsRoute
+  '/_authenticated/multistream': typeof AuthenticatedMultistreamRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/videos': typeof AuthenticatedVideosRoute
   '/alerts/overlay': typeof AlertsOverlayRoute
@@ -327,6 +337,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/donations'
     | '/integrations'
+    | '/multistream'
     | '/settings'
     | '/videos'
     | '/alerts/overlay'
@@ -359,6 +370,7 @@ export interface FileRouteTypes {
     | '/alerts'
     | '/chat'
     | '/integrations'
+    | '/multistream'
     | '/settings'
     | '/videos'
     | '/alerts/overlay'
@@ -392,6 +404,7 @@ export interface FileRouteTypes {
     | '/_authenticated/chat'
     | '/_authenticated/donations'
     | '/_authenticated/integrations'
+    | '/_authenticated/multistream'
     | '/_authenticated/settings'
     | '/_authenticated/videos'
     | '/alerts/overlay'
@@ -518,6 +531,13 @@ declare module '@tanstack/react-router' {
       path: '/integrations'
       fullPath: '/integrations'
       preLoaderRoute: typeof AuthenticatedIntegrationsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/multistream': {
+      id: '/_authenticated/multistream'
+      path: '/multistream'
+      fullPath: '/multistream'
+      preLoaderRoute: typeof AuthenticatedMultistreamRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/settings': {
@@ -724,6 +744,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedChatRoute: typeof AuthenticatedChatRoute
   AuthenticatedDonationsRoute: typeof AuthenticatedDonationsRouteWithChildren
   AuthenticatedIntegrationsRoute: typeof AuthenticatedIntegrationsRoute
+  AuthenticatedMultistreamRoute: typeof AuthenticatedMultistreamRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedVideosRoute: typeof AuthenticatedVideosRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
@@ -735,6 +756,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedChatRoute: AuthenticatedChatRoute,
   AuthenticatedDonationsRoute: AuthenticatedDonationsRouteWithChildren,
   AuthenticatedIntegrationsRoute: AuthenticatedIntegrationsRoute,
+  AuthenticatedMultistreamRoute: AuthenticatedMultistreamRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedVideosRoute: AuthenticatedVideosRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
