@@ -1,0 +1,4 @@
+aws_region         = "eu-central-1"
+backup_bucket_name = "coldbrew-040954566235-eu-central-1-an"
+github_repository  = "owner/streambrew"
+# github_oidc_subject = "repo:owner@123/repository@456:environment:Production"

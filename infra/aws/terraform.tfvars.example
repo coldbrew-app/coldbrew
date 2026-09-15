@@ -1,0 +1,12 @@
+aws_region         = "eu-central-1"
+availability_zone  = "eu-central-1a"
+backup_bucket_name = "coldbrew-040954566235-eu-central-1-an"
+instance_name      = "Ubuntu-1"
+key_pair_name      = "id_rsa"
+
+# Optional customizations:
+# bundle_id                  = "medium_3_0"
+# snapshot_time_utc          = "03:00"
+# postgres_ingress_cidrs     = ["203.0.113.10/32"]
+# ssh_ingress_cidrs          = ["0.0.0.0/0"]
+# ssh_ingress_ipv6_cidrs     = ["::/0"]

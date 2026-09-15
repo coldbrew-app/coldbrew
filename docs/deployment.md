@@ -1,453 +1,257 @@
 # StreamBrew production deployment
 
-Production runs on a single VPS, but deployments are performed by the
-`Production` GitHub Actions workflow. Every push to `master` is checked, built
-as immutable `linux/amd64` images, published to GitHub Container Registry
-(GHCR), and deployed over SSH. The VPS never builds application images during
-a deployment.
+Production is split into three Terraform roots. This keeps routine releases
+independent from cloud provisioning and keeps the application runtime portable:
 
-The `CI` workflow in `.github/workflows/ci.yml` runs `just typecheck` and
-`just check` for pull requests targeting `master` and pushes to other branches.
-For pushes to `master` and manual deployments, `Production` calls that same
-workflow with the resolved deployment commit SHA and waits for it to succeed
-before publishing images. This avoids duplicate checks on pushes to `master`.
-CI uses its own temporary PostgreSQL service and test configuration; only the
-deployment job references the `Production` GitHub environment.
+| Root               | State                           | Responsibility                                                        | Normal trigger                         |
+| ------------------ | ------------------------------- | --------------------------------------------------------------------- | -------------------------------------- |
+| `infra/bootstrap`  | local, operator-held            | S3 state bucket and GitHub OIDC role                                  | once from an authenticated workstation |
+| `infra/aws`        | `streambrew/aws.tfstate`        | Lightsail instance, firewall, snapshots, and S3 backups               | manual `AWS infrastructure` workflow   |
+| `infra/production` | `streambrew/production.tfstate` | Docker network, containers, persistent volumes, and deployed revision | every production release               |
 
-The workflow publishes these private packages as immutable images:
+`compose.yaml` remains a development and emergency-recovery reference. Normal
+production releases do not copy the repository to the server and do not run
+Compose there. GitHub Actions builds immutable images, pulls them over SSH, and
+Terraform reconciles the Docker runtime.
 
-- `ghcr.io/streambrew-app/streambrew`, tagged with the full commit SHA;
-- `ghcr.io/streambrew-app/streambrew-postgres-walg`, tagged with the Git tree SHA
-  of `docker/postgres-walg` so application-only changes do not restart the
-  database.
+## Architecture
 
-The deployment job grants its short-lived `GITHUB_TOKEN` read access to packages,
-uploads it alongside the generated environment, and uses it with an isolated
-Docker configuration on the VPS. Both the token and Docker configuration are
-removed when the deployment command exits.
+The AWS root manages:
 
-An existing installation must keep its current deployment directory, PostgreSQL
-database and user names, Compose project name, and `WALG_S3_PREFIX`. These are
-persistent infrastructure identifiers, not public branding. Renaming the checkout
-directory without pinning the old Compose project name makes Compose select new,
-empty volumes. The `/opt/streambrew` paths and `streambrew` database values below
-are therefore defaults for new installations only.
+- one Ubuntu 24.04 Lightsail instance with Docker installed by cloud-init;
+- TCP 80/443 and UDP 443 for Caddy;
+- public SSH, because GitHub-hosted runners do not have stable source addresses;
+- optional public PostgreSQL access from explicit IPv4 CIDRs;
+- automatic daily Lightsail snapshots;
+- an encrypted, versioned, private S3 bucket for WAL-G backups.
 
-The `Production` GitHub environment is the source of truth for application
-configuration. Each deployment combines its individual GitHub Variables and
-Secrets into the untracked `.env` in `SSH_DEPLOY_PATH` on the VPS before
-running Compose.
+The Lightsail instance, backup bucket, and all Docker volumes have Terraform
+`prevent_destroy` guards. An ordinary plan cannot delete PostgreSQL, NATS,
+Caddy, Vector, or backup data. Do not remove a guard to get past a surprising
+plan: determine why replacement is proposed first.
 
-`apps/donations` is the donation integration module. Its DonationAlerts and
-Streamlabs adapters own OAuth mechanics, connection lifecycles, token refresh,
-history imports, and outgoing realtime connections. The donate.stream adapter
-authenticates alert-widget addresses and receives realtime donations without a
-history import. All three sources write received donations to PostgreSQL.
-`apps/web` owns StreamBrew authentication, the public OAuth routes, and the
-integration settings UI. The donate.stream protocol and widget-address setup
-are documented in [donate-stream.md](donate-stream.md).
+The production root talks to the remote Docker daemon over SSH. It manages ten
+containers, the `coldbrew_internal` network, and the existing `coldbrew_*`
+volumes. Application containers read a single shell-compatible `runtime.env`;
+Vector reads the Axiom token from a separate read-only file. Neither file is
+stored in Terraform state.
 
-## Runtime layout
+Lightsail does not provide an EC2-style instance role to containers. WAL-G
+therefore uses a narrowly scoped AWS access-key pair supplied through the
+`Production` GitHub environment. Restrict it to the configured backup bucket and
+prefix, rotate it periodically, and never reuse the Terraform deployment role.
 
-- `caddy` listens on TCP ports 80 and 443 and UDP port 443, terminates TLS, and proxies all public
-  requests to `web:3000`. The web container reaches `chat:3001` and `donations:3002` through the
-  private network.
-- `web`, `chat`, `donations`, `video`, and `alerts` share one SHA-tagged GHCR image.
-  `web`, `chat`, and `donations` have HTTP health checks; `video` runs independent
-  donation-scan and metadata-retry loops. See [video metadata operations](video-metadata.md)
-  for nullable-timing rollout and historical donation recovery.
-- `vector` reads the application services' Docker logs and forwards them
-  to the `streambrew-logs` Axiom dataset. Infrastructure and Vector's own
-  logs remain local.
-- `nats` carries transient chat events, collector leases, and operational log
-  events through JetStream, with state stored in the `nats_data` volume.
-- `alerts` consumes operational logs from JetStream and forwards them to the
-  configured Telegram chat. Producers keep logging to stdout if NATS is unavailable.
-- `postgres` stores data in the `postgres_data` volume. Application containers
-  connect to `postgres:5432` through the private `internal` network. The host
-  and remote PostgreSQL clients can reach it at `<VPS-IP>:${PGPORT:-5432}`.
-- `wal-g` creates periodic base backups, while PostgreSQL continuously archives
-  WAL files to the configured S3-compatible storage.
-- All services use `restart: unless-stopped`. The app containers wait for a
-  healthy PostgreSQL instance, `chat` also waits for NATS, `web` waits for the
-  private chat API, and Caddy waits for healthy web.
+The current instance uses a dynamic Lightsail public IP. GitHub discovers it on
+every run, but public DNS and `SSH_KNOWN_HOSTS` must be updated after an instance
+stop/start changes the address. A future planned maintenance window can attach a
+Lightsail static IP and update DNS once; do not attach one without coordinating
+that DNS cutover.
 
-Run only one `donations` replica. The worker has no leader election, so
-multiple replicas could subscribe and refresh tokens for the same users.
+## Portability
 
-## One-time VPS setup
+Only `infra/aws` and the AWS authentication steps are provider-specific. The
+container topology, immutable GHCR images, runtime file contract, health checks,
+and PostgreSQL/WAL-G restore path live in `infra/production`. A move to Hetzner
+can therefore replace the cloud root and host-discovery/authentication steps
+while retaining the Docker root and application configuration. The state files
+must remain separate; never try to change an AWS resource's provider in place.
 
-Install Git, Docker with the Compose plugin, Bun, `just`, and `curl`. The
-repository installs `dotenvx` and `dbmate` with Bun. Create a dedicated
-deployment user that can use Docker without `sudo`, owns `/opt/streambrew`, and
-can log in only with an SSH key. Clone the public repository into that
-directory:
+The portable boundary is the container and backup layer, not the VM disk. To
+move providers, create the new host, install Docker, restore a verified WAL-G
+backup into a new volume, apply `infra/production` against the new SSH endpoint,
+test it, and then change DNS. This is a database cutover, not a Terraform file
+translation alone.
 
-```sh
-git clone https://github.com/streambrew-app/streambrew.git /opt/streambrew
-cd /opt/streambrew
-bun install --frozen-lockfile
-```
+## State and secret boundaries
 
-Verify the runtime commands as that same deployment user, not as `root`:
+The bootstrap root creates the S3 state bucket before an S3 backend can be
+initialized. Its local state is operationally important even though it contains
+no application credentials: keep an encrypted backup and never commit it.
+
+Remote state uses S3 encryption, versioning, complete public-access blocking,
+TLS-only access, and native S3 lock files. There is no DynamoDB lock table.
+Keep bucket version history so an accidental state write can be recovered.
+
+GitHub Actions assumes the deployment role through OIDC. Its trust is restricted
+to this repository and the `Production` environment. Application secrets are
+rendered directly into host files with mode `0640`. The workflow uses its
+short-lived `GITHUB_TOKEN` to pull private GHCR images and logs out afterward.
+
+Never commit `.tfstate`, `.tfplan`, backend credentials, `runtime.env`, token
+files, or local `terraform.tfvars`. Commit `.terraform.lock.hcl` for reproducible
+provider installs.
+
+## Bootstrap
+
+Use Terraform 1.16.2 and temporary operator credentials that may create S3,
+IAM, and the GitHub OIDC provider. Copy and edit the ignored variables file:
 
 ```sh
-git --version
-docker compose version
-just --version
-bunx --version
-curl --version
+cp infra/bootstrap/terraform.tfvars.example infra/bootstrap/terraform.tfvars
+terraform -chdir=infra/bootstrap init
+terraform -chdir=infra/bootstrap plan -out=bootstrap.tfplan
+terraform -chdir=infra/bootstrap apply bootstrap.tfplan
+terraform -chdir=infra/bootstrap output
 ```
 
-The workflow explicitly includes `~/.local/bin`, `~/.bun/bin`, `~/.cargo/bin`,
-and `/usr/local/bin` for non-interactive SSH sessions.
-
-Do not edit tracked files in this checkout. A deployment refuses to continue
-when tracked local changes are present. The ignored `.env` and `.deployed-sha`
-files are managed by the deployment workflow and are expected to change on the
-server. Do not create or edit the production `.env` manually.
-
-The GitHub Variables and Secrets described below provide:
-
-- `APP_DOMAIN`, including the scheme, for example
-  `https://streambrew.app`;
-- `PGDATABASE`, `PGHOST`, `PGUSER`, `PGPASSWORD`, and optionally `PGPORT` for the
-  external PostgreSQL binding (defaults to `5432`);
-- `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET`;
-- optionally, `YOUTUBE_CLIENT_ID` and `YOUTUBE_CLIENT_SECRET` for multichat OAuth;
-- `YOUTUBE_API_KEY` for video duration and title lookups through YouTube Data API v3;
-- optionally, `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET` for multichat OAuth;
-- optionally, `KICK_CLIENT_ID`, `KICK_CLIENT_SECRET`, and `KICK_WEBHOOK_PUBLIC_KEY` for
-  multichat OAuth and signed webhook verification;
-- optionally, `VK_VIDEO_CLIENT_ID` and `VK_VIDEO_CLIENT_SECRET` for read-only VK Video multichat;
-- optionally, the reserved `BOOSTY_CLIENT_ID` / `BOOSTY_CLIENT_SECRET` pair;
-- `DONATION_ALERTS_CLIENT_ID` and `DONATION_ALERTS_CLIENT_SECRET`;
-- `STREAMLABS_CLIENT_ID` and `STREAMLABS_CLIENT_SECRET`;
-- `DONATIONS_SERVICE_SECRET`, shared only by web and donations;
-- `TELEGRAM_BOT_TOKEN` for the operational bot and optional
-  `TELEGRAM_ADMIN_CHAT_ID` for log notifications;
-- `AXIOM_TOKEN`, an ingest-only API token scoped to the `streambrew-logs` dataset;
-- `WALG_S3_PREFIX` and `AWS_REGION`, plus AWS credentials unless the VPS uses
-  an IAM role or another supported credential provider.
-
-Create the `streambrew-logs` dataset in Axiom before the first deployment,
-then create an API token that can only ingest into that dataset. The deployment
-stores the token with the other production values in `.env`. Compose mounts it
-as `/run/secrets/axiom_token`, and Vector resolves it through its directory
-secrets backend. Vector sends events to the dataset's
-`eu-central-1.aws.edge.axiom.co` edge deployment.
-
-Production configuration, including credentials, is stored in the ignored
-`.env` file on the VPS and passed to containers through environment variables.
-Do not add Compose file secrets for these values: keeping one configuration
-path ensures that `docker compose up` detects changes and recreates affected
-containers. The deployment recipe also records the deployed immutable
-`STREAMBREW_IMAGE` and `STREAMBREW_POSTGRES_IMAGE` references there, so later manual
-Compose operations cannot fall back to stale local images. A rollback replaces
-both references with the previous revision's images.
-
-`localhost` has different meanings on the host and in a container. Host-side
-tools use `PGHOST=127.0.0.1`; remote tools use the VPS address; application
-containers must set `PGHOST=postgres`. The workflow generates `DATABASE_URL`
-from `PGUSER`, `PGPASSWORD`, `PGHOST`, and `PGDATABASE`, safely URL-encoding
-each component; do not add a separate `DATABASE_URL` secret.
-
-## Operational log notifications
-
-The application logger writes structured records to stdout and publishes the
-same `info`, `warn`, and `error` records to the `OPERATIONAL_LOGS` JetStream.
-The Go services use the shared `slog` handler; server-side web code uses
-`@streambrew/packages/server-logger.js`. Fields whose names contain `token`,
-`secret`, `password`, `authorization`, or `cookie` are redacted from the NATS
-record.
-
-Publishing is best-effort. Producers use a bounded in-memory queue and keep
-running when NATS is unavailable; queued records can be lost during an abrupt
-shutdown. JetStream retains accepted records for seven days, up to 128 MiB.
-The `alerts` process consumes them durably and acknowledges each record after
-Telegram accepts it. Telegram rate limits and temporary failures cause delayed
-redelivery; malformed records and permanent Telegram client errors are
-terminated and remain visible in the application logs.
-
-The bot starts with `TELEGRAM_BOT_TOKEN` alone and replies to `/myid` with the
-requesting chat's ID. Until `TELEGRAM_ADMIN_CHAT_ID` is configured, it does not
-consume or forward operational logs. The first configured consumer starts with
-new records, so enabling notifications does not replay the accumulated setup
-backlog; subsequent restarts resume its durable position.
-
-Development subjects and streams include `NATS_NAMESPACE`, so worktree logs do
-not enter the production stream. Run `just dev-alerts` after configuring
-`TELEGRAM_BOT_TOKEN` in the local environment.
-
-For a new database volume, first run the `Production` workflow. Its migration gate
-will stop the initial deployment, but the workflow will already have generated
-`/opt/streambrew/.env` from GitHub. Then start PostgreSQL, apply the migrations using
-the host-side port, and rerun the workflow with `migrations_applied` enabled:
+If the account already has GitHub's OIDC provider, import it before planning:
 
 ```sh
-just compose-db-up
-DBMATE_NO_DUMP_SCHEMA=true just db-migrate
+terraform -chdir=infra/bootstrap import \
+  aws_iam_openid_connect_provider.github \
+  arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com
 ```
 
-Production disables the dump because its checkout must remain unchanged.
-Developers use plain `just db-migrate`, which refreshes `db/schema.sql`.
+Set the outputs on the `Production` GitHub environment:
 
-Record the commit represented by the running database and application. This
-becomes the base used by the CI migration gate:
+- `TF_STATE_BUCKET` from `state_bucket`;
+- `AWS_TERRAFORM_ROLE_ARN` from `deployment_role_arn`;
+- `TF_STATE_REGION` and `AWS_REGION` to the selected region.
 
-```sh
-git rev-parse HEAD > .deployed-sha
-chmod 600 .deployed-sha
-```
-
-The first CI deployment cannot reliably roll back unless images for this base
-SHA already exist in GHCR. Subsequent successful deployments always retain a
-SHA-tagged rollback target.
-
-Point the domain's DNS records to the VPS and allow TCP 80, 443, and 5432 plus
-UDP 443 through its firewall and cloud-provider security group. If `PGPORT`
-is set to another value, allow that TCP port instead of 5432. Register these
-OAuth callback URLs:
-
-- `https://streambrew.app/api/auth/callback/google`
-- `https://streambrew.app/api/integration/donationalerts/callback`
-- `https://streambrew.app/api/integration/streamlabs/callback`
-- `https://streambrew.app/api/chat/oauth/youtube/callback`
-- `https://streambrew.app/api/chat/oauth/twitch/callback`
-- `https://streambrew.app/api/chat/oauth/kick/callback`
-- `https://streambrew.app/api/chat/oauth/vk_video/callback`
-
-PostgreSQL 18 keeps the cluster in a version-specific subdirectory under
-`/var/lib/postgresql`; `compose.yaml` therefore mounts the volume at that
-directory. When upgrading a PostgreSQL 17-or-earlier volume, migrate it with
-`pg_dump`/`pg_restore` or `pg_upgrade`. Do not delete the old volume as an
-upgrade shortcut.
+Protect the environment so only `master` can deploy. See GitHub's
+[AWS OIDC guide](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-aws)
+for the repository/environment subject format.
 
 ## GitHub configuration
 
-Use the existing GitHub environment named `Production`. Restrict its deployment
-branches to `master`; do not add a required reviewer when deployments from
-`master` should remain automatic.
+Infrastructure variables:
 
-Add these environment variables:
+| Name                              | Example                    | Required |
+| --------------------------------- | -------------------------- | -------- |
+| `AWS_PROJECT_NAME`                | `streambrew`               | no       |
+| `AWS_REGION`                      | `eu-central-1`             | yes      |
+| `AWS_TERRAFORM_ROLE_ARN`          | bootstrap output           | yes      |
+| `TF_STATE_BUCKET`                 | bootstrap output           | yes      |
+| `TF_STATE_REGION`                 | `eu-central-1`             | yes      |
+| `AWS_LIGHTSAIL_INSTANCE_NAME`     | `Ubuntu-1`                 | yes      |
+| `AWS_LIGHTSAIL_AVAILABILITY_ZONE` | `eu-central-1a`            | no       |
+| `AWS_LIGHTSAIL_BLUEPRINT_ID`      | `ubuntu_24_04`             | no       |
+| `AWS_LIGHTSAIL_BUNDLE_ID`         | `medium_3_0`               | no       |
+| `AWS_LIGHTSAIL_KEY_PAIR_NAME`     | `id_rsa`                   | yes      |
+| `AWS_LIGHTSAIL_SNAPSHOT_TIME_UTC` | `03:00`                    | no       |
+| `WALG_S3_BUCKET`                  | existing backup bucket     | yes      |
+| `WALG_S3_PREFIX`                  | `s3://bucket/wal-g-backup` | yes      |
+| `PG_INGRESS_CIDRS`                | `["203.0.113.10/32"]`      | no       |
+| `SSH_INGRESS_CIDRS`               | `["0.0.0.0/0"]`            | no       |
+| `SSH_INGRESS_IPV6_CIDRS`          | `["::/0"]`                 | no       |
+| `SSH_DEPLOY_PATH`                 | `/home/ubuntu/coldbrew`    | yes      |
 
-| Name                           | Example                              | Required |
-| ------------------------------ | ------------------------------------ | -------- |
-| `APP_DOMAIN`                   | `https://streambrew.app`             | yes      |
-| `ADMIN_EMAILS`                 | `admin@example.com`                  | no       |
-| `AWS_ENDPOINT`                 | `https://s3.example.com`             | no       |
-| `AWS_REGION`                   | `eu-central-1`                       | yes      |
-| `BOOSTY_CLIENT_ID`             | Boosty OAuth client ID               | no       |
-| `DONATION_ALERTS_CLIENT_ID`    | `12345`                              | yes      |
-| `STREAMLABS_CLIENT_ID`         | Streamlabs OAuth client ID           | yes      |
-| `GOOGLE_CLIENT_ID`             | OAuth client ID                      | yes      |
-| `KICK_CLIENT_ID`               | Kick OAuth client ID                 | no       |
-| `KICK_WEBHOOK_PUBLIC_KEY`      | Kick webhook RSA public key          | no       |
-| `TWITCH_CLIENT_ID`             | Twitch OAuth client ID               | no       |
-| `TELEGRAM_ADMIN_CHAT_ID`       | Telegram notification chat ID        | no       |
-| `VK_VIDEO_CLIENT_ID`           | VK Video OAuth client ID             | no       |
-| `YOUTUBE_CLIENT_ID`            | YouTube chat OAuth client ID         | no       |
-| `PGDATABASE`                   | `streambrew`                         | yes      |
-| `PGHOST`                       | `postgres`                           | yes      |
-| `PGPORT`                       | `5432`                               | no       |
-| `PGUSER`                       | `streambrew`                         | yes      |
-| `SSH_DEPLOY_PATH`              | `/opt/streambrew`                    | yes      |
-| `SSH_HOST`                     | `203.0.113.10`                       | yes      |
-| `SSH_PORT`                     | `22`                                 | yes      |
-| `SSH_USER`                     | `streambrew-deploy`                  | yes      |
-| `WALG_ARCHIVE_TIMEOUT_SECONDS` | `300`                                | no       |
-| `WALG_BACKUP_INTERVAL_SECONDS` | `86400`                              | no       |
-| `WALG_KEEP_FULL_BACKUPS`       | `7`                                  | no       |
-| `WALG_S3_PREFIX`               | `s3://my-bucket/streambrew/postgres` | yes      |
+`PG_INGRESS_CIDRS=[]` closes public PostgreSQL. Prefer an SSH tunnel and an
+empty list. Public SSH is required for GitHub-hosted runners; the private key
+and strict host-key verification remain the authentication boundary.
 
-Add these environment secrets:
+Runtime variables:
 
-| Name                            | Value                                                       | Required |
-| ------------------------------- | ----------------------------------------------------------- | -------- |
-| `AWS_ACCESS_KEY_ID`             | Static AWS access key                                       | no       |
-| `AWS_SECRET_ACCESS_KEY`         | Static AWS secret key                                       | no       |
-| `AWS_SESSION_TOKEN`             | Temporary AWS session token                                 | no       |
-| `AXIOM_TOKEN`                   | Axiom ingest-only API token                                 | yes      |
-| `BETTER_AUTH_SECRET`            | At least 32 random characters                               | yes      |
-| `BOOSTY_CLIENT_SECRET`          | Boosty OAuth client secret                                  | no       |
-| `CHAT_SERVICE_SECRET`           | At least 32 random characters                               | yes      |
-| `CHAT_TOKEN_ENCRYPTION_SECRET`  | At least 32 random characters                               | yes      |
-| `DONATIONS_SERVICE_SECRET`      | At least 32 random characters                               | yes      |
-| `DONATION_ALERTS_CLIENT_SECRET` | DonationAlerts OAuth client secret                          | yes      |
-| `STREAMLABS_CLIENT_SECRET`      | Streamlabs OAuth client secret                              | yes      |
-| `GOOGLE_CLIENT_SECRET`          | Google OAuth client secret                                  | yes      |
-| `KICK_CLIENT_SECRET`            | Kick OAuth client secret                                    | no       |
-| `TWITCH_CLIENT_SECRET`          | Twitch OAuth client secret                                  | no       |
-| `TELEGRAM_BOT_TOKEN`            | Telegram bot token                                          | yes      |
-| `VK_VIDEO_CLIENT_SECRET`        | VK Video OAuth client secret                                | no       |
-| `YOUTUBE_API_KEY`               | YouTube Data API key restricted to `youtube.googleapis.com` | yes      |
-| `YOUTUBE_CLIENT_SECRET`         | YouTube chat OAuth client secret                            | no       |
-| `PGPASSWORD`                    | PostgreSQL password                                         | yes      |
-| `SSH_KNOWN_HOSTS`               | Verified `known_hosts` line for the VPS                     | yes      |
-| `SSH_PRIVATE_KEY`               | Private half of the dedicated deployment key                | yes      |
+| Name                           | Example                          | Required  |
+| ------------------------------ | -------------------------------- | --------- |
+| `APP_DOMAIN`                   | `https://streambrew.example.com` | yes       |
+| `PGDATABASE`                   | `streambrew`                     | yes       |
+| `PGHOST`                       | `postgres`                       | yes       |
+| `PGPORT`                       | `5432`                           | no        |
+| `PGUSER`                       | `streambrew`                     | yes       |
+| `ADMIN_EMAILS`                 | `admin@example.com`              | no        |
+| `DONATION_ALERTS_CLIENT_ID`    | OAuth client ID                  | yes       |
+| `GOOGLE_CLIENT_ID`             | OAuth client ID                  | yes       |
+| `STREAMLABS_CLIENT_ID`         | OAuth client ID                  | yes       |
+| `BOOSTY_CLIENT_ID`             | OAuth client ID                  | no        |
+| `KICK_CLIENT_ID`               | OAuth client ID                  | no        |
+| `KICK_WEBHOOK_PUBLIC_KEY`      | RSA public key                   | with Kick |
+| `TWITCH_CLIENT_ID`             | OAuth client ID                  | no        |
+| `VK_VIDEO_CLIENT_ID`           | OAuth client ID                  | no        |
+| `YOUTUBE_CLIENT_ID`            | OAuth client ID                  | no        |
+| `TELEGRAM_ADMIN_CHAT_ID`       | notification chat ID             | no        |
+| `WALG_ARCHIVE_TIMEOUT_SECONDS` | `300`                            | no        |
+| `WALG_BACKUP_INTERVAL_SECONDS` | `86400`                          | no        |
+| `WALG_KEEP_FULL_BACKUPS`       | `7`                              | no        |
 
-`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` must either both be set or both
-be omitted when the VPS uses an IAM role or another supported credential
-provider. The workflow validates this along with every required value, safely
-generates dotenv syntax, transfers it over SSH, and atomically replaces
-the deployment checkout's `.env` with mode `0600` on every deployment.
+Required environment secrets are `SSH_PRIVATE_KEY`, `SSH_KNOWN_HOSTS`,
+`AXIOM_TOKEN`, `BETTER_AUTH_SECRET`, `CHAT_SERVICE_SECRET`,
+`CHAT_TOKEN_ENCRYPTION_SECRET`, `DONATION_ALERTS_CLIENT_SECRET`,
+`DONATIONS_SERVICE_SECRET`, `GOOGLE_CLIENT_SECRET`, `PGPASSWORD`,
+`STREAMLABS_CLIENT_SECRET`, `TELEGRAM_BOT_TOKEN`, `YOUTUBE_API_KEY`, and the
+WAL-G-only `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` pair. Optional OAuth
+secrets must be configured together with their matching client IDs.
 
-Each optional provider credential group must be configured completely or omitted. VK Video
-uses its OAuth credentials. Boosty connects through a per-account session token in the multichat
-UI; its reserved client ID/secret settings are unused. See [Boosty setup](boosty.md).
-
-When a service gains a required server environment variable, update the
-`Production` workflow in the same change: pass the GitHub variable or secret
-to the environment-generation step, include it in its required-value list, and
-add it to the VPS-side validation list. Document the corresponding GitHub
-configuration here. Otherwise deployments can publish an image that fails its
-health check because its generated `.env` is incomplete.
-
-Generate `SSH_KNOWN_HOSTS` with `ssh-keyscan -p <port> <host>`, but verify the
-reported host-key fingerprint through the VPS provider console before saving
-it. Never replace this value merely because an unexpected SSH key is reported.
-
-Keep the production GHCR packages private. The workflow's job-scoped registry
-token is sufficient for deployment and is not retained on the VPS.
-
-Disconnect the old Vercel project from this GitHub repository and disable its
-production and preview deployments. The `Production` environment is owned by
-the GitHub Actions workflow after this migration.
-
-## Regular deployments
-
-A push or merge to `master` runs the complete workflow:
-
-1. formatting, lint, type checking, and tests;
-2. application and, when its source tree changed, PostgreSQL/WAL-G image builds;
-3. immutable GHCR publication under the commit or source-tree SHA;
-4. migration-gate check against `.deployed-sha`;
-5. remote Compose pull, recreation, and health checks.
-
-Only one production deployment runs at a time. Every attempt refreshes `.env`
-from GitHub before checking the migration gate; a successful deployment writes the
-target SHA to `.deployed-sha` in `SSH_DEPLOY_PATH`. Named PostgreSQL, NATS, Vector, and
-Caddy volumes are preserved. Updating a production Variable or Secret and rerunning the
-workflow recreates the affected containers with the new values; `docker compose
-restart` alone does not refresh environment variables. The deployment recipe explicitly recreates
-Caddy after Compose converges so its file bind mount points to the `Caddyfile` inode from the
-checked-out revision; rollback recreates it with the previous revision the same way. A public
-routing probe then verifies that `/api/chat` reaches the web allowlist instead of bypassing it and
-reaching the private chat service directly.
-
-Useful checks on the VPS are:
+Create `SSH_KNOWN_HOSTS` using the alias expected by the workflows, then verify
+the fingerprint through the Lightsail console before saving it:
 
 ```sh
-docker compose ps
-docker compose logs --tail=100 web chat donations video alerts postgres nats wal-g caddy
-docker compose logs --tail=100 vector
+ssh-keyscan -t ed25519 <public-ip> | \
+  sed 's/^<public-ip>/streambrew-production/'
 ```
 
-Vector checks that the Axiom destination is reachable when it starts. A missing
-`AXIOM_TOKEN` environment value prevents Vector from starting; an invalid token
-is reported in Vector's logs when delivery is attempted. Neither failure prevents the application
-services from running. After deployment, confirm that events arrive in Axiom's
-`streambrew-logs` dataset. Filter by `label.com.docker.compose.service` to
-separate `web`, `chat`, `donations`, `video`, and `alerts`. Each event also includes its
-Docker timestamp, container name, image, and stdout/stderr stream.
+Register the relevant OAuth callback URLs:
 
-Vector keeps up to 256 MiB of unsent events in the `vector_data` volume during a
-temporary Axiom or network outage. The source is still best-effort: an extended
-outage, a full buffer, or Vector being stopped can leave some logs available
-only through `docker compose logs`.
+- `https://<domain>/api/auth/callback/google`
+- `https://<domain>/api/integration/donationalerts/callback`
+- `https://<domain>/api/integration/streamlabs/callback`
+- `https://<domain>/api/chat/oauth/youtube/callback`
+- `https://<domain>/api/chat/oauth/twitch/callback`
+- `https://<domain>/api/chat/oauth/kick/callback`
+- `https://<domain>/api/chat/oauth/vk_video/callback`
 
-To rotate the Axiom credential, replace the `AXIOM_TOKEN` secret in the GitHub
-`Production` environment and rerun the production workflow. The workflow
-regenerates `.env`, and Compose recreates Vector with the new environment value.
+Create the `streambrew-logs` dataset in Axiom and restrict its token to ingest.
 
-## Database migration gate
+## Infrastructure changes
 
-CI never applies `db/migrations` to production. If the directory differs between
-`.deployed-sha` and the target commit, image publication succeeds but the
-deployment job exits before changing containers.
+Run `AWS infrastructure` manually with `action=plan`, review the complete plan,
+then rerun it with `action=apply`. The workflow applies the saved plan and waits
+for cloud-init and Docker. Infrastructure and application releases share the
+`production` concurrency group, so they cannot overlap.
 
-Apply the exact blocked revision manually:
-
-For the independent-video-queues transition, review its
-[migration behavior](video-queues.md#existing-installation-migration) before applying the pending
-dbmate migration.
+An existing Lightsail instance and backup bucket must be imported before the
+first apply. Applying against an empty state would try to create replacements:
 
 ```sh
-cd <SSH_DEPLOY_PATH>
-git fetch --prune --tags origin
-git checkout --detach <target-sha>
-bun install --frozen-lockfile
-DBMATE_NO_DUMP_SCHEMA=true just db-migrate
+terraform -chdir=infra/aws import aws_lightsail_instance.production <instance-name>
+terraform -chdir=infra/aws import aws_s3_bucket.backups <bucket-name>
+terraform -chdir=infra/aws import aws_s3_bucket_public_access_block.backups <bucket-name>
+terraform -chdir=infra/aws import aws_s3_bucket_server_side_encryption_configuration.backups <bucket-name>
+terraform -chdir=infra/aws import aws_s3_bucket_versioning.backups <bucket-name>
 ```
 
-After it succeeds, open **Actions → Production → Run workflow**, set `revision`
-to the same full SHA, enable `migrations_applied`, and run it. Do not enable the
-confirmation when migration application failed or was performed for another
-revision.
+Import and reconcile the Docker resources separately. Never import a resource
+and immediately apply without reviewing every replacement and confirming that
+persistent volumes are no-op.
 
-## Rollback
+## Releases and migrations
 
-When the new stack fails its Compose or public HTTP health check, CI checks out
-the previous `.deployed-sha` and starts its SHA-tagged images automatically.
-The failed SHA is not recorded as deployed. During the first renamed deployment,
-the rollback also checks the transferred pre-rename GHCR package names when the
-previous SHA has not yet been published under the new package names.
+A push to `master` publishes immutable application and PostgreSQL/WAL-G images,
+discovers the current Lightsail IP, uploads runtime files, and applies only
+`infra/production`. Images are pulled before Terraform changes containers.
+PostgreSQL is excluded from routine restarts unless `restart_database=true` is
+selected in a manual run.
 
-To roll back manually, run the Production workflow with the previous SHA in
-`revision`. If `db/migrations` differs, the migration gate blocks the rollback;
-database changes are deliberately never reversed automatically. Decide and
-perform the database recovery separately, then use `migrations_applied` only after
-the database is compatible with the chosen application revision.
+If `db/migrations` differs from the revision recorded in Terraform state, an
+automatic release stops before deployment. Review the SQL and rerun `Production`
+for the same revision with `apply_migrations=true`. Migrations are forward-only
+and are not automatically reversed.
 
-## Backups
+The workflow verifies all ten containers, `/api/health`, and an API routing
+probe. If Terraform apply or verification fails, it reapplies the previous image
+references recorded in state. That rollback does not reverse database
+migrations and does not change AWS infrastructure.
 
-The `wal-g` service creates a base backup as soon as PostgreSQL is healthy and
-then repeats every `WALG_BACKUP_INTERVAL_SECONDS` (24 hours by default). It
-retains `WALG_KEEP_FULL_BACKUPS` full backups (7 by default) and the WAL needed
-by them. `WALG_ARCHIVE_TIMEOUT_SECONDS` controls how often PostgreSQL forces a
-WAL segment switch (5 minutes by default).
+## Validation and recovery
 
-Use the tracked helper commands to operate backups:
+Validate all roots locally:
 
 ```sh
-just backup-now
-just backup-list
-just backup-verify
+just fmt-check-terraform
+just terraform-validate
+just check
 ```
 
-A successful upload is not sufficient proof of recoverability. Regularly test
-a restore into a separate empty volume before relying on the backup setup.
+Prefer GitHub workflows for real plans and applies so backend locking, OIDC, and
+environment configuration are identical to production.
 
-## Current scaling constraints
+Before a risky database or host change, run a fresh WAL-G base backup and verify
+that it appears in `backup-list`. Regularly perform a restore test into a new,
+empty volume; a successful upload is not a restore test. PostgreSQL 18 stores
+its cluster beneath `/var/lib/postgresql`; never delete the volume as an upgrade
+shortcut.
 
-The practical capacity depends on DonationAlerts and Streamlabs rate limits,
-donation history, donate.stream event volume, PostgreSQL latency, and the number of simultaneously active
-streamers. Monitor container memory and CPU, database latency and connections,
-realtime reconnect rate, and WAL-G failures instead of treating a VPS size as a
-guaranteed user limit.
-
-The main known constraints in the current implementation are:
-
-- the hourly full-history sync processes users sequentially in a worker that is
-  separate from live listeners and five-minute recent recovery; DonationAlerts
-  still fetches every lifetime page during that full pass, while recent
-  recovery filters a complete four-page window by the ten-minute freshness
-  boundary and Streamlabs walks back to its saved checkpoint;
-- one process-wide DonationAlerts limiter spaces every REST request by at least
-  1.05 seconds to remain below the application's 60-request-per-minute quota;
-  OAuth, refresh, and listener setup normally preempt history, but recent
-  recovery receives a permit after four consecutive critical requests and
-  regular history receives one after four consecutive recovery requests;
-  recovery uses four workers with per-account and per-request deadlines;
-- listener startup has no explicit concurrency limit or reconnect jitter;
-- the donation integration exposes a process health endpoint but no per-listener
-  heartbeat;
-- each process uses a PostgreSQL pool with a maximum of 10 connections, so
-  PostgreSQL capacity must account for the web app and both workers;
-- the video worker claims durable donation scan jobs serially. Claims use a
-  lease so interrupted work becomes available again, while YouTube rate limits
-  and transport failures use a bounded retry schedule with exponential backoff;
-
-Donation insertion awaits live WebSocket writes, keeps upstream donation IDs as
-text, and uses the database uniqueness constraint as the final idempotency
-guard. Initial connection history and credentials commit in one transaction.
+If Terraform deployment is unavailable, SSH to the host and use the checked-in
+`compose.yaml` only as a temporary recovery path. Re-import any containers that
+Compose replaces and require a zero-change Terraform plan before returning to
+normal releases.

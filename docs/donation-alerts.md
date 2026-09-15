@@ -317,8 +317,8 @@ POST bodies have smaller route-specific limits, and upload bytes use the
 separate bounded multipart endpoint.
 
 Apply the donation-alert migration before deploying application code that uses
-this feature. Deployment continues to require the manual
-`migrations_applied=true` confirmation described in [deployment.md](deployment.md).
+this feature. Deployment requires an explicit manual run with
+`apply_migrations=true`, as described in [deployment.md](deployment.md).
 
 ## Validation matrix
 

@@ -52,6 +52,7 @@ RUN apk add --no-cache espeak-ng ffmpeg \
     && rm -f /tmp/streambrew-tts-smoke.wav /tmp/streambrew-tts-smoke.ogg
 
 COPY --from=build --chown=bun:bun /app/apps/web/.output ./apps/web/.output
+COPY --from=build --chown=bun:bun /app/db/migrations ./db/migrations
 COPY --from=go-build --chown=bun:bun /out/chat ./bin/chat
 COPY --from=go-build --chown=bun:bun /out/alerts ./bin/alerts
 COPY --from=go-build --chown=bun:bun /out/donations ./bin/donations

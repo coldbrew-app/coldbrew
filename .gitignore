@@ -13,6 +13,16 @@ dist
 .env.keys
 .deployed-sha
 
+# Terraform working directories, local state, and saved plans. Provider lock
+# files remain tracked so CI and local runs select identical artifacts.
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+crash.log
+crash.*.log
+
 # Only durable Impeccable surface briefs belong in the repository.
 .impeccable/*
 !.impeccable/surface-briefs/

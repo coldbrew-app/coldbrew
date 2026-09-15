@@ -13,6 +13,7 @@
   "ignoreFindings": ["apps/web/src/components/ui/**"],
   // These tools are invoked from justfile recipes rather than imported by TypeScript.
   "ignoreDependencies": [
+    "@dotenvx/dotenvx",
     "@tanstack/intent",
     "@ladle/react",
     "concurrently",
