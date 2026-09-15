@@ -422,6 +422,7 @@ func newAlertIntegrationStore(t *testing.T) (*Store, *pgxpool.Pool) {
 	}
 	t.Cleanup(func() {
 		_, _ = admin.Exec(context.Background(), "DROP SCHEMA "+schema+" CASCADE")
+		_, _ = admin.Exec(context.Background(), "DROP SCHEMA "+schema+"_auth CASCADE")
 		admin.Close()
 	})
 
@@ -430,7 +431,7 @@ func newAlertIntegrationStore(t *testing.T) (*Store, *pgxpool.Pool) {
 		t.Fatal(parseErr)
 	}
 	query := database.Query()
-	query.Set("search_path", schema)
+	query.Set("search_path", schema+","+schema+"_auth")
 	database.RawQuery = query.Encode()
 	repositoryRoot, rootErr := filepath.Abs("../..")
 	if rootErr != nil {
