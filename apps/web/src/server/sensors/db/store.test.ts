@@ -32,6 +32,7 @@ describe("Store.getUserInfo", () => {
         hasDonationAlertsConnection: true,
         hasDonateStreamConnection: false,
         hasStreamlabsConnection: false,
+        hasTourniquetConnection: true,
         hasStreamElementsConnection: true,
         streamElementsConnectionStatus: "connected",
         publicQueueSettings: {
@@ -49,13 +50,14 @@ describe("Store.getUserInfo", () => {
       hasDonationAlertsConnection: true,
       hasDonateStreamConnection: false,
       hasStreamlabsConnection: false,
+      hasTourniquetConnection: true,
       hasStreamElementsConnection: true,
       streamElementsConnectionStatus: "connected",
     });
     expect(query).toHaveBeenCalledOnce();
-    expect(query.mock.calls[0]?.[0].join("?")).toContain(
-      "LEFT JOIN streamelements_connection USING (user_id)",
-    );
+    const queryText = query.mock.calls[0]?.[0].join("?");
+    expect(queryText).toContain("LEFT JOIN tourniquet_connection USING (user_id)");
+    expect(queryText).toContain("LEFT JOIN streamelements_connection USING (user_id)");
   });
 });
 

@@ -185,7 +185,7 @@ func TestGetDonationsPaginatesLegacyHistoryAndPreservesOriginalMoney(t *testing.
 				t.Fatalf("first offset = %q", query.Get("offset"))
 			}
 			_, _ = writer.Write([]byte(`{"docs":[` +
-				completedTipJSON("tip-30", "4.2", "usd", "2025-02-19T15:07:09.302Z", "Styler", "Thanks") + `,` +
+				completedTipJSON("tip-30", "0.004999999999999999", "usd", "2025-02-19T15:07:09.302Z", "Styler", "Thanks") + `,` +
 				completedTipJSON("tip-20", `"15.5"`, "EUR", "2025-02-19T14:00:00+02:00", "", "") +
 				`],"total":3,"limit":100,"offset":0}`))
 		case 2:
@@ -212,14 +212,14 @@ func TestGetDonationsPaginatesLegacyHistoryAndPreservesOriginalMoney(t *testing.
 		t.Fatalf("history = %#v after %d requests", history, requests)
 	}
 	first := history.Donations[0]
-	if first.SourceDonationID != "tip-30" || first.Amount != "4.20" || first.Currency != "USD" ||
+	if first.SourceDonationID != "tip-30" || first.Amount != "0.004999999999999999" || first.Currency != "USD" ||
 		first.SourceCreatedAt != "2025-02-19T15:07:09.302Z" ||
 		!first.OccurredAt.Equal(time.Date(2025, 2, 19, 15, 7, 9, 302_000_000, time.UTC)) ||
 		first.Author == nil || *first.Author != "Styler" || first.Message == nil || *first.Message != "Thanks" {
 		t.Fatalf("first donation = %#v", first)
 	}
 	second := history.Donations[1]
-	if second.Amount != "15.50" || second.Currency != "EUR" || !second.OccurredAt.Equal(time.Date(2025, 2, 19, 12, 0, 0, 0, time.UTC)) {
+	if second.Amount != "15.5" || second.Currency != "EUR" || !second.OccurredAt.Equal(time.Date(2025, 2, 19, 12, 0, 0, 0, time.UTC)) {
 		t.Fatalf("second donation = %#v", second)
 	}
 }
@@ -403,7 +403,7 @@ func TestGetDonationsRejectsInvalidCompletedTips(t *testing.T) {
 		{name: "missing id", mutate: func(tip map[string]any) { delete(tip, "_id") }},
 		{name: "wrong channel", mutate: func(tip map[string]any) { tip["channel"] = "another-channel" }},
 		{name: "invalid currency", mutate: func(tip map[string]any) { donationMap(tip)["currency"] = "US" }},
-		{name: "fractional precision", mutate: func(tip map[string]any) { donationMap(tip)["amount"] = "1.234" }},
+		{name: "unsupported fractional precision", mutate: func(tip map[string]any) { donationMap(tip)["amount"] = "1.1234567890123456789" }},
 		{name: "negative amount", mutate: func(tip map[string]any) { donationMap(tip)["amount"] = "-1" }},
 		{name: "invalid date", mutate: func(tip map[string]any) { tip["createdAt"] = "yesterday" }},
 	}

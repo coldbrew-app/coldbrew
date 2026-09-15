@@ -115,7 +115,7 @@ func TestSourceSubscribesAndEmitsFullTipUsingCanonicalRoom(t *testing.T) {
 		jsonRead(`{"id":"response-id","ts":"2025-02-19T15:07:01Z","type":"response","nonce":"test-nonce","data":{"message":"successfully subscribed to topic","topic":"channel.tips","room":"`+canonicalRoom+`"}}`),
 		jsonRead(astroTipJSON(canonicalRoom, completedTipJSON(
 			"67b5f39d07ecd4c594e60f73",
-			"4.2",
+			"0.004999999999999999",
 			"usd",
 			"2025-02-19T15:07:09.302Z",
 			"Styler",
@@ -156,7 +156,7 @@ func TestSourceSubscribesAndEmitsFullTipUsingCanonicalRoom(t *testing.T) {
 	if !reflect.DeepEqual(subscription, wantSubscription) {
 		t.Fatalf("subscription = %#v; want %#v", subscription, wantSubscription)
 	}
-	if received.SourceDonationID != "67b5f39d07ecd4c594e60f73" || received.Amount != "4.20" ||
+	if received.SourceDonationID != "67b5f39d07ecd4c594e60f73" || received.Amount != "0.004999999999999999" ||
 		received.Currency != "USD" || received.SourceCreatedAt != "2025-02-19T15:07:09.302Z" ||
 		!received.OccurredAt.Equal(time.Date(2025, 2, 19, 15, 7, 9, 302_000_000, time.UTC)) ||
 		received.Author == nil || *received.Author != "Styler" || received.Message == nil || *received.Message != "Thank you" {
@@ -196,7 +196,7 @@ func TestSourceIgnoresUnrelatedMessagesAndDoesNotFilterTipStateFields(t *testing
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if len(received) != 1 || received[0].SourceDonationID != "blocked-tip" || received[0].Amount != "7.50" {
+	if len(received) != 1 || received[0].SourceDonationID != "blocked-tip" || received[0].Amount != "7.5" {
 		t.Fatalf("donations = %#v", received)
 	}
 }
@@ -672,7 +672,7 @@ func TestSourcePropagatesTipAndEmitterErrors(t *testing.T) {
 		tipJSON string
 		emit    func(Donation) error
 	}{
-		{name: "invalid tip", tipJSON: completedTipJSON("tip", "1.234", "USD", "2025-02-19T15:00:00Z", "Tipper", ""), emit: func(Donation) error { return nil }},
+		{name: "invalid tip", tipJSON: completedTipJSON("tip", "1.1234567890123456789", "USD", "2025-02-19T15:00:00Z", "Tipper", ""), emit: func(Donation) error { return nil }},
 		{name: "emitter", tipJSON: completedTipJSON("tip", "1", "USD", "2025-02-19T15:00:00Z", "Tipper", ""), emit: func(Donation) error { return emitError }},
 	}
 	for _, test := range tests {

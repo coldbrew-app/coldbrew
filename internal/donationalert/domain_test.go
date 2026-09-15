@@ -11,7 +11,7 @@ func TestDefaultSettingsAreValid(t *testing.T) {
 	if err := settings.Validate(); err != nil {
 		t.Fatalf("default settings are invalid: %v", err)
 	}
-	if len(settings.EnabledSources) != 4 || !ValidSource(StreamElementsSource) {
+	if len(settings.EnabledSources) != 5 || !ValidSource(TourniquetSource) || !ValidSource(StreamElementsSource) {
 		t.Fatalf("default sources = %#v", settings.EnabledSources)
 	}
 }

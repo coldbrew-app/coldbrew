@@ -173,7 +173,7 @@ func invalidWidgetSourceInput(source Source, err error) bool {
 		return donateStreamInvalidInput(err) || donateStreamUnauthorized(err)
 	case TourniquetSource:
 		return tourniquetInvalidInput(err)
-	case DonationAlertsSource, StreamlabsSource:
+	case DonationAlertsSource, StreamlabsSource, StreamElementsSource:
 		return false
 	default:
 		return false
