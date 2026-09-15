@@ -95,6 +95,7 @@ type provider interface {
 	GetDonations(context.Context, string, string, *string, *time.Time) (DonationBatch, error)
 	Run(context.Context, string, string, *string, func(DonationBatch) error) error
 	Unauthorized(error) bool
+	Permanent(error) bool
 }
 
 type DonationAlertsAdapter struct {
@@ -159,6 +160,8 @@ func (*DonationAlertsAdapter) Unauthorized(err error) bool {
 	var requestError *donationalerts.RequestError
 	return errors.As(err, &requestError) && requestError.Unauthorized
 }
+
+func (*DonationAlertsAdapter) Permanent(error) bool { return false }
 
 func donationAlertsDonations(donations []donationalerts.Donation) []Donation {
 	result := make([]Donation, len(donations))
@@ -279,6 +282,8 @@ func (*StreamlabsAdapter) Unauthorized(err error) bool {
 	return errors.As(err, &requestError) && requestError.Unauthorized
 }
 
+func (*StreamlabsAdapter) Permanent(error) bool { return false }
+
 func streamlabsBatch(history streamlabs.History) DonationBatch {
 	donations := make([]Donation, len(history.Donations))
 	for index, donation := range history.Donations {
@@ -333,8 +338,8 @@ func (adapter *StreamElementsAdapter) RefreshTokens(ctx context.Context, refresh
 	return Tokens{AccessToken: tokens.AccessToken, RefreshToken: tokens.RefreshToken}, nil
 }
 
-func (adapter *StreamElementsAdapter) GetDonations(ctx context.Context, accessToken, sourceUserID string, checkpoint *string, _ *time.Time) (DonationBatch, error) {
-	history, err := adapter.client.GetDonations(ctx, accessToken, sourceUserID, checkpoint)
+func (adapter *StreamElementsAdapter) GetDonations(ctx context.Context, accessToken, sourceUserID string, checkpoint *string, occurredAfter *time.Time) (DonationBatch, error) {
+	history, err := adapter.client.GetDonations(ctx, accessToken, sourceUserID, checkpoint, occurredAfter)
 	if err != nil {
 		return DonationBatch{}, err
 	}
@@ -350,6 +355,11 @@ func (adapter *StreamElementsAdapter) Run(ctx context.Context, accessToken, sour
 func (*StreamElementsAdapter) Unauthorized(err error) bool {
 	var requestError *streamelements.RequestError
 	return errors.As(err, &requestError) && requestError.Unauthorized
+}
+
+func (*StreamElementsAdapter) Permanent(err error) bool {
+	var requestError *streamelements.RequestError
+	return errors.As(err, &requestError) && requestError.Permanent
 }
 
 func streamElementsBatch(history streamelements.History) DonationBatch {

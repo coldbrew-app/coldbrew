@@ -3,20 +3,24 @@ package donations
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
 )
 
 type applicationTestStore struct {
-	connections         []Connection
-	savedConnection     *ProviderConnection
-	savedBatch          DonationBatch
-	savedOrigin         IngestionOrigin
-	savedAcceptedAt     time.Time
-	disconnectedUser    int
-	disconnectedVersion int
-	setTokensUpdated    bool
+	connections            []Connection
+	savedConnection        *ProviderConnection
+	savedBatch             DonationBatch
+	savedOrigin            IngestionOrigin
+	savedAcceptedAt        time.Time
+	disconnectedUser       int
+	reauthorizationUser    int
+	reauthorizationVersion int
+	connectionErrorUser    int
+	connectionErrorVersion int
+	setTokensUpdated       bool
 }
 
 func (store *applicationTestStore) Connections(context.Context) ([]Connection, error) {
@@ -40,15 +44,27 @@ func (store *applicationTestStore) Disconnect(_ context.Context, userID int) err
 	store.disconnectedUser = userID
 	return nil
 }
-func (store *applicationTestStore) DisconnectIfVersion(_ context.Context, userID, tokenVersion int) (bool, error) {
-	store.disconnectedUser = userID
-	store.disconnectedVersion = tokenVersion
+func (store *applicationTestStore) RequireReauthorizationIfVersion(_ context.Context, userID, tokenVersion int) (bool, error) {
+	store.reauthorizationUser = userID
+	store.reauthorizationVersion = tokenVersion
+	return true, nil
+}
+func (store *applicationTestStore) MarkConnectionErrorIfVersion(_ context.Context, userID, tokenVersion int) (bool, error) {
+	store.connectionErrorUser = userID
+	store.connectionErrorVersion = tokenVersion
 	return true, nil
 }
 
-type unauthorizedTestError struct{}
+type unauthorizedTestError struct{ hadAuthorizedSession bool }
 
 func (*unauthorizedTestError) Error() string { return "unauthorized" }
+func (err *unauthorizedTestError) HadAuthorizedSession() bool {
+	return err.hadAuthorizedSession
+}
+
+type permanentTestError struct{}
+
+func (*permanentTestError) Error() string { return "permanent" }
 
 type applicationTestProvider struct {
 	source              Source
@@ -91,6 +107,10 @@ func (provider *applicationTestProvider) RefreshTokens(ctx context.Context, refr
 func (*applicationTestProvider) Unauthorized(err error) bool {
 	var unauthorized *unauthorizedTestError
 	return errors.As(err, &unauthorized)
+}
+func (*applicationTestProvider) Permanent(err error) bool {
+	var permanent *permanentTestError
+	return errors.As(err, &permanent)
 }
 
 func testProvider() *applicationTestProvider {
@@ -182,7 +202,7 @@ func TestListenerRejectsStaleRefresh(t *testing.T) {
 	}
 }
 
-func TestUnauthorizedRefreshDisconnectsOnlyMatchingVersion(t *testing.T) {
+func TestUnauthorizedRefreshRequiresReauthorizationForOnlyMatchingVersion(t *testing.T) {
 	store := &applicationTestStore{}
 	provider := testProvider()
 	provider.run = func(context.Context, string, string, *string, func(DonationBatch) error) error {
@@ -195,8 +215,92 @@ func TestUnauthorizedRefreshDisconnectsOnlyMatchingVersion(t *testing.T) {
 	if err := integration.listen(context.Background(), Connection{UserID: 42, AccessToken: "old", RefreshToken: "old-refresh", TokenVersion: 7}); err == nil {
 		t.Fatal("expected refresh failure")
 	}
-	if store.disconnectedUser != 42 || store.disconnectedVersion != 7 {
-		t.Fatalf("conditional disconnect user=%d version=%d", store.disconnectedUser, store.disconnectedVersion)
+	if store.reauthorizationUser != 42 || store.reauthorizationVersion != 7 {
+		t.Fatalf("conditional reauthorization user=%d version=%d", store.reauthorizationUser, store.reauthorizationVersion)
+	}
+}
+
+func TestRefreshedCredentialsRejectedBeforeAuthorizationRequireReauthorization(t *testing.T) {
+	store := &applicationTestStore{setTokensUpdated: true}
+	provider := testProvider()
+	runs := 0
+	provider.run = func(_ context.Context, accessToken, _ string, _ *string, _ func(DonationBatch) error) error {
+		runs++
+		if runs == 2 && accessToken != "new-access" {
+			t.Fatalf("second access token = %q", accessToken)
+		}
+		return &unauthorizedTestError{}
+	}
+	refreshes := 0
+	provider.refresh = func(context.Context, string) (Tokens, error) {
+		refreshes++
+		return Tokens{AccessToken: "new-access", RefreshToken: "new-refresh"}, nil
+	}
+	integration := newIntegration(store, provider)
+
+	err := integration.listen(context.Background(), Connection{
+		UserID: 42, AccessToken: "old", RefreshToken: "old-refresh", TokenVersion: 7,
+	})
+	if err == nil || refreshes != 1 || runs != 2 {
+		t.Fatalf("error=%v refreshes=%d runs=%d", err, refreshes, runs)
+	}
+	if store.reauthorizationUser != 42 || store.reauthorizationVersion != 8 {
+		t.Fatalf("conditional reauthorization user=%d version=%d", store.reauthorizationUser, store.reauthorizationVersion)
+	}
+}
+
+func TestAuthorizationAfterRefreshAllowsLaterTokenRefresh(t *testing.T) {
+	store := &applicationTestStore{setTokensUpdated: true}
+	provider := testProvider()
+	runs := 0
+	provider.run = func(context.Context, string, string, *string, func(DonationBatch) error) error {
+		runs++
+		switch runs {
+		case 1:
+			return &unauthorizedTestError{}
+		case 2:
+			return &unauthorizedTestError{hadAuthorizedSession: true}
+		default:
+			return context.Canceled
+		}
+	}
+	refreshes := 0
+	provider.refresh = func(context.Context, string) (Tokens, error) {
+		refreshes++
+		return Tokens{
+			AccessToken:  fmt.Sprintf("access-%d", refreshes),
+			RefreshToken: fmt.Sprintf("refresh-%d", refreshes),
+		}, nil
+	}
+	integration := newIntegration(store, provider)
+
+	err := integration.listen(context.Background(), Connection{
+		UserID: 42, AccessToken: "old", RefreshToken: "old-refresh", TokenVersion: 7,
+	})
+	if !errors.Is(err, context.Canceled) || refreshes != 2 || runs != 3 {
+		t.Fatalf("error=%v refreshes=%d runs=%d", err, refreshes, runs)
+	}
+	if store.reauthorizationUser != 0 {
+		t.Fatalf("unexpected reauthorization for user %d", store.reauthorizationUser)
+	}
+}
+
+func TestPermanentListenerFailureMarksOnlyMatchingConnectionVersion(t *testing.T) {
+	store := &applicationTestStore{}
+	provider := testProvider()
+	provider.run = func(context.Context, string, string, *string, func(DonationBatch) error) error {
+		return &permanentTestError{}
+	}
+	provider.refresh = func(context.Context, string) (Tokens, error) { return Tokens{}, nil }
+	integration := newIntegration(store, provider)
+
+	err := integration.listen(context.Background(), Connection{UserID: 42, AccessToken: "access", TokenVersion: 9})
+	var permanent *permanentTestError
+	if !errors.As(err, &permanent) {
+		t.Fatalf("error = %v", err)
+	}
+	if store.connectionErrorUser != 42 || store.connectionErrorVersion != 9 {
+		t.Fatalf("conditional error user=%d version=%d", store.connectionErrorUser, store.connectionErrorVersion)
 	}
 }
 
