@@ -100,6 +100,14 @@ not run recovery. In particular, Tourniquet cannot import donations created
 before connection or recover events missed during a disconnect; see
 [Tourniquet donation integration](tourniquet.md#available-integration-surface).
 
+StreamElements sends complete tips through the Astro `channel.tips` topic, so
+those live messages are stored directly. Its five-minute recovery pass requests
+the complete ten-minute `after`/`before` window rather than stopping at the
+saved head ID; an hourly pass replays all available tip history. This protects
+against WebSocket gaps, mutable offset pages, and delayed or backdated tips.
+Database idempotency ensures that only a newly inserted donation can enqueue an
+alert or a video scan. See [the StreamElements integration contract](streamelements.md).
+
 ## Queue and playback
 
 The donation and presentation fields of an active playback are snapshots. They include

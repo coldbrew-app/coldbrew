@@ -160,6 +160,7 @@ Runtime variables:
 | `DONATION_ALERTS_CLIENT_ID`    | OAuth client ID                  | yes       |
 | `GOOGLE_CLIENT_ID`             | OAuth client ID                  | yes       |
 | `STREAMLABS_CLIENT_ID`         | OAuth client ID                  | yes       |
+| `STREAMELEMENTS_CLIENT_ID`     | OAuth client ID                  | yes       |
 | `BOOSTY_CLIENT_ID`             | OAuth client ID                  | no        |
 | `KICK_CLIENT_ID`               | OAuth client ID                  | no        |
 | `KICK_WEBHOOK_PUBLIC_KEY`      | RSA public key                   | with Kick |
@@ -177,7 +178,8 @@ Required environment secrets are `SSH_PRIVATE_KEY`, `SSH_KNOWN_HOSTS`,
 `CHAT_TOKEN_ENCRYPTION_SECRET`, `DONATION_ALERTS_CLIENT_SECRET`,
 `DONATIONS_SERVICE_SECRET`, `GOOGLE_CLIENT_SECRET`, `PGPASSWORD`,
 `RESTREAM_CREDENTIALS_SECRET`, `RESTREAM_MEDIA_SHARED_SECRET`,
-`STREAMLABS_CLIENT_SECRET`, `TELEGRAM_BOT_TOKEN`, `YOUTUBE_API_KEY`, and the
+`STREAMLABS_CLIENT_SECRET`, `STREAMELEMENTS_CLIENT_SECRET`, `TELEGRAM_BOT_TOKEN`,
+`YOUTUBE_API_KEY`, and the
 WAL-G-only `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` pair. Optional OAuth
 secrets must be configured together with their matching client IDs. The
 Hetzner deployment also has its own variables and secrets documented in
@@ -196,6 +198,7 @@ Register the relevant OAuth callback URLs:
 - `https://<domain>/api/auth/callback/google`
 - `https://<domain>/api/integration/donationalerts/callback`
 - `https://<domain>/api/integration/streamlabs/callback`
+- `https://<domain>/api/integration/streamelements/callback`
 - `https://<domain>/api/chat/oauth/youtube/callback`
 - `https://<domain>/api/chat/oauth/twitch/callback`
 - `https://<domain>/api/chat/oauth/kick/callback`
