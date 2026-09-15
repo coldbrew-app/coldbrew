@@ -1,0 +1,3 @@
+# Separate the restream media plane on Hetzner
+
+StreamBrew keeps authentication, configuration, encrypted destination credentials, session history, and the rest of the application on AWS, while Hetzner runs only the bandwidth-heavy RTMP media plane. A media node authenticates publishers through the AWS control plane and receives an ephemeral MediaMTX forward configuration for each active session; it has no PostgreSQL access and stores no destination credentials on disk. This accepts an additional provider and deployment path in exchange for avoiding AWS egress pricing without moving the main application.
