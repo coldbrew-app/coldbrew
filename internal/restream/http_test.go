@@ -43,14 +43,15 @@ func (control *fakeControlPlane) End(_ context.Context, _ string, sessionID stri
 }
 
 type fakeMediaServer struct {
-	configured []Destination
-	statuses   []ForwardStatus
-	deleted    []string
+	configured     []Destination
+	configureError error
+	statuses       []ForwardStatus
+	deleted        []string
 }
 
 func (media *fakeMediaServer) Configure(_ context.Context, _ string, destinations []Destination) error {
 	media.configured = destinations
-	return nil
+	return media.configureError
 }
 
 func (media *fakeMediaServer) ForwardStatuses(context.Context, string) ([]ForwardStatus, error) {
@@ -70,7 +71,7 @@ func postJSON(handler http.Handler, path string, input any) *httptest.ResponseRe
 	return response
 }
 
-func TestHTTPHandlerAuthorizesAndConfiguresPublisher(t *testing.T) {
+func TestHTTPHandlerAuthorizesThenConfiguresOnlinePublisher(t *testing.T) {
 	control := &fakeControlPlane{authorization: Authorization{
 		SessionID:    "session-1",
 		Destinations: []Destination{{ID: "destination-1", TargetURL: "rtmp://8.8.8.8/app#key"}},
@@ -78,12 +79,38 @@ func TestHTTPHandlerAuthorizesAndConfiguresPublisher(t *testing.T) {
 	media := &fakeMediaServer{}
 	handler := NewHTTPHandler(control, media, "fsn1-1").Handler()
 
+	path := "sb_" + string(bytes.Repeat([]byte{'a'}, 43))
 	response := postJSON(handler, "/v1/auth", map[string]string{
-		"action": "publish", "protocol": "rtmp", "id": "publisher-1", "path": "sb_" + string(bytes.Repeat([]byte{'a'}, 43)),
+		"action": "publish", "protocol": "rtmp", "id": "publisher-1", "path": path,
 	})
 
-	if response.Code != http.StatusNoContent || len(media.configured) != 1 {
+	if response.Code != http.StatusNoContent || len(media.configured) != 0 {
 		t.Fatalf("status = %d, configured = %#v", response.Code, media.configured)
+	}
+	response = postJSON(handler, "/v1/hooks/online", map[string]string{"path": path})
+	if response.Code != http.StatusNoContent || len(media.configured) != 1 {
+		t.Fatalf("online status = %d, configured = %#v", response.Code, media.configured)
+	}
+}
+
+func TestHTTPHandlerEndsSessionWhenOnlineConfigurationFails(t *testing.T) {
+	control := &fakeControlPlane{authorization: Authorization{
+		SessionID:    "session-1",
+		Destinations: []Destination{{ID: "destination-1", TargetURL: "rtmp://8.8.8.8/app#key"}},
+	}}
+	media := &fakeMediaServer{configureError: errors.New("MediaMTX unavailable")}
+	handler := NewHTTPHandler(control, media, "fsn1-1").Handler()
+	path := "sb_" + string(bytes.Repeat([]byte{'a'}, 43))
+
+	if response := postJSON(handler, "/v1/auth", map[string]string{
+		"action": "publish", "protocol": "rtmp", "id": "publisher-1", "path": path,
+	}); response.Code != http.StatusNoContent {
+		t.Fatalf("authorize status = %d", response.Code)
+	}
+	response := postJSON(handler, "/v1/hooks/online", map[string]string{"path": path})
+
+	if response.Code != http.StatusServiceUnavailable || len(control.ended) != 1 || len(media.deleted) != 1 {
+		t.Fatalf("online status = %d, ended = %#v, deleted = %#v", response.Code, control.ended, media.deleted)
 	}
 }
 

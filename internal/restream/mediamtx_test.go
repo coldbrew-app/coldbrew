@@ -45,7 +45,7 @@ func TestMediaMTXClientConfiguresNativeForward(t *testing.T) {
 
 func TestMediaMTXClientReadsForwardStateWithoutLastError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
-		_, _ = response.Write([]byte(`{"items":[{"pos":0,"state":"forwarding","outboundBytes":2048,"lastError":"rtmp://host/app#secret"}]}`))
+		_, _ = response.Write([]byte(`{"items":[{"pos":1,"state":"forwarding","outboundBytes":2048,"lastError":"rtmp://host/app#secret"}]}`))
 	}))
 	defer server.Close()
 	client := NewMediaMTXClient(server.URL, server.Client())
@@ -54,7 +54,7 @@ func TestMediaMTXClientReadsForwardStateWithoutLastError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(statuses) != 1 || statuses[0].State != "forwarding" || statuses[0].OutboundBytes != 2048 {
+	if len(statuses) != 1 || statuses[0].Position != 0 || statuses[0].State != "forwarding" || statuses[0].OutboundBytes != 2048 {
 		t.Fatalf("ForwardStatuses() = %#v", statuses)
 	}
 }

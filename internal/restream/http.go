@@ -103,12 +103,6 @@ func (handler *HTTPHandler) authorize(response http.ResponseWriter, request *htt
 			return
 		}
 	}
-	if err := handler.media.Configure(request.Context(), input.Path, authorization.Destinations); err != nil {
-		slog.WarnContext(request.Context(), "Configure restream forwards", "error", err)
-		handler.endAuthorization(request.Context(), authorization.SessionID)
-		http.Error(response, "media server unavailable", http.StatusServiceUnavailable)
-		return
-	}
 
 	handler.mu.Lock()
 	handler.sessions[input.Path] = activeSession{authorization: authorization}
@@ -128,14 +122,37 @@ func (handler *HTTPHandler) online(response http.ResponseWriter, request *http.R
 		http.Error(response, "restream session not found", http.StatusNotFound)
 		return
 	}
-	if session.cancel != nil {
-		session.cancel()
+	handler.mu.Unlock()
+
+	// Changing a MediaMTX path configuration while its publish request is being
+	// authenticated invalidates the configuration snapshot held by that request.
+	// Configure forwards only after MediaMTX has accepted the publisher and made
+	// the path available.
+	if err := handler.media.Configure(request.Context(), path, session.authorization.Destinations); err != nil {
+		slog.WarnContext(request.Context(), "Configure restream forwards", "error", err)
+		handler.abandonSession(request.Context(), path, session.authorization.SessionID)
+		http.Error(response, "media server unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	handler.mu.Lock()
+	current, found := handler.sessions[path]
+	if !found || current.authorization.SessionID != session.authorization.SessionID {
+		handler.mu.Unlock()
+		if !found {
+			handler.deleteMediaPath(request.Context(), path)
+		}
+		response.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if current.cancel != nil {
+		current.cancel()
 	}
 	ctx, cancel := context.WithCancel(context.WithoutCancel(request.Context()))
-	session.cancel = cancel
-	handler.sessions[path] = session
+	current.cancel = cancel
+	handler.sessions[path] = current
 	handler.mu.Unlock()
-	go handler.runHeartbeats(ctx, path, session.authorization)
+	go handler.runHeartbeats(ctx, path, current.authorization)
 	response.WriteHeader(http.StatusNoContent)
 }
 
@@ -224,6 +241,33 @@ func (handler *HTTPHandler) endAuthorization(parent context.Context, sessionID s
 	defer cancel()
 	if err := handler.control.End(ctx, handler.nodeID, sessionID); err != nil && !errors.Is(err, ErrSessionNotFound) {
 		slog.WarnContext(ctx, "Roll back restream authorization", "error", err)
+	}
+}
+
+func (handler *HTTPHandler) abandonSession(parent context.Context, path, sessionID string) {
+	handler.mu.Lock()
+	session, found := handler.sessions[path]
+	if found && session.authorization.SessionID == sessionID {
+		delete(handler.sessions, path)
+		if session.cancel != nil {
+			session.cancel()
+		}
+	} else {
+		found = false
+	}
+	handler.mu.Unlock()
+	if !found {
+		return
+	}
+	handler.deleteMediaPath(parent, path)
+	handler.endAuthorization(parent, sessionID)
+}
+
+func (handler *HTTPHandler) deleteMediaPath(parent context.Context, path string) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 10*time.Second)
+	defer cancel()
+	if err := handler.media.Delete(ctx, path); err != nil {
+		slog.WarnContext(ctx, "Delete restream media path", "error", err)
 	}
 }
 
