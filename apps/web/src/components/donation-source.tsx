@@ -47,7 +47,7 @@ const sources = {
   },
   streamelements: {
     mark: "SE",
-    markClassName: "from-violet-500 to-fuchsia-600",
+    markClassName: "from-[#0b6e78] to-[#155e75]",
     name: "StreamElements",
     url: "https://streamelements.com/dashboard/revenue/tips",
   },
