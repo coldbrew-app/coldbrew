@@ -173,7 +173,7 @@ jobs:
           }
           const values = {
             RESTREAM_MEDIA_IMAGE: process.env.IMAGE,
-            RESTREAM_NODE_ID: "fsn1-1",
+            RESTREAM_NODE_ID: "nbg1-1",
             RESTREAM_CONTROL_URL: `${process.env.APP_DOMAIN.replace(/\/$/, "")}/api/restream/media`,
             RESTREAM_MEDIA_SHARED_SECRET: process.env.RESTREAM_MEDIA_SHARED_SECRET,
           }

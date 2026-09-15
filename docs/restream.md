@@ -68,16 +68,16 @@ hcloud firewall add-rule streambrew-restream \
   --description "OBS RTMP ingest"
 ```
 
-Create a small x86 server in Falkenstein. Check the displayed monthly price
+Create a small x86 server in Nuremberg. Check the displayed monthly price
 before confirming it against the operating budget; the node does not need a
 volume, backup, or private network because it is stateless.
 
 ```sh
 hcloud server create \
-  --name streambrew-restream-fsn1-1 \
+  --name streambrew-restream-nbg1-1 \
   --type cx23 \
   --image ubuntu-24.04 \
-  --location fsn1 \
+  --location nbg1 \
   --ssh-key streambrew-restream-deploy \
   --firewall streambrew-restream \
   --enable-protection delete,rebuild \
@@ -87,8 +87,8 @@ hcloud server create \
 Wait for cloud-init and inspect the server through `hcloud`:
 
 ```sh
-hcloud server describe streambrew-restream-fsn1-1
-server_ip="$(hcloud server ip streambrew-restream-fsn1-1)"
+hcloud server describe streambrew-restream-nbg1-1
+server_ip="$(hcloud server ip streambrew-restream-nbg1-1)"
 ssh -i ~/.ssh/streambrew_hetzner_restream streambrew@"$server_ip" \
   cloud-init status --wait
 ```
@@ -99,7 +99,7 @@ Add these Hetzner deployment values:
 
 | Kind     | Name                           | Value                                      |
 | -------- | ------------------------------ | ------------------------------------------ |
-| variable | `HETZNER_RESTREAM_SERVER`      | `streambrew-restream-fsn1-1`               |
+| variable | `HETZNER_RESTREAM_SERVER`      | `streambrew-restream-nbg1-1`               |
 | secret   | `HETZNER_API_TOKEN`            | project-scoped read/write API token        |
 | secret   | `HETZNER_SSH_PRIVATE_KEY`      | dedicated private key                      |
 | secret   | `HETZNER_SSH_KNOWN_HOSTS`      | pinned host key under the deployment alias |
@@ -109,7 +109,7 @@ Generate the known-host entry only after checking the ED25519 fingerprint in
 the Hetzner console:
 
 ```sh
-server_ip="$(hcloud server ip streambrew-restream-fsn1-1)"
+server_ip="$(hcloud server ip streambrew-restream-nbg1-1)"
 ssh-keyscan -t ed25519 "$server_ip" | \
   sed "s/^$server_ip/streambrew-restream/"
 ```
@@ -140,10 +140,10 @@ For a first deployment, run the workflow after the node is ready and before
 publishing `RESTREAM_INGEST_URL` to the application. Verify:
 
 ```sh
-hcloud server describe streambrew-restream-fsn1-1
+hcloud server describe streambrew-restream-nbg1-1
 ssh streambrew-restream \
   'cd /opt/streambrew-restream && docker compose --env-file runtime.env ps'
-nc -vz "$(hcloud server ip streambrew-restream-fsn1-1)" 1935
+nc -vz "$(hcloud server ip streambrew-restream-nbg1-1)" 1935
 ```
 
 Then add one temporary destination in StreamBrew and publish a short H.264/AAC
@@ -162,8 +162,8 @@ Deletion protection is enabled. Removing the node is therefore an explicit
 two-step operation:
 
 ```sh
-hcloud server disable-protection streambrew-restream-fsn1-1 delete rebuild
-hcloud server delete streambrew-restream-fsn1-1
+hcloud server disable-protection streambrew-restream-nbg1-1 delete rebuild
+hcloud server delete streambrew-restream-nbg1-1
 ```
 
 Before removal, take `RESTREAM_INGEST_URL` out of service and verify that there
