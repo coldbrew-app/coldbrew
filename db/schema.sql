@@ -67,10 +67,17 @@ CREATE TYPE public.donation_alert_playback_status AS ENUM (
   'interrupted'
 );
 
+CREATE DOMAIN public.donation_amount AS numeric(38, 18)
+CONSTRAINT donation_amount_check CHECK ((value >= (0)::numeric));
+
+CREATE DOMAIN public.donation_asset AS character varying(32)
+CONSTRAINT donation_asset_check CHECK (((value)::text ~ '^[A-Z0-9][-A-Z0-9 ._()/+]{0,31}$'::text));
+
 CREATE TYPE public.donation_source AS ENUM (
   'donationalerts',
   'donate_stream',
-  'streamlabs'
+  'streamlabs',
+  'tourniquet'
 );
 
 CREATE DOMAIN public.js_date AS timestamp (3) with time zone;
@@ -359,8 +366,8 @@ CREATE TABLE public.donation (
   user_id            integer                NOT NULL,
   author             text,
   message            text,
-  amount             public.money_amount    NOT NULL,
-  currency           public.currency_code   NOT NULL,
+  amount             public.donation_amount NOT NULL,
+  currency           public.donation_asset  NOT NULL,
   source_created_at  text                   NOT NULL,
   occurred_at        public.js_date         NOT NULL,
   videos_parsed_at   public.js_date
@@ -417,8 +424,8 @@ CREATE TABLE public.donation_alert_playback (
   source                       public.donation_source,
   author                       text,
   message                      text,
-  amount                       public.money_amount                   NOT NULL,
-  currency                     public.currency_code                  NOT NULL,
+  amount                       public.donation_amount                NOT NULL,
+  currency                     public.donation_asset                 NOT NULL,
   image_asset_id               uuid,
   sound_asset_id               uuid,
   tts_asset_id                 uuid,
@@ -536,6 +543,14 @@ CREATE TABLE public.streamlabs_connection (
   connected_at       public.js_date DEFAULT now() NOT NULL,
   updated_at         public.js_date DEFAULT now() NOT NULL,
   CONSTRAINT streamlabs_connection_token_version_check CHECK ((token_version > 0))
+);
+
+CREATE TABLE public.tourniquet_connection (
+  user_id      integer        NOT NULL,
+  widget_token text           NOT NULL,
+  connected_at public.js_date DEFAULT now() NOT NULL,
+  updated_at   public.js_date DEFAULT now() NOT NULL,
+  CONSTRAINT tourniquet_connection_widget_token_check CHECK ((widget_token ~ '^[A-Za-z0-9]{16,200}$'::text))
 );
 
 CREATE TABLE public."user" (
@@ -781,6 +796,12 @@ ADD CONSTRAINT streamlabs_connection_pkey PRIMARY KEY (user_id);
 ALTER TABLE ONLY public.streamlabs_connection
 ADD CONSTRAINT streamlabs_connection_source_user_id_key UNIQUE (source_user_id);
 
+ALTER TABLE ONLY public.tourniquet_connection
+ADD CONSTRAINT tourniquet_connection_pkey PRIMARY KEY (user_id);
+
+ALTER TABLE ONLY public.tourniquet_connection
+ADD CONSTRAINT tourniquet_connection_widget_token_key UNIQUE (widget_token);
+
 ALTER TABLE ONLY public."user"
 ADD CONSTRAINT user_auth_user_id_key UNIQUE (auth_user_id);
 
@@ -981,6 +1002,9 @@ ADD CONSTRAINT donationalerts_connection_user_id_fkey FOREIGN KEY (user_id) REFE
 ALTER TABLE ONLY public.streamlabs_connection
 ADD CONSTRAINT streamlabs_connection_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
 
+ALTER TABLE ONLY public.tourniquet_connection
+ADD CONSTRAINT tourniquet_connection_user_id_fkey FOREIGN KEY (user_id) REFERENCES public."user" (user_id) ON DELETE CASCADE;
+
 ALTER TABLE ONLY public."user"
 ADD CONSTRAINT user_auth_user_id_fkey FOREIGN KEY (auth_user_id) REFERENCES auth.auth_user (id);
 
@@ -1013,4 +1037,6 @@ INSERT INTO public.schema_migrations (version) VALUES
 ('20260910120000'),
 ('20260910180000'),
 ('20260913000000'),
-('20260913144100');
+('20260913144100'),
+('20260915190000'),
+('20260915190100');

@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
-	"sync"
 	"time"
 
 	"github.com/streambrew-app/streambrew/internal/donatestream"
@@ -60,87 +58,22 @@ func (application *DonateStreamApplication) Disconnect(ctx context.Context, user
 	return application.store.DisconnectDonateStream(ctx, userID)
 }
 
-type runningDonateStreamListener struct {
-	cancel      context.CancelFunc
-	widgetToken string
-}
-
-type donateStreamListenerCompletion struct {
-	userID      int
-	widgetToken string
-	err         error
-}
-
 func (application *DonateStreamApplication) Run(ctx context.Context) error {
-	running := make(map[int]runningDonateStreamListener)
-	completed := make(chan donateStreamListenerCompletion)
-	var listeners sync.WaitGroup
-	defer func() {
-		for _, listener := range running {
-			listener.cancel()
-		}
-		listeners.Wait()
-	}()
-
-	if err := application.refreshListeners(ctx, running, completed, &listeners); err != nil {
-		return err
-	}
-	refreshTicker := time.NewTicker(application.refreshEvery)
-	defer refreshTicker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case completion := <-completed:
-			listener, exists := running[completion.userID]
-			if exists && listener.widgetToken == completion.widgetToken {
-				delete(running, completion.userID)
+	return (liveListenerSupervisor{
+		displayName:  "donate.stream",
+		refreshEvery: application.refreshEvery,
+		connections: func(ctx context.Context) ([]liveListenerConnection, error) {
+			connections, err := application.store.DonateStreamConnections(ctx)
+			values := make([]liveListenerConnection, 0, len(connections))
+			for _, connection := range connections {
+				values = append(values, liveListenerConnection{userID: connection.UserID, credential: connection.WidgetToken})
 			}
-			if completion.err != nil {
-				slog.Error("donate.stream listener exited", "userId", completion.userID, "error", completion.err)
-			}
-		case <-refreshTicker.C:
-			if err := application.refreshListeners(ctx, running, completed, &listeners); err != nil {
-				slog.Error("refresh donate.stream listeners", "error", err)
-			}
-		}
-	}
-}
-
-func (application *DonateStreamApplication) refreshListeners(ctx context.Context, running map[int]runningDonateStreamListener, completed chan<- donateStreamListenerCompletion, listeners *sync.WaitGroup) error {
-	connections, err := application.store.DonateStreamConnections(ctx)
-	if err != nil {
-		return fmt.Errorf("get donate.stream connections: %w", err)
-	}
-	byUserID := make(map[int]DonateStreamConnection, len(connections))
-	for _, connection := range connections {
-		byUserID[connection.UserID] = connection
-	}
-	for userID, listener := range running {
-		connection, exists := byUserID[userID]
-		if !exists || connection.WidgetToken != listener.widgetToken {
-			listener.cancel()
-			delete(running, userID)
-		}
-	}
-	for _, connection := range connections {
-		if _, exists := running[connection.UserID]; exists {
-			continue
-		}
-		listenerCtx, cancel := context.WithCancel(ctx)
-		running[connection.UserID] = runningDonateStreamListener{cancel: cancel, widgetToken: connection.WidgetToken}
-		listeners.Add(1)
-		go func(connection DonateStreamConnection) {
-			defer listeners.Done()
-			err := application.listen(listenerCtx, connection)
-			select {
-			case completed <- donateStreamListenerCompletion{userID: connection.UserID, widgetToken: connection.WidgetToken, err: err}:
-			case <-ctx.Done():
-			}
-		}(connection)
-	}
-	return nil
+			return values, err
+		},
+		listen: func(ctx context.Context, connection liveListenerConnection) error {
+			return application.listen(ctx, DonateStreamConnection{UserID: connection.userID, WidgetToken: connection.credential})
+		},
+	}).Run(ctx)
 }
 
 func (application *DonateStreamApplication) listen(ctx context.Context, connection DonateStreamConnection) error {

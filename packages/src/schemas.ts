@@ -28,7 +28,12 @@ export type Slug = z.infer<typeof SlugSchema>;
 export const AuthUserIdSchema = z.string().min(1).brand("auth user id");
 export type AuthUserId = z.infer<typeof AuthUserIdSchema>;
 
-export const DonationSourceSchema = z.enum(["donationalerts", "donate_stream", "streamlabs"]);
+export const DonationSourceSchema = z.enum([
+  "donationalerts",
+  "donate_stream",
+  "streamlabs",
+  "tourniquet",
+]);
 export type DonationSource = z.infer<typeof DonationSourceSchema>;
 
 export const VideoSourceSchema = z.enum(["donation", "manual"]);
@@ -57,6 +62,30 @@ export const MoneyAmountSchema = z
   .brand("money amount");
 export type MoneyAmount = z.infer<typeof MoneyAmountSchema>;
 
+const DonationAmountStringSchema = z.string().regex(/^\d{1,20}(?:\.\d{1,18})?$/);
+export const DonationAmountSchema = z
+  .union([
+    z.number().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(String),
+    DonationAmountStringSchema,
+  ])
+  .pipe(DonationAmountStringSchema)
+  .transform((value) => {
+    const [integer, fraction = ""] = value.split(".");
+    const significantFraction = fraction.replace(/0+$/, "");
+    if (significantFraction.length <= 2) {
+      return `${integer}.${significantFraction.padEnd(2, "0")}`;
+    }
+    return `${integer}.${significantFraction}`;
+  })
+  .brand("donation amount");
+export type DonationAmount = z.infer<typeof DonationAmountSchema>;
+
+export const DonationAssetSchema = z
+  .string()
+  .regex(/^[A-Z0-9][-A-Z0-9 ._()/+]{0,31}$/)
+  .brand("donation asset");
+export type DonationAsset = z.infer<typeof DonationAssetSchema>;
+
 export const DonationSchema = z.object({
   donationId: DonationIdSchema,
   source: DonationSourceSchema,
@@ -64,8 +93,8 @@ export const DonationSchema = z.object({
   userId: UserIdSchema,
   author: z.string().nullable(),
   message: z.string().nullable(),
-  amount: MoneyAmountSchema,
-  currency: CurrencyCodeSchema,
+  amount: DonationAmountSchema,
+  currency: DonationAssetSchema,
   sourceCreatedAt: z.string().min(1),
   occurredAt: z.coerce.date(),
 });
@@ -138,8 +167,8 @@ export const SharedVideoSchema = z
     priorityLabel: z.string().nullable(),
     watchedAt: z.coerce.date().nullable(),
     createdAt: z.coerce.date(),
-    displayAmount: MoneyAmountSchema.nullable(),
-    displayCurrency: CurrencyCodeSchema.nullable(),
+    displayAmount: DonationAmountSchema.nullable(),
+    displayCurrency: DonationAssetSchema.nullable(),
   })
   .refine(({ startSeconds, endSeconds }) => endSeconds === null || endSeconds > startSeconds, {
     error: "video end must be after video start",
@@ -161,6 +190,7 @@ export const UserInfoSchema = z.object({
   hasDonationAlertsConnection: z.boolean(),
   hasDonateStreamConnection: z.boolean(),
   hasStreamlabsConnection: z.boolean(),
+  hasTourniquetConnection: z.boolean(),
   publicQueueSettings: PublicQueueSettingsSchema,
 });
 export type UserInfo = z.infer<typeof UserInfoSchema>;
