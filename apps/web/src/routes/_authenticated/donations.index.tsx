@@ -71,15 +71,15 @@ const i18n = createI18n({
     ru: "Загружаем донаты…",
   },
   noMatchingDonations: {
-    en: "No results found",
-    ru: "По вашему запросу ничего не найдено",
+    en: "No donations found",
+    ru: "Донаты не найдены",
   },
   noDonationsYet: {
     en: "No donations yet",
     ru: "Донатов пока нет",
   },
   tryAnotherSearch: {
-    en: "Try a different search or clear it.",
+    en: "Change the search or reset the filters.",
     ru: "Измените запрос или сбросьте фильтры.",
   },
   donationsWillAppear: {

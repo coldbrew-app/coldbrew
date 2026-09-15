@@ -107,10 +107,6 @@ const i18n = createI18n({
     en: "Dismiss development warning",
     ru: "Скрыть предупреждение",
   },
-  sidebarStory: {
-    en: "A long brew for bright moments.",
-    ru: "Настаиваем стрим. Собираем моменты.",
-  },
   videos: {
     en: "Videos",
     ru: "Видео",
@@ -286,11 +282,6 @@ function AuthenticatedApplicationContent() {
               <img alt="" src={favicon} className="size-10 object-contain" />
               StreamBrew
             </Link>
-          </div>
-          <div className="relative z-10 flex flex-col gap-1 px-1 pt-4">
-            <span className="max-w-40 text-xs leading-5 text-sidebar-foreground/65">
-              {t("sidebarStory")}
-            </span>
           </div>
           <nav className="relative z-10 grid gap-1.5 pt-8" aria-label={t("overview")}>
             <Link

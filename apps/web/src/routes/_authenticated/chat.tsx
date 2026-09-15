@@ -231,8 +231,8 @@ const copy = createI18n({
     ru: "Копировать",
   },
   loading: {
-    en: "Connecting the chat control room…",
-    ru: "Подключаем центр управления чатами…",
+    en: "Loading chat…",
+    ru: "Загружаем чат…",
   },
 });
 

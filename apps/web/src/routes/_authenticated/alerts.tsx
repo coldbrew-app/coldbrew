@@ -53,8 +53,8 @@ const i18n = createI18n({
   testInObs: { en: "Test in OBS", ru: "Тест в OBS" },
   preview: { en: "Preview · 800 × 600", ru: "Предпросмотр · 800 × 600" },
   previewDescription: {
-    en: "Play the same animation and sound that will run inside OBS.",
-    ru: "Запустите ту же анимацию и звук, которые будут работать в OBS.",
+    en: "Preview the alert animation and sound.",
+    ru: "Проверьте анимацию и звук алерта.",
   },
   playPreview: { en: "Play preview", ru: "Запустить предпросмотр" },
   obsLink: { en: "Secret OBS link", ru: "Секретная ссылка OBS" },

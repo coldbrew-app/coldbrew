@@ -51,16 +51,16 @@ const i18n = createI18n({
     ru: "Не удалось загрузить данные видео. Проверьте ссылку и таймкоды.",
   },
   amount: {
-    en: "Amount",
+    en: "Queue amount",
     ru: "Сумма для очереди",
   },
   enterPriorityAmount: {
-    en: "Enter a priority amount.",
+    en: "Enter a queue amount.",
     ru: "Укажите сумму для очереди.",
   },
   queueAmountHelp: {
-    en: "The amount and watch time determine the video’s queue position.",
-    ru: "Сумма и длительность определяют, в какую очередь попадёт видео.",
+    en: "The amount and watch time determine the video priority.",
+    ru: "Сумма и время просмотра определяют приоритет видео.",
   },
 });
 

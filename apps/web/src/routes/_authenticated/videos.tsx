@@ -84,12 +84,12 @@ const i18n = createI18n({
     ru: ({ status: _status }: { status: string }) => "По этому фильтру ничего не найдено",
   },
   filteredVideosWillAppear: {
-    en: "Videos matching this filter will appear here.",
-    ru: "Попробуйте выбрать другой фильтр.",
+    en: "Try another filter.",
+    ru: "Выберите другой фильтр.",
   },
   videoLinksWillAppear: {
-    en: "Videos from donations and videos you add will appear here.",
-    ru: "Здесь появятся видео из донатов и добавленные вручную.",
+    en: "Add a video manually or wait for a donation with a video link.",
+    ru: "Добавьте видео вручную или дождитесь доната со ссылкой на видео.",
   },
   videoStatusFilters: {
     en: "Video status filters",

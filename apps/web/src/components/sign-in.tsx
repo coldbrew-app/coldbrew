@@ -10,77 +10,57 @@ import { Icons } from "./icons";
 import { Button } from "./ui/button";
 
 const i18n = createI18n({
-  orbitCaption: {
-    en: "Donations arrive. Reactions take off.",
-    ru: "Получайте донаты. Создавайте яркие моменты.",
-  },
-  signInStory: {
-    en: "Collect every supporter signal, keep videos in orbit, and react when they reach the front.",
-    ru: "Собирайте поддержку зрителей, управляйте очередью видео и создавайте яркие моменты в эфире.",
-  },
   signIn: {
     en: "Sign in",
     ru: "Войти",
   },
   landingHeadline: {
-    en: "A little coffee. A whole universe of moments.",
-    ru: "Чашка кофе. Целая вселенная моментов.",
+    en: "Donations, videos, and chat",
+    ru: "Донаты, видео и чат",
   },
   landingDescription: {
-    en: "StreamBrew helps streamers collect donations, organise viewer-submitted videos, follow live chats, and share what is coming next — all in one place.",
-    ru: "StreamBrew помогает стримерам собирать донаты, управлять видео от зрителей, следить за чатами и показывать, что будет дальше, — в одном месте.",
-  },
-  landingSignInNote: {
-    en: "Google sign-in creates and protects your StreamBrew account.",
-    ru: "Вход через Google создаёт и защищает ваш аккаунт StreamBrew.",
-  },
-  landingWorkflow: {
-    en: "Donation → video queue → on-stream reaction",
-    ru: "Донат → очередь видео → реакция на стриме",
+    en: "Connect your streaming platforms and donation sources to StreamBrew.",
+    ru: "Подключите к StreamBrew стриминговые платформы и источники донатов.",
   },
   landingFeaturesTitle: {
-    en: "Keep every supporter signal within reach.",
-    ru: "Каждый сигнал от зрителей остаётся под рукой.",
-  },
-  landingFeaturesDescription: {
-    en: "Connect the services you use, then manage the activity around your stream without switching between dashboards.",
-    ru: "Подключите нужные сервисы и управляйте событиями вокруг стрима, не переключаясь между разными панелями.",
+    en: "Tools for your stream",
+    ru: "Инструменты для стрима",
   },
   landingDonationsTitle: {
     en: "Donations in one feed",
     ru: "Донаты в одной ленте",
   },
   landingDonationsDescription: {
-    en: "Connect supported donation sources and browse supporter names, amounts, messages, and recent activity together.",
-    ru: "Подключайте поддерживаемые источники донатов и просматривайте имена отправителей, суммы, сообщения и последние события вместе.",
+    en: "Amounts and messages from connected donation sources.",
+    ru: "Суммы и сообщения из подключённых источников донатов.",
   },
   landingVideoQueueTitle: {
-    en: "A video queue you control",
-    ru: "Управляемая очередь видео",
+    en: "Video queues",
+    ru: "Очереди видео",
   },
   landingVideoQueueDescription: {
-    en: "Turn supported links from donation messages into videos, add videos manually, and organise them by your own priorities.",
-    ru: "Превращайте поддерживаемые ссылки из сообщений к донатам в видео, добавляйте видео вручную и распределяйте их по своим очередям.",
+    en: "Videos from donation links or added manually, with priorities you set.",
+    ru: "Видео по ссылкам из донатов и добавленные вручную. Приоритеты настраиваете вы.",
   },
   landingMultichatTitle: {
-    en: "Live chats side by side",
-    ru: "Чаты в одной ленте",
+    en: "Multichat",
+    ru: "Мультичат",
   },
   landingMultichatDescription: {
-    en: "Bring supported streaming chats into one feed so messages stay visible while you focus on the broadcast.",
-    ru: "Объединяйте чаты поддерживаемых стриминговых платформ, чтобы видеть сообщения и не отвлекаться от трансляции.",
+    en: "Read messages from connected channels in one feed.",
+    ru: "Сообщения подключённых каналов в одной ленте.",
   },
   landingSharingTitle: {
-    en: "Public views and overlays",
-    ru: "Публичные страницы и оверлеи",
+    en: "Public queue and overlays",
+    ru: "Публичная очередь и оверлеи",
   },
   landingSharingDescription: {
-    en: "Share a public video queue with viewers and use browser-source overlays to bring selected activity onto the stream.",
-    ru: "Делитесь со зрителями публичной очередью видео и выводите выбранные события на стрим через браузерные оверлеи.",
+    en: "Share your video queue and show chat and donation alerts in OBS.",
+    ru: "Очередь видео по ссылке, чат и алерты донатов в OBS.",
   },
   googleDataTitle: {
-    en: "Your account data has one job.",
-    ru: "Данные аккаунта используются только по назначению.",
+    en: "Google account access",
+    ru: "Доступ к аккаунту Google",
   },
   googleDataDescription: {
     en: "When you continue with Google, Google shares your name, email address, and profile image with StreamBrew. We use them to create your account, identify you when you return, and show your account details.",
@@ -194,21 +174,12 @@ export default function SignIn() {
               >
                 {t(isSigningIn ? "redirecting" : "continueWithGoogle")}
               </Button>
-              <span className="text-xs leading-5 text-muted-foreground">
-                {t("landingSignInNote")}
-              </span>
             </div>
           </div>
-          <div className="coffee-observatory relative flex min-h-[560px] flex-col justify-between overflow-hidden px-7 pt-28 pb-8 text-[#fff8ed] sm:min-h-[620px] sm:px-10 sm:pb-10">
-            <div className="relative z-10 flex max-w-sm flex-col gap-3">
-              <h2 className="max-w-72 font-heading text-2xl leading-tight font-medium sm:text-3xl">
-                {t("orbitCaption")}
-              </h2>
-              <p className="max-w-64 text-sm leading-6 text-[#e3c8b6]">{t("signInStory")}</p>
-            </div>
-            <div className="relative z-10 flex flex-col gap-2 self-start border-t border-[#e4b88b]/35 pt-4">
-              <span className="text-sm font-medium text-white/90">{t("landingWorkflow")}</span>
-            </div>
+          <div
+            aria-hidden="true"
+            className="coffee-observatory relative min-h-[560px] overflow-hidden sm:min-h-[620px]"
+          >
             <CosmicArt className="pointer-events-none absolute -right-12 bottom-10 w-[360px] sm:-right-14 sm:bottom-9 sm:w-[450px]" />
           </div>
         </section>
@@ -221,7 +192,6 @@ export default function SignIn() {
             >
               {t("landingFeaturesTitle")}
             </h2>
-            <p className="leading-7 text-muted-foreground">{t("landingFeaturesDescription")}</p>
           </div>
           <div className="grid gap-x-12 gap-y-0 sm:grid-cols-2">
             {features.map((feature) => {

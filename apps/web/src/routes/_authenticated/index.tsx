@@ -57,12 +57,8 @@ const i18n = createI18n({
     ru: "По всем подключённым платформам",
   },
   recentActivity: {
-    en: "Recent activity",
+    en: "Recent donations",
     ru: "Последние донаты",
-  },
-  everyDonation: {
-    en: "All your donations, in one place.",
-    ru: "Свежие донаты со всех подключённых платформ.",
   },
   viewAll: {
     en: "View all",
@@ -77,8 +73,8 @@ const i18n = createI18n({
     ru: "Новые донаты загружаются автоматически.",
   },
   connectAllDonations: {
-    en: "Connect your donation platforms to see everything here.",
-    ru: "Подключите платформы, чтобы видеть все донаты здесь.",
+    en: "Connect a donation source to receive donations.",
+    ru: "Подключите источник, чтобы получать донаты.",
   },
   donationSources: {
     en: "Donation sources",
@@ -89,16 +85,12 @@ const i18n = createI18n({
     ru: "Настроить",
   },
   readyForOverlay: {
-    en: "Need an overlay for your stream?",
-    ru: "Нужен оверлей для стрима?",
-  },
-  overlayDescription: {
-    en: "Set up a chat overlay for your stream in Multichat.",
-    ru: "Настройте чат-оверлей для стрима в разделе «Мультичат».",
+    en: "Chat in OBS",
+    ru: "Чат в OBS",
   },
   createOverlay: {
-    en: "Set up chat overlay",
-    ru: "Настроить чат-оверлей",
+    en: "Set up overlay",
+    ru: "Настроить оверлей",
   },
   landingPageTitle: {
     en: "Donations, video queue, and multichat for streamers",
@@ -121,8 +113,8 @@ const i18n = createI18n({
     ru: "Пример",
   },
   sampleChartDescription: {
-    en: "Illustrative chart. These values are not your donation history.",
-    ru: "Демонстрационный график. Значения не отражают историю ваших донатов.",
+    en: "Sample data, not your donations.",
+    ru: "Пример данных, не ваши донаты.",
   },
   loadingDonations: {
     en: "Loading donations",
@@ -231,7 +223,6 @@ function Overview() {
                       <h2 className="font-heading text-lg font-semibold text-card-foreground">
                         {t("recentActivity")}
                       </h2>
-                      <p className="mt-1.5 text-xs text-muted-foreground">{t("everyDonation")}</p>
                     </div>
                     <Link
                       to="/donations"
@@ -331,9 +322,6 @@ function Overview() {
                   </div>
                   <div>
                     <h2 className="font-heading text-base font-semibold">{t("readyForOverlay")}</h2>
-                    <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-white/75">
-                      {t("overlayDescription")}
-                    </p>
                   </div>
                   <Link
                     className={cn(
