@@ -7,7 +7,10 @@ import (
 	"strings"
 )
 
-var amountPattern = regexp.MustCompile(`^(\d{1,18})(?:\.(\d{1,2}))?$`)
+var (
+	amountPattern         = regexp.MustCompile(`^(\d{1,18})(?:\.(\d{1,2}))?$`)
+	donationAmountPattern = regexp.MustCompile(`^(\d{1,20})(?:\.(\d{1,18}))?$`)
+)
 
 var rublesPerUnit = map[string]int64{
 	"RUB": 1,
@@ -22,6 +25,20 @@ func Normalize(amount string) (string, error) {
 		return "", fmt.Errorf("invalid money amount %q", amount)
 	}
 	return match[1] + "." + match[2] + strings.Repeat("0", 2-len(match[2])), nil
+}
+
+// NormalizeDonationAmount validates an original donation amount without
+// reducing the precision reported by providers that accept crypto assets.
+func NormalizeDonationAmount(amount string) (string, error) {
+	match := donationAmountPattern.FindStringSubmatch(strings.TrimSpace(amount))
+	if match == nil {
+		return "", fmt.Errorf("invalid donation amount %q", amount)
+	}
+	fraction := strings.TrimRight(match[2], "0")
+	if fraction == "" {
+		return match[1], nil
+	}
+	return match[1] + "." + fraction, nil
 }
 
 // ConvertWithDefaultRate converts between the queue currencies without floating-point arithmetic.
