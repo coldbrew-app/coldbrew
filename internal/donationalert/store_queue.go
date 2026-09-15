@@ -145,7 +145,7 @@ func (store *Store) CreateTest(ctx context.Context, userID int, now time.Time) (
 				'test',
 				CASE WHEN tts_enabled THEN 'preparing'::donation_alert_playback_status
 					ELSE 'pending'::donation_alert_playback_status END,
-				'Coldbrew',
+				'StreamBrew',
 				'This is a test donation alert.',
 				500,
 				'RUB',

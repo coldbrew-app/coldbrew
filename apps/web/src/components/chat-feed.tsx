@@ -2,7 +2,7 @@ import type {
   ChatCapability,
   ChatMessage,
   ChatModerationCommand,
-} from "@coldbrew/packages/chat.js";
+} from "@streambrew/packages/chat.js";
 import { cn } from "@web/lib/utils";
 import { useLayoutEffect, useRef, useState } from "react";
 

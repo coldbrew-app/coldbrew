@@ -14,8 +14,11 @@ describe("chat overlay background", () => {
     "adds the %s background to an overlay URL without changing its token",
     (background) => {
       expect(
-        withChatOverlayBackground("https://coldbrew.example/chat/overlay/secret-token", background),
-      ).toBe(`https://coldbrew.example/chat/overlay/secret-token?background=${background}`);
+        withChatOverlayBackground(
+          "https://streambrew.example/chat/overlay/secret-token",
+          background,
+        ),
+      ).toBe(`https://streambrew.example/chat/overlay/secret-token?background=${background}`);
     },
   );
 });

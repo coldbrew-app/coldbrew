@@ -2,7 +2,7 @@ import { readFile, statfs } from "node:fs/promises";
 import { availableParallelism, loadavg, totalmem, uptime } from "node:os";
 import { performance } from "node:perf_hooks";
 
-import { ChatActivitySnapshotSchema, ChatProviderSchema } from "@coldbrew/packages/chat.js";
+import { ChatActivitySnapshotSchema, ChatProviderSchema } from "@streambrew/packages/chat.js";
 import { z } from "zod";
 
 import { chatService } from "./chat/client.js";

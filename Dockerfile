@@ -46,14 +46,14 @@ RUN apt-get update \
     && ffmpeg -version >/dev/null \
     && ffprobe -version >/dev/null \
     && printf 'Проверка русской речи\n' \
-        | espeak-ng -b 1 -v ru -s 165 --stdin --stdout > /tmp/coldbrew-tts-smoke.wav \
+        | espeak-ng -b 1 -v ru -s 165 --stdin --stdout > /tmp/streambrew-tts-smoke.wav \
     && ffmpeg -nostdin -hide_banner -loglevel error -threads 1 \
-        -i /tmp/coldbrew-tts-smoke.wav -map 0:a:0 -vn -sn -dn -map_metadata -1 \
+        -i /tmp/streambrew-tts-smoke.wav -map 0:a:0 -vn -sn -dn -map_metadata -1 \
         -t 30 -ac 2 -ar 48000 -c:a libopus -b:a 64k -vbr on \
-        -f ogg /tmp/coldbrew-tts-smoke.ogg \
+        -f ogg /tmp/streambrew-tts-smoke.ogg \
     && test "$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name \
-        -of default=nokey=1:noprint_wrappers=1 /tmp/coldbrew-tts-smoke.ogg)" = opus \
-    && rm -f /tmp/coldbrew-tts-smoke.wav /tmp/coldbrew-tts-smoke.ogg
+        -of default=nokey=1:noprint_wrappers=1 /tmp/streambrew-tts-smoke.ogg)" = opus \
+    && rm -f /tmp/streambrew-tts-smoke.wav /tmp/streambrew-tts-smoke.ogg
 
 COPY --from=dependencies --chown=bun:bun /app/node_modules ./node_modules
 COPY --from=build --chown=bun:bun /app/package.json ./package.json

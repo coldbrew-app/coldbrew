@@ -9,7 +9,7 @@ parallel result abstraction.
   the nearest application seam.
 - Preserve the original failure with `cause`. Keep structured fields such as an HTTP status instead
   of parsing message text.
-- Use `requestText`, `requestJson`, and `parseJson` from `@coldbrew/packages/http.js` for HTTP and
+- Use `requestText`, `requestJson`, and `parseJson` from `@streambrew/packages/http.js` for HTTP and
   JSON responses. They check the HTTP status and validate decoded data with Zod.
 - Normalize untrusted input once. Downstream code receives the validated domain value.
 

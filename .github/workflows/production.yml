@@ -82,7 +82,7 @@ jobs:
           file: Dockerfile
           platforms: linux/amd64
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/coldbrew:${{ needs.resolve.outputs.sha }}
+          tags: ghcr.io/${{ github.repository_owner }}/streambrew:${{ needs.resolve.outputs.sha }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ needs.resolve.outputs.sha }}
@@ -93,7 +93,7 @@ jobs:
         id: postgres_image
         run: |
           if docker buildx imagetools inspect \
-            "ghcr.io/${{ github.repository_owner }}/coldbrew-postgres-walg:${{ needs.resolve.outputs.postgres_tag }}" \
+            "ghcr.io/${{ github.repository_owner }}/streambrew-postgres-walg:${{ needs.resolve.outputs.postgres_tag }}" \
             >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
@@ -108,7 +108,7 @@ jobs:
           file: docker/postgres-walg/Dockerfile
           platforms: linux/amd64
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/coldbrew-postgres-walg:${{ needs.resolve.outputs.postgres_tag }}
+          tags: ghcr.io/${{ github.repository_owner }}/streambrew-postgres-walg:${{ needs.resolve.outputs.postgres_tag }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ needs.resolve.outputs.sha }}
@@ -130,11 +130,11 @@ jobs:
       group: production
       cancel-in-progress: false
     env:
-      APP_IMAGE: ghcr.io/${{ github.repository_owner }}/coldbrew:${{ needs.resolve.outputs.sha }}
+      APP_IMAGE: ghcr.io/${{ github.repository_owner }}/streambrew:${{ needs.resolve.outputs.sha }}
       DEPLOY_PATH: ${{ vars.SSH_DEPLOY_PATH }}
-      POSTGRES_IMAGE: ghcr.io/${{ github.repository_owner }}/coldbrew-postgres-walg:${{ needs.resolve.outputs.postgres_tag }}
-      REMOTE_ENV_FILE: .coldbrew-production-env-${{ github.run_id }}-${{ github.run_attempt }}
-      REMOTE_GHCR_TOKEN_FILE: .coldbrew-ghcr-token-${{ github.run_id }}-${{ github.run_attempt }}
+      POSTGRES_IMAGE: ghcr.io/${{ github.repository_owner }}/streambrew-postgres-walg:${{ needs.resolve.outputs.postgres_tag }}
+      REMOTE_ENV_FILE: .streambrew-production-env-${{ github.run_id }}-${{ github.run_attempt }}
+      REMOTE_GHCR_TOKEN_FILE: .streambrew-ghcr-token-${{ github.run_id }}-${{ github.run_attempt }}
       MIGRATIONS_APPLIED: ${{ github.event_name == 'workflow_dispatch' && inputs.migrations_applied || false }}
       GHCR_USERNAME: ${{ github.actor }}
       SSH_HOST: ${{ vars.SSH_HOST }}
@@ -458,9 +458,22 @@ jobs:
             previous_postgres_tag="$(git rev-parse "${previous_sha}:docker/postgres-walg")"
             app_repository="${app_image%:*}"
             postgres_repository="${postgres_image%:*}"
+
+            rollback_app_image="${app_repository}:${previous_sha}"
+            if ! docker pull "$rollback_app_image"; then
+              rollback_app_image="${app_repository%/*}/coldbrew:${previous_sha}"
+              echo "Using the pre-rename application package for the first StreamBrew rollback."
+            fi
+
+            rollback_postgres_image="${postgres_repository}:${previous_postgres_tag}"
+            if ! docker pull "$rollback_postgres_image"; then
+              rollback_postgres_image="${postgres_repository%/*}/coldbrew-postgres-walg:${previous_postgres_tag}"
+              echo "Using the pre-rename PostgreSQL package for the first StreamBrew rollback."
+            fi
+
             just production-deploy \
-              "${app_repository}:${previous_sha}" \
-              "${postgres_repository}:${previous_postgres_tag}" || \
+              "$rollback_app_image" \
+              "$rollback_postgres_image" || \
               echo "Automatic rollback also failed; inspect the VPS immediately." >&2
           else
             echo "No previous CI/CD deployment is recorded; automatic rollback is unavailable." >&2

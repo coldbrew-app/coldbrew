@@ -33,7 +33,7 @@ describe("donation integration client", () => {
         "donationalerts",
         42,
         "auth-code",
-        "https://coldbrew.test/api/integration/donationalerts/callback",
+        "https://streambrew.test/api/integration/donationalerts/callback",
       ),
     ).resolves.toEqual({ connected: true });
     expect(fetchMock).toHaveBeenCalledWith(
@@ -51,7 +51,7 @@ describe("donation integration client", () => {
     }
     expect(JSON.parse(options.body)).toEqual({
       authCode: "auth-code",
-      redirectUri: "https://coldbrew.test/api/integration/donationalerts/callback",
+      redirectUri: "https://streambrew.test/api/integration/donationalerts/callback",
       source: "donationalerts",
       userId: 42,
     });
@@ -86,7 +86,7 @@ describe("donation integration client", () => {
     );
 
     await expect(
-      donationIntegration.connect("streamlabs", 42, "code", "https://coldbrew.test/callback"),
+      donationIntegration.connect("streamlabs", 42, "code", "https://streambrew.test/callback"),
     ).rejects.toBeInstanceOf(DonationIntegrationError);
   });
 });

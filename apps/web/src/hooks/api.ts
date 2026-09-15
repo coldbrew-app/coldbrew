@@ -1,4 +1,4 @@
-import type { DonationSource, Slug } from "@coldbrew/packages/schemas.js";
+import type { DonationSource, Slug } from "@streambrew/packages/schemas.js";
 import { keepPreviousData, useMutation, useQuery, useSuspenseQuery } from "@tanstack/react-query";
 
 import { useApi } from "../lib/trpc";

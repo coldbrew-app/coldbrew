@@ -1,4 +1,4 @@
-import type { VideoQueue } from "@coldbrew/packages/schemas.js";
+import type { VideoQueue } from "@streambrew/packages/schemas.js";
 import { Link } from "@tanstack/react-router";
 import { useVideoQueueMutations, useVideoQueuesQ } from "@web/hooks/api";
 import { createI18n, useI18n } from "@web/lib/i18n";

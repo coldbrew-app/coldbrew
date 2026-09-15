@@ -1,4 +1,4 @@
-# Coldbrew React Guide
+# StreamBrew React Guide
 
 Follow this guide whenever creating, editing, or reviewing React hooks or their consumers in `apps/web`.
 

@@ -10,7 +10,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/lebedev-nikita/coldbrew/internal/observability"
+	"github.com/streambrew-app/streambrew/internal/observability"
 )
 
 func TestTruncateUsesTelegramCharacterLimit(t *testing.T) {
@@ -62,9 +62,9 @@ func TestRunCommandsRepliesWithChatID(t *testing.T) {
 		response.Header().Set("Content-Type", "application/json")
 		switch request.URL.Path {
 		case "/bottest-token/getMe":
-			_, _ = response.Write([]byte(`{"ok":true,"result":{"username":"coldbrew_bot"}}`))
+			_, _ = response.Write([]byte(`{"ok":true,"result":{"username":"streambrew_bot"}}`))
 		case "/bottest-token/getUpdates":
-			_, _ = response.Write([]byte(`{"ok":true,"result":[{"update_id":7,"message":{"text":"/myid@coldbrew_bot","chat":{"id":-100123}}}]}`))
+			_, _ = response.Write([]byte(`{"ok":true,"result":[{"update_id":7,"message":{"text":"/myid@streambrew_bot","chat":{"id":-100123}}}]}`))
 		case "/bottest-token/sendMessage":
 			if err := json.NewDecoder(request.Body).Decode(&reply); err != nil {
 				t.Error(err)

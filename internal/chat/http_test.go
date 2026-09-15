@@ -11,13 +11,13 @@ import (
 )
 
 func TestSameOriginRedirectRejectsOtherOrigins(t *testing.T) {
-	for _, candidate := range []string{"https://evil.example/chat", "https://coldbrew.example.evil.test/chat", "//coldbrew.example/chat", "/chat"} {
-		if redirect, err := sameOriginRedirect("https://coldbrew.example/api/chat", candidate); err == nil {
+	for _, candidate := range []string{"https://evil.example/chat", "https://streambrew.example.evil.test/chat", "//streambrew.example/chat", "/chat"} {
+		if redirect, err := sameOriginRedirect("https://streambrew.example/api/chat", candidate); err == nil {
 			t.Fatalf("accepted %q as %q", candidate, redirect)
 		}
 	}
-	redirect, err := sameOriginRedirect("https://coldbrew.example/api/chat", "https://coldbrew.example/chat?connected=1")
-	if err != nil || redirect.String() != "https://coldbrew.example/chat?connected=1" {
+	redirect, err := sameOriginRedirect("https://streambrew.example/api/chat", "https://streambrew.example/chat?connected=1")
+	if err != nil || redirect.String() != "https://streambrew.example/chat?connected=1" {
 		t.Fatalf("redirect=%v err=%v", redirect, err)
 	}
 }
@@ -251,12 +251,12 @@ func TestHTTPHandlerServesActivitySnapshot(t *testing.T) {
 func TestHTTPHandlerOauthCallbackUsesForwardedPublicURL(t *testing.T) {
 	handler, oauth := newHTTPTestHandler(&httpTestApplication{})
 	request := authorizedRequest(http.MethodGet, "/oauth/youtube/callback?state=state&code=code", "")
-	request.Header.Set("X-Forwarded-Host", "coldbrew.example")
+	request.Header.Set("X-Forwarded-Host", "streambrew.example")
 	request.Header.Set("X-Forwarded-Prefix", "/api/chat")
 	request.Header.Set("X-Forwarded-Proto", "https")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusFound || oauth.callbackURL != "https://coldbrew.example/api/chat/oauth/youtube/callback?state=state&code=code" {
+	if response.Code != http.StatusFound || oauth.callbackURL != "https://streambrew.example/api/chat/oauth/youtube/callback?state=state&code=code" {
 		t.Fatalf("status=%d callback=%s", response.Code, oauth.callbackURL)
 	}
 }

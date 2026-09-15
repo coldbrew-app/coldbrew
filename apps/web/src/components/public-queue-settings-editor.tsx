@@ -1,4 +1,4 @@
-import type { PublicQueueSettings } from "@coldbrew/packages/schemas.js";
+import type { PublicQueueSettings } from "@streambrew/packages/schemas.js";
 import { buttonVariants, Button } from "@web/components/ui/button";
 import { FieldError } from "@web/components/ui/field";
 import { Switch } from "@web/components/ui/switch";

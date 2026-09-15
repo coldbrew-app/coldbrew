@@ -27,7 +27,7 @@ export function LegalDocument({
             to="/"
           >
             <img alt="" className="size-9 object-contain" src={productMark} />
-            Coldbrew
+            StreamBrew
           </Link>
           <div className="relative z-10 flex min-w-0 flex-col gap-4">
             <h1 className="max-w-2xl font-heading text-[clamp(1.625rem,4vw,2.75rem)] leading-tight font-medium tracking-tight [overflow-wrap:anywhere]">

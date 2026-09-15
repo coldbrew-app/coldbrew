@@ -1,4 +1,4 @@
-import type { CurrencyCode, MoneyAmount } from "@coldbrew/packages/schemas.js";
+import type { CurrencyCode, MoneyAmount } from "@streambrew/packages/schemas.js";
 
 import type { Locale } from "./i18n";
 

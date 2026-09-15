@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lebedev-nikita/coldbrew/internal/youtubechatpb"
+	"github.com/streambrew-app/streambrew/internal/youtubechatpb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"

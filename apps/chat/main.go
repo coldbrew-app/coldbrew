@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/lebedev-nikita/coldbrew/internal/chat"
-	"github.com/lebedev-nikita/coldbrew/internal/observability"
+	"github.com/streambrew-app/streambrew/internal/chat"
+	"github.com/streambrew-app/streambrew/internal/observability"
 )
 
 func main() {

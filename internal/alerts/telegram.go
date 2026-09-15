@@ -13,7 +13,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/lebedev-nikita/coldbrew/internal/observability"
+	"github.com/streambrew-app/streambrew/internal/observability"
 )
 
 const telegramMessageLimit = 4096

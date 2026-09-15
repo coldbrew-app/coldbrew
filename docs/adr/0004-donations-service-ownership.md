@@ -14,7 +14,7 @@ initial donation history was imported.
 
 ## Decision
 
-`apps/web` owns Coldbrew authentication and the public authorization and callback routes.
+`apps/web` owns StreamBrew authentication and the public authorization and callback routes.
 Streamlabs authorization uses a random `state` stored in a signed, HttpOnly, SameSite cookie and
 consumes it in the callback. The older DonationAlerts flow remains linked to the authenticated
 session but does not yet send `state` because that provider adapter predates this decision.
@@ -26,7 +26,7 @@ adapters. `apps/donations` composes those adapters and runs the HTTP server and 
 cancellation context.
 
 The module exposes a private JSON interface authenticated with `DONATIONS_SERVICE_SECRET`.
-`apps/web` sends the authenticated Coldbrew user ID, authorization code, and exact public callback
+`apps/web` sends the authenticated StreamBrew user ID, authorization code, and exact public callback
 URL to that interface. Connecting performs code exchange, profile loading, and complete history
 loading before atomically storing the connection and idempotent donations. A history failure stores
 neither connection nor donations.

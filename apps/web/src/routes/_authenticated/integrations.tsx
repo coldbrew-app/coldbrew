@@ -1,4 +1,4 @@
-import { DonationSourceSchema } from "@coldbrew/packages/schemas.js";
+import { DonationSourceSchema } from "@streambrew/packages/schemas.js";
 import { createFileRoute } from "@tanstack/react-router";
 import { CosmicPageHeader } from "@web/components/cosmic-page-header";
 import { DonateStreamMark, DonateStreamNameLink } from "@web/components/donate-stream";
@@ -45,7 +45,9 @@ const i18n = createI18n({
 export const Route = createFileRoute("/_authenticated/integrations")({
   component: RouteComponent,
   head: ({ match }) => ({
-    meta: [{ title: `${createTranslator(match.context.locale, i18n)("integrations")} · Coldbrew` }],
+    meta: [
+      { title: `${createTranslator(match.context.locale, i18n)("integrations")} · StreamBrew` },
+    ],
   }),
   loader: async ({ context }) => {
     if (!context.viewer) return;

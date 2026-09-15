@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/lebedev-nikita/coldbrew/internal/youtube"
+	"github.com/streambrew-app/streambrew/internal/youtube"
 )
 
 // BackfillTitles fills only missing titles. Re-running retries unavailable videos

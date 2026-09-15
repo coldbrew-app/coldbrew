@@ -5,8 +5,8 @@ import {
   type AlertPlayback,
   type AlertPlaybackId,
   type AlertRendererDiagnosticCode,
-} from "@coldbrew/packages/alerts.js";
-import { parseJson, RequestError } from "@coldbrew/packages/http.js";
+} from "@streambrew/packages/alerts.js";
+import { parseJson, RequestError } from "@streambrew/packages/http.js";
 import { readNdjsonLines } from "@web/lib/ndjson";
 import { type Api, useApi } from "@web/lib/trpc";
 import { useCallback, useEffect, useRef, useState } from "react";

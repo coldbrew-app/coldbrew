@@ -1,6 +1,6 @@
 # SSR and hydration
 
-Coldbrew uses TanStack Start for full-page server rendering. The first client
+StreamBrew uses TanStack Start for full-page server rendering. The first client
 render must produce the same DOM as the HTML sent by the server. Treat a
 hydration warning as a rendering bug until a specific unavoidable difference
 has been identified.
@@ -80,7 +80,7 @@ element that carries it. It applies only one level deep; it does not hide
 problems in descendant components and React does not patch a mismatched text
 value.
 
-Coldbrew applies it to `<html>` because browser extensions can add attributes
+StreamBrew applies it to `<html>` because browser extensions can add attributes
 to that root element before React starts. It must not be used to mask
 application-owned state such as the theme; make that state SSR-deterministic
 instead.

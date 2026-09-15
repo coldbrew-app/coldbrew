@@ -21,8 +21,8 @@ func TestLoadConfigUsesDocumentedDefaults(t *testing.T) {
 	for _, name := range []string{"CHAT_TOKEN_ENCRYPTION_SECRET", "CHAT_PUBLIC_URL", "CHAT_WEB_URL", "NATS_NAMESPACE", "NATS_SERVERS", "YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "TWITCH_CLIENT_ID", "TWITCH_CLIENT_SECRET", "KICK_CLIENT_ID", "KICK_CLIENT_SECRET", "KICK_WEBHOOK_PUBLIC_KEY", "VK_VIDEO_CLIENT_ID", "VK_VIDEO_CLIENT_SECRET"} {
 		t.Setenv(name, "")
 	}
-	t.Setenv("DATABASE_URL", "postgresql://localhost/coldbrew")
-	t.Setenv("APP_DOMAIN", "https://coldbrew.example")
+	t.Setenv("DATABASE_URL", "postgresql://localhost/streambrew")
+	t.Setenv("APP_DOMAIN", "https://streambrew.example")
 	t.Setenv("BETTER_AUTH_SECRET", "12345678901234567890123456789012")
 	t.Setenv("CHAT_SERVICE_SECRET", "chat-service-secret-with-32-characters")
 	t.Setenv("CHAT_PORT", "3001")
@@ -30,7 +30,7 @@ func TestLoadConfigUsesDocumentedDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if config.publicURL != "https://coldbrew.example/api/chat" || config.webURL != "https://coldbrew.example" || config.port != 3001 {
+	if config.publicURL != "https://streambrew.example/api/chat" || config.webURL != "https://streambrew.example" || config.port != 3001 {
 		t.Fatalf("config = %#v", config)
 	}
 	if config.natsServers == "" || config.natsNamespace != "" || config.serviceSecret != os.Getenv("CHAT_SERVICE_SECRET") {

@@ -1,10 +1,10 @@
-import { CurrencyCodeSchema, MoneyAmountSchema } from "@coldbrew/packages/schemas.js";
+import { rurl } from "@lebedevna/readonly-url";
+import { CurrencyCodeSchema, MoneyAmountSchema } from "@streambrew/packages/schemas.js";
 import {
   formatVideoTime,
   getRoundedWatchDurationParts,
   getWatchDurationSeconds,
-} from "@coldbrew/packages/video-timing.js";
-import { rurl } from "@lebedevna/readonly-url";
+} from "@streambrew/packages/video-timing.js";
 import { Link } from "@tanstack/react-router";
 import { fmtAmount, fmtDate, fmtListDate, formatMoneyInputValue } from "@web/lib/fmt";
 import type { Video } from "@web/server/exports";

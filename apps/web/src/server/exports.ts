@@ -1,1 +1,1 @@
-export type { Donation, SharedVideo, Video } from "@coldbrew/packages/schemas.js";
+export type { Donation, SharedVideo, Video } from "@streambrew/packages/schemas.js";

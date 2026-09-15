@@ -1,4 +1,4 @@
-import { createSql } from "@coldbrew/packages/pg.js";
+import { createSql } from "@streambrew/packages/pg.js";
 import { betterAuth } from "better-auth";
 import { PostgresJSDialect } from "kysely-postgres-js";
 

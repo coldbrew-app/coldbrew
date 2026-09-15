@@ -1,9 +1,9 @@
-import { defaultCurrencyChangeRate } from "@coldbrew/packages/currency.js";
+import { defaultCurrencyChangeRate } from "@streambrew/packages/currency.js";
 import {
   MoneyAmountSchema,
   QueueCurrencySchema,
   type QueueCurrency,
-} from "@coldbrew/packages/schemas.js";
+} from "@streambrew/packages/schemas.js";
 import { useUpdateQueueCurrencyM, useUserInfo } from "@web/hooks/api";
 import { formatMoneyInputValue } from "@web/lib/fmt";
 import { useEffect, useState } from "react";

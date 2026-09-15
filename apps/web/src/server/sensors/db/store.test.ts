@@ -3,7 +3,7 @@ import {
   DonationIdSchema,
   UserIdSchema,
   SlugSchema,
-} from "@coldbrew/packages/schemas.js";
+} from "@streambrew/packages/schemas.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { Store } from "./store.js";

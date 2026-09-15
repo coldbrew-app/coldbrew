@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
-import { AuthUserIdSchema, MoneyAmountSchema, SlugSchema } from "@coldbrew/packages/schemas.js";
+import { AuthUserIdSchema, MoneyAmountSchema, SlugSchema } from "@streambrew/packages/schemas.js";
 import postgres from "postgres";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 

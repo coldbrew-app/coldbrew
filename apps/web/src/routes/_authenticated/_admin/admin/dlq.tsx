@@ -1,4 +1,4 @@
-import type { ChatDeadLetter } from "@coldbrew/packages/chat.js";
+import type { ChatDeadLetter } from "@streambrew/packages/chat.js";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { AdminTabs } from "@web/components/admin-tabs";
 import { CosmicPageHeader } from "@web/components/cosmic-page-header";
@@ -73,7 +73,9 @@ export const Route = createFileRoute("/_authenticated/_admin/admin/dlq")({
     );
   },
   head: ({ match }) => ({
-    meta: [{ title: `${createTranslator(match.context.locale, i18n)("deadLetters")} · Coldbrew` }],
+    meta: [
+      { title: `${createTranslator(match.context.locale, i18n)("deadLetters")} · StreamBrew` },
+    ],
   }),
 });
 

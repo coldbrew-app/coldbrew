@@ -1,3 +1,4 @@
+import { rurl } from "@lebedevna/readonly-url";
 import {
   ChatActivitySnapshotSchema,
   ChatBroadcastResultSchema,
@@ -9,9 +10,8 @@ import {
   type ChatModerationCommand,
   type ChatProvider,
   type ChatStreamEvent,
-} from "@coldbrew/packages/chat.js";
-import { parseJson, RequestError, requestJson } from "@coldbrew/packages/http.js";
-import { rurl } from "@lebedevna/readonly-url";
+} from "@streambrew/packages/chat.js";
+import { parseJson, RequestError, requestJson } from "@streambrew/packages/http.js";
 import { z } from "zod";
 
 import { env } from "../env.js";

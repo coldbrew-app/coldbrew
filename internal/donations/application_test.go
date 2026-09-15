@@ -103,7 +103,7 @@ func TestConnectImportsHistoryBeforeAtomicSave(t *testing.T) {
 	provider.connection = connection
 	provider.batch = DonationBatch{Donations: []Donation{donation}}
 	integration := newIntegration(store, provider)
-	if err := integration.connect(context.Background(), 42, "code", "https://coldbrew.test/callback"); err != nil {
+	if err := integration.connect(context.Background(), 42, "code", "https://streambrew.test/callback"); err != nil {
 		t.Fatal(err)
 	}
 	if store.savedConnection == nil || *store.savedConnection != connection || len(store.savedBatch.Donations) != 1 || store.savedBatch.Donations[0].SourceDonationID != "donation-1" {
@@ -117,7 +117,7 @@ func TestConnectHistoryFailureDoesNotSavePartialConnection(t *testing.T) {
 	provider.connection = ProviderConnection{Tokens: Tokens{AccessToken: "access"}}
 	provider.historyErr = errors.New("history unavailable")
 	integration := newIntegration(store, provider)
-	if err := integration.connect(context.Background(), 42, "code", "https://coldbrew.test/callback"); err == nil {
+	if err := integration.connect(context.Background(), 42, "code", "https://streambrew.test/callback"); err == nil {
 		t.Fatal("expected history failure")
 	}
 	if store.savedConnection != nil {

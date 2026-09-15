@@ -26,12 +26,15 @@ const branch =
 const repositoryHash = (await hashValue(repository)).slice(0, 8);
 const branchHash = (await hashValue(`${repository}:${branch}`)).slice(0, 8);
 const suffix = `${sanitizeName(branch).slice(0, 40)}_${branchHash}`;
-const override = await $`git config --local --get coldbrew.devComposeProject`.quiet().nothrow();
-assert([0, 1].includes(override.exitCode), "Could not read coldbrew.devComposeProject Git setting");
+const override = await $`git config --local --get streambrew.devComposeProject`.quiet().nothrow();
+assert(
+  [0, 1].includes(override.exitCode),
+  "Could not read streambrew.devComposeProject Git setting",
+);
 const sharedProject = override.stdout.toString().replace(/\n+$/, "");
 assert(
   !sharedProject || /^[a-z0-9][a-z0-9_-]*$/.test(sharedProject),
-  "Invalid coldbrew.devComposeProject Git setting",
+  "Invalid streambrew.devComposeProject Git setting",
 );
 
 const appPort = await hashPort(`${repository}:${branch}:app`);
@@ -53,7 +56,7 @@ const settings = {
   PGHOST: "127.0.0.1",
   PGSSLMODE: "disable",
   PGPORT: await hashPort(`${repository}:db`),
-  PGDATABASE: `coldbrew_${suffix}`,
+  PGDATABASE: `streambrew_${suffix}`,
   COMPOSE_PROJECT_NAME:
     sharedProject ||
     `${sanitizeName(basename(dirname(repository))).slice(0, 32)}_dev_${repositoryHash}`,

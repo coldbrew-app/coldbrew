@@ -1,4 +1,4 @@
-import { SlugSchema, type Slug } from "@coldbrew/packages/schemas.js";
+import { SlugSchema, type Slug } from "@streambrew/packages/schemas.js";
 import { z } from "zod";
 
 const SlugParamsSchema = z.object({

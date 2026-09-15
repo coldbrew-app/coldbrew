@@ -116,7 +116,7 @@ const VideoPageInputSchema = z.object({
 export const Route = createFileRoute("/_authenticated/videos")({
   component: VideoQueue,
   head: ({ match }) => ({
-    meta: [{ title: `${createTranslator(match.context.locale, i18n)("videoQueue")} · Coldbrew` }],
+    meta: [{ title: `${createTranslator(match.context.locale, i18n)("videoQueue")} · StreamBrew` }],
   }),
   validateSearch: z.object({
     videoQueueId: z.coerce.number().int().positive().optional().catch(undefined),

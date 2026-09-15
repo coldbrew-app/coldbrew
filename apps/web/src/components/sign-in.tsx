@@ -27,12 +27,12 @@ const i18n = createI18n({
     ru: "Чашка кофе. Целая вселенная моментов.",
   },
   landingDescription: {
-    en: "Coldbrew helps streamers collect donations, organise viewer-submitted videos, follow live chats, and share what is coming next — all in one place.",
-    ru: "Coldbrew помогает стримерам собирать донаты, управлять видео от зрителей, следить за чатами и показывать, что будет дальше, — в одном месте.",
+    en: "StreamBrew helps streamers collect donations, organise viewer-submitted videos, follow live chats, and share what is coming next — all in one place.",
+    ru: "StreamBrew помогает стримерам собирать донаты, управлять видео от зрителей, следить за чатами и показывать, что будет дальше, — в одном месте.",
   },
   landingSignInNote: {
-    en: "Google sign-in creates and protects your Coldbrew account.",
-    ru: "Вход через Google создаёт и защищает ваш аккаунт Coldbrew.",
+    en: "Google sign-in creates and protects your StreamBrew account.",
+    ru: "Вход через Google создаёт и защищает ваш аккаунт StreamBrew.",
   },
   landingWorkflow: {
     en: "Donation → video queue → on-stream reaction",
@@ -83,20 +83,20 @@ const i18n = createI18n({
     ru: "Данные аккаунта используются только по назначению.",
   },
   googleDataDescription: {
-    en: "When you continue with Google, Google shares your name, email address, and profile image with Coldbrew. We use them to create your account, identify you when you return, and show your account details.",
-    ru: "При входе Google передаёт Coldbrew ваше имя, адрес электронной почты и изображение профиля. Они нужны, чтобы создать аккаунт, узнавать вас при повторном входе и показывать данные аккаунта.",
+    en: "When you continue with Google, Google shares your name, email address, and profile image with StreamBrew. We use them to create your account, identify you when you return, and show your account details.",
+    ru: "При входе Google передаёт StreamBrew ваше имя, адрес электронной почты и изображение профиля. Они нужны, чтобы создать аккаунт, узнавать вас при повторном входе и показывать данные аккаунта.",
   },
   googleDataNoExtraAccess: {
-    en: "Google sign-in does not give Coldbrew access to Gmail, Google Drive, or Google Calendar. If you separately connect YouTube chat, Coldbrew requests YouTube permissions for chat messages and moderation.",
-    ru: "Вход через Google не даёт Coldbrew доступ к Gmail, Google Диску или Google Календарю. Если вы отдельно подключите чат YouTube, Coldbrew запросит разрешения YouTube для работы с сообщениями и модерацией.",
+    en: "Google sign-in does not give StreamBrew access to Gmail, Google Drive, or Google Calendar. If you separately connect YouTube chat, StreamBrew requests YouTube permissions for chat messages and moderation.",
+    ru: "Вход через Google не даёт StreamBrew доступ к Gmail, Google Диску или Google Календарю. Если вы отдельно подключите чат YouTube, StreamBrew запросит разрешения YouTube для работы с сообщениями и модерацией.",
   },
   readPrivacyPolicy: {
     en: "Read the Privacy policy",
     ru: "Открыть Политику конфиденциальности",
   },
   landingFooter: {
-    en: "Coldbrew — tools for streamers.",
-    ru: "Coldbrew — инструменты для стримеров.",
+    en: "StreamBrew — tools for streamers.",
+    ru: "StreamBrew — инструменты для стримеров.",
   },
   legalLinks: {
     en: "Legal information",
@@ -160,7 +160,7 @@ export default function SignIn() {
       <header className="relative z-10 flex w-full max-w-6xl items-center justify-between gap-4 border-b border-border/60 py-5 sm:py-7">
         <div className="flex items-center gap-2.5 font-heading text-xl font-semibold tracking-tight sm:text-2xl">
           <img alt="" className="size-10 object-contain sm:size-12" src={productMark} />
-          Coldbrew
+          StreamBrew
         </div>
         <Button
           aria-busy={isSigningIn}

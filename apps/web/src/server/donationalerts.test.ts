@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./env.js", () => ({
   env: {
-    APP_DOMAIN: "https://coldbrew.test",
+    APP_DOMAIN: "https://streambrew.test",
   },
 }));
 
@@ -25,7 +25,7 @@ describe("DonationAlerts OAuth", () => {
     await expect(donationAlertsAuthorizationURL()).resolves.toBe("https://donation.test/authorize");
     expect(authorizationUrl).toHaveBeenCalledWith(
       "donationalerts",
-      "https://coldbrew.test/api/integration/donationalerts/callback",
+      "https://streambrew.test/api/integration/donationalerts/callback",
     );
   });
 
@@ -37,7 +37,7 @@ describe("DonationAlerts OAuth", () => {
       "donationalerts",
       42,
       "auth-code",
-      "https://coldbrew.test/api/integration/donationalerts/callback",
+      "https://streambrew.test/api/integration/donationalerts/callback",
     );
   });
 });

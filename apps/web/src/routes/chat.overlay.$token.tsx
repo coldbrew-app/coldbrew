@@ -8,7 +8,7 @@ export const Route = createFileRoute("/chat/overlay/$token")({
   component: ChatOverlay,
   validateSearch: ChatOverlaySearchSchema,
   head: () => ({
-    meta: [{ title: "Chat overlay · Coldbrew" }],
+    meta: [{ title: "Chat overlay · StreamBrew" }],
     styles: [
       {
         children:

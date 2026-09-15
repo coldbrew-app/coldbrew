@@ -1,4 +1,4 @@
-module github.com/lebedev-nikita/coldbrew
+module github.com/streambrew-app/streambrew
 
 go 1.27.1
 

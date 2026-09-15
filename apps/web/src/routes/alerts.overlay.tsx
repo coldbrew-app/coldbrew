@@ -1,4 +1,4 @@
-import { AlertOverlayTokenSchema } from "@coldbrew/packages/alerts.js";
+import { AlertOverlayTokenSchema } from "@streambrew/packages/alerts.js";
 import { createFileRoute } from "@tanstack/react-router";
 import { AlertPlayer } from "@web/components/alert-player";
 import { useAlertOverlay } from "@web/hooks/use-alert-overlay";
@@ -13,7 +13,7 @@ export const Route = createFileRoute("/alerts/overlay")({
   }),
   head: () => ({
     meta: [
-      { title: "Coldbrew" },
+      { title: "StreamBrew" },
       { content: "no-referrer", name: "referrer" },
       { content: "noindex, nofollow", name: "robots" },
     ],

@@ -1,0 +1,4 @@
+interface:
+  display_name: "StreamBrew React Style"
+  short_description: "Apply StreamBrew React hook conventions"
+  default_prompt: "Apply StreamBrew React conventions while editing or reviewing this code."

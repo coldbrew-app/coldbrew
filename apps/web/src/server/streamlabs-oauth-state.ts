@@ -4,7 +4,7 @@ import { parseCookie, serializeCookie } from "cookie-es";
 
 import { env } from "./env.js";
 
-const cookieName = "coldbrew-streamlabs-oauth";
+const cookieName = "streambrew-streamlabs-oauth";
 const stateLifetimeSeconds = 10 * 60;
 
 function signature(state: string, userId: number) {

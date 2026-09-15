@@ -1,4 +1,4 @@
-import type { ChatProvider } from "@coldbrew/packages/chat.js";
+import type { ChatProvider } from "@streambrew/packages/chat.js";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import type { inferRouterOutputs } from "@trpc/server";
 import { AdminTabs } from "@web/components/admin-tabs";
@@ -204,7 +204,7 @@ export const Route = createFileRoute("/_authenticated/_admin/admin/")({
     await preloadRouteQuery(context.queryClient, context.trpc.admin.dashboard.queryOptions());
   },
   head: ({ match }) => ({
-    meta: [{ title: `${createTranslator(match.context.locale, i18n)("overview")} · Coldbrew` }],
+    meta: [{ title: `${createTranslator(match.context.locale, i18n)("overview")} · StreamBrew` }],
   }),
 });
 

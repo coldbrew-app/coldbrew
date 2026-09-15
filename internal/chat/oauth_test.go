@@ -145,8 +145,8 @@ func TestOauthConnectsVKVideoWithVKIDDevice(t *testing.T) {
 }
 
 func TestOauthStartsVKIDWithLowercaseChallengeMethod(t *testing.T) {
-	oauth := NewOauth(&oauthTestStore{}, "https://coldbrew.example/api/chat", OauthConfigs(nil, nil, nil, &[2]string{"client-id", "client-secret"}), http.DefaultClient)
-	authorizationURL, err := oauth.Start(context.Background(), 42, "vk_video", "https://coldbrew.example/chat")
+	oauth := NewOauth(&oauthTestStore{}, "https://streambrew.example/api/chat", OauthConfigs(nil, nil, nil, &[2]string{"client-id", "client-secret"}), http.DefaultClient)
+	authorizationURL, err := oauth.Start(context.Background(), 42, "vk_video", "https://streambrew.example/chat")
 	if err != nil {
 		t.Fatal(err)
 	}

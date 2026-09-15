@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/lebedev-nikita/coldbrew/internal/youtube"
+	"github.com/streambrew-app/streambrew/internal/youtube"
 )
 
 type metadataJob struct {

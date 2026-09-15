@@ -1,4 +1,4 @@
-# Coldbrew Zod Guide
+# StreamBrew Zod Guide
 
 Follow this guide whenever creating, editing, or reviewing Zod schemas.
 

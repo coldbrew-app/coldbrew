@@ -14,8 +14,8 @@ const i18n = createI18n({
     ru: "Подключить donate.stream",
   },
   description: {
-    en: "Coldbrew uses your alert widget address to receive new donations in real time. Earlier donations are not imported.",
-    ru: "Coldbrew использует адрес виджета оповещений, чтобы получать новые донаты в реальном времени. Старые донаты не загружаются.",
+    en: "StreamBrew uses your alert widget address to receive new donations in real time. Earlier donations are not imported.",
+    ru: "StreamBrew использует адрес виджета оповещений, чтобы получать новые донаты в реальном времени. Старые донаты не загружаются.",
   },
   widgetURLLabel: {
     en: "Alert widget address",
@@ -34,8 +34,8 @@ const i18n = createI18n({
     ru: "Открыть виджеты оповещений в donate.stream",
   },
   widgetURLSafety: {
-    en: "Keep this address private: it grants access to incoming alert data. Coldbrew stores its credentials but never returns them to the browser.",
-    ru: "Не публикуйте этот адрес: он даёт доступ к данным новых оповещений. Coldbrew хранит его реквизиты, но не возвращает их в браузер.",
+    en: "Keep this address private: it grants access to incoming alert data. StreamBrew stores its credentials but never returns them to the browser.",
+    ru: "Не публикуйте этот адрес: он даёт доступ к данным новых оповещений. StreamBrew хранит его реквизиты, но не возвращает их в браузер.",
   },
   invalidWidgetURL: {
     en: "Could not connect. Check that you copied the full current alert widget address.",

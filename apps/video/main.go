@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/lebedev-nikita/coldbrew/internal/observability"
-	"github.com/lebedev-nikita/coldbrew/internal/videoingest"
+	"github.com/streambrew-app/streambrew/internal/observability"
+	"github.com/streambrew-app/streambrew/internal/videoingest"
 )
 
 func main() {

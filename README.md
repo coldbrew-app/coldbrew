@@ -1,9 +1,9 @@
-# Coldbrew
+# StreamBrew
 
-Coldbrew is a Bun/TypeScript and Go monorepo for a streaming dashboard. The
+StreamBrew is a Bun/TypeScript and Go monorepo for a streaming dashboard. The
 TanStack Start web application uses tRPC and PostgreSQL; separate Go services
 collect chat and donations and turn supported links from donation messages into
-videos.
+videos. Production is available at [streambrew.app](https://streambrew.app).
 
 Project tasks are managed with [just](https://just.systems/). Run `just` to
 list them.
@@ -73,7 +73,7 @@ each worktree receives its own application and service ports, PostgreSQL
 database, and NATS namespace. The Compose project name and infrastructure ports
 are derived from the common Git directory, not the individual worktree folder.
 If the shared containers already run under a different Compose project name,
-save that name with `git config --local coldbrew.devComposeProject <existing-name>`
+save that name with `git config --local streambrew.devComposeProject <existing-name>`
 and run `just env-init` in each worktree that needs to use them. This local Git
 setting is shared across worktrees and preserves the existing containers and
 volumes; their published PostgreSQL and NATS ports must match the generated ports.
@@ -110,7 +110,7 @@ The cleanup scripts live in `scripts/` and run through Bun Shell.
 The command requires confirmation. It removes every secondary worktree whose
 working tree is clean and whose `HEAD` is already merged into the primary
 branch, then deletes its local branch. It also removes every secondary or
-orphaned `coldbrew_*` development database and `wt_*` NATS namespace while
+orphaned `streambrew_*` development database and `wt_*` NATS namespace while
 preserving the primary checkout's database, NATS namespace, and the shared
 infrastructure data. If the shared containers were stopped, cleanup starts them
 temporarily and stops them again afterward. If any worktree is dirty, locked,

@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lebedev-nikita/coldbrew/internal/money"
+	"github.com/streambrew-app/streambrew/internal/money"
 )
 
 const (

@@ -4,7 +4,7 @@ import {
   SlugSchema,
   UserIdSchema,
   VideoIdSchema,
-} from "@coldbrew/packages/schemas.js";
+} from "@streambrew/packages/schemas.js";
 import type { Sql } from "postgres";
 import { describe, expect, it, vi } from "vitest";
 

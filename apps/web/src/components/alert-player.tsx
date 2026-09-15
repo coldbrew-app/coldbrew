@@ -2,7 +2,7 @@ import type {
   AlertPlayback,
   AlertPlaybackId,
   AlertRendererDiagnosticCode,
-} from "@coldbrew/packages/alerts.js";
+} from "@streambrew/packages/alerts.js";
 import { cn } from "@web/lib/utils";
 
 import { AlertCard } from "./alert-card";

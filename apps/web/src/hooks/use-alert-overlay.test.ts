@@ -1,4 +1,4 @@
-import { AlertOverlayOpenSchema, AlertPlaybackIdSchema } from "@coldbrew/packages/alerts.js";
+import { AlertOverlayOpenSchema, AlertPlaybackIdSchema } from "@streambrew/packages/alerts.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {

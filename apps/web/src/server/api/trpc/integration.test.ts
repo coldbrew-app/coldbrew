@@ -1,4 +1,4 @@
-import { UserIdSchema } from "@coldbrew/packages/schemas.js";
+import { UserIdSchema } from "@streambrew/packages/schemas.js";
 import { describe, expect, it, vi } from "vitest";
 
 const { connectDonateStream, disconnect } = vi.hoisted(() => ({

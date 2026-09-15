@@ -16,8 +16,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/lebedev-nikita/coldbrew/internal/donatestream"
-	"github.com/lebedev-nikita/coldbrew/internal/donationalert"
+	"github.com/streambrew-app/streambrew/internal/donatestream"
+	"github.com/streambrew-app/streambrew/internal/donationalert"
 )
 
 var donationTestSchemaSequence atomic.Uint64

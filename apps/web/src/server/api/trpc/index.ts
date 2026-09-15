@@ -3,7 +3,7 @@ import {
   DonationSourceSchema,
   PublicQueueSettingsSchema,
   SlugSchema,
-} from "@coldbrew/packages/schemas.js";
+} from "@streambrew/packages/schemas.js";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 

@@ -1,3 +1,4 @@
+import { rurl } from "@lebedevna/readonly-url";
 import {
   AlertAssetIdSchema,
   AlertDashboardSchema,
@@ -6,8 +7,7 @@ import {
   AlertPlaybackIdSchema,
   AlertRendererDiagnosticCodeSchema,
   AlertSettingsSchema,
-} from "@coldbrew/packages/alerts.js";
-import { rurl } from "@lebedevna/readonly-url";
+} from "@streambrew/packages/alerts.js";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 

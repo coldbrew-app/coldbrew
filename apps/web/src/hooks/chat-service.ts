@@ -3,7 +3,7 @@ import type {
   ChatConfig,
   ChatModerationCommand,
   ChatSourceId,
-} from "@coldbrew/packages/chat.js";
+} from "@streambrew/packages/chat.js";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useApi } from "@web/lib/trpc";
 

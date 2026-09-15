@@ -17,7 +17,7 @@ describe("parseJsonb", () => {
 
 describe("createSql", () => {
   it("sets a dedicated PostgreSQL search path when requested", async () => {
-    const sql = createSql("postgresql://localhost/coldbrew", { searchPath: "auth" });
+    const sql = createSql("postgresql://localhost/streambrew", { searchPath: "auth" });
 
     expect(sql.options.connection["search_path"]).toBe("auth");
 

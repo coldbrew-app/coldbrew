@@ -114,7 +114,7 @@ build-web: install
 
 [script("bash", "-euo", "pipefail")]
 generate-youtube-chat-go-proto:
-  tool_dir="$(mktemp -d "${TMPDIR:-/tmp}/coldbrew-protoc.XXXXXX")"
+  tool_dir="$(mktemp -d "${TMPDIR:-/tmp}/streambrew-protoc.XXXXXX")"
   trap 'rm -rf "$tool_dir"' EXIT
   GOBIN="$tool_dir" go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
   GOBIN="$tool_dir" go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
@@ -122,10 +122,10 @@ generate-youtube-chat-go-proto:
     --proto_path=internal/youtubechatpb \
     --go_out=internal/youtubechatpb \
     --go_opt=paths=source_relative \
-    --go_opt=Mstream_list.proto=github.com/lebedev-nikita/coldbrew/internal/youtubechatpb \
+    --go_opt=Mstream_list.proto=github.com/streambrew-app/streambrew/internal/youtubechatpb \
     --go-grpc_out=internal/youtubechatpb \
     --go-grpc_opt=paths=source_relative \
-    --go-grpc_opt=Mstream_list.proto=github.com/lebedev-nikita/coldbrew/internal/youtubechatpb \
+    --go-grpc_opt=Mstream_list.proto=github.com/streambrew-app/streambrew/internal/youtubechatpb \
     internal/youtubechatpb/stream_list.proto
 
 compose-up:
@@ -138,12 +138,12 @@ docker-ps:
 # Pull immutable production images, recreate the stack, and verify the public endpoint.
 [script("bash", "-euo", "pipefail")]
 production-deploy $app_image $postgres_image:
-  export COLDBREW_IMAGE="$app_image"
-  export COLDBREW_POSTGRES_IMAGE="$postgres_image"
+  export STREAMBREW_IMAGE="$app_image"
+  export STREAMBREW_POSTGRES_IMAGE="$postgres_image"
 
   # Keep manual Compose operations and host restarts on the deployed immutable images.
-  bunx dotenvx set -f .env --plain COLDBREW_IMAGE "$COLDBREW_IMAGE"
-  bunx dotenvx set -f .env --plain COLDBREW_POSTGRES_IMAGE "$COLDBREW_POSTGRES_IMAGE"
+  bunx dotenvx set -f .env --plain STREAMBREW_IMAGE "$STREAMBREW_IMAGE"
+  bunx dotenvx set -f .env --plain STREAMBREW_POSTGRES_IMAGE "$STREAMBREW_POSTGRES_IMAGE"
 
   docker compose pull postgres web
   docker compose up --no-build --detach --wait --wait-timeout 180 --remove-orphans
@@ -211,7 +211,7 @@ dev-db-copy $source_worktree:
     exit 1
   fi
 
-  dump_path="$(mktemp "${TMPDIR:-/tmp}/coldbrew-dev-db.XXXXXX.dump")"
+  dump_path="$(mktemp "${TMPDIR:-/tmp}/streambrew-dev-db.XXXXXX.dump")"
   trap 'rm -f "$dump_path"' EXIT
 
   (
@@ -224,12 +224,12 @@ dev-db-copy $source_worktree:
     'docker compose -f compose.dev.yaml exec -T postgres pg_restore --clean --if-exists --no-owner --no-privileges --single-transaction --exit-on-error --username="$PGUSER" --dbname="$PGDATABASE"' \
     < "$dump_path"
 
-# Stop the shared infrastructure. This affects every Coldbrew worktree.
+# Stop the shared infrastructure. This affects every StreamBrew worktree.
 dev-infra-down:
   bunx dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml down
 
 # Destroy all shared development databases and NATS state.
-[confirm("Destroy shared Coldbrew development infrastructure for every worktree?")]
+[confirm("Destroy shared StreamBrew development infrastructure for every worktree?")]
 dev-infra-destroy:
   bunx dotenvx run -f .env --overload -- docker compose -f compose.dev.yaml down --volumes
 

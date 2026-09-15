@@ -2,7 +2,7 @@
 
 Terminology in this document follows the [glossary](../AGENTS.md#glossary).
 
-Coldbrew preserves each donation's original `{ amount, currency }` as the
+StreamBrew preserves each donation's original `{ amount, currency }` as the
 financial event received from a platform. Donations are never converted or
 given a queue currency in the database.
 

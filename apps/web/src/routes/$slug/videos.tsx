@@ -1,4 +1,4 @@
-import { getRoundedWatchDurationParts } from "@coldbrew/packages/video-timing.js";
+import { getRoundedWatchDurationParts } from "@streambrew/packages/video-timing.js";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { CosmicPageHeader } from "@web/components/cosmic-page-header";
 import { EmptyState } from "@web/components/empty-state";
@@ -173,7 +173,7 @@ export const Route = createFileRoute("/$slug/videos")({
   head: ({ match, params }) => ({
     meta: [
       {
-        title: `${createTranslator(match.context.locale, i18n)("videoQueueBy", { slug: `@${params.slug}` })} · Coldbrew`,
+        title: `${createTranslator(match.context.locale, i18n)("videoQueueBy", { slug: `@${params.slug}` })} · StreamBrew`,
       },
     ],
   }),

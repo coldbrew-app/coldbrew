@@ -1,15 +1,15 @@
 # Donation alerts through existing widgets
 
 Checked on September 11, 2026 against official documentation. This document
-records the third-party-widget option considered before Coldbrew implemented
+records the third-party-widget option considered before StreamBrew implemented
 its own widget. The research itself changed no code or data schema and sent no
 alert to a real account.
 
 ## Conclusion
 
-The simplest first version would send custom alerts through the DonationAlerts API while the streamer keeps using the standard DonationAlerts widget. Streamlabs offers a similar API and could be a second adapter. None of the services reviewed documents a supported mode in which its standard widget accepts an arbitrary backend URL. The no-custom-widget flow would therefore be **donation source → Coldbrew → alert service API → the service's OBS widget**.
+The simplest first version would send custom alerts through the DonationAlerts API while the streamer keeps using the standard DonationAlerts widget. Streamlabs offers a similar API and could be a second adapter. None of the services reviewed documents a supported mode in which its standard widget accepts an arbitrary backend URL. The no-custom-widget flow would therefore be **donation source → StreamBrew → alert service API → the service's OBS widget**.
 
-An OBS Browser Source URL identifies the page to render, not a universal event-server endpoint. Pointing it at Coldbrew requires a Coldbrew widget page, although it does not require a native OBS plugin. See [OBS Browser Source](https://obsproject.com/kb/browser-source).
+An OBS Browser Source URL identifies the page to render, not a universal event-server endpoint. Pointing it at StreamBrew requires a StreamBrew widget page, although it does not require a native OBS plugin. See [OBS Browser Source](https://obsproject.com/kb/browser-source).
 
 ## DonationAlerts
 
@@ -47,6 +47,6 @@ and separate user confirmation under the repository rules. Before such a
 release, the proposal would also have required tests for identical requests,
 network interruption, long and Cyrillic messages, audio and TTS, a hidden
 Browser Source, bursts, and a donation originating from the renderer itself.
-Coldbrew subsequently chose and implemented its own Browser Source; its current
+StreamBrew subsequently chose and implemented its own Browser Source; its current
 architecture and operating guide are documented in
 [Donation alerts](../donation-alerts.md).

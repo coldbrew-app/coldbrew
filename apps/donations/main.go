@@ -14,12 +14,12 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/lebedev-nikita/coldbrew/internal/donatestream"
-	"github.com/lebedev-nikita/coldbrew/internal/donationalert"
-	"github.com/lebedev-nikita/coldbrew/internal/donationalerts"
-	"github.com/lebedev-nikita/coldbrew/internal/donations"
-	"github.com/lebedev-nikita/coldbrew/internal/observability"
-	"github.com/lebedev-nikita/coldbrew/internal/streamlabs"
+	"github.com/streambrew-app/streambrew/internal/donatestream"
+	"github.com/streambrew-app/streambrew/internal/donationalert"
+	"github.com/streambrew-app/streambrew/internal/donationalerts"
+	"github.com/streambrew-app/streambrew/internal/donations"
+	"github.com/streambrew-app/streambrew/internal/observability"
+	"github.com/streambrew-app/streambrew/internal/streamlabs"
 )
 
 func main() {

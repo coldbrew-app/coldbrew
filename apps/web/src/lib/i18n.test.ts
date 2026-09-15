@@ -1,4 +1,4 @@
-import { CurrencyCodeSchema, MoneyAmountSchema } from "@coldbrew/packages/schemas.js";
+import { CurrencyCodeSchema, MoneyAmountSchema } from "@streambrew/packages/schemas.js";
 import { describe, expect, it } from "vitest";
 
 import { fmtAmount, fmtDate, fmtListDate, fmtRubles, formatMoneyInputValue } from "./fmt";

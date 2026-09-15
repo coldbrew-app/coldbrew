@@ -7,9 +7,9 @@ const { asset, getUserId, streamOverlay, uploadAsset } = vi.hoisted(() => ({
   uploadAsset: vi.fn(),
 }));
 
-vi.mock("@coldbrew/packages/server-logger.js", () => ({ logError: vi.fn() }));
+vi.mock("@streambrew/packages/server-logger.js", () => ({ logError: vi.fn() }));
 vi.mock("../api/_util.js", () => ({ getUserId }));
-vi.mock("../env.js", () => ({ env: { APP_DOMAIN: "https://coldbrew.test" } }));
+vi.mock("../env.js", () => ({ env: { APP_DOMAIN: "https://streambrew.test" } }));
 vi.mock("./client.js", () => ({
   donationAlertService: { asset, streamOverlay, uploadAsset },
   DonationAlertServiceError: class DonationAlertServiceError extends Error {
@@ -29,13 +29,13 @@ afterEach(() => vi.resetAllMocks());
 
 describe("donation alert HTTP boundary", () => {
   it("rejects cross-origin multipart bodies before authentication or parsing", async () => {
-    const request = new Request("https://coldbrew.test/api/alerts/upload", {
+    const request = new Request("https://streambrew.test/api/alerts/upload", {
       method: "POST",
       headers: {
         "Content-Length": "1024",
         "Content-Type": "multipart/form-data; boundary=unused",
         Origin: "https://evil.test",
-        "X-Coldbrew-Upload": "1",
+        "X-StreamBrew-Upload": "1",
       },
       body: "not parsed",
     });
@@ -49,12 +49,12 @@ describe("donation alert HTTP boundary", () => {
 
   it("rejects oversized bodies before parsing multipart data", async () => {
     const response = await handleAlertUpload(
-      new Request("https://coldbrew.test/api/alerts/upload", {
+      new Request("https://streambrew.test/api/alerts/upload", {
         method: "POST",
         headers: {
           "Content-Length": String(12 * 1024 * 1024),
-          Origin: "https://coldbrew.test",
-          "X-Coldbrew-Upload": "1",
+          Origin: "https://streambrew.test",
+          "X-StreamBrew-Upload": "1",
         },
       }),
     );
@@ -66,13 +66,13 @@ describe("donation alert HTTP boundary", () => {
   it("rejects a streamed multipart body that exceeds its declared length", async () => {
     getUserId.mockResolvedValue(42);
     const response = await handleAlertUpload(
-      new Request("https://coldbrew.test/api/alerts/upload", {
+      new Request("https://streambrew.test/api/alerts/upload", {
         method: "POST",
         headers: {
           "Content-Length": "1",
           "Content-Type": "multipart/form-data; boundary=unused",
-          Origin: "https://coldbrew.test",
-          "X-Coldbrew-Upload": "1",
+          Origin: "https://streambrew.test",
+          "X-StreamBrew-Upload": "1",
         },
         body: new Uint8Array(11 * 1024 * 1024 + 1),
       }),
@@ -95,12 +95,12 @@ describe("donation alert HTTP boundary", () => {
       const form = new FormData();
       form.set("kind", "image");
       form.set("file", new File(["png"], "alert.png", { type: "image/png" }));
-      return new Request("https://coldbrew.test/api/alerts/upload", {
+      return new Request("https://streambrew.test/api/alerts/upload", {
         method: "POST",
         headers: {
           "Content-Length": "512",
-          Origin: "https://coldbrew.test",
-          "X-Coldbrew-Upload": "1",
+          Origin: "https://streambrew.test",
+          "X-StreamBrew-Upload": "1",
         },
         body: form,
       });
@@ -124,10 +124,10 @@ describe("donation alert HTTP boundary", () => {
     asset.mockResolvedValue(new Response("media", { headers: { "Content-Type": "image/png" } }));
 
     const dashboardResponse = await handleAlertMedia(
-      new Request(`https://coldbrew.test/api/alerts/media/${assetId}`),
+      new Request(`https://streambrew.test/api/alerts/media/${assetId}`),
     );
     const overlayResponse = await handleAlertMedia(
-      new Request(`https://coldbrew.test/api/alerts/media/${assetId}`, {
+      new Request(`https://streambrew.test/api/alerts/media/${assetId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token: "t".repeat(32) }),
@@ -149,14 +149,14 @@ describe("donation alert HTTP boundary", () => {
   it("rejects declared and streamed media bodies over the small JSON limit", async () => {
     const assetId = "64fb569a-95bb-4d1a-a6ad-765b0f2d5702";
     const declared = await handleAlertMedia(
-      new Request(`https://coldbrew.test/api/alerts/media/${assetId}`, {
+      new Request(`https://streambrew.test/api/alerts/media/${assetId}`, {
         method: "POST",
         headers: { "Content-Length": "257" },
         body: "{}",
       }),
     );
     const streamed = await handleAlertMedia(
-      new Request(`https://coldbrew.test/api/alerts/media/${assetId}`, {
+      new Request(`https://streambrew.test/api/alerts/media/${assetId}`, {
         method: "POST",
         headers: { "Content-Length": "1" },
         body: JSON.stringify({ token: "t".repeat(32), padding: "x".repeat(300) }),
@@ -175,7 +175,7 @@ describe("donation alert HTTP boundary", () => {
     const token = "t".repeat(32);
 
     const response = await handleAlertStream(
-      new Request("https://coldbrew.test/api/alerts/stream", {
+      new Request("https://streambrew.test/api/alerts/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -205,20 +205,20 @@ describe("donation alert HTTP boundary", () => {
       generation: 2,
     };
     const chunked = await handleAlertStream(
-      new Request("https://coldbrew.test/api/alerts/stream", {
+      new Request("https://streambrew.test/api/alerts/stream", {
         method: "POST",
         body: JSON.stringify(identity),
       }),
     );
     const declared = await handleAlertStream(
-      new Request("https://coldbrew.test/api/alerts/stream", {
+      new Request("https://streambrew.test/api/alerts/stream", {
         method: "POST",
         headers: { "Content-Length": "513" },
         body: "{}",
       }),
     );
     const streamed = await handleAlertStream(
-      new Request("https://coldbrew.test/api/alerts/stream", {
+      new Request("https://streambrew.test/api/alerts/stream", {
         method: "POST",
         headers: { "Content-Length": "1" },
         body: JSON.stringify({ ...identity, padding: "x".repeat(512) }),
@@ -261,7 +261,7 @@ describe("donation alert HTTP boundary", () => {
     });
 
     const response = await handleAlertStream(
-      new Request("https://coldbrew.test/api/alerts/stream", {
+      new Request("https://streambrew.test/api/alerts/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -286,12 +286,12 @@ describe("donation alert HTTP boundary", () => {
       form.set("file", new File(["png"], "alert.png", { type: "image/png" }));
 
       const response = await handleAlertUpload(
-        new Request("https://coldbrew.test/api/alerts/upload", {
+        new Request("https://streambrew.test/api/alerts/upload", {
           method: "POST",
           headers: {
             "Content-Length": "512",
-            Origin: "https://coldbrew.test",
-            "X-Coldbrew-Upload": "1",
+            Origin: "https://streambrew.test",
+            "X-StreamBrew-Upload": "1",
           },
           body: form,
         }),
@@ -309,12 +309,12 @@ describe("donation alert HTTP boundary", () => {
     form.set("file", new File(["png"], "alert.png", { type: "image/png" }));
 
     const response = await handleAlertUpload(
-      new Request("https://coldbrew.test/api/alerts/upload", {
+      new Request("https://streambrew.test/api/alerts/upload", {
         method: "POST",
         headers: {
           "Content-Length": "512",
-          Origin: "https://coldbrew.test",
-          "X-Coldbrew-Upload": "1",
+          Origin: "https://streambrew.test",
+          "X-StreamBrew-Upload": "1",
         },
         body: form,
       }),

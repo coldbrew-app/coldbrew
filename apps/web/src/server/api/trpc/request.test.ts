@@ -4,7 +4,7 @@ import { boundTrpcRequest } from "./request.js";
 
 describe("tRPC request body boundary", () => {
   it("preserves bounded POST bodies for the tRPC adapter", async () => {
-    const request = new Request("https://coldbrew.test/api/trpc/alerts.openOverlay", {
+    const request = new Request("https://streambrew.test/api/trpc/alerts.openOverlay", {
       method: "POST",
       body: '{"token":"secret"}',
     });
@@ -17,13 +17,13 @@ describe("tRPC request body boundary", () => {
 
   it("rejects declared and streamed POST bodies over one MiB", async () => {
     const declared = await boundTrpcRequest(
-      new Request("https://coldbrew.test/api/trpc/alerts.openOverlay", {
+      new Request("https://streambrew.test/api/trpc/alerts.openOverlay", {
         method: "POST",
         headers: { "Content-Length": String(1024 * 1024 + 1) },
       }),
     );
     const streamed = await boundTrpcRequest(
-      new Request("https://coldbrew.test/api/trpc/alerts.openOverlay", {
+      new Request("https://streambrew.test/api/trpc/alerts.openOverlay", {
         method: "POST",
         headers: { "Content-Length": "1" },
         body: "x".repeat(1024 * 1024 + 1),
@@ -37,7 +37,7 @@ describe("tRPC request body boundary", () => {
   });
 
   it("does not consume GET requests", async () => {
-    const request = new Request("https://coldbrew.test/api/trpc/userInfo");
+    const request = new Request("https://streambrew.test/api/trpc/userInfo");
 
     await expect(boundTrpcRequest(request)).resolves.toBe(request);
   });

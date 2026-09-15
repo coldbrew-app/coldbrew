@@ -16,8 +16,8 @@ const {
   verifyStreamlabsOAuthAttempt: vi.fn(),
 }));
 
-vi.mock("@coldbrew/packages/server-logger.js", () => ({ logError: vi.fn() }));
-vi.mock("../env.js", () => ({ env: { APP_DOMAIN: "https://coldbrew.test" } }));
+vi.mock("@streambrew/packages/server-logger.js", () => ({ logError: vi.fn() }));
+vi.mock("../env.js", () => ({ env: { APP_DOMAIN: "https://streambrew.test" } }));
 vi.mock("../donationalerts.js", () => ({
   authorizeDonationAlerts,
   donationAlertsAuthorizationURL,
@@ -43,7 +43,7 @@ describe("Streamlabs OAuth handlers", () => {
     streamlabsAuthorizationURL.mockResolvedValue("https://streamlabs.test/authorize");
 
     const response = await handleStreamlabsAuthorize(
-      new Request("https://coldbrew.test/api/integration/streamlabs/authorize"),
+      new Request("https://streambrew.test/api/integration/streamlabs/authorize"),
     );
 
     expect(response.status).toBe(302);
@@ -57,7 +57,7 @@ describe("Streamlabs OAuth handlers", () => {
     getUserId.mockResolvedValue(42);
     const response = await handleStreamlabsCallback(
       new Request(
-        `https://coldbrew.test/api/integration/streamlabs/callback?code=code&state=${"s".repeat(43)}`,
+        `https://streambrew.test/api/integration/streamlabs/callback?code=code&state=${"s".repeat(43)}`,
       ),
     );
 
@@ -72,14 +72,14 @@ describe("Streamlabs OAuth handlers", () => {
     authorizeStreamlabs.mockResolvedValue(undefined);
     const response = await handleStreamlabsCallback(
       new Request(
-        `https://coldbrew.test/api/integration/streamlabs/callback?code=code&state=${"s".repeat(43)}`,
+        `https://streambrew.test/api/integration/streamlabs/callback?code=code&state=${"s".repeat(43)}`,
       ),
     );
 
     expect(authorizeStreamlabs).toHaveBeenCalledWith(42, "code");
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe(
-      "https://coldbrew.test/integrations?source=streamlabs&success=true",
+      "https://streambrew.test/integrations?source=streamlabs&success=true",
     );
     expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
   });

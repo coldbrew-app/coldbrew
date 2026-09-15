@@ -1,4 +1,4 @@
-import { SlugSchema } from "@coldbrew/packages/schemas.js";
+import { SlugSchema } from "@streambrew/packages/schemas.js";
 import { Link } from "@tanstack/react-router";
 import { Button, buttonVariants } from "@web/components/ui/button";
 import { useSetSlugM, useUserInfo } from "@web/hooks/api";

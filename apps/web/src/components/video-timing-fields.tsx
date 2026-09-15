@@ -3,7 +3,7 @@ import {
   getRoundedWatchDurationParts,
   getWatchDurationSeconds,
   parseVideoTime,
-} from "@coldbrew/packages/video-timing.js";
+} from "@streambrew/packages/video-timing.js";
 import { cn } from "@web/lib/utils";
 import { useId } from "react";
 import { useFormContext } from "react-hook-form";

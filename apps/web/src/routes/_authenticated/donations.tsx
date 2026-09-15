@@ -12,7 +12,7 @@ const i18n = createI18n({
 export const Route = createFileRoute("/_authenticated/donations")({
   component: DonationsLayout,
   head: ({ match }) => ({
-    meta: [{ title: `${createTranslator(match.context.locale, i18n)("donations")} · Coldbrew` }],
+    meta: [{ title: `${createTranslator(match.context.locale, i18n)("donations")} · StreamBrew` }],
   }),
 });
 

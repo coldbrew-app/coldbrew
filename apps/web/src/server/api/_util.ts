@@ -1,5 +1,5 @@
-import { AuthUserIdSchema, type UserId } from "@coldbrew/packages/schemas.js";
-import { slugFromEmail } from "@coldbrew/packages/slug.js";
+import { AuthUserIdSchema, type UserId } from "@streambrew/packages/schemas.js";
+import { slugFromEmail } from "@streambrew/packages/slug.js";
 
 import { isAdminEmail } from "../admin.js";
 import { auth } from "../lib/auth.js";

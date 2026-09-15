@@ -1,5 +1,5 @@
-import { MoneyAmountSchema, type VideoQueue } from "@coldbrew/packages/schemas.js";
-import { youtubeVideoId } from "@coldbrew/packages/youtube.js";
+import { MoneyAmountSchema, type VideoQueue } from "@streambrew/packages/schemas.js";
+import { youtubeVideoId } from "@streambrew/packages/youtube.js";
 import { useAddVideoM, useUserInfoSafe } from "@web/hooks/api";
 import { formatMoneyInputValue } from "@web/lib/fmt";
 import { createI18n, useI18n } from "@web/lib/i18n";

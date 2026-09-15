@@ -1,4 +1,4 @@
-import { formatVideoTime } from "@coldbrew/packages/video-timing.js";
+import { formatVideoTime } from "@streambrew/packages/video-timing.js";
 
 type SharedVideoTiming = {
   startSeconds: number;

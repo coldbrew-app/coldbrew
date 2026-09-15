@@ -16,7 +16,7 @@ import (
 func twitchTestSource() ConnectedSource {
 	source := connectedSource(twitchSourceID, "twitch", CapabilityRead, CapabilitySendMessage)
 	source.Source.ProviderSourceID = "42"
-	source.Source.DisplayName = "coldbrew"
+	source.Source.DisplayName = "streambrew"
 	source.Credentials = ProviderCredentials{AccessToken: "access-token", RefreshToken: "refresh-token", Scopes: []string{"user:read:chat", "user:write:chat"}, TokenVersion: 1}
 	return source
 }
@@ -136,7 +136,7 @@ func TestTwitchStreamNormalizesNotification(t *testing.T) {
 	defer cancel()
 	events, providerErrors := provider.Stream(ctx, twitchTestSource())
 	socket.reads <- []byte(`{"metadata":{"message_type":"session_welcome"},"payload":{"session":{"id":"session-1"}}}`)
-	socket.reads <- []byte(`{"metadata":{"message_type":"notification","message_timestamp":"2026-08-27T12:00:00Z"},"payload":{"event":{"broadcaster_user_login":"coldbrew","chatter_user_id":"viewer-1","chatter_user_name":"Viewer","message_id":"message-1","message":{"text":"Hello"}}}}`)
+	socket.reads <- []byte(`{"metadata":{"message_type":"notification","message_timestamp":"2026-08-27T12:00:00Z"},"payload":{"event":{"broadcaster_user_login":"streambrew","chatter_user_id":"viewer-1","chatter_user_name":"Viewer","message_id":"message-1","message":{"text":"Hello"}}}}`)
 	connecting := <-events
 	state := <-events
 	message := <-events

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lebedev-nikita/coldbrew/internal/donatestream"
+	"github.com/streambrew-app/streambrew/internal/donatestream"
 )
 
 const httpTestSecret = "12345678901234567890123456789012"
@@ -101,7 +101,7 @@ func TestHTTPHandlerValidatesConnectInput(t *testing.T) {
 func TestHTTPAuthorizationURLRequiresStreamlabsState(t *testing.T) {
 	handler := newHTTPHandler(&httpTestApplication{}, &httpTestDonateStreamApplication{}, httpTestSecret, nil)
 	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, authorizedRequest("/internal/authorization-url", `{"source":"streamlabs","redirectUri":"https://coldbrew.test/callback","state":"short"}`))
+	handler.ServeHTTP(response, authorizedRequest("/internal/authorization-url", `{"source":"streamlabs","redirectUri":"https://streambrew.test/callback","state":"short"}`))
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
 	}
@@ -111,7 +111,7 @@ func TestHTTPAuthorizationURLRoutesProvider(t *testing.T) {
 	application := &httpTestApplication{}
 	handler := newHTTPHandler(application, &httpTestDonateStreamApplication{}, httpTestSecret, nil)
 	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, authorizedRequest("/internal/authorization-url", `{"source":"streamlabs","redirectUri":"https://coldbrew.test/callback","state":"12345678901234567890123456789012"}`))
+	handler.ServeHTTP(response, authorizedRequest("/internal/authorization-url", `{"source":"streamlabs","redirectUri":"https://streambrew.test/callback","state":"12345678901234567890123456789012"}`))
 	if response.Code != http.StatusOK || application.authorizedSource != StreamlabsSource {
 		t.Fatalf("status=%d source=%q body=%s", response.Code, application.authorizedSource, response.Body.String())
 	}

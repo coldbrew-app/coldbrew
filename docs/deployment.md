@@ -1,4 +1,4 @@
-# Coldbrew production deployment
+# StreamBrew production deployment
 
 Production runs on a single VPS, but deployments are performed by the
 `Production` GitHub Actions workflow. Every push to `master` is checked, built
@@ -16,8 +16,8 @@ deployment job references the `Production` GitHub environment.
 
 The workflow publishes these private packages as immutable images:
 
-- `ghcr.io/coldbrew-app/coldbrew`, tagged with the full commit SHA;
-- `ghcr.io/coldbrew-app/coldbrew-postgres-walg`, tagged with the Git tree SHA
+- `ghcr.io/streambrew-app/streambrew`, tagged with the full commit SHA;
+- `ghcr.io/streambrew-app/streambrew-postgres-walg`, tagged with the Git tree SHA
   of `docker/postgres-walg` so application-only changes do not restart the
   database.
 
@@ -26,17 +26,24 @@ uploads it alongside the generated environment, and uses it with an isolated
 Docker configuration on the VPS. Both the token and Docker configuration are
 removed when the deployment command exits.
 
+An existing installation must keep its current deployment directory, PostgreSQL
+database and user names, Compose project name, and `WALG_S3_PREFIX`. These are
+persistent infrastructure identifiers, not public branding. Renaming the checkout
+directory without pinning the old Compose project name makes Compose select new,
+empty volumes. The `/opt/streambrew` paths and `streambrew` database values below
+are therefore defaults for new installations only.
+
 The `Production` GitHub environment is the source of truth for application
 configuration. Each deployment combines its individual GitHub Variables and
-Secrets into the untracked `/opt/coldbrew/.env` on the VPS before running
-Compose.
+Secrets into the untracked `.env` in `SSH_DEPLOY_PATH` on the VPS before
+running Compose.
 
 `apps/donations` is the donation integration module. Its DonationAlerts and
 Streamlabs adapters own OAuth mechanics, connection lifecycles, token refresh,
 history imports, and outgoing realtime connections. The donate.stream adapter
 authenticates alert-widget addresses and receives realtime donations without a
 history import. All three sources write received donations to PostgreSQL.
-`apps/web` owns Coldbrew authentication, the public OAuth routes, and the
+`apps/web` owns StreamBrew authentication, the public OAuth routes, and the
 integration settings UI. The donate.stream protocol and widget-address setup
 are documented in [donate-stream.md](donate-stream.md).
 
@@ -50,7 +57,7 @@ are documented in [donate-stream.md](donate-stream.md).
   donation-scan and metadata-retry loops. See [video metadata operations](video-metadata.md)
   for nullable-timing rollout and historical donation recovery.
 - `vector` reads the application services' Docker logs and forwards them
-  to the `coldbrew-logs` Axiom dataset. Infrastructure and Vector's own
+  to the `streambrew-logs` Axiom dataset. Infrastructure and Vector's own
   logs remain local.
 - `nats` carries transient chat events, collector leases, and operational log
   events through JetStream, with state stored in the `nats_data` volume.
@@ -72,13 +79,13 @@ multiple replicas could subscribe and refresh tokens for the same users.
 
 Install Git, Docker with the Compose plugin, Bun, `just`, and `curl`. The
 repository installs `dotenvx` and `dbmate` with Bun. Create a dedicated
-deployment user that can use Docker without `sudo`, owns `/opt/coldbrew`, and
+deployment user that can use Docker without `sudo`, owns `/opt/streambrew`, and
 can log in only with an SSH key. Clone the public repository into that
 directory:
 
 ```sh
-git clone https://github.com/lebedev-nikita/coldbrew.git /opt/coldbrew
-cd /opt/coldbrew
+git clone https://github.com/streambrew-app/streambrew.git /opt/streambrew
+cd /opt/streambrew
 bun install --frozen-lockfile
 ```
 
@@ -103,7 +110,7 @@ server. Do not create or edit the production `.env` manually.
 The GitHub Variables and Secrets described below provide:
 
 - `APP_DOMAIN`, including the scheme, for example
-  `https://coldbrew.example.com`;
+  `https://streambrew.app`;
 - `PGDATABASE`, `PGHOST`, `PGUSER`, `PGPASSWORD`, and optionally `PGPORT` for the
   external PostgreSQL binding (defaults to `5432`);
 - `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET`;
@@ -119,11 +126,11 @@ The GitHub Variables and Secrets described below provide:
 - `DONATIONS_SERVICE_SECRET`, shared only by web and donations;
 - `TELEGRAM_BOT_TOKEN` for the operational bot and optional
   `TELEGRAM_ADMIN_CHAT_ID` for log notifications;
-- `AXIOM_TOKEN`, an ingest-only API token scoped to the `coldbrew-logs` dataset;
+- `AXIOM_TOKEN`, an ingest-only API token scoped to the `streambrew-logs` dataset;
 - `WALG_S3_PREFIX` and `AWS_REGION`, plus AWS credentials unless the VPS uses
   an IAM role or another supported credential provider.
 
-Create the `coldbrew-logs` dataset in Axiom before the first deployment,
+Create the `streambrew-logs` dataset in Axiom before the first deployment,
 then create an API token that can only ingest into that dataset. The deployment
 stores the token with the other production values in `.env`. Compose mounts it
 as `/run/secrets/axiom_token`, and Vector resolves it through its directory
@@ -135,7 +142,7 @@ Production configuration, including credentials, is stored in the ignored
 Do not add Compose file secrets for these values: keeping one configuration
 path ensures that `docker compose up` detects changes and recreates affected
 containers. The deployment recipe also records the deployed immutable
-`COLDBREW_IMAGE` and `COLDBREW_POSTGRES_IMAGE` references there, so later manual
+`STREAMBREW_IMAGE` and `STREAMBREW_POSTGRES_IMAGE` references there, so later manual
 Compose operations cannot fall back to stale local images. A rollback replaces
 both references with the previous revision's images.
 
@@ -150,7 +157,7 @@ each component; do not add a separate `DATABASE_URL` secret.
 The application logger writes structured records to stdout and publishes the
 same `info`, `warn`, and `error` records to the `OPERATIONAL_LOGS` JetStream.
 The Go services use the shared `slog` handler; server-side web code uses
-`@coldbrew/packages/server-logger.js`. Fields whose names contain `token`,
+`@streambrew/packages/server-logger.js`. Fields whose names contain `token`,
 `secret`, `password`, `authorization`, or `cookie` are redacted from the NATS
 record.
 
@@ -174,7 +181,7 @@ not enter the production stream. Run `just dev-alerts` after configuring
 
 For a new database volume, first run the `Production` workflow. Its migration gate
 will stop the initial deployment, but the workflow will already have generated
-`/opt/coldbrew/.env` from GitHub. Then start PostgreSQL, apply the migrations using
+`/opt/streambrew/.env` from GitHub. Then start PostgreSQL, apply the migrations using
 the host-side port, and rerun the workflow with `migrations_applied` enabled:
 
 ```sh
@@ -202,13 +209,13 @@ UDP 443 through its firewall and cloud-provider security group. If `PGPORT`
 is set to another value, allow that TCP port instead of 5432. Register these
 OAuth callback URLs:
 
-- `https://<domain>/api/auth/callback/google`
-- `https://<domain>/api/integration/donationalerts/callback`
-- `https://<domain>/api/integration/streamlabs/callback`
-- `https://<domain>/api/chat/oauth/youtube/callback`
-- `https://<domain>/api/chat/oauth/twitch/callback`
-- `https://<domain>/api/chat/oauth/kick/callback`
-- `https://<domain>/api/chat/oauth/vk_video/callback`
+- `https://streambrew.app/api/auth/callback/google`
+- `https://streambrew.app/api/integration/donationalerts/callback`
+- `https://streambrew.app/api/integration/streamlabs/callback`
+- `https://streambrew.app/api/chat/oauth/youtube/callback`
+- `https://streambrew.app/api/chat/oauth/twitch/callback`
+- `https://streambrew.app/api/chat/oauth/kick/callback`
+- `https://streambrew.app/api/chat/oauth/vk_video/callback`
 
 PostgreSQL 18 keeps the cluster in a version-specific subdirectory under
 `/var/lib/postgresql`; `compose.yaml` therefore mounts the volume at that
@@ -224,34 +231,34 @@ branches to `master`; do not add a required reviewer when deployments from
 
 Add these environment variables:
 
-| Name                           | Example                            | Required |
-| ------------------------------ | ---------------------------------- | -------- |
-| `APP_DOMAIN`                   | `https://coldbrew.example.com`     | yes      |
-| `ADMIN_EMAILS`                 | `admin@example.com`                | no       |
-| `AWS_ENDPOINT`                 | `https://s3.example.com`           | no       |
-| `AWS_REGION`                   | `eu-central-1`                     | yes      |
-| `BOOSTY_CLIENT_ID`             | Boosty OAuth client ID             | no       |
-| `DONATION_ALERTS_CLIENT_ID`    | `12345`                            | yes      |
-| `STREAMLABS_CLIENT_ID`         | Streamlabs OAuth client ID         | yes      |
-| `GOOGLE_CLIENT_ID`             | OAuth client ID                    | yes      |
-| `KICK_CLIENT_ID`               | Kick OAuth client ID               | no       |
-| `KICK_WEBHOOK_PUBLIC_KEY`      | Kick webhook RSA public key        | no       |
-| `TWITCH_CLIENT_ID`             | Twitch OAuth client ID             | no       |
-| `TELEGRAM_ADMIN_CHAT_ID`       | Telegram notification chat ID      | no       |
-| `VK_VIDEO_CLIENT_ID`           | VK Video OAuth client ID           | no       |
-| `YOUTUBE_CLIENT_ID`            | YouTube chat OAuth client ID       | no       |
-| `PGDATABASE`                   | `coldbrew`                         | yes      |
-| `PGHOST`                       | `postgres`                         | yes      |
-| `PGPORT`                       | `5432`                             | no       |
-| `PGUSER`                       | `coldbrew`                         | yes      |
-| `SSH_DEPLOY_PATH`              | `/opt/coldbrew`                    | yes      |
-| `SSH_HOST`                     | `203.0.113.10`                     | yes      |
-| `SSH_PORT`                     | `22`                               | yes      |
-| `SSH_USER`                     | `coldbrew-deploy`                  | yes      |
-| `WALG_ARCHIVE_TIMEOUT_SECONDS` | `300`                              | no       |
-| `WALG_BACKUP_INTERVAL_SECONDS` | `86400`                            | no       |
-| `WALG_KEEP_FULL_BACKUPS`       | `7`                                | no       |
-| `WALG_S3_PREFIX`               | `s3://my-bucket/coldbrew/postgres` | yes      |
+| Name                           | Example                              | Required |
+| ------------------------------ | ------------------------------------ | -------- |
+| `APP_DOMAIN`                   | `https://streambrew.app`             | yes      |
+| `ADMIN_EMAILS`                 | `admin@example.com`                  | no       |
+| `AWS_ENDPOINT`                 | `https://s3.example.com`             | no       |
+| `AWS_REGION`                   | `eu-central-1`                       | yes      |
+| `BOOSTY_CLIENT_ID`             | Boosty OAuth client ID               | no       |
+| `DONATION_ALERTS_CLIENT_ID`    | `12345`                              | yes      |
+| `STREAMLABS_CLIENT_ID`         | Streamlabs OAuth client ID           | yes      |
+| `GOOGLE_CLIENT_ID`             | OAuth client ID                      | yes      |
+| `KICK_CLIENT_ID`               | Kick OAuth client ID                 | no       |
+| `KICK_WEBHOOK_PUBLIC_KEY`      | Kick webhook RSA public key          | no       |
+| `TWITCH_CLIENT_ID`             | Twitch OAuth client ID               | no       |
+| `TELEGRAM_ADMIN_CHAT_ID`       | Telegram notification chat ID        | no       |
+| `VK_VIDEO_CLIENT_ID`           | VK Video OAuth client ID             | no       |
+| `YOUTUBE_CLIENT_ID`            | YouTube chat OAuth client ID         | no       |
+| `PGDATABASE`                   | `streambrew`                         | yes      |
+| `PGHOST`                       | `postgres`                           | yes      |
+| `PGPORT`                       | `5432`                               | no       |
+| `PGUSER`                       | `streambrew`                         | yes      |
+| `SSH_DEPLOY_PATH`              | `/opt/streambrew`                    | yes      |
+| `SSH_HOST`                     | `203.0.113.10`                       | yes      |
+| `SSH_PORT`                     | `22`                                 | yes      |
+| `SSH_USER`                     | `streambrew-deploy`                  | yes      |
+| `WALG_ARCHIVE_TIMEOUT_SECONDS` | `300`                                | no       |
+| `WALG_BACKUP_INTERVAL_SECONDS` | `86400`                              | no       |
+| `WALG_KEEP_FULL_BACKUPS`       | `7`                                  | no       |
+| `WALG_S3_PREFIX`               | `s3://my-bucket/streambrew/postgres` | yes      |
 
 Add these environment secrets:
 
@@ -283,7 +290,7 @@ Add these environment secrets:
 be omitted when the VPS uses an IAM role or another supported credential
 provider. The workflow validates this along with every required value, safely
 generates dotenv syntax, transfers it over SSH, and atomically replaces
-`/opt/coldbrew/.env` with mode `0600` on every deployment.
+the deployment checkout's `.env` with mode `0600` on every deployment.
 
 Each optional provider credential group must be configured completely or omitted. VK Video
 uses its OAuth credentials. Boosty connects through a per-account session token in the multichat
@@ -319,7 +326,7 @@ A push or merge to `master` runs the complete workflow:
 
 Only one production deployment runs at a time. Every attempt refreshes `.env`
 from GitHub before checking the migration gate; a successful deployment writes the
-target SHA to `/opt/coldbrew/.deployed-sha`. Named PostgreSQL, NATS, Vector, and
+target SHA to `.deployed-sha` in `SSH_DEPLOY_PATH`. Named PostgreSQL, NATS, Vector, and
 Caddy volumes are preserved. Updating a production Variable or Secret and rerunning the
 workflow recreates the affected containers with the new values; `docker compose
 restart` alone does not refresh environment variables. The deployment recipe explicitly recreates
@@ -340,7 +347,7 @@ Vector checks that the Axiom destination is reachable when it starts. A missing
 `AXIOM_TOKEN` environment value prevents Vector from starting; an invalid token
 is reported in Vector's logs when delivery is attempted. Neither failure prevents the application
 services from running. After deployment, confirm that events arrive in Axiom's
-`coldbrew-logs` dataset. Filter by `label.com.docker.compose.service` to
+`streambrew-logs` dataset. Filter by `label.com.docker.compose.service` to
 separate `web`, `chat`, `donations`, `video`, and `alerts`. Each event also includes its
 Docker timestamp, container name, image, and stdout/stderr stream.
 
@@ -366,7 +373,7 @@ For the independent-video-queues transition, review its
 dbmate migration.
 
 ```sh
-cd /opt/coldbrew
+cd <SSH_DEPLOY_PATH>
 git fetch --prune --tags origin
 git checkout --detach <target-sha>
 bun install --frozen-lockfile
@@ -382,7 +389,9 @@ revision.
 
 When the new stack fails its Compose or public HTTP health check, CI checks out
 the previous `.deployed-sha` and starts its SHA-tagged images automatically.
-The failed SHA is not recorded as deployed.
+The failed SHA is not recorded as deployed. During the first renamed deployment,
+the rollback also checks the transferred pre-rename GHCR package names when the
+previous SHA has not yet been published under the new package names.
 
 To roll back manually, run the Production workflow with the previous SHA in
 `revision`. If `db/migrations` differs, the migration gate blocks the rollback;

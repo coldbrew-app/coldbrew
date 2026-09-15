@@ -7,8 +7,8 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/lebedev-nikita/coldbrew/internal/money"
-	"github.com/lebedev-nikita/coldbrew/internal/youtube"
+	"github.com/streambrew-app/streambrew/internal/money"
+	"github.com/streambrew-app/streambrew/internal/youtube"
 )
 
 type jobStore interface {

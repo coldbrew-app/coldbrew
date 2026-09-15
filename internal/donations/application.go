@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lebedev-nikita/coldbrew/internal/donationalert"
+	"github.com/streambrew-app/streambrew/internal/donationalert"
 )
 
 type persistence interface {

@@ -1,4 +1,4 @@
-import type { DonationSource } from "@coldbrew/packages/schemas.js";
+import type { DonationSource } from "@streambrew/packages/schemas.js";
 import { cn } from "@web/lib/utils";
 import type { ReactNode } from "react";
 
