@@ -272,11 +272,31 @@ function WidgetIntegrationCard({
   );
 }
 
-function RouteComponent() {
-  const userInfo = useUserInfoSafe();
-  const authUrlQ = useAuthUrlQ();
-  const [widgetFormSource, setWidgetFormSource] = useState<WidgetDonationSource | null>(null);
-  const disconnectM = useDisconnectM();
+function DisconnectError({ disconnectM }: { disconnectM: DisconnectMutation }) {
+  const { t } = useI18n(i18n);
+  if (!disconnectM.isError || !disconnectM.variables) return null;
+
+  return (
+    <div
+      className="rounded-xl border border-red-300/50 bg-red-50 px-3.5 py-3 text-[13px] text-red-700 dark:bg-red-400/10 dark:text-red-300"
+      role="alert"
+    >
+      {t("disconnectFailed", {
+        source: donationSourceDetails(disconnectM.variables.source).name,
+      })}
+    </div>
+  );
+}
+
+function OAuthIntegrationCards({
+  authUrlQ,
+  disconnectM,
+  userInfo,
+}: {
+  authUrlQ: AuthUrlQuery;
+  disconnectM: DisconnectMutation;
+  userInfo: ReturnType<typeof useUserInfoSafe>;
+}) {
   const { t } = useI18n(i18n);
   const streamElementsStatus: DonationSourceConnectionStatus | null =
     userInfo?.streamElementsConnectionStatus ?? null;
@@ -288,42 +308,51 @@ function RouteComponent() {
         : undefined;
 
   return (
+    <>
+      <DonationIntegrationCard
+        authUrl={authUrlQ.data?.donationAlerts}
+        authUrlQ={authUrlQ}
+        connected={userInfo?.hasDonationAlertsConnection ?? false}
+        disconnectM={disconnectM}
+        source="donationalerts"
+      />
+      <DonationIntegrationCard
+        authUrl={authUrlQ.data?.streamlabs}
+        authUrlQ={authUrlQ}
+        connected={userInfo?.hasStreamlabsConnection ?? false}
+        disconnectM={disconnectM}
+        source="streamlabs"
+      />
+      <DonationIntegrationCard
+        authUrl={authUrlQ.data?.streamElements}
+        authUrlQ={authUrlQ}
+        connectionIssue={streamElementsIssue}
+        connected={userInfo?.hasStreamElementsConnection ?? false}
+        disconnectM={disconnectM}
+        source="streamelements"
+      />
+    </>
+  );
+}
+
+function RouteComponent() {
+  const userInfo = useUserInfoSafe();
+  const authUrlQ = useAuthUrlQ();
+  const [widgetFormSource, setWidgetFormSource] = useState<WidgetDonationSource | null>(null);
+  const disconnectM = useDisconnectM();
+  const { t } = useI18n(i18n);
+
+  return (
     <section className="cosmic-panel flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
       <CosmicPageHeader title={t("integrations")} variant="beans" />
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-3 sm:p-4">
         <ConnectionNotice />
-        {disconnectM.isError && disconnectM.variables && (
-          <div
-            className="rounded-xl border border-red-300/50 bg-red-50 px-3.5 py-3 text-[13px] text-red-700 dark:bg-red-400/10 dark:text-red-300"
-            role="alert"
-          >
-            {t("disconnectFailed", {
-              source: donationSourceDetails(disconnectM.variables.source).name,
-            })}
-          </div>
-        )}
-        <div className="grid shrink-0 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <DonationIntegrationCard
-            authUrl={authUrlQ.data?.donationAlerts}
+        <DisconnectError disconnectM={disconnectM} />
+        <div className="grid shrink-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <OAuthIntegrationCards
             authUrlQ={authUrlQ}
-            connected={userInfo?.hasDonationAlertsConnection ?? false}
             disconnectM={disconnectM}
-            source="donationalerts"
-          />
-          <DonationIntegrationCard
-            authUrl={authUrlQ.data?.streamlabs}
-            authUrlQ={authUrlQ}
-            connected={userInfo?.hasStreamlabsConnection ?? false}
-            disconnectM={disconnectM}
-            source="streamlabs"
-          />
-          <DonationIntegrationCard
-            authUrl={authUrlQ.data?.streamElements}
-            authUrlQ={authUrlQ}
-            connectionIssue={streamElementsIssue}
-            connected={userInfo?.hasStreamElementsConnection ?? false}
-            disconnectM={disconnectM}
-            source="streamelements"
+            userInfo={userInfo}
           />
           <WidgetIntegrationCard
             connected={userInfo?.hasDonateStreamConnection ?? false}
