@@ -152,21 +152,58 @@ export const Route = createFileRoute("/_authenticated/")({
 
 const panel = "cosmic-panel overflow-hidden";
 
+function donationSourceConnections(userInfo: ReturnType<typeof useUserInfoSafe>) {
+  const donationAlertsConnected = userInfo?.hasDonationAlertsConnection ?? false;
+  const donateStreamConnected = userInfo?.hasDonateStreamConnection ?? false;
+  const streamlabsConnected = userInfo?.hasStreamlabsConnection ?? false;
+  const streamElementsConnected = userInfo?.hasStreamElementsConnection ?? false;
+  const tourniquetConnected = userInfo?.hasTourniquetConnection ?? false;
+
+  return [
+    {
+      source: "donationalerts",
+      connected: donationAlertsConnected,
+      mark: <DonationAlertsMark />,
+      name: <DonationAlertsNameLink />,
+      status: <DonationAlertsConnectionStatus connected={donationAlertsConnected} />,
+    },
+    {
+      source: "donate_stream",
+      connected: donateStreamConnected,
+      mark: <DonationSourceMark source="donate_stream" />,
+      name: <DonationSourceNameLink source="donate_stream" />,
+      status: <DonationSourceConnectionStatus connected={donateStreamConnected} />,
+    },
+    {
+      source: "streamlabs",
+      connected: streamlabsConnected,
+      mark: <StreamlabsMark />,
+      name: <StreamlabsNameLink />,
+      status: <StreamlabsConnectionStatus connected={streamlabsConnected} />,
+    },
+    {
+      source: "streamelements",
+      connected: streamElementsConnected,
+      mark: <StreamElementsMark />,
+      name: <StreamElementsNameLink />,
+      status: <StreamElementsConnectionStatus connected={streamElementsConnected} />,
+    },
+    {
+      source: "tourniquet",
+      connected: tourniquetConnected,
+      mark: <DonationSourceMark source="tourniquet" />,
+      name: <DonationSourceNameLink source="tourniquet" />,
+      status: <DonationSourceConnectionStatus connected={tourniquetConnected} />,
+    },
+  ];
+}
+
 function Overview() {
   const userInfo = useUserInfoSafe();
   const donationOverviewQ = useDonationOverviewQ();
   const success = Route.useSearch({ select: (search) => search.success });
-  const donationAlertsConnected = userInfo !== null && userInfo.hasDonationAlertsConnection;
-  const donateStreamConnected = userInfo !== null && userInfo.hasDonateStreamConnection;
-  const streamlabsConnected = userInfo !== null && userInfo.hasStreamlabsConnection;
-  const tourniquetConnected = userInfo !== null && userInfo.hasTourniquetConnection;
-  const streamElementsConnected = userInfo !== null && userInfo.hasStreamElementsConnection;
-  const hasDonationConnection =
-    donationAlertsConnected ||
-    donateStreamConnected ||
-    streamlabsConnected ||
-    tourniquetConnected ||
-    streamElementsConnected;
+  const donationConnections = donationSourceConnections(userInfo);
+  const hasDonationConnection = donationConnections.some(({ connected }) => connected);
   const { locale, t } = useI18n(i18n);
 
   const total = donationOverviewQ.data?.totalAmount ?? 0;
@@ -304,41 +341,18 @@ function Overview() {
                     </Link>
                   </div>
                   <div className="grid gap-2 sm:grid-cols-2">
-                    <div className="flex min-w-0 items-center gap-2 rounded-xl bg-muted/55 p-2.5">
-                      <DonationAlertsMark />
-                      <span className="min-w-0 grow truncate text-xs font-semibold text-card-foreground">
-                        <DonationAlertsNameLink />
-                      </span>
-                      <DonationAlertsConnectionStatus connected={donationAlertsConnected} />
-                    </div>
-                    <div className="flex min-w-0 items-center gap-2 rounded-xl bg-muted/55 p-2.5">
-                      <DonationSourceMark source="donate_stream" />
-                      <span className="min-w-0 grow truncate text-xs font-semibold text-card-foreground">
-                        <DonationSourceNameLink source="donate_stream" />
-                      </span>
-                      <DonationSourceConnectionStatus connected={donateStreamConnected} />
-                    </div>
-                    <div className="flex min-w-0 items-center gap-2 rounded-xl bg-muted/55 p-2.5">
-                      <StreamlabsMark />
-                      <span className="min-w-0 grow truncate text-xs font-semibold text-card-foreground">
-                        <StreamlabsNameLink />
-                      </span>
-                      <StreamlabsConnectionStatus connected={streamlabsConnected} />
-                    </div>
-                    <div className="flex min-w-0 items-center gap-2 rounded-xl bg-muted/55 p-2.5">
-                      <StreamElementsMark />
-                      <span className="min-w-0 grow truncate text-xs font-semibold text-card-foreground">
-                        <StreamElementsNameLink />
-                      </span>
-                      <StreamElementsConnectionStatus connected={streamElementsConnected} />
-                    </div>
-                    <div className="flex min-w-0 items-center gap-2 rounded-xl bg-muted/55 p-2.5">
-                      <DonationSourceMark source="tourniquet" />
-                      <span className="min-w-0 grow truncate text-xs font-semibold text-card-foreground">
-                        <DonationSourceNameLink source="tourniquet" />
-                      </span>
-                      <DonationSourceConnectionStatus connected={tourniquetConnected} />
-                    </div>
+                    {donationConnections.map(({ name, source, mark, status }) => (
+                      <div
+                        className="flex min-w-0 items-center gap-2 rounded-xl bg-muted/55 p-2.5"
+                        key={source}
+                      >
+                        {mark}
+                        <span className="min-w-0 grow truncate text-xs font-semibold text-card-foreground">
+                          {name}
+                        </span>
+                        {status}
+                      </div>
+                    ))}
                   </div>
                 </article>
                 <article className="relative flex min-h-[120px] flex-wrap items-center gap-3 overflow-hidden rounded-2xl bg-[#51405e] p-5 text-[#fff8ed]">
