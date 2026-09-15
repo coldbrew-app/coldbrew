@@ -11,6 +11,9 @@ func TestDefaultSettingsAreValid(t *testing.T) {
 	if err := settings.Validate(); err != nil {
 		t.Fatalf("default settings are invalid: %v", err)
 	}
+	if len(settings.EnabledSources) != 4 || !ValidSource(StreamElementsSource) {
+		t.Fatalf("default sources = %#v", settings.EnabledSources)
+	}
 }
 
 func TestSettingsRejectUnsupportedVoiceAndDuplicateSources(t *testing.T) {

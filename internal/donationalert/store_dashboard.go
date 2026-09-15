@@ -220,6 +220,13 @@ func (store *Store) Dashboard(ctx context.Context, userID int, now time.Time) (D
 			UNION ALL
 			SELECT 'tourniquet'::text
 			WHERE EXISTS (SELECT 1 FROM tourniquet_connection WHERE user_id = $1)
+			UNION ALL
+			SELECT 'streamelements'::text
+			WHERE EXISTS (
+				SELECT 1
+				FROM streamelements_connection
+				WHERE user_id = $1 AND status = 'connected'
+			)
 		) AS connected
 		ORDER BY source
 	`, userID)

@@ -18,6 +18,49 @@ import (
 
 var alertTestSchemaSequence atomic.Uint64
 
+func TestDashboardReportsOnlyActiveStreamElementsConnection(t *testing.T) {
+	store, pool := newAlertIntegrationStore(t)
+	seedAlertUser(t, pool, 1)
+	ctx := context.Background()
+	if err := store.EnsureConfiguration(ctx, 1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO streamelements_connection (
+			user_id,
+			source_user_id,
+			access_token,
+			refresh_token
+		)
+		VALUES (1, 'channel', 'access', 'refresh')
+	`); err != nil {
+		t.Fatal(err)
+	}
+
+	dashboard, err := store.Dashboard(ctx, 1, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(dashboard.ConnectedSources) != 1 || dashboard.ConnectedSources[0] != StreamElementsSource {
+		t.Fatalf("connected sources = %#v", dashboard.ConnectedSources)
+	}
+	if _, execErr := pool.Exec(ctx, `
+		UPDATE streamelements_connection
+		SET status = 'error'
+		WHERE user_id = 1
+	`); execErr != nil {
+		t.Fatal(execErr)
+	}
+
+	dashboard, err = store.Dashboard(ctx, 1, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(dashboard.ConnectedSources) != 0 {
+		t.Fatalf("inactive StreamElements source remained connected: %#v", dashboard.ConnectedSources)
+	}
+}
+
 func TestConcurrentPlayerOpenCreatesOneActiveLease(t *testing.T) {
 	store, pool := newAlertIntegrationStore(t)
 	seedAlertUser(t, pool, 1)

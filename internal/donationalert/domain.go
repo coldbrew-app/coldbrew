@@ -48,9 +48,16 @@ const (
 	DonateStreamSource   Source = "donate_stream"
 	StreamlabsSource     Source = "streamlabs"
 	TourniquetSource     Source = "tourniquet"
+	StreamElementsSource Source = "streamelements"
 )
 
-var allSources = []Source{DonationAlertsSource, DonateStreamSource, StreamlabsSource, TourniquetSource}
+var allSources = []Source{
+	DonationAlertsSource,
+	DonateStreamSource,
+	StreamlabsSource,
+	TourniquetSource,
+	StreamElementsSource,
+}
 
 func ValidSource(source Source) bool { return slices.Contains(allSources, source) }
 
