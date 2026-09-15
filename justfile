@@ -152,7 +152,7 @@ production-deploy $app_image $postgres_image:
   # The same recipe also recreates it with the previous file during rollback.
   docker compose up --no-build --detach --wait --wait-timeout 180 --force-recreate --no-deps caddy
   bunx dotenvx run -f .env --overload -- \
-    bash -c 'curl --fail --silent --show-error --retry 10 --retry-delay 3 --retry-connrefused "${APP_DOMAIN%/}/api/health" >/dev/null'
+    bash -c 'curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 3 --retry-connrefused "${APP_DOMAIN%/}/api/health" >/dev/null'
   bunx dotenvx run -f .env --overload -- \
     bash -c '
       status="$(curl --silent --show-error --output /dev/null --write-out "%{http_code}" "${APP_DOMAIN%/}/api/chat/deployment-routing-probe")"
