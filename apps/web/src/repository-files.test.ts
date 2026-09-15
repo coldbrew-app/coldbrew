@@ -21,3 +21,17 @@ it("runs production migrations inside a quoted remote script", () => {
   expect(workflow).toContain("exec docker run \\");
   expect(workflow).toContain('DATABASE_URL="${DATABASE_URL}?sslmode=disable" exec bunx dbmate');
 });
+
+it("deploys the restream media plane when push-only CI is skipped", () => {
+  const workflow = readFileSync(
+    fileURLToPath(import.meta.resolve("../../../.github/workflows/restream.yml")),
+    "utf8",
+  );
+
+  expect(workflow).toContain(`  deploy:
+    name: Deploy restream media plane
+    if: >-
+      always() &&
+      needs.resolve.result == 'success' &&
+      needs.publish.result == 'success'`);
+});

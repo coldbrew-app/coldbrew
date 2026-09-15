@@ -95,6 +95,10 @@ jobs:
 
   deploy:
     name: Deploy restream media plane
+    if: >-
+      always() &&
+      needs.resolve.result == 'success' &&
+      needs.publish.result == 'success'
     needs:
       - resolve
       - publish
