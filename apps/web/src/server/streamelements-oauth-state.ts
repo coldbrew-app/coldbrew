@@ -1,53 +1,15 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createDonationOAuthState } from "./donation-oauth-state.js";
 
-import { parseCookie, serializeCookie } from "cookie-es";
-
-import { env } from "./env.js";
-
-const cookieName = "streambrew-streamelements-oauth";
-const stateLifetimeSeconds = 10 * 60;
-
-function signature(state: string, userId: number) {
-  return createHmac("sha256", env.BETTER_AUTH_SECRET)
-    .update(`${state}:${userId}`)
-    .digest("base64url");
-}
-
-function cookieOptions() {
-  return {
-    httpOnly: true,
-    path: "/",
-    sameSite: "lax" as const,
-    secure: new URL(env.APP_DOMAIN).protocol === "https:",
-  };
-}
+const oauthState = createDonationOAuthState("streambrew-streamelements-oauth");
 
 export function createStreamElementsOAuthAttempt(userId: number) {
-  const state = randomBytes(32).toString("base64url");
-  return {
-    state,
-    cookie: serializeCookie(cookieName, `${state}.${signature(state, userId)}`, {
-      ...cookieOptions(),
-      maxAge: stateLifetimeSeconds,
-    }),
-  };
+  return oauthState.create(userId);
 }
 
 export function clearStreamElementsOAuthAttempt() {
-  return serializeCookie(cookieName, "", {
-    ...cookieOptions(),
-    expires: new Date(0),
-    maxAge: 0,
-  });
+  return oauthState.clear();
 }
 
 export function verifyStreamElementsOAuthAttempt(request: Request, state: string, userId: number) {
-  const cookie = parseCookie(request.headers.get("cookie") ?? "")[cookieName];
-  if (cookie === undefined) {
-    return false;
-  }
-  const expected = `${state}.${signature(state, userId)}`;
-  const actualBytes = Buffer.from(cookie);
-  const expectedBytes = Buffer.from(expected);
-  return actualBytes.length === expectedBytes.length && timingSafeEqual(actualBytes, expectedBytes);
+  return oauthState.verify(request, state, userId);
 }

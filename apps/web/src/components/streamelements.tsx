@@ -1,12 +1,9 @@
 import {
-  donationSourceDetails,
   DonationSourceBadge,
   DonationSourceConnectionStatus,
   DonationSourceMark,
   DonationSourceNameLink,
 } from "./donation-source";
-
-export const STREAMELEMENTS_DONATIONS_URL = donationSourceDetails("streamelements").url;
 
 type MarkProps = {
   className?: string;
