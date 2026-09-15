@@ -3,11 +3,6 @@ import { CosmicArt } from "@web/components/cosmic-art";
 import { CosmicPageHeader } from "@web/components/cosmic-page-header";
 import { Metric } from "@web/components/dashboard/metric";
 import {
-  DONATE_STREAM_NAME,
-  DonateStreamConnectionStatus,
-  DonateStreamMark,
-} from "@web/components/donate-stream";
-import {
   DonationAlertsConnectionStatus,
   DonationAlertsMark,
   DonationAlertsNameLink,
@@ -307,11 +302,11 @@ function Overview() {
                       <DonationAlertsConnectionStatus connected={donationAlertsConnected} />
                     </div>
                     <div className="flex min-w-0 items-center gap-2 rounded-xl bg-muted/55 p-2.5">
-                      <DonateStreamMark />
-                      <span className="truncate text-xs font-semibold text-card-foreground">
-                        {DONATE_STREAM_NAME}
+                      <DonationSourceMark source="donate_stream" />
+                      <span className="min-w-0 grow truncate text-xs font-semibold text-card-foreground">
+                        <DonationSourceNameLink source="donate_stream" />
                       </span>
-                      <DonateStreamConnectionStatus connected={donateStreamConnected} />
+                      <DonationSourceConnectionStatus connected={donateStreamConnected} />
                     </div>
                     <div className="flex min-w-0 items-center gap-2 rounded-xl bg-muted/55 p-2.5">
                       <StreamlabsMark />
