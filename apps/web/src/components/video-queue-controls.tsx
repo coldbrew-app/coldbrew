@@ -269,7 +269,7 @@ function SelectedQueueLink({
   const { t } = useI18n(i18n);
 
   return (
-    <div className="grid min-w-0 max-w-full grid-cols-[minmax(0,1fr)_auto] items-center">
+    <div className="grid h-7 min-w-0 max-w-full grid-cols-[minmax(0,1fr)_auto] items-center overflow-hidden rounded-[min(var(--radius-md),12px)]">
       <Link
         to="/videos"
         onClick={onNavigate}
@@ -277,7 +277,7 @@ function SelectedQueueLink({
         className={buttonVariants({
           variant: "secondary",
           size: "sm",
-          className: "min-w-0 overflow-hidden rounded-r-none pr-2",
+          className: "h-full min-w-0 overflow-hidden rounded-none pr-2",
         })}
         search={(previous) => ({
           ...previous,
@@ -294,7 +294,7 @@ function SelectedQueueLink({
           render={
             <Button
               aria-label={t("editVideoQueue")}
-              className="w-5 rounded-l-none border-0 border-l border-secondary-foreground/10"
+              className="h-full w-5 rounded-none border-l-secondary-foreground/10"
               onClick={onEdit}
               size="icon-sm"
               variant="secondary"
