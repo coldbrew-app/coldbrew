@@ -63,7 +63,7 @@ func (source *Source) Run(
 ) error {
 	channelID = strings.TrimSpace(channelID)
 	if accessToken == "" || channelID == "" {
-		return requestValidationError("start Astro listener", errors.New("missing access token or channel id"))
+		return permanentRequestError("start Astro listener", errors.New("missing access token or channel id"))
 	}
 
 	retryDelay := source.retryStart
@@ -328,7 +328,7 @@ func astroResponseError(code string) error {
 func astroSocketURL(baseURL, reconnectToken string) (string, error) {
 	parsed, err := url.Parse(baseURL)
 	if err != nil {
-		return "", requestValidationError("parse Astro websocket URL", errors.New("invalid websocket URL"))
+		return "", permanentRequestError("parse Astro websocket URL", errors.New("invalid websocket URL"))
 	}
 	if reconnectToken != "" {
 		parameters := parsed.Query()

@@ -302,6 +302,9 @@ func TestGetDonationsOverlapContinuesPastCheckpointForDelayedTip(t *testing.T) {
 		if query.Get("after") != "2025-02-19T10:30:00.456Z" {
 			t.Fatalf("after = %q; want normalized UTC cutoff", query.Get("after"))
 		}
+		if query.Get("before") != "2025-02-20T10:30:00Z" {
+			t.Fatalf("before = %q; want one fixed traversal bound", query.Get("before"))
+		}
 		switch requests {
 		case 1:
 			if query.Get("offset") != "0" {
@@ -418,8 +421,8 @@ func TestGetDonationsRejectsInvalidCompletedTips(t *testing.T) {
 			client.PageDelay = 0
 			_, err := client.GetDonations(context.Background(), "access-token", testChannelID, nil, nil)
 			var requestError *RequestError
-			if !errors.As(err, &requestError) || requestError.Unauthorized {
-				t.Fatalf("error = %v; want validation RequestError", err)
+			if !errors.As(err, &requestError) || requestError.Unauthorized || !requestError.Permanent {
+				t.Fatalf("error = %v; want permanent validation RequestError", err)
 			}
 		})
 	}
@@ -459,15 +462,38 @@ func TestRefreshInvalidGrantIsUnauthorizedWithoutExposingResponse(t *testing.T) 
 	}
 }
 
-func TestOtherTokenHTTP400IsNotUnauthorized(t *testing.T) {
+func TestOtherTokenHTTP400IsPermanentAndNotUnauthorized(t *testing.T) {
 	client := testClient(t, func(writer http.ResponseWriter, _ *http.Request) {
 		writer.WriteHeader(http.StatusBadRequest)
 		_, _ = writer.Write([]byte(`{"error":"invalid_client"}`))
 	})
 	_, err := client.RefreshTokens(context.Background(), Config{}, "refresh-token")
 	var requestError *RequestError
-	if !errors.As(err, &requestError) || requestError.Unauthorized || requestError.Status != http.StatusBadRequest {
-		t.Fatalf("error = %v; want retryable HTTP 400 RequestError", err)
+	if !errors.As(err, &requestError) || requestError.Unauthorized || !requestError.Permanent ||
+		requestError.Status != http.StatusBadRequest {
+		t.Fatalf("error = %v; want permanent HTTP 400 RequestError", err)
+	}
+}
+
+func TestRateLimitAndServerFailuresRemainRetryable(t *testing.T) {
+	for _, status := range []int{http.StatusTooManyRequests, http.StatusInternalServerError} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			client := testClient(t, func(writer http.ResponseWriter, _ *http.Request) {
+				writer.WriteHeader(status)
+			})
+			_, err := client.GetDonations(
+				context.Background(),
+				"access-token",
+				testChannelID,
+				nil,
+				nil,
+			)
+			var requestError *RequestError
+			if !errors.As(err, &requestError) || requestError.Unauthorized || requestError.Permanent ||
+				requestError.Status != status {
+				t.Fatalf("error = %v; want retryable HTTP %d RequestError", err, status)
+			}
+		})
 	}
 }
 
