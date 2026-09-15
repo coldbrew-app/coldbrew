@@ -41,8 +41,9 @@ func NormalizeDonationAmount(amount string) (string, error) {
 	return match[1] + "." + fraction, nil
 }
 
-// ConvertWithDefaultRate converts between the queue currencies without floating-point arithmetic.
-// The boolean is false when the source or target currency is unsupported.
+// ConvertWithDefaultRate converts a precise original donation amount between
+// queue currencies without floating-point arithmetic, then rounds the result
+// to two decimal places. The boolean is false when either currency is unsupported.
 func ConvertWithDefaultRate(amount, sourceCurrency, targetCurrency string) (string, bool, error) {
 	sourceRate, sourceOK := rublesPerUnit[sourceCurrency]
 	targetRate, targetOK := rublesPerUnit[targetCurrency]
@@ -50,25 +51,29 @@ func ConvertWithDefaultRate(amount, sourceCurrency, targetCurrency string) (stri
 		return "", false, nil
 	}
 
-	cents, err := parseCents(amount)
+	units, scale, err := parseDonationUnits(amount)
 	if err != nil {
 		return "", false, err
 	}
-	numerator := new(big.Int).Mul(cents, big.NewInt(sourceRate))
-	converted := roundDiv(numerator, big.NewInt(targetRate))
+	numerator := new(big.Int).Mul(units, big.NewInt(sourceRate))
+	numerator.Mul(numerator, big.NewInt(100))
+	denominator := new(big.Int).Mul(scale, big.NewInt(targetRate))
+	converted := roundDiv(numerator, denominator)
 	return formatCents(converted), true, nil
 }
 
-func parseCents(amount string) (*big.Int, error) {
-	normalized, err := Normalize(amount)
+func parseDonationUnits(amount string) (*big.Int, *big.Int, error) {
+	normalized, err := NormalizeDonationAmount(amount)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+	whole, fraction, _ := strings.Cut(normalized, ".")
 	value := new(big.Int)
-	if _, ok := value.SetString(strings.Replace(normalized, ".", "", 1), 10); !ok {
-		return nil, fmt.Errorf("parse money amount %q", amount)
+	if _, ok := value.SetString(whole+fraction, 10); !ok {
+		return nil, nil, fmt.Errorf("parse donation amount %q", amount)
 	}
-	return value, nil
+	scale := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(len(fraction))), nil)
+	return value, scale, nil
 }
 
 func roundDiv(numerator, denominator *big.Int) *big.Int {
