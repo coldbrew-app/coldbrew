@@ -52,12 +52,15 @@ CREATE TABLE restream_session (
     OR (status = 'live' AND live_at IS NOT NULL AND ended_at IS NULL)
     OR (status = 'ended' AND ended_at IS NOT NULL)
   ),
-  UNIQUE (restream_session_id, user_id),
-  UNIQUE (node_id, publisher_id)
+  UNIQUE (restream_session_id, user_id)
 );
 
 CREATE UNIQUE INDEX restream_session_active_user_idx
 ON restream_session (user_id)
+WHERE status <> 'ended';
+
+CREATE UNIQUE INDEX restream_session_active_publisher_idx
+ON restream_session (node_id, publisher_id)
 WHERE status <> 'ended';
 
 CREATE INDEX restream_session_recent_user_idx
