@@ -13,6 +13,11 @@ import {
   DonationAlertsNameLink,
 } from "@web/components/donation-alerts";
 import DonationCard from "@web/components/donation-card";
+import {
+  DonationSourceConnectionStatus,
+  DonationSourceMark,
+  DonationSourceNameLink,
+} from "@web/components/donation-source";
 import { Icons } from "@web/components/icons";
 import { DashboardSkeleton } from "@web/components/loading-skeletons";
 import MockChart from "@web/components/mock-chart";
@@ -154,8 +159,9 @@ function Overview() {
   const donationAlertsConnected = userInfo !== null && userInfo.hasDonationAlertsConnection;
   const donateStreamConnected = userInfo !== null && userInfo.hasDonateStreamConnection;
   const streamlabsConnected = userInfo !== null && userInfo.hasStreamlabsConnection;
+  const tourniquetConnected = userInfo !== null && userInfo.hasTourniquetConnection;
   const hasDonationConnection =
-    donationAlertsConnected || donateStreamConnected || streamlabsConnected;
+    donationAlertsConnected || donateStreamConnected || streamlabsConnected || tourniquetConnected;
   const { locale, t } = useI18n(i18n);
 
   const total = donationOverviewQ.data?.totalAmount ?? 0;
@@ -292,7 +298,7 @@ function Overview() {
                       {t("manage")} <Icons.chevronRight aria-hidden="true" size={16} />
                     </Link>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-3">
+                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                     <div className="flex min-w-0 items-center gap-2 rounded-xl bg-muted/55 p-2.5">
                       <DonationAlertsMark />
                       <span className="truncate text-xs font-semibold text-card-foreground">
@@ -313,6 +319,13 @@ function Overview() {
                         <StreamlabsNameLink />
                       </span>
                       <StreamlabsConnectionStatus connected={streamlabsConnected} />
+                    </div>
+                    <div className="flex min-w-0 items-center gap-2 rounded-xl bg-muted/55 p-2.5">
+                      <DonationSourceMark source="tourniquet" />
+                      <span className="min-w-0 grow truncate text-xs font-semibold text-card-foreground">
+                        <DonationSourceNameLink source="tourniquet" />
+                      </span>
+                      <DonationSourceConnectionStatus connected={tourniquetConnected} />
                     </div>
                   </div>
                 </article>

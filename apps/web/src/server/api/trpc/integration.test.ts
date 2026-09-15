@@ -1,13 +1,14 @@
 import { UserIdSchema } from "@streambrew/packages/schemas.js";
 import { describe, expect, it, vi } from "vitest";
 
-const { connectDonateStream, disconnect } = vi.hoisted(() => ({
+const { connectDonateStream, connectTourniquet, disconnect } = vi.hoisted(() => ({
   connectDonateStream: vi.fn(),
+  connectTourniquet: vi.fn(),
   disconnect: vi.fn(),
 }));
 vi.mock("../_util.js", () => ({ getUserId: vi.fn() }));
 vi.mock("../../donation-integration/client.js", () => ({
-  donationIntegration: { connectDonateStream, disconnect },
+  donationIntegration: { connectDonateStream, connectTourniquet, disconnect },
   DonationIntegrationError: class DonationIntegrationError extends Error {},
 }));
 
@@ -49,5 +50,18 @@ describe("integrationRouter", () => {
     await caller.disconnect({ source: "streamlabs" });
 
     expect(disconnect).toHaveBeenCalledWith("streamlabs", 42);
+  });
+
+  it("connects Tourniquet only for the authenticated user", async () => {
+    connectTourniquet.mockResolvedValue({ connected: true });
+    const caller = integrationRouter.createCaller({
+      request: new Request("http://localhost/trpc"),
+      userId: UserIdSchema.parse(42),
+    });
+
+    const widgetUrl = "https://tourniquet.app/widgets/alert/AbCdEf0123456789GhIjKlMn";
+    await caller.connectTourniquet({ widgetUrl });
+
+    expect(connectTourniquet).toHaveBeenCalledWith(42, widgetUrl);
   });
 });

@@ -79,6 +79,28 @@ describe("donation integration client", () => {
     });
   });
 
+  it("sends Tourniquet widget URLs only to the private donations service", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ connected: true }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const widgetUrl = "https://tourniquet.app/widgets/alert/AbCdEf0123456789GhIjKlMn";
+    await expect(donationIntegration.connectTourniquet(42, widgetUrl)).resolves.toEqual({
+      connected: true,
+    });
+
+    const options = fetchMock.mock.calls[0]?.[1];
+    if (typeof options?.body !== "string") {
+      throw new TypeError("expected a JSON string request body");
+    }
+    expect(JSON.parse(options.body)).toEqual({
+      authCode: "",
+      redirectUri: "",
+      source: "tourniquet",
+      userId: 42,
+      widgetUrl,
+    });
+  });
+
   it("rejects invalid service responses", async () => {
     vi.stubGlobal(
       "fetch",

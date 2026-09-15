@@ -80,6 +80,16 @@ export const donationIntegration = {
     });
   },
 
+  connectTourniquet(userId: number, widgetUrl: string) {
+    return request("/internal/connect", ConnectResponseSchema, {
+      authCode: "",
+      redirectUri: "",
+      source: "tourniquet",
+      userId,
+      widgetUrl,
+    });
+  },
+
   disconnect(source: DonationSource, userId: number) {
     return request("/internal/disconnect", z.null(), { source, userId });
   },

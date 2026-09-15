@@ -31,6 +31,28 @@ export const integrationRouter = router({
       }
     }),
 
+  connectTourniquet: authenticatedProcedure
+    .input(
+      z.object({
+        widgetUrl: z.url().max(4096),
+      }),
+    )
+    .output(z.void())
+    .mutation(async ({ input, ctx }) => {
+      try {
+        await donationIntegration.connectTourniquet(ctx.userId, input.widgetUrl);
+      } catch (cause) {
+        if (cause instanceof DonationIntegrationError) {
+          throw new TRPCError({
+            code: cause.status === 400 ? "BAD_REQUEST" : "BAD_GATEWAY",
+            message: "Could not connect Tourniquet.",
+            cause,
+          });
+        }
+        throw cause;
+      }
+    }),
+
   disconnect: authenticatedProcedure
     .input(
       z.object({
