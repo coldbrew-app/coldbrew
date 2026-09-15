@@ -1,7 +1,6 @@
 import { DonationSourceSchema } from "@streambrew/packages/schemas.js";
 import { createFileRoute } from "@tanstack/react-router";
 import { CosmicPageHeader } from "@web/components/cosmic-page-header";
-import { DonateStreamMark, DonateStreamNameLink } from "@web/components/donate-stream";
 import { DonateStreamConnectionForm } from "@web/components/donate-stream-connection-form";
 import {
   donationSourceDetails,
@@ -9,6 +8,7 @@ import {
   DonationSourceNameLink,
 } from "@web/components/donation-source";
 import { Icons } from "@web/components/icons";
+import { TourniquetConnectionForm } from "@web/components/tourniquet-connection-form";
 import { Button } from "@web/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@web/components/ui/tooltip";
 import { preloadRouteQuery } from "@web/lib/trpc";
@@ -74,6 +74,7 @@ function ConnectionNotice() {
 type DisconnectMutation = ReturnType<typeof useDisconnectM>;
 type AuthUrlQuery = ReturnType<typeof useAuthUrlQ>;
 type OAuthDonationSource = "donationalerts" | "streamlabs";
+type WidgetDonationSource = "donate_stream" | "tourniquet";
 
 function DonationConnectionAction({
   authUrl,
@@ -184,23 +185,25 @@ function DonationIntegrationCard({
   );
 }
 
-function DonateStreamCard({
+function WidgetIntegrationCard({
   connected,
   disconnectM,
   onConnect,
+  source,
 }: {
   connected: boolean;
   disconnectM: DisconnectMutation;
   onConnect: () => void;
+  source: WidgetDonationSource;
 }) {
   const { t } = useI18n(i18n);
-  const disconnecting = disconnectM.isPending && disconnectM.variables?.source === "donate_stream";
+  const disconnecting = disconnectM.isPending && disconnectM.variables?.source === source;
   const label = t(disconnecting ? "disconnecting" : connected ? "disconnect" : "connect");
   return (
     <article className="cosmic-panel flex items-center gap-3 overflow-hidden p-3">
-      <DonateStreamMark />
+      <DonationSourceMark source={source} />
       <h2 className="min-w-0 grow font-heading text-base font-semibold text-card-foreground">
-        <DonateStreamNameLink />
+        <DonationSourceNameLink source={source} />
       </h2>
       <Tooltip>
         <TooltipTrigger
@@ -209,9 +212,7 @@ function DonateStreamCard({
               aria-label={label}
               className="shrink-0"
               disabled={disconnecting}
-              onClick={
-                connected ? () => disconnectM.mutate({ source: "donate_stream" }) : onConnect
-              }
+              onClick={connected ? () => disconnectM.mutate({ source }) : onConnect}
               size="icon"
               type="button"
               variant={connected ? "destructive" : "default"}
@@ -235,7 +236,7 @@ function DonateStreamCard({
 function RouteComponent() {
   const userInfo = useUserInfoSafe();
   const authUrlQ = useAuthUrlQ();
-  const [showDonateStreamForm, setShowDonateStreamForm] = useState(false);
+  const [widgetFormSource, setWidgetFormSource] = useState<WidgetDonationSource | null>(null);
   const disconnectM = useDisconnectM();
   const { t } = useI18n(i18n);
 
@@ -244,7 +245,7 @@ function RouteComponent() {
       <CosmicPageHeader title={t("integrations")} variant="beans" />
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-3 sm:p-4">
         <ConnectionNotice />
-        <div className="grid shrink-0 gap-3 lg:grid-cols-2 xl:grid-cols-3">
+        <div className="grid shrink-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <DonationIntegrationCard
             authUrl={authUrlQ.data?.donationAlerts}
             authUrlQ={authUrlQ}
@@ -259,15 +260,25 @@ function RouteComponent() {
             disconnectM={disconnectM}
             source="streamlabs"
           />
-          <DonateStreamCard
+          <WidgetIntegrationCard
             connected={userInfo?.hasDonateStreamConnection ?? false}
             disconnectM={disconnectM}
-            onConnect={() => setShowDonateStreamForm(true)}
+            onConnect={() => setWidgetFormSource("donate_stream")}
+            source="donate_stream"
+          />
+          <WidgetIntegrationCard
+            connected={userInfo?.hasTourniquetConnection ?? false}
+            disconnectM={disconnectM}
+            onConnect={() => setWidgetFormSource("tourniquet")}
+            source="tourniquet"
           />
         </div>
       </div>
-      {showDonateStreamForm && (
-        <DonateStreamConnectionForm onClose={() => setShowDonateStreamForm(false)} />
+      {widgetFormSource === "donate_stream" && (
+        <DonateStreamConnectionForm onClose={() => setWidgetFormSource(null)} />
+      )}
+      {widgetFormSource === "tourniquet" && (
+        <TourniquetConnectionForm onClose={() => setWidgetFormSource(null)} />
       )}
     </section>
   );
