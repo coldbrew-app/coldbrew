@@ -4,7 +4,7 @@ import {
   type ChatMessage,
   type ChatSourceState,
   type ChatStreamEvent,
-} from "@coldbrew/packages/chat.js";
+} from "@streambrew/packages/chat.js";
 import { useApi } from "@web/lib/trpc";
 import { useEffect, useReducer } from "react";
 

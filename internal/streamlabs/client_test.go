@@ -13,7 +13,7 @@ import (
 )
 
 func TestAuthorizationURL(t *testing.T) {
-	parsed, err := url.Parse(AuthorizationURL("client-id", "https://coldbrew.test/callback", "oauth-state"))
+	parsed, err := url.Parse(AuthorizationURL("client-id", "https://streambrew.test/callback", "oauth-state"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,7 +22,7 @@ func TestAuthorizationURL(t *testing.T) {
 	}
 	expected := url.Values{
 		"client_id":     {"client-id"},
-		"redirect_uri":  {"https://coldbrew.test/callback"},
+		"redirect_uri":  {"https://streambrew.test/callback"},
 		"response_type": {"code"},
 		"scope":         {"donations.read socket.token"},
 		"state":         {"oauth-state"},
@@ -44,7 +44,7 @@ func TestIssueConnectionUsesJSONAndReadsStreamlabsIdentity(t *testing.T) {
 			if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
 				t.Fatal(err)
 			}
-			if body["code"] != "authorization-code" || body["redirect_uri"] != "https://coldbrew.test/callback" {
+			if body["code"] != "authorization-code" || body["redirect_uri"] != "https://streambrew.test/callback" {
 				t.Fatalf("token body = %#v", body)
 			}
 			_, _ = writer.Write([]byte(`{"access_token":"access-token","refresh_token":"refresh-token"}`))
@@ -56,7 +56,7 @@ func TestIssueConnectionUsesJSONAndReadsStreamlabsIdentity(t *testing.T) {
 		_, _ = writer.Write([]byte(`{"streamlabs":{"id":42,"display_name":"Streamer"}}`))
 	})
 
-	connection, err := client.IssueConnection(context.Background(), Config{ClientID: "client-id", ClientSecret: "secret"}, "authorization-code", "https://coldbrew.test/callback")
+	connection, err := client.IssueConnection(context.Background(), Config{ClientID: "client-id", ClientSecret: "secret"}, "authorization-code", "https://streambrew.test/callback")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,12 +72,12 @@ func TestRefreshTokensUsesConfiguredRedirectURI(t *testing.T) {
 		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
 			t.Fatal(err)
 		}
-		if body["grant_type"] != "refresh_token" || body["refresh_token"] != "old-refresh" || body["redirect_uri"] != "https://coldbrew.test/callback" {
+		if body["grant_type"] != "refresh_token" || body["refresh_token"] != "old-refresh" || body["redirect_uri"] != "https://streambrew.test/callback" {
 			t.Fatalf("refresh body = %#v", body)
 		}
 		_, _ = writer.Write([]byte(`{"access_token":"new-access","refresh_token":"new-refresh"}`))
 	})
-	tokens, err := client.RefreshTokens(context.Background(), Config{ClientID: "client-id", ClientSecret: "secret", RedirectURI: "https://coldbrew.test/callback"}, "old-refresh")
+	tokens, err := client.RefreshTokens(context.Background(), Config{ClientID: "client-id", ClientSecret: "secret", RedirectURI: "https://streambrew.test/callback"}, "old-refresh")
 	if err != nil {
 		t.Fatal(err)
 	}

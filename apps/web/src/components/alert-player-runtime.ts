@@ -2,7 +2,7 @@ import type {
   AlertPlayback,
   AlertPlaybackId,
   AlertRendererDiagnosticCode,
-} from "@coldbrew/packages/alerts.js";
+} from "@streambrew/packages/alerts.js";
 import { useEffect, useReducer, useRef, useState, type Dispatch, type RefObject } from "react";
 
 import type { AlertPlayerAction, AlertPlayerStage } from "./alert-player";

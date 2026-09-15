@@ -1,4 +1,4 @@
-import type { ChatMessage } from "@coldbrew/packages/chat.js";
+import type { ChatMessage } from "@streambrew/packages/chat.js";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 

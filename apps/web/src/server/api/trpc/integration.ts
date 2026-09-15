@@ -1,4 +1,4 @@
-import { DonationSourceSchema } from "@coldbrew/packages/schemas.js";
+import { DonationSourceSchema } from "@streambrew/packages/schemas.js";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 

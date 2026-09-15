@@ -1,4 +1,4 @@
-import { UserIdSchema } from "@coldbrew/packages/schemas.js";
+import { UserIdSchema } from "@streambrew/packages/schemas.js";
 import { describe, expect, it } from "vitest";
 
 import { adminProcedure, router } from "./_config.js";

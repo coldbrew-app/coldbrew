@@ -1,6 +1,6 @@
 # Data loading
 
-Coldbrew uses TanStack Router to coordinate navigation and TanStack Query to cache server data. Choose the loading strategy based on whether the data is required to render the application shell or can appear after the destination page is visible.
+StreamBrew uses TanStack Router to coordinate navigation and TanStack Query to cache server data. Choose the loading strategy based on whether the data is required to render the application shell or can appear after the destination page is visible.
 
 ## Critical data
 

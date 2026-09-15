@@ -286,7 +286,7 @@ func (probe probeOutput) duration(stream probeStream) (time.Duration, error) {
 }
 
 func (processor *FFmpegMediaProcessor) probeFile(ctx context.Context, content []byte) (probeOutput, string, func(), error) {
-	file, err := os.CreateTemp("", "coldbrew-alert-media-*")
+	file, err := os.CreateTemp("", "streambrew-alert-media-*")
 	if err != nil {
 		return probeOutput{}, "", nil, &MediaError{Code: MediaProcessingFailed, Err: err}
 	}

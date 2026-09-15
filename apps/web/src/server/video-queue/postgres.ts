@@ -1,4 +1,4 @@
-import { conversionFactorForCurrencyChange } from "@coldbrew/packages/currency.js";
+import { conversionFactorForCurrencyChange } from "@streambrew/packages/currency.js";
 import {
   QueueCurrencySchema,
   SharedVideoSchema,
@@ -12,8 +12,8 @@ import {
   type Slug,
   type UserId,
   type VideoId,
-} from "@coldbrew/packages/schemas.js";
-import { youtubeVideoId } from "@coldbrew/packages/youtube.js";
+} from "@streambrew/packages/schemas.js";
+import { youtubeVideoId } from "@streambrew/packages/youtube.js";
 import type { Sql, TransactionSql } from "postgres";
 import { z } from "zod";
 

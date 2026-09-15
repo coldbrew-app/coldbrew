@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lebedev-nikita/coldbrew/internal/donatestream"
+	"github.com/streambrew-app/streambrew/internal/donatestream"
 )
 
 func TestOrderedDonationsDoesNotMutateAndUsesOldestFirst(t *testing.T) {

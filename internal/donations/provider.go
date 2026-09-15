@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/lebedev-nikita/coldbrew/internal/donationalerts"
-	"github.com/lebedev-nikita/coldbrew/internal/streamlabs"
+	"github.com/streambrew-app/streambrew/internal/donationalerts"
+	"github.com/streambrew-app/streambrew/internal/streamlabs"
 )
 
 type Source string

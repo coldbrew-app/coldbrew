@@ -1,6 +1,6 @@
 # Donation alerts
 
-Coldbrew can turn newly accepted donations into visual and audio alerts in an
+StreamBrew can turn newly accepted donations into visual and audio alerts in an
 OBS Browser Source. The widget is an ordinary HTTPS page; it does not require
 an OBS plugin or a companion desktop application.
 
@@ -78,7 +78,7 @@ priority never affect alert presentation.
 Initial provider history never creates alerts. Fresh recovery batches may
 create alerts because they can contain events missed during a transient source
 disconnect. The freshness window is ten minutes, measured conservatively from
-both source occurrence and Coldbrew acceptance. After live listeners subscribe,
+both source occurrence and StreamBrew acceptance. After live listeners subscribe,
 bounded recent-history recovery runs immediately at service startup and every
 five minutes, half of the freshness window. DonationAlerts recovery inspects
 every response in a hard four-page budget and filters donations by occurrence
@@ -125,7 +125,7 @@ regular sound to play. Replay accepts only a donation-backed playback that has
 already reached `completed`, `skipped`, `expired`, or `interrupted`; it creates a
 new playback for that donation and never creates another donation.
 
-Coldbrew grants one active widget a 15-second player lease per streamer. The
+StreamBrew grants one active widget a 15-second player lease per streamer. The
 widget renews it every five seconds. Every heartbeat and acknowledgement carries
 the player identifier and lease generation. A new lease remains inactive and
 invisible in PostgreSQL until its first heartbeat reports the resolved source
@@ -146,7 +146,7 @@ keeps durable playback state in PostgreSQL rather than in a browser connection.
 The Go service serializes 64-bit donation IDs as decimal strings on the wire so
 JavaScript never rounds them; `null` is used for test playbacks.
 
-`queue_sequence` records Coldbrew acceptance order. The player cannot claim a
+`queue_sequence` records StreamBrew acceptance order. The player cannot claim a
 later pending playback while an earlier fresh playback is still preparing or
 pending, and a database constraint permits at most one `playing` row per user.
 The server sets `playing` when it assigns work, while `started_at` records the
@@ -175,7 +175,7 @@ On the **Alerts** page, create an OBS link and copy it immediately. The secret i
 placed in the URL fragment, for example `/alerts/overlay#<token>`. Fragments are
 not sent in the initial HTTP request, so the secret does not enter access logs
 or server-side route handling during navigation. The page reads it in the
-browser and uses it only in subsequent POST request bodies. Coldbrew stores only
+browser and uses it only in subsequent POST request bodies. StreamBrew stores only
 the token's SHA-256 hash, so the full link is shown once. Rotating the link
 revokes the previous link and closes open widget sessions.
 
@@ -221,12 +221,12 @@ length cannot bypass the 11 MiB limit. One upload is admitted at a time in each
 web and donations-service process, a second request receives `429`, and the
 complete web-to-service operation has a 45-second deadline. Images are
 limited to PNG, JPEG, WebP, or GIF, 4 MiB, 4096 pixels on either axis, and 16
-megapixels. Coldbrew checks signatures against the decoded codec, requires one
+megapixels. StreamBrew checks signatures against the decoded codec, requires one
 image stream, performs a full bounded decode, and rejects SVG. Animation work is
 limited to at most 300 frames and 240 million decoded pixels.
 
 Sounds are limited to supported WAV, MP3, Ogg, or Opus input, 10 MiB, and 30
-seconds. Input must contain one audio stream and no video stream. Coldbrew checks
+seconds. Input must contain one audio stream and no video stream. StreamBrew checks
 the signature and codec, strips metadata, and normalizes output to stereo,
 48 kHz, 64 kbit/s Ogg Opus capped at 2 MiB. Assets are immutable and stored in
 PostgreSQL so all service replicas and backups see the same bytes.

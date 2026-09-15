@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("./env.js", () => ({
   env: {
-    APP_DOMAIN: "https://coldbrew.test",
+    APP_DOMAIN: "https://streambrew.test",
     BETTER_AUTH_SECRET: "12345678901234567890123456789012",
   },
 }));
@@ -17,7 +17,7 @@ describe("Streamlabs OAuth state", () => {
   it("accepts only the state stored in the signed HttpOnly cookie", () => {
     const attempt = createStreamlabsOAuthAttempt(42);
     const cookieHeader = attempt.cookie.split(";", 1)[0] ?? "";
-    const request = new Request("https://coldbrew.test/callback", {
+    const request = new Request("https://streambrew.test/callback", {
       headers: { cookie: cookieHeader },
     });
 

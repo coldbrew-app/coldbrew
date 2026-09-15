@@ -14,7 +14,7 @@ stream events crossed that seam without Zod validation in `apps/web`.
 ## Decision
 
 `apps/web` owns the public chat tRPC interface. It authenticates editor procedures with the normal
-Coldbrew session, validates every procedure input and every value returned by `apps/chat` with
+StreamBrew session, validates every procedure input and every value returned by `apps/chat` with
 Zod, and relays validated subscriptions to the browser.
 
 `apps/chat` keeps provider credentials, collectors, commands, OAuth state, and webhook processing.

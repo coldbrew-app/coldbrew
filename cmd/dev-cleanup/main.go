@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/lebedev-nikita/coldbrew/internal/chat"
+	"github.com/streambrew-app/streambrew/internal/chat"
 )
 
 func main() {

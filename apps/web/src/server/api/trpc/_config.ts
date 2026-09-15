@@ -1,4 +1,4 @@
-import { logError } from "@coldbrew/packages/server-logger.js";
+import { logError } from "@streambrew/packages/server-logger.js";
 import { initTRPC, TRPCError } from "@trpc/server";
 import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
 import { SuperJSON } from "superjson";

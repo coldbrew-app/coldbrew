@@ -1,6 +1,6 @@
-import { RequestError, requestJson } from "@coldbrew/packages/http.js";
-import type { DonationSource } from "@coldbrew/packages/schemas.js";
 import { rurl } from "@lebedevna/readonly-url";
+import { RequestError, requestJson } from "@streambrew/packages/http.js";
+import type { DonationSource } from "@streambrew/packages/schemas.js";
 import { z } from "zod";
 
 import { env } from "../env.js";

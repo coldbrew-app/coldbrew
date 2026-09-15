@@ -5,8 +5,8 @@ import type {
   ChatProviderAvailability,
   ChatProviderConnection,
   ChatSourceId,
-} from "@coldbrew/packages/chat.js";
-import { MAX_CHAT_MESSAGE_LENGTH } from "@coldbrew/packages/chat.js";
+} from "@streambrew/packages/chat.js";
+import { MAX_CHAT_MESSAGE_LENGTH } from "@streambrew/packages/chat.js";
 import { createFileRoute } from "@tanstack/react-router";
 import { BoostyConnectionForm } from "@web/components/boosty-connection-form";
 import { ChatFeed } from "@web/components/chat-feed";
@@ -109,7 +109,7 @@ export const Route = createFileRoute("/_authenticated/chat")({
     chat_oauth_error: chatOauthErrorSchema.optional().catch(undefined),
   }),
   head: ({ match }) => ({
-    meta: [{ title: `${createTranslator(match.context.locale, i18n)("chat")} · Coldbrew` }],
+    meta: [{ title: `${createTranslator(match.context.locale, i18n)("chat")} · StreamBrew` }],
   }),
 });
 

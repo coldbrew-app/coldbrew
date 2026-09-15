@@ -3,8 +3,8 @@ package main
 import "testing"
 
 func TestLoadConfigUsesDocumentedDefaults(t *testing.T) {
-	t.Setenv("DATABASE_URL", "postgresql://localhost/coldbrew")
-	t.Setenv("APP_DOMAIN", "https://coldbrew.test")
+	t.Setenv("DATABASE_URL", "postgresql://localhost/streambrew")
+	t.Setenv("APP_DOMAIN", "https://streambrew.test")
 	t.Setenv("DONATION_ALERTS_CLIENT_ID", "42")
 	t.Setenv("DONATION_ALERTS_CLIENT_SECRET", "provider-secret")
 	t.Setenv("STREAMLABS_CLIENT_ID", "streamlabs-client")
@@ -15,14 +15,14 @@ func TestLoadConfigUsesDocumentedDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if config.port != 3002 || config.serviceSecret != "donations-service-secret-with-32-characters" || config.streamlabsRedirectURI != "https://coldbrew.test/api/integration/streamlabs/callback" {
+	if config.port != 3002 || config.serviceSecret != "donations-service-secret-with-32-characters" || config.streamlabsRedirectURI != "https://streambrew.test/api/integration/streamlabs/callback" {
 		t.Fatalf("config = %#v", config)
 	}
 }
 
 func TestLoadConfigRequiresPrivateServiceSecret(t *testing.T) {
-	t.Setenv("DATABASE_URL", "postgresql://localhost/coldbrew")
-	t.Setenv("APP_DOMAIN", "https://coldbrew.test")
+	t.Setenv("DATABASE_URL", "postgresql://localhost/streambrew")
+	t.Setenv("APP_DOMAIN", "https://streambrew.test")
 	t.Setenv("DONATION_ALERTS_CLIENT_ID", "42")
 	t.Setenv("DONATION_ALERTS_CLIENT_SECRET", "provider-secret")
 	t.Setenv("STREAMLABS_CLIENT_ID", "streamlabs-client")
@@ -34,8 +34,8 @@ func TestLoadConfigRequiresPrivateServiceSecret(t *testing.T) {
 }
 
 func TestLoadConfigRequiresStreamlabsCredentials(t *testing.T) {
-	t.Setenv("DATABASE_URL", "postgresql://localhost/coldbrew")
-	t.Setenv("APP_DOMAIN", "https://coldbrew.test")
+	t.Setenv("DATABASE_URL", "postgresql://localhost/streambrew")
+	t.Setenv("APP_DOMAIN", "https://streambrew.test")
 	t.Setenv("DONATION_ALERTS_CLIENT_ID", "42")
 	t.Setenv("DONATION_ALERTS_CLIENT_SECRET", "provider-secret")
 	t.Setenv("STREAMLABS_CLIENT_ID", "")

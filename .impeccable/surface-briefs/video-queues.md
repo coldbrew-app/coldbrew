@@ -1,7 +1,7 @@
 # Video queues
 
 Target: `apps/web/src/routes/_authenticated/videos.tsx` and the public video queue.
-Mode: Operate. Extend the existing Coldbrew working surface.
+Mode: Operate. Extend the existing StreamBrew working surface.
 
 ## Direction contract
 

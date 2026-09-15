@@ -2,7 +2,7 @@
 
 ## Domain language
 
-- A **chat provider connection** is one authorization from a Coldbrew user to one provider account.
+- A **chat provider connection** is one authorization from a StreamBrew user to one provider account.
   Providers use OAuth except where this guide explicitly documents another authorization method. A
   user may have multiple connections for the same provider. Credentials stay inside the chat
   aggregation module.
@@ -16,7 +16,7 @@
   the operation is not transactional across providers.
 - The **chat aggregation module** is the separately deployed `apps/chat` service. It owns provider
   connections, collectors, provider webhooks, normalized events, moderation commands, broadcast
-  messages, and the moderation audit. `apps/web` owns the public tRPC interface, Coldbrew
+  messages, and the moderation audit. `apps/web` owns the public tRPC interface, StreamBrew
   authentication, and validation at the module's external seam.
 
 The browser uses the same `/api/trpc` client as the rest of the application and never connects to
@@ -54,7 +54,7 @@ Every pull collector owns a NATS KV lease keyed by `chat_source_id`. The lease h
 and a 10-second heartbeat. This permits multiple `apps/chat` replicas while keeping exactly one
 active collector per source under normal operation. JetStream deduplicates provider events by
 their source/message identity and retains a short, bounded transient window. Browser subscribers
-receive the live NATS subject for their Coldbrew user. The latest source state is cached in a
+receive the live NATS subject for their StreamBrew user. The latest source state is cached in a
 short-lived NATS KV bucket so a newly opened editor does not incorrectly show an active source as
 offline; an incoming provider message also marks that source live.
 

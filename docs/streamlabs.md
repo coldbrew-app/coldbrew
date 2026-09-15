@@ -1,9 +1,9 @@
 # Streamlabs donation integration
 
 Research checked on 2026-09-10 against the Streamlabs v2 documentation and the
-current Coldbrew DonationAlerts implementation.
+current StreamBrew DonationAlerts implementation.
 
-> [GitHub issue #32](https://github.com/lebedev-nikita/coldbrew/issues/32) is
+> [GitHub issue #32](https://github.com/streambrew-app/streambrew/issues/32) is
 > empty and is titled “Donations: integration with donate.stream”. The user
 > request names Streamlabs, which is a different provider. This document assumes
 > the intended provider is Streamlabs (`streamlabs.com`); the issue title should
@@ -63,7 +63,7 @@ incorrectly uses the legacy `www.twitchalerts.com` hostname. See
 Streamlabs' [OAuth guide](https://dev.streamlabs.com/docs/oauth-2) is internally
 inconsistent: it says access tokens never expire, but then shows an expiry-based
 refresh flow with `expires_in`; the `/token` response schema does not document
-`expires_in`, and the same guide contains misspelled response keys. Coldbrew
+`expires_in`, and the same guide contains misspelled response keys. StreamBrew
 should therefore retain refresh credentials but refresh only after an
 authenticated API request returns 401, using the existing token-version
 compare-and-swap pattern. It should not invent a scheduled expiry.
@@ -101,9 +101,9 @@ OpenAPI property says `string`, so the decoder must accept a nullable message.
 `donation_id`, `created_at`, and `amount` are documented as strings. See
 [`GET /donations`](https://dev.streamlabs.com/reference/donations).
 
-Map a REST row into Coldbrew as follows:
+Map a REST row into StreamBrew as follows:
 
-| Streamlabs    | Coldbrew           | Notes                                                                                                                                              |
+| Streamlabs    | StreamBrew         | Notes                                                                                                                                              |
 | ------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `donation_id` | `sourceDonationId` | Preserve the decimal string; do not parse through a fixed-width integer.                                                                           |
 | `name`        | `author`           | Preserve UTF-8 text.                                                                                                                               |
@@ -114,7 +114,7 @@ Map a REST row into Coldbrew as follows:
 | `created_at`  | `occurredAt`       | The sample is Unix-seconds-shaped, but the unit and timezone are not formally specified; confirm with a real fixture before relying on that parse. |
 
 Do not pass the optional `currency` parameter: Streamlabs describes it as the
-desired output currency, while Coldbrew must store original money without
+desired output currency, while StreamBrew must store original money without
 conversion. Omit `verified` as well so both verified payment donations and
 donations added by the streamer on Streamlabs are imported. Streamlabs lists
 the possible three-letter currencies separately in
@@ -187,7 +187,7 @@ have `for = streamlabs`. Accept `type = donation` when `for` is absent or equals
 `streamlabs`, and reject other provider namespaces.
 
 The socket payload omits `created_at`. Treating the socket as a wake-up signal
-and reconciling `/donations` immediately gives Coldbrew the authoritative REST
+and reconciling `/donations` immediately gives StreamBrew the authoritative REST
 shape, catches any events missed during a disconnect, and avoids inventing a
 source timestamp. Debounce a burst of socket envelopes into one reconciliation
 request. Keep the existing periodic history reconciliation as a backstop.
@@ -218,7 +218,7 @@ Engine.IO 4 namespace connection with a dummy token returned
 promise. Pin a known-compatible Socket.IO client and cover the handshake with
 an authenticated smoke test.
 
-## Coldbrew lifecycle relative to DonationAlerts
+## StreamBrew lifecycle relative to DonationAlerts
 
 The existing DonationAlerts lifecycle remains the right high-level shape:
 OAuth starts in the authenticated web app, while the donations service owns

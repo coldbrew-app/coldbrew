@@ -1,4 +1,4 @@
-# Coldbrew
+# StreamBrew
 
 This app is created for streamers. It connects to many donation platforms (such as donationalerts.com), fetches donates from all of them and displays them all in one place.
 
@@ -17,7 +17,7 @@ Apply each language's casing conventions: SQL uses `snake_case`, TypeScript uses
 | donation source     | источник доната                  | `source` / `DonationSource`                  | The platform that supplied a donation, such as `donationalerts`.                                                                   |
 | source donation ID  | идентификатор доната в источнике | `source_donation_id` / `sourceDonationId`    | The source-assigned identifier. Together with user and source, it makes a donation idempotent.                                     |
 | original money      | исходная сумма                   | `amount`, `currency`                         | The amount and currency as reported by the source. It is stored only on `donation` and is never converted.                         |
-| user                | стример                          | `"user"` / `UserInfo`                        | The Coldbrew account that owns donations and its video queues.                                                                     |
+| user                | стример                          | `"user"` / `UserInfo`                        | The StreamBrew account that owns donations and its video queues.                                                                   |
 | queue currency      | валюта очереди                   | `user.queue_currency` / `queueCurrency`      | The one currency selected by a user for every queue amount and threshold. It is not duplicated in `video` or `video_priority`.     |
 | video               | видео                            | `video` / `Video`                            | A supported video link in the queue, originating from a donation or added manually by its owner.                                   |
 | video source        | источник видео                   | `Video.source`                               | Whether a video came from a `donation` or was added `manual` by the streamer.                                                      |
@@ -96,14 +96,14 @@ Before editing TS and TSX files for a substantial task:
   ```ts
   export const Route = createFileRoute("/donations")({
     component: DonationsLayout,
-    head: () => ({ meta: [{ title: "Donations · Coldbrew" }] }),
+    head: () => ({ meta: [{ title: "Donations · StreamBrew" }] }),
   });
   ```
 
 ### Frontend styling
 
-- Follow the [Coldbrew UI Style Guide](DESIGN.md) for visual direction, semantic colors, typography, components, and responsive behavior.
-- Follow the icon section of the [Coldbrew UI Style Guide](DESIGN.md#interface-icons) when choosing or adding UI icons.
+- Follow the [StreamBrew UI Style Guide](DESIGN.md) for visual direction, semantic colors, typography, components, and responsive behavior.
+- Follow the icon section of the [StreamBrew UI Style Guide](DESIGN.md#interface-icons) when choosing or adding UI icons.
 - Use `tailwindcss` for styling.
 - Use `flex`, `gap` and `padding` instead of margins wherever possible.
 - Pass external positioning (`margin`, `width`, `grow` etc.) of the root element of components via `className` instead of hardcoding it inside the component. It is similar to modifiers in BEM methodology.

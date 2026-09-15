@@ -1,4 +1,4 @@
-# Coldbrew
+# StreamBrew
 
 <!-- impeccable:product-schema 1 -->
 

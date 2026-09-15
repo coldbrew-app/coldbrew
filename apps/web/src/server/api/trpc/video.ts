@@ -5,8 +5,8 @@ import {
   SlugSchema,
   VideoIdSchema,
   VideoQueueSchema,
-} from "@coldbrew/packages/schemas.js";
-import { youtubeVideoId } from "@coldbrew/packages/youtube.js";
+} from "@streambrew/packages/schemas.js";
+import { youtubeVideoId } from "@streambrew/packages/youtube.js";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 

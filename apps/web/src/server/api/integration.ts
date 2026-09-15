@@ -1,5 +1,5 @@
-import { logError } from "@coldbrew/packages/server-logger.js";
 import { rurl } from "@lebedevna/readonly-url";
+import { logError } from "@streambrew/packages/server-logger.js";
 import { z } from "zod";
 
 import { authorizeDonationAlerts, donationAlertsAuthorizationURL } from "../donationalerts.js";

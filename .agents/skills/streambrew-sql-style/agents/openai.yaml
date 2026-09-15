@@ -1,0 +1,3 @@
+interface:
+  display_name: "StreamBrew SQL Style"
+  short_description: "Apply StreamBrew PostgreSQL conventions"

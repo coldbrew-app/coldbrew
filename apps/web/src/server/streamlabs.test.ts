@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./env.js", () => ({
   env: {
-    APP_DOMAIN: "https://coldbrew.test",
+    APP_DOMAIN: "https://streambrew.test",
   },
 }));
 
@@ -27,7 +27,7 @@ describe("Streamlabs OAuth", () => {
     );
     expect(authorizationUrl).toHaveBeenCalledWith(
       "streamlabs",
-      "https://coldbrew.test/api/integration/streamlabs/callback",
+      "https://streambrew.test/api/integration/streamlabs/callback",
       "oauth-state",
     );
   });
@@ -40,7 +40,7 @@ describe("Streamlabs OAuth", () => {
       "streamlabs",
       42,
       "auth-code",
-      "https://coldbrew.test/api/integration/streamlabs/callback",
+      "https://streambrew.test/api/integration/streamlabs/callback",
     );
   });
 });

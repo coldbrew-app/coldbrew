@@ -100,8 +100,8 @@ const i18n = createI18n({
     ru: "Русский",
   },
   activeDevelopment: {
-    en: "Coldbrew is under active development. Breaking changes and data loss are possible.",
-    ru: "Coldbrew активно развивается. Некоторые функции могут измениться, а данные — потеряться.",
+    en: "StreamBrew is under active development. Breaking changes and data loss are possible.",
+    ru: "StreamBrew активно развивается. Некоторые функции могут измениться, а данные — потеряться.",
   },
   dismissDevelopmentWarning: {
     en: "Dismiss development warning",
@@ -169,7 +169,7 @@ export const Route = createRootRouteWithContext<
     meta: [
       { charSet: "utf-8" },
       { content: "width=device-width, initial-scale=1", name: "viewport" },
-      { title: "Coldbrew" },
+      { title: "StreamBrew" },
     ],
     links: [
       { href: appCss, rel: "stylesheet" },
@@ -284,7 +284,7 @@ function AuthenticatedApplicationContent() {
               className="flex items-center gap-2.5 px-1 font-heading text-[1.45rem] font-semibold tracking-tight text-sidebar-foreground focus-visible:rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sidebar-ring"
             >
               <img alt="" src={favicon} className="size-10 object-contain" />
-              Coldbrew
+              StreamBrew
             </Link>
           </div>
           <div className="relative z-10 flex flex-col gap-1 px-1 pt-4">
@@ -496,7 +496,7 @@ function AuthenticatedApplicationContent() {
             className="flex items-center gap-2 font-heading text-xl font-semibold tracking-tight text-sidebar-foreground"
           >
             <img alt="" src={favicon} className="size-9 object-contain" />
-            Coldbrew
+            StreamBrew
           </Link>
         </header>
         {isDevelopmentWarningVisible && (

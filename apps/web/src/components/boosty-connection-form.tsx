@@ -45,8 +45,8 @@ const i18n = createI18n({
     ru: "Хранилище",
   },
   boostyTokenStepSignIn: {
-    en: "Create a separate browser profile for Coldbrew (without browser sync). In that profile, sign in to your account at",
-    ru: "Создайте отдельный профиль браузера для Coldbrew без синхронизации. В этом профиле войдите в свой аккаунт на сайте",
+    en: "Create a separate browser profile for StreamBrew (without browser sync). In that profile, sign in to your account at",
+    ru: "Создайте отдельный профиль браузера для StreamBrew без синхронизации. В этом профиле войдите в свой аккаунт на сайте",
   },
   boostyDedicatedSession: {
     en: "I used a separate browser profile and will close its Boosty tabs after copying the credentials",
@@ -87,8 +87,8 @@ const i18n = createI18n({
     ru: "Скопируйте значение auth целиком и без изменений в поле auth ниже. В поле _clientId вставьте значение _clientId из Cookies или Local Storage того же браузера.",
   },
   boostyTokenStorage: {
-    en: "Close Boosty tabs in that profile without signing out. Use your usual profile to visit Boosty. Sharing one session with Coldbrew causes sign-outs and connection errors when either side renews it. Tokens are encrypted and renewed automatically.",
-    ru: "Закройте вкладки Boosty в отдельном профиле, не нажимая «Выйти». Пользуйтесь Boosty в обычном профиле. Общая с Coldbrew сессия приводит к выходам из аккаунта и ошибкам при обновлении токенов. Токены хранятся зашифрованными и обновляются автоматически.",
+    en: "Close Boosty tabs in that profile without signing out. Use your usual profile to visit Boosty. Sharing one session with StreamBrew causes sign-outs and connection errors when either side renews it. Tokens are encrypted and renewed automatically.",
+    ru: "Закройте вкладки Boosty в отдельном профиле, не нажимая «Выйти». Пользуйтесь Boosty в обычном профиле. Общая с StreamBrew сессия приводит к выходам из аккаунта и ошибкам при обновлении токенов. Токены хранятся зашифрованными и обновляются автоматически.",
   },
   boostyConnectError: {
     en: "Could not connect Boosty. Check that the token is current and belongs to an account with a blog, then try again. Also check the channel limit and service availability.",

@@ -1,5 +1,5 @@
-import { MoneyAmountSchema, type VideoPriority } from "@coldbrew/packages/schemas.js";
-import { getRoundedWatchDurationParts } from "@coldbrew/packages/video-timing.js";
+import { MoneyAmountSchema, type VideoPriority } from "@streambrew/packages/schemas.js";
+import { getRoundedWatchDurationParts } from "@streambrew/packages/video-timing.js";
 import { Link } from "@tanstack/react-router";
 import { useUpdateVideoPriorityM, useUserInfo } from "@web/hooks/api";
 import { formatMoneyInputValue } from "@web/lib/fmt";

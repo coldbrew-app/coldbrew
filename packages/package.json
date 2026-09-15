@@ -1,5 +1,5 @@
 {
-  "name": "@coldbrew/packages",
+  "name": "@streambrew/packages",
   "private": true,
   "type": "module",
   "exports": {

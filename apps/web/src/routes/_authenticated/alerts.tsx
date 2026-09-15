@@ -6,8 +6,8 @@ import {
   type AlertAssetKind,
   type AlertPlayback,
   type AlertSettings,
-} from "@coldbrew/packages/alerts.js";
-import { DonationSourceSchema, type DonationSource } from "@coldbrew/packages/schemas.js";
+} from "@streambrew/packages/alerts.js";
+import { DonationSourceSchema, type DonationSource } from "@streambrew/packages/schemas.js";
 import { createFileRoute, useHydrated } from "@tanstack/react-router";
 import { AlertPlayer } from "@web/components/alert-player";
 import { CosmicPageHeader } from "@web/components/cosmic-page-header";
@@ -192,8 +192,8 @@ const i18n = createI18n({
   },
   playbackTimeoutTitle: { en: "Acknowledgement timed out", ru: "Нет подтверждения" },
   playbackTimeout: {
-    en: "The player did not confirm completion, so Coldbrew released the queue.",
-    ru: "Плеер не подтвердил завершение, поэтому Coldbrew освободил очередь.",
+    en: "The player did not confirm completion, so StreamBrew released the queue.",
+    ru: "Плеер не подтвердил завершение, поэтому StreamBrew освободил очередь.",
   },
   overlayRotatedTitle: { en: "OBS link rotated", ru: "Ссылка OBS обновлена" },
   overlayRotated: {
@@ -216,7 +216,7 @@ const i18n = createI18n({
 export const Route = createFileRoute("/_authenticated/alerts")({
   component: AlertsPage,
   head: ({ match }) => ({
-    meta: [{ title: `${createTranslator(match.context.locale, i18n)("alerts")} · Coldbrew` }],
+    meta: [{ title: `${createTranslator(match.context.locale, i18n)("alerts")} · StreamBrew` }],
   }),
   loader: async ({ context }) => {
     if (!context.viewer) return;
@@ -442,7 +442,7 @@ async function uploadAlertAsset(
   try {
     const response = await fetch("/api/alerts/upload", {
       method: "POST",
-      headers: { "X-Coldbrew-Upload": "1" },
+      headers: { "X-StreamBrew-Upload": "1" },
       body: form,
     });
     const asset = AlertAssetSchema.safeParse(await response.json());

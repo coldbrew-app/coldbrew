@@ -1,8 +1,8 @@
+import { rurl } from "@lebedevna/readonly-url";
 import {
   getRoundedWatchDurationParts,
   getWatchDurationSeconds,
-} from "@coldbrew/packages/video-timing.js";
-import { rurl } from "@lebedevna/readonly-url";
+} from "@streambrew/packages/video-timing.js";
 import { fmtAmount, fmtDate, fmtListDate } from "@web/lib/fmt";
 import { getSharedVideoTimingParts } from "@web/lib/shared-video-timing";
 import type { SharedVideo } from "@web/server/exports";

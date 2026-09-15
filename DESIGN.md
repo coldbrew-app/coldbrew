@@ -1,5 +1,5 @@
 ---
-name: Coldbrew
+name: StreamBrew
 description: A warm coffee observatory for bright moments on stream.
 colors:
   background: "#f6efe4"
@@ -58,7 +58,7 @@ components:
     rounded: "{rounded.2xl}"
 ---
 
-# Design System: Coldbrew
+# Design System: StreamBrew
 
 ## Overview
 
@@ -71,7 +71,7 @@ Brand scenes carry the strongest atmosphere. Lists, forms, and working panels
 remain calm and compact. Repeated signatures are the arched landing illustration,
 coffee cup, orbital paths, and roasted-gold navigation.
 
-This is the canonical guide for Coldbrew's visual direction and UI conventions.
+This is the canonical guide for StreamBrew's visual direction and UI conventions.
 Product context lives in [PRODUCT.md](PRODUCT.md); terminology and domain
 invariants live in [AGENTS.md](AGENTS.md). Exact tokens and component behavior
 are defined in [styles.css](apps/web/styles.css) and the existing UI components.
@@ -82,7 +82,7 @@ not in the design rules.
 
 The design follows a coffee-and-cosmos aesthetic: coffee, galaxies, and childlike illustrations with simple lines.
 
-Here is what the person who coined the name Coldbrew suggested:
+Here is what the person who coined the name StreamBrew suggested:
 
 I associate it with a black hole, coffee, a long stream, eternity, energy, a shot, speed, a queue, a row, a chain, a line, a dot, storage, a production line, and the Milky Way. Like a cup of coffee with the cosmos flowing inside it.
 
@@ -125,8 +125,8 @@ must use the intended font.
 The landing display uses the fluid frontmatter scale. Authenticated panel headings use compact 20 px type; landing section headings use 30–36 px. Body
 copy is generally 14–18 px with generous leading, while compact controls use
 14 px. Keep tight tracking and leading with display text. Inputs and times use
-tabular numerals. Headings balance their wrapping. Use `Coldbrew` with an initial
-capital in the wordmark, prose, and document titles.
+tabular numerals. Headings balance their wrapping. Capitalize both words in
+`StreamBrew` in the wordmark, prose, and document titles.
 
 ## Layout
 
@@ -237,7 +237,7 @@ geometric stars connect artwork across surfaces.
 
 ## Interface icons
 
-Application icons use `lucide-react`; do not add another icon library, inline SVG UI icons, or emoji. The Coldbrew mark and documented decorative artwork are exceptions, not replacements for UI icons.
+Application icons use `lucide-react`; do not add another icon library, inline SVG UI icons, or emoji. The StreamBrew mark and documented decorative artwork are exceptions, not replacements for UI icons.
 
 ### Catalog and meaning
 

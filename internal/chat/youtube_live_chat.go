@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 
-	"github.com/lebedev-nikita/coldbrew/internal/youtubechatpb"
+	"github.com/streambrew-app/streambrew/internal/youtubechatpb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"

@@ -1,10 +1,10 @@
 # Custom OBS alert widget
 
-Research date: September 11, 2026. This document records the research that informed Coldbrew's own alert widget. The implemented architecture and operating guide live in [Donation alerts](../donation-alerts.md).
+Research date: September 11, 2026. This document records the research that informed StreamBrew's own alert widget. The implemented architecture and operating guide live in [Donation alerts](../donation-alerts.md).
 
 ## Requirements established by the research
 
-The widget is a standalone HTTPS HTML/CSS/JavaScript page added as an OBS Browser Source. It receives Coldbrew events, displays the donor, original amount, and message, and plays audio. No native plugin, obs-websocket, or locally installed application is required: the CEF-based Browser Source ships with official OBS builds. See [obs-browser](https://github.com/obsproject/obs-browser).
+The widget is a standalone HTTPS HTML/CSS/JavaScript page added as an OBS Browser Source. It receives StreamBrew events, displays the donor, original amount, and message, and plays audio. No native plugin, obs-websocket, or locally installed application is required: the CEF-based Browser Source ships with official OBS builds. See [obs-browser](https://github.com/obsproject/obs-browser).
 
 OBS defines the viewport through Width and Height and supports a transparent background. The page should make `html`, `body`, and its root transparent, hide overflow, preload images, and adapt the alert card to the viewport. See [Browser Source](https://obsproject.com/kb/browser-source).
 
@@ -12,7 +12,7 @@ OBS defines the viewport through Width and Height and supports a transparent bac
 
 | Setting                                   | Recommendation                                                  |
 | ----------------------------------------- | --------------------------------------------------------------- |
-| URL                                       | Secret URL issued by Coldbrew; no sign-in inside OBS            |
+| URL                                       | Secret URL issued by StreamBrew; no sign-in inside OBS          |
 | Size                                      | 800×600; position the source in the scene                       |
 | Frame rate                                | 30 FPS for simple animations                                    |
 | Shutdown source when not visible          | Off, so the page survives scene changes                         |
@@ -33,7 +33,7 @@ The older callbacks are deprecated. If Shutdown is enabled, hiding the source de
 
 A hidden or inactive player should not start another alert. A scene change during playback should record an interrupted state. Reuse one source across scenes; multiple independent instances of one URL still need server-side protection against duplicate audio.
 
-Coldbrew consequently combines OBS events with document visibility and waits
+StreamBrew consequently combines OBS events with document visibility and waits
 briefly for the initial active and visible events before opening a player. If
 OBS omits either event, document visibility supplies the missing state. In an ordinary browser, where
 `window.obsstudio` is absent, the page is treated as active and visible for
@@ -45,7 +45,7 @@ Generate TTS audio on the server to keep the voice consistent across computers. 
 
 Suggested playback sequence: preload → enter → sound → TTS → exit → completion acknowledgement. Every media item needs a timeout and fallback, and long speech must not overlap the next alert.
 
-## Integration chosen for Coldbrew
+## Integration chosen for StreamBrew
 
 The implementation reuses the established boundaries around the
 [chat overlay](../../apps/web/src/routes/chat.overlay.$token.tsx), authenticated
@@ -96,7 +96,7 @@ media URLs.
    inspect the complete bounded page window instead of assuming undocumented
    provider ordering, and run any full lifetime-history import independently.
 2. Use the donation's original amount and currency. Video queue currency and priority do not affect alerts.
-3. Order strictly by Coldbrew acceptance. Store a stable queue sequence,
+3. Order strictly by StreamBrew acceptance. Store a stable queue sequence,
    donation reference, and presentation snapshot. An earlier preparing or
    pending item blocks later work until it becomes playable or terminal.
 4. Grant one active player per streamer a time-limited lease with heartbeat and

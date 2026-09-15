@@ -1,3 +1,4 @@
+import { rurl } from "@lebedevna/readonly-url";
 import {
   AlertAssetSchema,
   AlertDashboardSchema,
@@ -10,9 +11,8 @@ import {
   type AlertOverlayEvent,
   type AlertRendererDiagnosticCode,
   type AlertSettings,
-} from "@coldbrew/packages/alerts.js";
-import { parseJson, RequestError, requestJson } from "@coldbrew/packages/http.js";
-import { rurl } from "@lebedevna/readonly-url";
+} from "@streambrew/packages/alerts.js";
+import { parseJson, RequestError, requestJson } from "@streambrew/packages/http.js";
 import { readNdjsonLines } from "@web/lib/ndjson";
 import { z } from "zod";
 

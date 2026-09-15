@@ -1,4 +1,4 @@
-import { UserIdSchema } from "@coldbrew/packages/schemas.js";
+import { UserIdSchema } from "@streambrew/packages/schemas.js";
 import { describe, expect, it, vi } from "vitest";
 
 const { diagnostic, finished, replay, rotateToken } = vi.hoisted(() => ({
@@ -18,7 +18,7 @@ vi.mock("../../donation-alert/client.js", () => ({
   DonationAlertServiceError: class DonationAlertServiceError extends Error {},
 }));
 vi.mock("../_util.js", () => ({ getViewer: vi.fn() }));
-vi.mock("../../env.js", () => ({ env: { APP_DOMAIN: "https://coldbrew.test" } }));
+vi.mock("../../env.js", () => ({ env: { APP_DOMAIN: "https://streambrew.test" } }));
 
 import { alertsRouter } from "./alerts.js";
 
@@ -26,12 +26,12 @@ describe("alerts router", () => {
   it("returns a usable overlay URL without exposing the token as a separate field", async () => {
     rotateToken.mockResolvedValue({ token: "secret-token-abcdefghijklmnopqrstuvwxyz" });
     const caller = alertsRouter.createCaller({
-      request: new Request("https://coldbrew.test/api/trpc"),
+      request: new Request("https://streambrew.test/api/trpc"),
       userId: UserIdSchema.parse(42),
     });
 
     await expect(caller.rotateOverlayToken()).resolves.toEqual({
-      overlayUrl: "https://coldbrew.test/alerts/overlay#secret-token-abcdefghijklmnopqrstuvwxyz",
+      overlayUrl: "https://streambrew.test/alerts/overlay#secret-token-abcdefghijklmnopqrstuvwxyz",
     });
     expect(rotateToken).toHaveBeenCalledWith(42, expect.any(AbortSignal));
   });
@@ -39,7 +39,7 @@ describe("alerts router", () => {
   it("scopes replay commands to the authenticated streamer", async () => {
     replay.mockResolvedValue(null);
     const caller = alertsRouter.createCaller({
-      request: new Request("https://coldbrew.test/api/trpc"),
+      request: new Request("https://streambrew.test/api/trpc"),
       userId: UserIdSchema.parse(42),
     });
     const playbackId = "64fb569a-95bb-4d1a-a6ad-765b0f2d5702";
@@ -52,7 +52,7 @@ describe("alerts router", () => {
   it("forwards the complete active player identity on completion", async () => {
     finished.mockResolvedValue(null);
     const caller = alertsRouter.createCaller({
-      request: new Request("https://coldbrew.test/api/trpc"),
+      request: new Request("https://streambrew.test/api/trpc"),
       userId: null,
     });
     const token = "secret-token-abcdefghijklmnopqrstuvwxyz";
@@ -78,7 +78,7 @@ describe("alerts router", () => {
   it("forwards only a validated renderer diagnostic code", async () => {
     diagnostic.mockResolvedValue(null);
     const caller = alertsRouter.createCaller({
-      request: new Request("https://coldbrew.test/api/trpc"),
+      request: new Request("https://streambrew.test/api/trpc"),
       userId: null,
     });
     const input = {

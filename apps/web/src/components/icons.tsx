@@ -1,4 +1,4 @@
-import type { ChatProvider } from "@coldbrew/packages/chat.js";
+import type { ChatProvider } from "@streambrew/packages/chat.js";
 import * as icons from "lucide-react";
 
 import boostyLogo from "../../assets/chat-providers/boosty.svg";

@@ -8,7 +8,7 @@ import {
   ChatProviderConnectionIdSchema,
   ChatSourceIdSchema,
   MAX_CHAT_MESSAGE_LENGTH,
-} from "@coldbrew/packages/chat.js";
+} from "@streambrew/packages/chat.js";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 

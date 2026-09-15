@@ -138,7 +138,7 @@ export const Route = createFileRoute("/_authenticated/")({
         title: `${createTranslator(
           match.context.locale,
           i18n,
-        )(match.context.viewer ? "overview" : "landingPageTitle")} · Coldbrew`,
+        )(match.context.viewer ? "overview" : "landingPageTitle")} · StreamBrew`,
       },
     ],
   }),

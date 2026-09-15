@@ -25,6 +25,6 @@ The workflow is complete only when the pull request has been merged into
 
 ## Issue tracking
 
-Open issues in the `coldbrew` repository are automatically added to the
-`Omnistream` GitHub Project with the `Backlog` status. This behavior is managed
+Open issues in the `streambrew` repository are automatically added to the
+`StreamBrew` GitHub Project with the `Backlog` status. This behavior is managed
 by the project's `Auto-add to project` and `Item added to project` workflows.

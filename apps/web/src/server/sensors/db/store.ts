@@ -16,7 +16,7 @@ import {
   type PublicQueueSettings,
   type Slug,
   type UserId,
-} from "@coldbrew/packages/schemas.js";
+} from "@streambrew/packages/schemas.js";
 import type { Sql } from "postgres";
 import { z } from "zod";
 

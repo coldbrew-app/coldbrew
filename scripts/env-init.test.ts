@@ -7,7 +7,7 @@ import { $, file, write } from "bun";
 import { expect, it } from "vitest";
 
 it("initializes shared, isolated, and repeatable worktree environments", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "coldbrew-env-test-"));
+  const directory = await mkdtemp(join(tmpdir(), "streambrew-env-test-"));
   const primary = join(directory, "primary checkout");
   const worktrees = [primary, join(directory, "worktree-one"), join(directory, "worktree-two")];
   const bin = join(directory, "bin");
@@ -60,7 +60,7 @@ it("initializes shared, isolated, and repeatable worktree environments", async (
       expect(await file(join(path, ".env")).text()).toBe(before);
     }
 
-    await $`git -C ${primary} config --local coldbrew.devComposeProject existing_shared_dev`;
+    await $`git -C ${primary} config --local streambrew.devComposeProject existing_shared_dev`;
     for (const path of worktrees) {
       await initialize(path);
       const env = await read(path);
@@ -68,14 +68,14 @@ it("initializes shared, isolated, and repeatable worktree environments", async (
       expect(env["PGPORT"]).toBe(environments[0]?.["PGPORT"]);
       expect(env["NATS_PORT"]).toBe(environments[0]?.["NATS_PORT"]);
     }
-    await $`git -C ${primary} config --local coldbrew.devComposeProject INVALID`;
+    await $`git -C ${primary} config --local streambrew.devComposeProject INVALID`;
     expect((await initialize(primary).nothrow()).exitCode).not.toBe(0);
-    await $`git -C ${primary} config --local --unset coldbrew.devComposeProject`;
+    await $`git -C ${primary} config --local --unset streambrew.devComposeProject`;
     await $`git -C ${primary} checkout --quiet --detach`;
     await write(join(primary, "custom settings.env"), "PGUSER=custom\nPGPASSWORD=custom\n");
     await initialize(primary, ["custom settings.env"]);
     const detached = await read(primary);
-    expect(detached["PGDATABASE"]).toMatch(/^coldbrew_detached_[0-9a-f]+_[0-9a-f]{8}$/);
+    expect(detached["PGDATABASE"]).toMatch(/^streambrew_detached_[0-9a-f]+_[0-9a-f]{8}$/);
     expect(detached["DATABASE_URL"]).toMatch(/^postgresql:\/\/custom:custom@/);
   } finally {
     await rm(directory, { recursive: true, force: true });

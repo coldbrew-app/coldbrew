@@ -23,7 +23,7 @@ jobs:
           const fs = require("node:fs")
 
           async function main() {
-          const markerPrefix = "<!-- coldbrew-issue-translation:"
+          const markerPrefix = "<!-- streambrew-issue-translation:"
           const markerSuffix = " -->"
           const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"))
           const issue = event.issue
@@ -52,7 +52,7 @@ jobs:
           }
 
           function decodeOriginal(body) {
-            const match = body.match(/<!-- coldbrew-issue-translation:([A-Za-z0-9_-]+) -->/)
+            const match = body.match(/<!-- streambrew-issue-translation:([A-Za-z0-9_-]+) -->/)
             if (!match) return undefined
 
             try {

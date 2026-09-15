@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lebedev-nikita/coldbrew/internal/donatestream"
+	"github.com/streambrew-app/streambrew/internal/donatestream"
 )
 
 type donateStreamProvider interface {

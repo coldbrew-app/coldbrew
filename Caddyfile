@@ -1,4 +1,8 @@
 {$APP_DOMAIN} {
-  encode zstd gzip
-  reverse_proxy web:3000
+	encode zstd gzip
+	reverse_proxy web:3000
+}
+
+https://coldbrew.stream {
+	redir https://streambrew.app{uri} permanent
 }

@@ -3,7 +3,7 @@ import {
   UserIdSchema,
   VideoIdSchema,
   type VideoPriority,
-} from "@coldbrew/packages/schemas.js";
+} from "@streambrew/packages/schemas.js";
 import { TRPCError } from "@trpc/server";
 import { describe, expect, it, vi } from "vitest";
 

@@ -1,5 +1,5 @@
 {
-  "name": "coldbrew",
+  "name": "streambrew",
   "private": true,
   "workspaces": [
     "apps/*",

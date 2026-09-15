@@ -16,7 +16,7 @@ Private and public pages filter videos, status counts, priority counts and remai
 by queue. `videoQueueId` in the URL selects a queue; omitted selection uses the default. A private
 link with just `videoId` resolves the video's current queue. An explicitly unavailable queue never
 falls back to another user's data. Public settings remain user-wide, and the public page offers
-the user's queues as tabs. Queue names describe the streamer's workflow; Coldbrew does not infer
+the user's queues as tabs. Queue names describe the streamer's workflow; StreamBrew does not infer
 whether content may be broadcast on any platform.
 
 The PostgreSQL adapter owns queue creation, updates and moves. tRPC validates input and translates

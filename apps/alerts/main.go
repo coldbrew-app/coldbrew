@@ -13,9 +13,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/lebedev-nikita/coldbrew/internal/alerts"
-	"github.com/lebedev-nikita/coldbrew/internal/observability"
 	"github.com/nats-io/nats.go"
+	"github.com/streambrew-app/streambrew/internal/alerts"
+	"github.com/streambrew-app/streambrew/internal/observability"
 )
 
 func main() {

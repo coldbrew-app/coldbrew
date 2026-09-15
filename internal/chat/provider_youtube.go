@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/lebedev-nikita/coldbrew/internal/youtubechatpb"
+	"github.com/streambrew-app/streambrew/internal/youtubechatpb"
 )
 
 const (

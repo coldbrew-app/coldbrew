@@ -1,6 +1,6 @@
-import { AlertAssetIdSchema, AlertOverlayTokenSchema } from "@coldbrew/packages/alerts.js";
-import { parseJson, RequestError } from "@coldbrew/packages/http.js";
-import { logError } from "@coldbrew/packages/server-logger.js";
+import { AlertAssetIdSchema, AlertOverlayTokenSchema } from "@streambrew/packages/alerts.js";
+import { parseJson, RequestError } from "@streambrew/packages/http.js";
+import { logError } from "@streambrew/packages/server-logger.js";
 import { z, type ZodType } from "zod";
 
 import { getUserId } from "../api/_util.js";
@@ -143,7 +143,7 @@ function rejectInvalidUploadBoundary(request: Request) {
   const requestOrigin = request.headers.get("origin");
   if (
     requestOrigin !== new URL(env.APP_DOMAIN).origin ||
-    request.headers.get("x-coldbrew-upload") !== "1"
+    request.headers.get("x-streambrew-upload") !== "1"
   ) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }

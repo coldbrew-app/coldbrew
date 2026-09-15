@@ -1,4 +1,4 @@
-import { SharedVideoSchema, VideoSchema } from "@coldbrew/packages/schemas.js";
+import { SharedVideoSchema, VideoSchema } from "@streambrew/packages/schemas.js";
 import type { I18nMessages } from "@web/lib/i18n";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";

@@ -1,4 +1,4 @@
-import type { ChatMessage, ChatSourceId } from "@coldbrew/packages/chat.js";
+import type { ChatMessage, ChatSourceId } from "@streambrew/packages/chat.js";
 
 const sourceIds = {
   youtube: "00000000-0000-4000-8000-000000000001",
@@ -40,7 +40,7 @@ const messageTemplates = [
   {
     provider: "vk_video",
     author: "Гость из VK Видео",
-    text: "Ссылка тоже остаётся читаемой: https://example.com/watch?v=coldbrew-preview",
+    text: "Ссылка тоже остаётся читаемой: https://example.com/watch?v=streambrew-preview",
   },
 ] as const;
 

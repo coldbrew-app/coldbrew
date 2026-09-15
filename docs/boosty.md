@@ -6,21 +6,21 @@ endpoints. It does not collect private dialogs or post comments.
 
 ## Connect
 
-1. Create a separate browser profile without browser sync for Coldbrew. Sign in
+1. Create a separate browser profile without browser sync for StreamBrew. Sign in
    to your own account at `https://boosty.to` in that profile. Do not copy credentials
    from the browser profile you use to watch or manage Boosty.
 2. Open browser developer tools → Application. Find the `auth` entry in Cookies
    or Local Storage for Boosty.
-3. Copy its entire URL-encoded value into the `auth` field. Coldbrew decodes it and
+3. Copy its entire URL-encoded value into the `auth` field. StreamBrew decodes it and
    extracts `accessToken`, `refreshToken`, and the absolute millisecond `expiresAt` automatically. Copy `_clientId` from Cookies
    or Local Storage in the same browser into the `_clientId` field.
 4. Close all Boosty tabs in the separate profile **without signing out**. Do not
-   reopen Boosty in that profile while Coldbrew owns the session. Continue using
+   reopen Boosty in that profile while StreamBrew owns the session. Continue using
    Boosty in your usual profile.
-5. In Coldbrew → Multichat → Boosty, confirm that you used a separate session,
+5. In StreamBrew → Multichat → Boosty, confirm that you used a separate session,
    fill the two fields, and select **Connect Boosty**.
 
-Coldbrew resolves `/v1/user/current`, derives the blog from that identity, and
+StreamBrew resolves `/v1/user/current`, derives the blog from that identity, and
 checks its owner through `/v1/blog/{blog}`. An arbitrary viewer-supplied channel
 URL is not accepted. Account credentials are encrypted by the existing chat
 credential store and never included in configuration or OBS events. Reconnecting
@@ -47,7 +47,7 @@ renewal. No Boosty OAuth application or environment credentials are needed; the 
 
 A copied auth value is a copy of a browser session, not a new authorization grant.
 Boosty's web client exchanges `refresh_token` together with `device_id` and saves
-both returned tokens in its own auth storage. Coldbrew saves its rotated pair only
+both returned tokens in its own auth storage. StreamBrew saves its rotated pair only
 in its database. Sharing that session lets the website and collector invalidate
 each other's credentials. A generated replacement `_clientId` alone does not
 establish a separately authenticated session.
@@ -59,7 +59,7 @@ collector refresh and asserts that a still-valid token is not exchanged.
 Connections imported from a normal browser before this fix must be reconnected
 using a separate session. Already revoked credentials cannot be repaired locally.
 The confirmation is the user's declaration of session ownership; the unofficial
-API does not let Coldbrew verify that no browser still uses those credentials.
+API does not let StreamBrew verify that no browser still uses those credentials.
 
 ## Collection
 
@@ -107,7 +107,7 @@ other fixtures derive from the web-client contracts.
 
 Authenticated smoke test on 2026-09-08 used a fresh Google sign-in in an isolated
 Chrome Incognito session. After closing all windows of that session without
-signing out, the real credentials were imported through the Coldbrew form.
+signing out, the real credentials were imported through the StreamBrew form.
 PostgreSQL retained the imported expiry and token version 1; the collector reported
 offline without an authorization error. Advancing the local connection expiry and
 version triggered the production refresher against Boosty's real API. It persisted

@@ -17,7 +17,7 @@ chat sources, collection, webhook verification, normalization, moderation, broad
 and the moderation audit.
 
 The module exposes a tRPC interface. `apps/web` issues a short-lived signed ticket for the current
-Coldbrew user; the browser uses that ticket to communicate directly with the chat aggregation
+StreamBrew user; the browser uses that ticket to communicate directly with the chat aggregation
 module. Credentials are never returned through the interface.
 
 NATS JetStream carries normalized transient chat events between horizontally scaled instances.

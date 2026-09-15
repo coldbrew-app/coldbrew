@@ -15,7 +15,7 @@ const i18n = createI18n({
 export const Route = createFileRoute("/_authenticated/settings")({
   component: Settings,
   head: ({ match }) => ({
-    meta: [{ title: `${createTranslator(match.context.locale, i18n)("settings")} · Coldbrew` }],
+    meta: [{ title: `${createTranslator(match.context.locale, i18n)("settings")} · StreamBrew` }],
   }),
 });
 

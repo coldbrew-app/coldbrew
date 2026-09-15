@@ -1,4 +1,4 @@
-import type { AlertPlayback } from "@coldbrew/packages/alerts.js";
+import type { AlertPlayback } from "@streambrew/packages/alerts.js";
 import { fmtAmount } from "@web/lib/fmt";
 import { createI18n, useI18n } from "@web/lib/i18n";
 import { cn } from "@web/lib/utils";

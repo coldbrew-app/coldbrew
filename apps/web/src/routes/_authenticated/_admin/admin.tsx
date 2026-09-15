@@ -11,6 +11,6 @@ const i18n = createI18n({
 export const Route = createFileRoute("/_authenticated/_admin/admin")({
   component: Outlet,
   head: ({ match }) => ({
-    meta: [{ title: `${createTranslator(match.context.locale, i18n)("adminPanel")} · Coldbrew` }],
+    meta: [{ title: `${createTranslator(match.context.locale, i18n)("adminPanel")} · StreamBrew` }],
   }),
 });

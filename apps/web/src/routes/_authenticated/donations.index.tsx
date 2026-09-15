@@ -1,4 +1,4 @@
-import { DonationSourceSchema } from "@coldbrew/packages/schemas.js";
+import { DonationSourceSchema } from "@streambrew/packages/schemas.js";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { CosmicPageHeader } from "@web/components/cosmic-page-header";
 import DonationCard from "@web/components/donation-card";
