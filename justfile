@@ -291,13 +291,16 @@ test-chat: install
 test-alerts: install
   go test ./apps/alerts ./internal/alerts ./internal/observability
 
+test-restream: install
+  go test ./apps/restream ./internal/restream
+
 test-scripts: install
   bun --no-env-file x --bun vitest --run scripts
 
 test-packages $env_file=".env": install
   bunx dotenvx run -f $env_file --overload -- bunx vitest --run packages
 
-test: test-scripts test-web test-chat test-donations test-video test-alerts test-packages
+test: test-scripts test-web test-chat test-donations test-video test-alerts test-restream test-packages
 
 check: lint test
 

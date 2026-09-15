@@ -262,30 +262,148 @@ function SignalRail({ destinationCount, status }: { destinationCount: number; st
   );
 }
 
-function IngestSetup({
-  ingest,
-  isLive,
+type Ingest = NonNullable<RestreamConfig["ingest"]>;
+
+function IngestValueField({
+  label,
+  secret = false,
+  value,
 }: {
-  ingest: { serverUrl: string; streamKey: string } | null;
-  isLive: boolean;
+  label: string;
+  secret?: boolean;
+  value: string;
 }) {
   const { t } = useI18n(i18n);
-  const { rotateIngestKey } = useRestreamMutations();
-  const [showKey, setShowKey] = useState(false);
-  const [copied, setCopied] = useState<"server" | "key" | null>(null);
+  const [visible, setVisible] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
-  const [confirmRotation, setConfirmRotation] = useState(false);
-  const copy = async (value: string, target: "server" | "key") => {
+  const copy = async () => {
     try {
       await navigator.clipboard.writeText(value);
-      setCopied(target);
+      setCopied(true);
       setCopyFailed(false);
     } catch {
-      setCopied(null);
+      setCopied(false);
       setCopyFailed(true);
     }
   };
 
+  return (
+    <Field>
+      <FieldLabel>{label}</FieldLabel>
+      <div className="flex items-center rounded-xl border border-input bg-muted/45 px-2 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30">
+        <input
+          aria-label={secret ? label : undefined}
+          className="h-10 min-w-0 grow bg-transparent px-1 font-mono text-xs outline-none sm:text-sm"
+          readOnly
+          type={secret && !visible ? "password" : "text"}
+          value={value}
+        />
+        {secret && (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  aria-label={t(visible ? "hideKey" : "showKey")}
+                  onClick={() => setVisible((current) => !current)}
+                  size="icon-xs"
+                  type="button"
+                  variant="ghost"
+                >
+                  {visible ? (
+                    <Icons.hideKey aria-hidden="true" />
+                  ) : (
+                    <Icons.showKey aria-hidden="true" />
+                  )}
+                </Button>
+              }
+            />
+            <TooltipContent>{t(visible ? "hideKey" : "showKey")}</TooltipContent>
+          </Tooltip>
+        )}
+        <CopyButton label={t(copied ? "copied" : "copy")} onCopy={() => void copy()} />
+      </div>
+      {copyFailed && (
+        <p className="text-xs text-destructive" role="alert">
+          {t("copyError")}
+        </p>
+      )}
+    </Field>
+  );
+}
+
+function GenerateIngestKeyButton() {
+  const { t } = useI18n(i18n);
+  const { rotateIngestKey } = useRestreamMutations();
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <Button
+        disabled={rotateIngestKey.isPending}
+        onClick={() => rotateIngestKey.mutate()}
+        size="sm"
+        type="button"
+      >
+        {rotateIngestKey.isPending ? (
+          <Icons.loader aria-hidden="true" className="animate-spin" />
+        ) : (
+          <Icons.multistream aria-hidden="true" />
+        )}
+        {t(rotateIngestKey.isPending ? "generating" : "generateKey")}
+      </Button>
+      {rotateIngestKey.isError && (
+        <p className="text-xs text-destructive" role="alert">
+          {t("mutationError")}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function RotateIngestKeyButton() {
+  const { t } = useI18n(i18n);
+  const { rotateIngestKey } = useRestreamMutations();
+  const [confirmRotation, setConfirmRotation] = useState(false);
+  const rotate = () => {
+    if (!confirmRotation) {
+      setConfirmRotation(true);
+      return;
+    }
+    rotateIngestKey.mutate(undefined, { onSuccess: () => setConfirmRotation(false) });
+  };
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <Button
+        disabled={rotateIngestKey.isPending}
+        onClick={rotate}
+        size="sm"
+        type="button"
+        variant={confirmRotation ? "destructive" : "outline"}
+      >
+        {rotateIngestKey.isPending ? (
+          <Icons.loader aria-hidden="true" className="animate-spin" />
+        ) : (
+          <Icons.rotateToken aria-hidden="true" />
+        )}
+        {t(confirmRotation ? "confirmRotation" : "rotateKey")}
+      </Button>
+      {confirmRotation && <p className="text-xs text-destructive">{t("rotationWarning")}</p>}
+      {rotateIngestKey.isError && (
+        <p className="text-xs text-destructive" role="alert">
+          {t("mutationError")}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function IngestKeyAction({ ingest, isLive }: { ingest: Ingest | null; isLive: boolean }) {
+  if (isLive) return null;
+  return ingest ? <RotateIngestKeyButton /> : <GenerateIngestKeyButton />;
+}
+
+function IngestSetup({ ingest, isLive }: { ingest: Ingest | null; isLive: boolean }) {
+  const { t } = useI18n(i18n);
   return (
     <section className="flex flex-col gap-3">
       <div className="flex flex-wrap items-end justify-between gap-2">
@@ -293,107 +411,18 @@ function IngestSetup({
           <h2 className="font-heading text-xl font-semibold tracking-tight">{t("setupTitle")}</h2>
           <p className="text-sm leading-relaxed text-muted-foreground">{t("setupDescription")}</p>
         </div>
-        {ingest && !isLive && (
-          <Button
-            disabled={rotateIngestKey.isPending}
-            onClick={() => {
-              if (!confirmRotation) {
-                setConfirmRotation(true);
-                return;
-              }
-              rotateIngestKey.mutate(undefined, { onSuccess: () => setConfirmRotation(false) });
-            }}
-            size="sm"
-            type="button"
-            variant={confirmRotation ? "destructive" : "outline"}
-          >
-            {rotateIngestKey.isPending ? (
-              <Icons.loader aria-hidden="true" className="animate-spin" />
-            ) : (
-              <Icons.rotateToken aria-hidden="true" />
-            )}
-            {t(confirmRotation ? "confirmRotation" : "rotateKey")}
-          </Button>
-        )}
+        <IngestKeyAction ingest={ingest} isLive={isLive} />
       </div>
-      {confirmRotation && <p className="text-xs text-destructive">{t("rotationWarning")}</p>}
-      {copyFailed && (
-        <p className="text-xs text-destructive" role="alert">
-          {t("copyError")}
-        </p>
-      )}
-      {ingest ? (
+      {ingest && (
         <div className="grid gap-3 md:grid-cols-2">
-          <Field>
-            <FieldLabel>{t("server")}</FieldLabel>
-            <div className="flex items-center rounded-xl border border-input bg-muted/45 px-2 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30">
-              <input
-                className="h-10 min-w-0 grow bg-transparent px-1 font-mono text-xs outline-none sm:text-sm"
-                readOnly
-                value={ingest.serverUrl}
-              />
-              <CopyButton
-                label={t(copied === "server" ? "copied" : "copy")}
-                onCopy={() => void copy(ingest.serverUrl, "server")}
-              />
-            </div>
-          </Field>
-          <Field>
-            <FieldLabel>{t("streamKey")}</FieldLabel>
-            <div className="flex items-center rounded-xl border border-input bg-muted/45 px-2 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30">
-              <input
-                aria-label={t("streamKey")}
-                className="h-10 min-w-0 grow bg-transparent px-1 font-mono text-xs outline-none sm:text-sm"
-                readOnly
-                type={showKey ? "text" : "password"}
-                value={ingest.streamKey}
-              />
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      aria-label={t(showKey ? "hideKey" : "showKey")}
-                      onClick={() => setShowKey((visible) => !visible)}
-                      size="icon-xs"
-                      type="button"
-                      variant="ghost"
-                    >
-                      {showKey ? (
-                        <Icons.hideKey aria-hidden="true" />
-                      ) : (
-                        <Icons.showKey aria-hidden="true" />
-                      )}
-                    </Button>
-                  }
-                />
-                <TooltipContent>{t(showKey ? "hideKey" : "showKey")}</TooltipContent>
-              </Tooltip>
-              <CopyButton
-                label={t(copied === "key" ? "copied" : "copy")}
-                onCopy={() => void copy(ingest.streamKey, "key")}
-              />
-            </div>
-          </Field>
+          <IngestValueField label={t("server")} value={ingest.serverUrl} />
+          <IngestValueField
+            key={ingest.streamKey}
+            label={t("streamKey")}
+            secret
+            value={ingest.streamKey}
+          />
         </div>
-      ) : (
-        <Button
-          className="self-start"
-          disabled={rotateIngestKey.isPending}
-          onClick={() => rotateIngestKey.mutate()}
-          type="button"
-        >
-          {rotateIngestKey.isPending ? (
-            <Icons.loader aria-hidden="true" className="animate-spin" />
-          ) : (
-            <Icons.multistream aria-hidden="true" />
-          )}
-          {t(rotateIngestKey.isPending ? "generating" : "generateKey")}
-        </Button>
-      )}
-      {rotateIngestKey.isError && (
-        <p className="text-xs text-destructive" role="alert">
-          {t("mutationError")}
-        </p>
       )}
     </section>
   );
@@ -405,6 +434,95 @@ function formatBytes(bytes: number, locale: string) {
   const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)) - 1, units.length - 1);
   const value = bytes / 1024 ** (unitIndex + 1);
   return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(value)} ${units[unitIndex]}`;
+}
+
+type DestinationDisplayState = RestreamSession["destinations"][number]["state"] | "disabled";
+
+const destinationStateColor: Record<DestinationDisplayState, string> = {
+  disabled: "bg-muted-foreground/35",
+  error: "bg-destructive",
+  forwarding: "bg-emerald-500",
+  idle: "bg-amber-400",
+};
+
+function getDestinationState(
+  destination: RestreamDestination,
+  liveState?: RestreamSession["destinations"][number],
+): DestinationDisplayState {
+  if (!destination.enabled) return "disabled";
+  return liveState?.state ?? "idle";
+}
+
+function DestinationRowActions({
+  destination,
+  disabled,
+  onDelete,
+  onEdit,
+  onToggle,
+}: {
+  destination: RestreamDestination;
+  disabled: boolean;
+  onDelete: () => void;
+  onEdit: () => void;
+  onToggle: (enabled: boolean) => void;
+}) {
+  const { t } = useI18n(i18n);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const deleteLabel = t(confirmDelete ? "confirmDelete" : "deleteDestination");
+  const requestDelete = () => {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    onDelete();
+  };
+
+  return (
+    <div className="flex items-center justify-end gap-1">
+      <Switch
+        aria-label={t(destination.enabled ? "disableDestination" : "enableDestination")}
+        checked={destination.enabled}
+        disabled={disabled}
+        onCheckedChange={onToggle}
+        size="sm"
+      />
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              aria-label={t("editDestination")}
+              disabled={disabled}
+              onClick={onEdit}
+              size="icon-sm"
+              type="button"
+              variant="ghost"
+            >
+              <Icons.edit aria-hidden="true" />
+            </Button>
+          }
+        />
+        <TooltipContent>{t("editDestination")}</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              aria-label={deleteLabel}
+              disabled={disabled}
+              onClick={requestDelete}
+              size={confirmDelete ? "sm" : "icon-sm"}
+              type="button"
+              variant={confirmDelete ? "destructive" : "ghost"}
+            >
+              <Icons.removeSource aria-hidden="true" />
+              {confirmDelete && deleteLabel}
+            </Button>
+          }
+        />
+        <TooltipContent>{t("deleteDestination")}</TooltipContent>
+      </Tooltip>
+    </div>
+  );
 }
 
 function DestinationRow({
@@ -427,16 +545,7 @@ function DestinationRow({
   onToggle: (enabled: boolean) => void;
 }) {
   const { locale, t } = useI18n(i18n);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const state = !destination.enabled ? "disabled" : (liveState?.state ?? "idle");
-  const stateColor =
-    state === "forwarding"
-      ? "bg-emerald-500"
-      : state === "error"
-        ? "bg-destructive"
-        : state === "disabled"
-          ? "bg-muted-foreground/35"
-          : "bg-amber-400";
+  const state = getDestinationState(destination, liveState);
 
   return (
     <article className="grid min-w-0 gap-3 border-t border-border/75 py-3 first:border-t-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
@@ -446,7 +555,7 @@ function DestinationRow({
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
             <h3 className="min-w-0 truncate text-sm font-semibold">{destination.label}</h3>
             <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span className={`size-1.5 rounded-full ${stateColor}`} />
+              <span className={`size-1.5 rounded-full ${destinationStateColor[state]}`} />
               {t(state)}
             </span>
           </div>
@@ -460,56 +569,13 @@ function DestinationRow({
           )}
         </div>
       </div>
-      <div className="flex items-center justify-end gap-1">
-        <Switch
-          aria-label={t(destination.enabled ? "disableDestination" : "enableDestination")}
-          checked={destination.enabled}
-          disabled={mutationBusy || isLive}
-          onCheckedChange={onToggle}
-          size="sm"
-        />
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                aria-label={t("editDestination")}
-                disabled={mutationBusy || isLive}
-                onClick={onEdit}
-                size="icon-sm"
-                type="button"
-                variant="ghost"
-              >
-                <Icons.edit aria-hidden="true" />
-              </Button>
-            }
-          />
-          <TooltipContent>{t("editDestination")}</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                aria-label={t(confirmDelete ? "confirmDelete" : "deleteDestination")}
-                disabled={mutationBusy || isLive}
-                onClick={() => {
-                  if (!confirmDelete) {
-                    setConfirmDelete(true);
-                    return;
-                  }
-                  onDelete();
-                }}
-                size={confirmDelete ? "sm" : "icon-sm"}
-                type="button"
-                variant={confirmDelete ? "destructive" : "ghost"}
-              >
-                <Icons.removeSource aria-hidden="true" />
-                {confirmDelete && t("confirmDelete")}
-              </Button>
-            }
-          />
-          <TooltipContent>{t("deleteDestination")}</TooltipContent>
-        </Tooltip>
-      </div>
+      <DestinationRowActions
+        destination={destination}
+        disabled={mutationBusy || isLive}
+        onDelete={onDelete}
+        onEdit={onEdit}
+        onToggle={onToggle}
+      />
       {mutationError && (
         <p className="text-xs text-destructive sm:col-span-2" role="alert">
           {t("mutationError")}
