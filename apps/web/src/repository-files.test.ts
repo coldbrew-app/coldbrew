@@ -4,11 +4,17 @@ import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 
 it("does not contain vite.config.js alongside vite.config.ts", () => {
-  expect(existsSync(fileURLToPath(import.meta.resolve("../vite.config.js")))).toBe(false);
+  expect(
+    existsSync(fileURLToPath(import.meta.resolve("../vite.config.js"))),
+    "Do not create apps/web/vite.config.js; apps/web/vite.config.ts is the canonical Vite configuration.",
+  ).toBe(false);
 });
 
 it("does not contain a root CONTEXT.md", () => {
-  expect(existsSync(fileURLToPath(import.meta.resolve("../../../CONTEXT.md")))).toBe(false);
+  expect(
+    existsSync(fileURLToPath(import.meta.resolve("../../../CONTEXT.md"))),
+    "Do not create a root CONTEXT.md; put repository-wide agent guidance in AGENTS.md and module-specific guidance in the relevant docs/ guide.",
+  ).toBe(false);
 });
 
 it("runs production migrations inside a quoted remote script", () => {
