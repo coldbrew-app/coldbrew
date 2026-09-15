@@ -19,4 +19,5 @@ it("runs production migrations inside a quoted remote script", () => {
 
   expect(workflow).not.toContain("ssh streambrew-production docker run");
   expect(workflow).toContain("exec docker run \\");
+  expect(workflow).toContain('DATABASE_URL="${DATABASE_URL}?sslmode=disable" exec bunx dbmate');
 });

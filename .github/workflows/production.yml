@@ -564,7 +564,7 @@ jobs:
             --mount "type=bind,source=$runtime_config_path,target=/run/streambrew/runtime.env,readonly" \
             --entrypoint /bin/sh \
             "$app_image" \
-            -c 'set -a; . /run/streambrew/runtime.env; set +a; export DBMATE_NO_DUMP_SCHEMA=true; exec bunx dbmate --migrations-dir /app/db/migrations up'
+            -c 'set -a; . /run/streambrew/runtime.env; set +a; DBMATE_NO_DUMP_SCHEMA=true DATABASE_URL="${DATABASE_URL}?sslmode=disable" exec bunx dbmate --migrations-dir /app/db/migrations up'
           REMOTE
             then
               if [[ "${#stopped_containers[@]}" -gt 0 ]]; then
