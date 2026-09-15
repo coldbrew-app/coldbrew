@@ -166,7 +166,7 @@ func (client *Client) GetDonations(
 ) (History, error) {
 	channelID = strings.TrimSpace(channelID)
 	if channelID == "" {
-		return History{}, requestValidationError("read tips", errors.New("missing channel id"))
+		return History{}, permanentRequestError("read tips", errors.New("missing channel id"))
 	}
 
 	donations := make([]Donation, 0)
@@ -203,7 +203,7 @@ func (client *Client) GetDonations(
 
 		if initialTraversal && newCheckpoint == nil {
 			if page.Docs[0].ID == "" {
-				return History{}, requestValidationError("read tips", errors.New("missing tip id"))
+				return History{}, permanentRequestError("read tips", errors.New("missing tip id"))
 			}
 			head := page.Docs[0].ID
 			newCheckpoint = &head
@@ -211,11 +211,11 @@ func (client *Client) GetDonations(
 
 		for _, raw := range page.Docs {
 			if raw.ID == "" {
-				return History{}, requestValidationError("read tips", errors.New("missing tip id"))
+				return History{}, permanentRequestError("read tips", errors.New("missing tip id"))
 			}
 			donation, err := raw.donation(channelID)
 			if err != nil {
-				return History{}, requestValidationError("read tips", err)
+				return History{}, permanentRequestError("read tips", err)
 			}
 			donations = append(donations, donation)
 		}
@@ -225,7 +225,7 @@ func (client *Client) GetDonations(
 			return History{Donations: donations, Checkpoint: newCheckpoint}, nil
 		}
 	}
-	return History{}, requestValidationError("read tips", errors.New("history exceeds pagination safety limit"))
+	return History{}, permanentRequestError("read tips", errors.New("history exceeds pagination safety limit"))
 }
 
 type tipsPage struct {
@@ -373,8 +373,13 @@ func (client *Client) doJSON(
 		}
 		return &RequestError{
 			Unauthorized: unauthorized,
-			Status:       response.StatusCode,
-			Operation:    method + " " + path,
+			Permanent: response.StatusCode >= http.StatusBadRequest &&
+				response.StatusCode < http.StatusInternalServerError &&
+				response.StatusCode != http.StatusRequestTimeout &&
+				response.StatusCode != http.StatusTooManyRequests &&
+				!unauthorized,
+			Status:    response.StatusCode,
+			Operation: method + " " + path,
 		}
 	}
 	decoder := json.NewDecoder(response.Body)
@@ -396,6 +401,10 @@ func tokenGrantInvalid(body io.Reader) bool {
 
 func requestValidationError(operation string, cause error) error {
 	return &RequestError{Operation: operation, Cause: cause}
+}
+
+func permanentRequestError(operation string, cause error) error {
+	return &RequestError{Permanent: true, Operation: operation, Cause: cause}
 }
 
 func waitContext(ctx context.Context, duration time.Duration) error {
