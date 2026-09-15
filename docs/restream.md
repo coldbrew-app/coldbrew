@@ -17,8 +17,10 @@ OBS and forwards the unchanged stream to as many as three enabled destinations.
    `RESTREAM_MEDIA_SHARED_SECRET`.
 6. AWS verifies the ingest key, opens a session, decrypts the enabled
    destination keys, and returns temporary target URLs.
-7. MediaMTX forwards the original H.264/AAC stream. The node sends heartbeat
-   statistics to AWS and ends the session when the publisher disconnects.
+7. After MediaMTX accepts the publisher, its online hook installs the ephemeral
+   forward configuration. MediaMTX forwards the original H.264/AAC stream while
+   the node sends heartbeat statistics to AWS, then removes the configuration
+   and ends the session when the publisher disconnects.
 
 The Hetzner server has no database access and does not persist destination
 credentials. Target URLs exist only in the controller process for the duration

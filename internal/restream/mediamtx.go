@@ -73,7 +73,7 @@ func (client *MediaMTXClient) ForwardStatuses(ctx context.Context, path string) 
 	result := make([]ForwardStatus, 0, len(response.Items))
 	for _, item := range response.Items {
 		result = append(result, ForwardStatus{
-			Position: item.Position, State: item.State, OutboundBytes: item.OutboundBytes,
+			Position: item.Position - 1, State: item.State, OutboundBytes: item.OutboundBytes,
 		})
 	}
 	return result, nil
